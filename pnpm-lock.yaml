@@ -1440,7 +1440,7 @@ packages:
     resolution: {integrity: sha512-GZtjxm/J/4TSxuL3FNYjCmLktBTnIw/rVmKSIyKeYAZpmJB2ig9VauCC5xsa82GNKVKDAqpOn3KVzNt0zmrU0g==}
     engines: {node: '>=12'}
 
-  yocto-queue@0.1.1:
+  yocto-queue@0.1.0:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
 
@@ -2404,7 +2404,7 @@ snapshots:
 
   p-limit@3.1.0:
     dependencies:
-      yocto-queue: 0.1.1
+      yocto-queue: 0.1.0
 
   p-locate@5.0.0:
     dependencies:
@@ -2755,7 +2755,7 @@ snapshots:
       y18n: 5.0.8
       yargs-parser: 21.1.1
 
-  yocto-queue@0.1.1: {}
+  yocto-queue@0.1.0: {}
 
   zimmerframe@1.1.4: {}
 
