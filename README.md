@@ -5,7 +5,6 @@
 > 零运行时依赖的流式 UI 描述与渲染框架。后端用简洁 DSL 字符串描述 UI，经 SSE 流式推送，前端实时增量解析并渲染为真实 DOM。核心场景：AI 对话中的流式 UI 生成。
 
 [![npm version](https://img.shields.io/npm/v/@jboltai/tokui.svg)](https://www.npmjs.com/package/@jboltai/tokui)
-[![CI](https://github.com/jboltai/tokui/actions/workflows/ci.yml/badge.svg)](https://github.com/jboltai/tokui/actions/workflows/ci.yml)
 [![npm downloads](https://img.shields.io/npm/dm/@jboltai/tokui.svg)](https://www.npmjs.com/package/@jboltai/tokui)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![零运行时依赖](https://img.shields.io/badge/runtime%20deps-0-brightgreen.svg)](#)

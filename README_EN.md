@@ -5,7 +5,6 @@ English | **[简体中文](./README.md)**
 > A zero-dependency streaming UI description and rendering framework. The backend describes UI with a concise DSL string, pushes it over SSE, and the frontend incrementally parses and renders it to real DOM in real time. Core use case: streaming UI generation in AI chat.
 
 [![npm version](https://img.shields.io/npm/v/@jboltai/tokui.svg)](https://www.npmjs.com/package/@jboltai/tokui)
-[![CI](https://github.com/jboltai/tokui/actions/workflows/ci.yml/badge.svg)](https://github.com/jboltai/tokui/actions/workflows/ci.yml)
 [![npm downloads](https://img.shields.io/npm/dm/@jboltai/tokui.svg)](https://www.npmjs.com/package/@jboltai/tokui)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![zero runtime deps](https://img.shields.io/badge/runtime%20deps-0-brightgreen.svg)](#)
