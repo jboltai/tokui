@@ -42,6 +42,7 @@ export default defineConfig({
   markdown: {
     languageAlias: {
       dsl: 'ini',
+      tokui: 'ini',
     },
   },
 
