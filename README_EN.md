@@ -1,8 +1,8 @@
-# TokUI
+# TokUI - From Token To UI
 
 English | **[简体中文](./README.md)**
 
-> A zero-dependency streaming UI description and rendering framework. The backend describes UI with a concise DSL string, pushes it over SSE, and the frontend incrementally parses and renders it to real DOM in real time. Core use case: streaming UI generation in AI chat.
+> TokUI is the world's first For AI & zero-dependency streaming UI framework. Describe components with a minimal DSL on the backend, push over SSE or WebSocket, and render incrementally on the frontend — the first token starts painting the DOM, letting AI produce more flexible, expressive UI with minimal tokens.
 
 [![npm version](https://img.shields.io/npm/v/@jboltai/tokui.svg)](https://www.npmjs.com/package/@jboltai/tokui)
 [![npm downloads](https://img.shields.io/npm/dm/@jboltai/tokui.svg)](https://www.npmjs.com/package/@jboltai/tokui)

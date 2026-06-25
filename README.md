@@ -1,8 +1,8 @@
-# TokUI
+# TokUI - From Token to UI
 
 **[English](./README_EN.md)** | 简体中文
 
-> 零运行时依赖的流式 UI 描述与渲染框架。后端用简洁 DSL 字符串描述 UI，经 SSE 流式推送，前端实时增量解析并渲染为真实 DOM。核心场景：AI 对话中的流式 UI 生成。
+> TokUI是全球首个 For AI & 零依赖的流式 UI 描述与渲染框架。后端用极简 DSL 描述组件，经 SSE 或 WebSocket 流式推送，前端增量解析、首个 Token 即开始渲染 —— 让 AI 使用极少的 Token 去输出更灵活、更具表现力的 UI。
 
 [![npm version](https://img.shields.io/npm/v/@jboltai/tokui.svg)](https://www.npmjs.com/package/@jboltai/tokui)
 [![npm downloads](https://img.shields.io/npm/dm/@jboltai/tokui.svg)](https://www.npmjs.com/package/@jboltai/tokui)
