@@ -1,6 +1,6 @@
 {
   "name": "@jboltai/tokui-svelte",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "TokUI Svelte adapter — use:tokui action and TokUI component for streaming DSL UI.",
   "license": "MIT",
   "author": "sdxiaomu (https://jboltai.com)",

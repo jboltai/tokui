@@ -170,6 +170,67 @@ a, a:hover { text-decoration: none !important; }
   min-height: 40px;
 }
 
+/* ============================================================
+   ThemeShowcase —— 风格族 / 明暗切换条（驱动内嵌 Playground 的 theme）
+   ============================================================ */
+.vp-theme-showcase {
+  margin: 18px 0;
+}
+/* 内嵌 Playground 去掉自身外边距，由 showcase 统一留白 */
+.vp-theme-showcase .vp-playground {
+  margin: 0;
+}
+.vp-theme-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 10px;
+  background: var(--vp-c-bg-soft);
+  font-size: 13px;
+}
+.vp-theme-seg {
+  display: inline-flex;
+  border: 1px solid var(--vp-c-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.vp-theme-seg button {
+  border: 0;
+  background: transparent;
+  color: var(--vp-c-text-2);
+  padding: 5px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.vp-theme-seg button + button {
+  border-left: 1px solid var(--vp-c-border);
+}
+.vp-theme-seg button:hover {
+  color: var(--vp-c-text-1);
+}
+.vp-theme-seg button.active {
+  background: var(--vp-c-brand);
+  color: #fff;
+}
+.vp-theme-tag {
+  margin-left: auto;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: var(--vp-code-block-bg);
+  color: var(--vp-c-text-2);
+  font-family: var(--vp-font-family-mono);
+  font-size: 12px;
+}
+@media (max-width: 640px) {
+  .vp-theme-tag { margin-left: 0; width: 100%; }
+}
+
 /* 窄屏堆叠 */
 @media (max-width: 768px) {
   .vp-playground-body {

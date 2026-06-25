@@ -65,7 +65,9 @@ pill dot leaf inline rounded container
 [upd id:prog v:100 status:success]
 ```
 
-<Playground dsl='[stat tt:Visits v:12345 trend:up][stat tt:Rate v:3.2 suf:% trend:down]' />
+<Playground dsl='[progress id:prog v:0 l:Progress][upd id:prog v:50][upd id:prog v:100 status:success]' />
+
+> `[upd]` shines in **async incremental** updates: the server first sends `[progress id:prog v:0]`, then pushes `[upd id:prog v:50]` as it advances. Click **⚡ Stream** at the bottom-right to replay token by token — the bar jumps 0% → 50% → 100% live.
 
 ## Component categories
 

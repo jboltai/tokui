@@ -1,6 +1,6 @@
 {
   "name": "@jboltai/tokui-react",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "TokUI React adapter — <TokUIView> component and useTokUIStream() hook for streaming DSL UI.",
   "license": "MIT",
   "author": "sdxiaomu (https://jboltai.com)",

@@ -15,12 +15,20 @@ const props = defineProps({
   },
   editable: { type: Boolean, default: true },
   format: { type: Boolean, default: true }, // 高亮视图默认走格式化
+  // 渲染所用主题名：'default' | 'dark' | 'modern' | 'modern-dark'（或自定义主题）。
+  // 留空（默认）= 跟随文档站点的明暗模式（header 切换 light/dark 时自动联动）：
+  //   站点 light → 'default'，站点 dark → 'dark'。显式传值则覆盖、不再跟随站点。
+  theme: { type: String, default: '' },
 });
 
 // UI 文案随当前 locale 切换（中文默认 / 英文）
-const { lang } = useData();
+const { lang, isDark } = useData();
 const isEn = computed(() => (lang.value || '').startsWith('en'));
 const t = (zh: string, en: string) => (isEn.value ? en : zh);
+
+// 实际渲染主题：显式 prop 优先；否则跟随站点明暗（让 Playground 内容与文档 header 的
+// light/dark 切换联动，而非固定 'default'）。
+const effectiveTheme = computed(() => props.theme || (isDark.value ? 'dark' : 'default'));
 
 const code = ref(props.dsl);
 const mount = ref<HTMLElement | null>(null);
@@ -164,7 +172,7 @@ function renderInto(target: HTMLElement | null) {
   if (!target || !TokUICls.value) return;
   target.innerHTML = '';
   try {
-    const inst = new TokUICls.value({ container: target, theme: 'default' });
+    const inst = new TokUICls.value({ container: target, theme: effectiveTheme.value });
     inst.render(code.value, target);
   } catch (e: any) {
     target.innerHTML =
@@ -229,7 +237,7 @@ function startStream() {
   const target = mount.value;
   target.innerHTML = '';
   try {
-    streamInst = new TokUICls.value({ container: target, theme: 'default' });
+    streamInst = new TokUICls.value({ container: target, theme: effectiveTheme.value });
     streamInst.startStream(target);
   } catch (e: any) {
     target.innerHTML = '<div class="vp-playground-error">⚠ ' + (e && e.message ? e.message : String(e)) + '</div>';
@@ -316,6 +324,13 @@ onBeforeUnmount(() => {
   if (fsOpen.value) document.body.style.overflow = savedBodyOverflow;
 });
 watch(code, () => { if (editing.value) nextTick(schedule); });
+// 主题切换（显式 prop 变化 或 站点明暗联动）：用新 theme 重渲染。
+// 流式进行中跳过——避免与正在 feed 的 streamInst 抢占同一挂载点。
+watch(effectiveTheme, () => {
+  if (streaming.value) return;
+  render();
+  if (fsOpen.value && fsMode.value === 'preview') renderFs();
+});
 </script>
 
 <template>

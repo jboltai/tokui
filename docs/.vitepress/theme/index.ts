@@ -6,12 +6,14 @@ import '@tokui-css'; // TokUI 库样式（dist/tokui.css，config alias）
 import './styles.css';
 import Playground from './components/Playground.vue';
 import Demo from './components/Demo.vue';
+import ThemeShowcase from './components/ThemeShowcase.vue';
 
 export default {
   extends: DefaultTheme,
   enhanceApp({ app, router }) {
     app.component('Playground', Playground);
     app.component('Demo', Demo);
+    app.component('ThemeShowcase', ThemeShowcase);
     // 百度统计 SPA PV 上报：VitePress 是单页应用，路由切换默认只统计首次加载；
     // 监听 onAfterRouteChanged 手动 _trackPageview，每次切文档页都计一次 PV。
     if (typeof window !== 'undefined' && router) {

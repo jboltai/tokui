@@ -75,7 +75,11 @@
           ? document.querySelector(this.options.container)
           : this.options.container;
         _TokUITheme.init(this.container);
-        if (this.options.theme && this.options.theme !== 'default') {
+        // 总是调 setTheme（包括 'default'）：init() 会把主题单例上「上一次实例残留的
+        // currentTheme」写到新容器，若这里对 'default' 跳过，连续构造 dark → default 实例时，
+        // 后者会残留 'dark'（ThemeShowcase 切回 default 不生效即此因）。setTheme 会把
+        // currentTheme 与容器属性一并刷新到目标主题。
+        if (this.options.theme) {
           _TokUITheme.setTheme(this.options.theme);
         }
       }

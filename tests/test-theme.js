@@ -100,6 +100,48 @@ test('getTheme returns current theme', () => {
   resetTheme();
 });
 
+// 回归测试：复刻 src/index.js 构造函数的主题装配序列（init → setTheme）。
+// 修复前构造器对 theme==='default' 跳过 setTheme，导致连续构造 dark → default 两个实例时，
+// 后者容器残留 'dark'（init 写入单例脏的 currentTheme）。修复后：只要传了 theme 就 setTheme。
+function mockContainer() {
+  return {
+    attributes: {},
+    setAttribute(k, v) { this.attributes[k] = String(v); },
+    getAttribute(k) { return Object.prototype.hasOwnProperty.call(this.attributes, k) ? this.attributes[k] : null; }
+  };
+}
+// 复刻修复后的 src/index.js 构造器主题装配
+function ctorApplyTheme(container, theme) {
+  TokUITheme.init(container);
+  if (theme) TokUITheme.setTheme(theme);
+}
+
+test('constructor resets to default after a dark instance', () => {
+  resetTheme();
+  // 实例 A：theme='dark'
+  const a = mockContainer();
+  ctorApplyTheme(a, 'dark');
+  assert.strictEqual(a.getAttribute('data-tokui-theme'), 'dark');
+  // 实例 B：theme='default'（新容器）——修复前这里会残留 'dark'
+  const b = mockContainer();
+  ctorApplyTheme(b, 'default');
+  assert.strictEqual(b.getAttribute('data-tokui-theme'), 'default');
+  assert.strictEqual(TokUITheme.getTheme(), 'default');
+  resetTheme();
+});
+
+test('constructor applies modern / modern-dark across instances', () => {
+  resetTheme();
+  const a = mockContainer(); ctorApplyTheme(a, 'modern');
+  assert.strictEqual(a.getAttribute('data-tokui-theme'), 'modern');
+  const b = mockContainer(); ctorApplyTheme(b, 'modern-dark');
+  assert.strictEqual(b.getAttribute('data-tokui-theme'), 'modern-dark');
+  // 再切回 default 仍须生效
+  const c = mockContainer(); ctorApplyTheme(c, 'default');
+  assert.strictEqual(c.getAttribute('data-tokui-theme'), 'default');
+  resetTheme();
+});
+
 // 测试：init 时设置 data-tokui-theme 属性
 test('init sets data-tokui-theme attribute', () => {
   resetTheme();
