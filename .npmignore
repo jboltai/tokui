@@ -1,0 +1,36 @@
+# .npmignore — 发布包兜底防御
+# 主控为 package.json 的 `files` 白名单（dist + d.ts + builder + 文档）。
+# 本文件防止 dist/ 内夹带演示/调试产物，以及 white-list 意外扩张时泄漏开发文件。
+
+# —— 开发依赖与工具链（绝不发布）——
+node_modules/
+.git/
+.github/
+.gitignore
+.gitattributes
+.idea/
+.vscode/
+.playwright-cli/
+.superpowers/
+server.sh
+server.pid
+
+# —— 配置（消费方不需要）——
+vite.config.js
+tsconfig.json
+pnpm-lock.yaml
+pnpm-workspace.yaml
+AGENTS.md
+CLAUDE.md
+
+# —— 测试 / 文档 / 演示（库消费者不需要）——
+tests/
+docs/
+demo/
+
+# —— 内部营销/设计文档 ——
+TokUI-*.md
+
+# —— dist 内可能的演示/调试产物（库本体保留 .js/.css/.map）——
+dist/**/*.html
+dist/**/demo*

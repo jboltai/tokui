@@ -1,0 +1,42 @@
+name: 功能建议
+description: 建议新组件、新变体、框架适配器、主题或 Builder 方法
+title: "[feat] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 要解决什么问题
+      description: 描述你想达成但目前做不到的事，或痛点。
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: 期望的方案
+      description: 你设想的新组件 / DSL 语法 / API。若是新组件，给出期望的 DSL 写法。
+      render: javascript
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: 类别
+      options:
+        - 新组件
+        - 现有组件增强 / 新变体
+        - 框架适配器（React/Vue/Svelte/...）
+        - 主题 / 样式
+        - Builder API（服务端）
+        - 多语言 SDK
+        - 文档
+        - 其他
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 考虑过的替代方案

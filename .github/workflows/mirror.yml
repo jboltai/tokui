@@ -1,0 +1,35 @@
+name: Mirror to Gitee
+
+# 推送到 master 时镜像同步到 Gitee（国内访问）。
+# 需要 repo secret: GITEE_TOKEN（Gitee 私人令牌，对目标仓库有写权限）。
+on:
+  push:
+    branches: [master]
+  tags:
+    - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    name: Sync GitHub → Gitee
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Push mirror to Gitee
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+        run: |
+          if [ -z "$GITEE_TOKEN" ]; then
+            echo "GITEE_TOKEN 未配置，跳过镜像。"
+            exit 0
+          fi
+          git remote add gitee "https://oauth2:${GITEE_TOKEN}@gitee.com/jboltai/tokui.git" || true
+          git push gitee --tags --force || true
+          git push gitee master:master --force || true
+          echo "Gitee 镜像同步完成。"

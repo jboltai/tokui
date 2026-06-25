@@ -1,0 +1,60 @@
+name: Bug 报告
+description: 报告 TokUI 的 Bug（渲染错误、解析异常、SSR 崩溃等）
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢报告 Bug！请尽量填写清楚，便于快速定位。
+        若是安全漏洞，请勿公开 Issue —— 见 [SECURITY.md](../../SECURITY.md) 私下上报。
+
+  - type: input
+    id: version
+    attributes:
+      label: TokUI 版本
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: environment
+    attributes:
+      label: 环境
+      description: 框架 / 运行时 / 浏览器（如 React 18 + Vite + Chrome 120 / Node 20 SSR）
+    validations:
+      required: true
+
+  - type: textarea
+    id: dsl
+    attributes:
+      label: 最小复现 DSL / 代码
+      description: 贴出能复现问题的最小 DSL 片段与调用代码。
+      render: javascript
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为
+      description: 含报错信息 / 截图。
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 检查
+      options:
+        - label: 我已搜索过现有 Issue，无重复
+          required: true
+        - label: 我在最新 master 上复现过
+          required: true

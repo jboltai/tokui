@@ -1,0 +1,768 @@
+/**
+ * TokUI Modern 主题（亮色）
+ * Refined Neutral 风格 —— 中性冷灰 + 克制蓝 accent + 柔光分层 + 透明边框表单。
+ * 激活：容器设 data-tokui-theme="modern"，或 new TokUI({ theme: 'modern' })。
+ * 与 default 主题并存，互斥切换；本文件仅声明 [data-tokui-theme="modern"] 作用域，
+ * 不写入 :root，故不影响默认主题。
+ *
+ * 配色采用 OKLCH 语义层（surface / surface-secondary / field / separator）思路，
+ * 中性色相 hue≈253（极轻微冷调），accent 走克制蓝。
+ */
+[data-tokui-theme='modern'] {
+
+  /* ========== 中性（冷灰） ========== */
+  --tokui-bg: #FFFFFF;             /* surface：卡片 / 浮层 */
+  --tokui-bg-subtle: #F3F4F6;      /* background：页面 / 容器底 */
+  --tokui-bg-muted: #EDEDEE;       /* default：按钮默认底 / 次级表面 */
+  --tokui-bg-elevated: #FFFFFF;    /* overlay */
+  --tokui-surface-secondary: #EBECEF;
+  --tokui-border: #E1E1E3;
+  --tokui-border-strong: #D4D4D8;
+  --tokui-separator: #E6E6E8;
+  --tokui-text: #1F2024;
+  --tokui-text-secondary: #3F3F46;
+  --tokui-text-muted: #71727A;
+  --tokui-text-disabled: #A1A1AA;
+  --tokui-stripe: #F3F4F6;
+  --tokui-radius: 8px;
+
+  /* ========== accent（克制蓝） ========== */
+  --tokui-primary-1: #EBF1FE; --tokui-primary-2: #D6E4FD; --tokui-primary-3: #B8D0FB;
+  --tokui-primary-4: #8FB0F7; --tokui-primary-5: #6690F2; --tokui-primary-6: #3B6FF5;
+  --tokui-primary-7: #2F5FE0; --tokui-primary-8: #284FC2; --tokui-primary-9: #1F3E99; --tokui-primary-10: #172E70;
+  --tokui-primary: #3B6FF5;
+  --tokui-primary-hover: #2F5FE0;
+  --tokui-primary-active: #284FC2;
+  --tokui-primary-bg: #EBF1FE;
+  --tokui-primary-border: #B8D0FB;
+  --tokui-primary-focus: rgba(59, 111, 245, 0.4);
+
+  /* ========== 语义色（降饱和） ========== */
+  --tokui-success-1: #E8F8EF; --tokui-success-3: #BBF0D0; --tokui-success-6: #2EBF6A;
+  --tokui-warning-1: #FDF4E0; --tokui-warning-3: #FAE2A0; --tokui-warning-6: #E8B339;
+  --tokui-danger-1: #FDECEA;  --tokui-danger-3: #F9C5BC;  --tokui-danger-6: #E54D3F;
+  --tokui-success: #2EBF6A;
+  --tokui-warning: #E8B339;
+  --tokui-danger: #E54D3F;
+
+  /* ========== 二级语义变量 ==========
+     必须在主题作用域内重定义。default.css 的 :root 也定义了这些（引用 default 色板），
+     其 var() 在 :root 求值后会锁定为 default 色；若 modern 不覆盖，容器会继承到 default 值。 */
+  --tokui-danger-bg: var(--tokui-danger-1);
+  --tokui-danger-border: var(--tokui-danger-3);
+  --tokui-success-bg: var(--tokui-success-1);
+  --tokui-success-border: var(--tokui-success-3);
+  --tokui-warning-bg: var(--tokui-warning-1);
+  --tokui-warning-border: var(--tokui-warning-3);
+  --tokui-info: var(--tokui-primary);
+  --tokui-info-hover: var(--tokui-primary-hover);
+  --tokui-info-bg: var(--tokui-primary-1);
+  --tokui-info-border: var(--tokui-primary-3);
+  --tokui-dark: var(--tokui-text);
+  --tokui-light: var(--tokui-stripe);
+  --tokui-code-bg: var(--tokui-bg-muted);
+  --tokui-code-text: var(--tokui-text);
+  --tokui-btn-primary-hover: var(--tokui-primary-hover);
+  --tokui-btn-danger-hover: #D13A2C;
+  --tokui-btn-success-hover: #22A157;
+  --tokui-btn-warning-hover: #D09A26;
+  --tokui-btn-warning-text: #FFFFFF;
+  --tokui-btn-ghost-hover-bg: var(--tokui-primary-1);
+  --tokui-btn-ghost-hover-text: var(--tokui-primary);
+  --tokui-btn-text-inverse: #FFFFFF;
+  --tokui-input-error-focus: var(--tokui-danger-3);
+  --tokui-input-success-focus: var(--tokui-success-3);
+  --tokui-tag-bg: var(--tokui-stripe);
+  --tokui-tag-text: var(--tokui-text);
+  --tokui-tag-border: var(--tokui-border);
+  --tokui-tag-close-color: var(--tokui-text-muted);
+  --tokui-tag-close-hover: var(--tokui-text);
+  --tokui-tag-primary-bg: var(--tokui-primary-1);
+  --tokui-tag-primary-text: var(--tokui-primary);
+  --tokui-tag-primary-border: var(--tokui-primary-3);
+  --tokui-tag-info-bg: var(--tokui-primary-1);
+  --tokui-tag-info-text: var(--tokui-primary);
+  --tokui-tag-info-border: var(--tokui-primary-3);
+  --tokui-tag-success-bg: var(--tokui-success-1);
+  --tokui-tag-success-text: var(--tokui-success);
+  --tokui-tag-success-border: var(--tokui-success-3);
+  --tokui-tag-warning-bg: var(--tokui-warning-1);
+  --tokui-tag-warning-text: var(--tokui-warning);
+  --tokui-tag-warning-border: var(--tokui-warning-3);
+  --tokui-tag-error-bg: var(--tokui-danger-1);
+  --tokui-tag-error-text: var(--tokui-danger);
+  --tokui-tag-error-border: var(--tokui-danger-3);
+  --tokui-callout-info-bg: var(--tokui-primary-1);
+  --tokui-callout-info-border: var(--tokui-primary);
+  --tokui-callout-success-bg: var(--tokui-success-1);
+  --tokui-callout-success-border: var(--tokui-success);
+  --tokui-callout-warning-bg: var(--tokui-warning-1);
+  --tokui-callout-warning-border: var(--tokui-warning);
+  --tokui-callout-error-bg: var(--tokui-danger-1);
+  --tokui-callout-error-border: var(--tokui-danger);
+  --tokui-callout-tip-bg: #F3EDFF;
+  --tokui-callout-tip-border: #7C3AED;
+  --tokui-think-bg: var(--tokui-stripe);
+  --tokui-think-border: var(--tokui-border);
+  --tokui-chart-grid: var(--tokui-border);
+  --tokui-chart-text: var(--tokui-text-muted);
+  --tokui-chart-today-line: #F5410C;
+  --tokui-chart-task-dep: var(--tokui-text-disabled);
+  --tokui-warning-text: #92400E;
+
+  /* ========== 柔光阴影 scale（token 化） ========== */
+  --tokui-shadow-xs: 0 1px 2px 0 rgba(9, 9, 11, 0.05);
+  --tokui-shadow-sm: 0 1px 3px 0 rgba(9, 9, 11, 0.07), 0 1px 2px -1px rgba(9, 9, 11, 0.05);
+  --tokui-shadow-md: 0 4px 6px -1px rgba(9, 9, 11, 0.07), 0 2px 4px -2px rgba(9, 9, 11, 0.05);
+  --tokui-shadow-lg: 0 10px 15px -3px rgba(9, 9, 11, 0.08), 0 4px 6px -4px rgba(9, 9, 11, 0.05);
+  /* 组件默认柔光（surface elevation） */
+  --tokui-surface-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.04), 0 1px 2px 0 rgba(0, 0, 0, 0.06), 0 0 1px 0 rgba(0, 0, 0, 0.06);
+  --tokui-surface-shadow-hover: 0 6px 12px 0 rgba(0, 0, 0, 0.05), 0 2px 4px 0 rgba(0, 0, 0, 0.06), 0 0 1px 0 rgba(0, 0, 0, 0.06);
+
+  /* ========== 浮层 / 遮罩 / 控件辅助 token（A/B/C 组件引用） ========== */
+  /* 浮层阴影：极柔两层 + 1px 发丝边（Modern 风），区分于 surface 卡片阴影 */
+  --tokui-overlay-shadow: 0 2px 8px rgba(9, 9, 11, 0.06), 0 0 0 1px rgba(9, 9, 11, 0.05);
+  --tokui-overlay-shadow-hover: 0 8px 24px rgba(9, 9, 11, 0.08), 0 0 0 1px rgba(9, 9, 11, 0.06);
+  /* 全屏遮罩 */
+  --tokui-mask-bg: rgba(9, 9, 11, 0.4);
+  /* tooltip 反转色（light = 深底浅字） */
+  --tokui-tooltip-bg: #18181b;
+  --tokui-tooltip-text: #FAFAFA;
+  /* switch：off 态 track / thumb / thumb 投影 */
+  --tokui-switch-track: var(--tokui-bg-muted);
+  --tokui-switch-thumb: #FFFFFF;
+  --tokui-switch-ring: rgba(9, 9, 11, 0.08);
+  /* rate 星色（替 base 写死金） */
+  --tokui-star: var(--tokui-border-strong);
+  --tokui-star-active: #F5A623;
+  --tokui-star-hover: #F5C34B;
+  /* 状态「空闲」点（agent/tool-call idle/pending） */
+  --tokui-status-idle: var(--tokui-text-disabled);
+  /* 表单控件统一圆角（field-radius） */
+  --tokui-control-radius: 12px;
+  /* inset 发丝边（替代 1px border 的更柔和分层） */
+  --tokui-inset-shadow: inset 0 0 0 1px var(--tokui-border);
+
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  line-height: 1.5;
+}
+
+/* ========== 组件层覆盖 ========== */
+
+/* 标题：收紧字距、降字重 */
+[data-tokui-theme='modern'] .tokui-h1,
+[data-tokui-theme='modern'] .tokui-h2,
+[data-tokui-theme='modern'] .tokui-h3,
+[data-tokui-theme='modern'] .tokui-h4 { letter-spacing: -0.015em; font-weight: 600; }
+
+/* 按钮：base 只调形不碰色（避免压彩色变体）+ surface 柔光 */
+[data-tokui-theme='modern'] .tokui-btn {
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-weight: 500;
+  box-shadow: var(--tokui-surface-shadow);
+  transition: background-color 0.2s, box-shadow 0.2s, color 0.2s, border-color 0.2s;
+}
+[data-tokui-theme='modern'] .tokui-btn:hover { box-shadow: var(--tokui-surface-shadow-hover); transform: none; }
+/* 仅默认按钮（非彩色变体）= 中性灰底无边框 */
+[data-tokui-theme='modern'] .tokui-btn:not(.tokui-btn--primary):not(.tokui-btn--danger):not(.tokui-btn--success):not(.tokui-btn--warning):not(.tokui-btn--ghost) {
+  background: var(--tokui-bg-muted);
+  color: var(--tokui-text);
+  border-color: transparent;
+}
+[data-tokui-theme='modern'] .tokui-btn:not(.tokui-btn--primary):not(.tokui-btn--danger):not(.tokui-btn--success):not(.tokui-btn--warning):not(.tokui-btn--ghost):hover { background: #E4E4E7; }
+[data-tokui-theme='modern'] .tokui-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--tokui-bg), 0 0 0 4px var(--tokui-primary-focus);
+}
+/* 幽灵按钮：修源码 hover 蓝底蓝字 bug → 浅蓝底 + 深蓝字 */
+[data-tokui-theme='modern'] .tokui-btn--ghost { background: transparent; color: var(--tokui-primary); border-color: var(--tokui-primary-4); }
+[data-tokui-theme='modern'] .tokui-btn--ghost:hover { background: var(--tokui-primary-bg); color: var(--tokui-primary-7); border-color: var(--tokui-primary-5); }
+/* 圆角变体：base 8px 特异性更高会压过，需显式恢复 */
+[data-tokui-theme='modern'] .tokui-btn--pill { border-radius: 999px; }
+[data-tokui-theme='modern'] .tokui-btn--square { border-radius: 0; }
+/* 尺寸变体：base padding/font-size 特异性更高会压过，需显式恢复 */
+[data-tokui-theme='modern'] .tokui-btn--sm { padding: 5px 12px; font-size: 0.8rem; }
+[data-tokui-theme='modern'] .tokui-btn--lg { padding: 11px 24px; font-size: 1.05rem; }
+[data-tokui-theme='modern'] .tokui-btn--block { display: flex; width: 100%; }
+
+/* 表单控件：Modern 风 —— surface(白) + 可见边框 + shadow-sm 柔光 + ring focus。
+   参考 Modern .input：bgsurface + border-border + shadow-sm，focus 走 border-primary + ring。
+   白底卡片上靠边框+阴影清晰分层，不依赖灰填充；统一 input/select/textarea/picker/cascader/input-tag。 */
+[data-tokui-theme='modern'] .tokui-input,
+[data-tokui-theme='modern'] .tokui-select,
+[data-tokui-theme='modern'] .tokui-picker-control,
+[data-tokui-theme='modern'] .tokui-cascader-control,
+[data-tokui-theme='modern'] .tokui-input-tag__box {
+  border-radius: 12px;
+  border: 1px solid var(--tokui-border);
+  background: var(--tokui-bg);
+  box-shadow: var(--tokui-shadow-sm);
+  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+}
+/* hover：边框加深 + 极轻 surface-secondary（Modern bg-surface-secondary） */
+[data-tokui-theme='modern'] .tokui-input:hover,
+[data-tokui-theme='modern'] .tokui-select:hover,
+[data-tokui-theme='modern'] .tokui-picker-control:hover,
+[data-tokui-theme='modern'] .tokui-cascader-control:hover,
+[data-tokui-theme='modern'] .tokui-input-tag__box:hover {
+  border-color: var(--tokui-border-strong);
+  background: var(--tokui-surface-secondary);
+}
+/* focus / 展开：主色边框 + 双环（白间隙 + primary ring = Modern ring-2 ring-primary/20） */
+[data-tokui-theme='modern'] .tokui-input:focus,
+[data-tokui-theme='modern'] .tokui-select:focus,
+[data-tokui-theme='modern'] .tokui-picker-control:focus-within,
+[data-tokui-theme='modern'] .tokui-picker--open .tokui-picker-control,
+[data-tokui-theme='modern'] .tokui-cascader--open .tokui-cascader-control,
+[data-tokui-theme='modern'] .tokui-cascader-control:focus-within,
+[data-tokui-theme='modern'] .tokui-input-tag__box:focus-within {
+  outline: none;
+  border-color: var(--tokui-primary);
+  background: var(--tokui-bg);
+  box-shadow: 0 0 0 2px var(--tokui-bg), 0 0 0 4px var(--tokui-primary-focus);
+}
+[data-tokui-theme='modern'] .tokui-input::placeholder,
+[data-tokui-theme='modern'] .tokui-cascader-input::placeholder { color: var(--tokui-text-muted); }
+/* disabled：保留灰填充语义（覆盖白底） */
+[data-tokui-theme='modern'] .tokui-input:disabled,
+[data-tokui-theme='modern'] .tokui-select:disabled {
+  background: var(--tokui-stripe);
+  border-color: var(--tokui-border);
+  box-shadow: none;
+}
+/* underline 变体：上面的四边框覆盖（特异性 0,2,0）压过了 base 的 .tokui-input--underline（0,1,0），
+   需在此同特异性恢复。融合 modern：透明底 + 单下划线（平时 border-strong，hover 加深，focus 加粗变 primary），
+   舍弃 ring 与 shadow 以保 underline 极简感。 */
+[data-tokui-theme='modern'] .tokui-input--underline,
+[data-tokui-theme='modern'] .tokui-select--underline {
+  border: none;
+  border-bottom: 1px solid var(--tokui-border-strong);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding-left: 0;
+  padding-right: 0;
+}
+[data-tokui-theme='modern'] .tokui-input--underline:hover,
+[data-tokui-theme='modern'] .tokui-select--underline:hover {
+  background: transparent;
+  border-bottom-color: var(--tokui-text-muted);
+}
+[data-tokui-theme='modern'] .tokui-input--underline:focus,
+[data-tokui-theme='modern'] .tokui-select--underline:focus {
+  outline: none;
+  background: transparent;
+  border-bottom: 2px solid var(--tokui-primary);
+  box-shadow: none;
+}
+
+/* Slider：Modern 风 —— 加粗药丸轨道(surface-secondary) + 主色填充 + 主色实心 thumb(背景色边框造分离)。
+   参考 .slider-track{h-2 rounded-full bg-surface-secondary} / .slider-fill{bg-accent} / .slider-thumb{size-4 bg-accent border-2 border-background}。 */
+[data-tokui-theme='modern'] .tokui-slider__track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--tokui-surface-secondary);
+}
+[data-tokui-theme='modern'] .tokui-slider__fill {
+  border-radius: 999px;
+  background: var(--tokui-primary);
+}
+[data-tokui-theme='modern'] .tokui-slider__thumb {
+  width: 16px;
+  height: 16px;
+  background: var(--tokui-primary);
+  border: 2px solid var(--tokui-bg);
+  border-radius: 50%;
+  box-shadow: var(--tokui-shadow-sm);
+  transition: transform 0.12s, box-shadow 0.15s;
+}
+[data-tokui-theme='modern'] .tokui-slider__thumb:hover {
+  transform: translate(-50%, -50%) scale(1.12);
+  box-shadow: var(--tokui-shadow-md);
+}
+[data-tokui-theme='modern'] .tokui-slider__thumb--dragging {
+  transform: translate(-50%, -50%) scale(1.15);
+  box-shadow: 0 0 0 6px var(--tokui-primary-focus);
+}
+/* 尺寸变体：统一药丸轨道（覆盖 base 的 2px/4px radius），thumb 等比缩放 */
+[data-tokui-theme='modern'] .tokui-slider--sm .tokui-slider__track { height: 6px; border-radius: 999px; }
+[data-tokui-theme='modern'] .tokui-slider--sm .tokui-slider__thumb { width: 12px; height: 12px; }
+[data-tokui-theme='modern'] .tokui-slider--lg .tokui-slider__track { height: 10px; border-radius: 999px; }
+[data-tokui-theme='modern'] .tokui-slider--lg .tokui-slider__thumb { width: 20px; height: 20px; }
+
+/* 卡片：12px 圆角 + 柔光 elevation + hover 加深 */
+[data-tokui-theme='modern'] .tokui-card {
+  border-radius: 12px;
+  box-shadow: var(--tokui-surface-shadow);
+  border-color: transparent;
+  transition: box-shadow 0.25s;
+}
+[data-tokui-theme='modern'] .tokui-card:hover { box-shadow: var(--tokui-surface-shadow-hover); }
+[data-tokui-theme='modern'] .tokui-card-header { padding: 14px 20px; }
+[data-tokui-theme='modern'] .tokui-card-body { padding: 20px; }
+[data-tokui-theme='modern'] .tokui-card-footer { background: transparent; border-top: 1px solid var(--tokui-border); padding: 12px 20px; }
+
+/* 表格：白底 surface 卡 + 表头次级表面 + 行分隔 separator + hover 极轻 */
+[data-tokui-theme='modern'] .tokui-table-wrapper { background: var(--tokui-bg); border-radius: 12px; box-shadow: var(--tokui-surface-shadow); overflow: hidden; }
+[data-tokui-theme='modern'] .tokui-table th { background: var(--tokui-bg-subtle); color: var(--tokui-text-muted); border-bottom: 1px solid var(--tokui-border); font-weight: 500; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; }
+[data-tokui-theme='modern'] .tokui-table td { border-bottom: 1px solid var(--tokui-border); }
+[data-tokui-theme='modern'] .tokui-table--stripe tr:nth-child(even) td { background: var(--tokui-bg-subtle); }
+[data-tokui-theme='modern'] .tokui-table tbody tr:hover td { background: var(--tokui-primary-bg); }
+
+/* 标签：pill 药丸 + borderless */
+[data-tokui-theme='modern'] .tokui-tag { border-radius: 999px; font-weight: 500; padding: 2px 12px; border-color: transparent; }
+
+/* 提示框：圆角 12px + 补 danger 配色（src 类名 bug 兜底） */
+[data-tokui-theme='modern'] .tokui-callout { border-radius: 12px; }
+[data-tokui-theme='modern'] .tokui-callout--danger { background: var(--tokui-danger-1); border-left-color: var(--tokui-danger); }
+[data-tokui-theme='modern'] .tokui-callout--danger .tokui-callout__icon { color: var(--tokui-danger); }
+
+/* 代码块：圆角 12px + 中性底 */
+[data-tokui-theme='modern'] .tokui-code { border-radius: 12px; background: var(--tokui-bg-subtle); border: 1px solid transparent; }
+
+/* 表单标签 / 分割线 */
+[data-tokui-theme='modern'] .tokui-label { font-weight: 500; color: var(--tokui-text-secondary); }
+[data-tokui-theme='modern'] .tokui-hr,
+[data-tokui-theme='modern'] .tokui-dv { border-top-color: var(--tokui-border); }
+
+/* ============================================================
+   A 组：补齐 preview 缺失（switch/breadcrumb/pagination/radio/
+   rate/numinput/datepicker/cascader）
+   ============================================================ */
+
+/* Switch：药丸 track（token 化替 base 写死 rgba）+ 实心 thumb + 双环 focus */
+[data-tokui-theme='modern'] .tokui-switch__track {
+  background: var(--tokui-switch-track);
+}
+[data-tokui-theme='modern'] .tokui-switch__track::before {
+  background: var(--tokui-switch-thumb);
+  box-shadow: 0 1px 2px var(--tokui-switch-ring);
+}
+[data-tokui-theme='modern'] .tokui-switch-input:checked + .tokui-switch__track {
+  background: var(--tokui-primary);
+  border-color: var(--tokui-primary);
+}
+[data-tokui-theme='modern'] .tokui-switch-input:focus-visible + .tokui-switch__track {
+  box-shadow: 0 0 0 2px var(--tokui-bg), 0 0 0 4px var(--tokui-primary-focus);
+}
+
+/* Breadcrumb（light 侧缺失） */
+[data-tokui-theme='modern'] .tokui-breadcrumb__item { color: var(--tokui-text-muted); transition: color 0.15s; }
+[data-tokui-theme='modern'] .tokui-breadcrumb__item:hover { color: var(--tokui-primary); opacity: 1; }
+[data-tokui-theme='modern'] .tokui-breadcrumb__item--active,
+[data-tokui-theme='modern'] .tokui-breadcrumb__item:last-of-type { color: var(--tokui-text); font-weight: 500; }
+[data-tokui-theme='modern'] .tokui-breadcrumb__sep { color: var(--tokui-text-disabled); }
+
+/* Pagination（light 侧缺失）：无边框药丸 */
+[data-tokui-theme='modern'] .tokui-pagination__item,
+[data-tokui-theme='modern'] .tokui-pagination__btn {
+  border-radius: 999px; border-color: transparent; background: transparent;
+  color: var(--tokui-text-secondary); transition: color 0.15s, background-color 0.15s;
+}
+[data-tokui-theme='modern'] .tokui-pagination__item:hover,
+[data-tokui-theme='modern'] .tokui-pagination__btn:hover {
+  background: var(--tokui-primary-bg); color: var(--tokui-primary); border-color: transparent;
+}
+[data-tokui-theme='modern'] .tokui-pagination__item--active,
+[data-tokui-theme='modern'] .tokui-pagination__item[aria-current='page'] {
+  background: var(--tokui-primary); color: var(--tokui-btn-text-inverse); border-color: transparent; font-weight: 600;
+}
+
+/* Radio：圆框 border-strong + 双环 focus */
+[data-tokui-theme='modern'] .tokui-radio-item::before { border-color: var(--tokui-border-strong); background: var(--tokui-bg); }
+[data-tokui-theme='modern'] .tokui-radio-item:hover::before { border-color: var(--tokui-primary-5); }
+[data-tokui-theme='modern'] .tokui-radio-item:has(.tokui-radio-input:focus-visible)::before {
+  box-shadow: 0 0 0 2px var(--tokui-bg), 0 0 0 4px var(--tokui-primary-focus);
+}
+
+/* Rate：替 base 写死金 → token */
+[data-tokui-theme='modern'] .tokui-rate__star { color: var(--tokui-star); }
+[data-tokui-theme='modern'] .tokui-rate__star--active { color: var(--tokui-star-active); }
+[data-tokui-theme='modern'] .tokui-rate__star--hover { color: var(--tokui-star-hover); }
+
+/* Numinput：药丸外框 + inset 边框 + btn 透明 */
+[data-tokui-theme='modern'] .tokui-numinput {
+  border-radius: var(--tokui-control-radius); border-color: transparent;
+  background: var(--tokui-bg); box-shadow: var(--tokui-inset-shadow);
+}
+[data-tokui-theme='modern'] .tokui-numinput__btn { background: transparent; color: var(--tokui-text-secondary); }
+[data-tokui-theme='modern'] .tokui-numinput__btn:hover { background: var(--tokui-primary); color: var(--tokui-btn-text-inverse); }
+
+/* Datepicker：与 input 同语言（边框 + shadow-sm + 双环 focus） */
+[data-tokui-theme='modern'] .tokui-datepicker-control {
+  border-radius: var(--tokui-control-radius); border-color: var(--tokui-border);
+  background: var(--tokui-bg); box-shadow: var(--tokui-shadow-sm);
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+[data-tokui-theme='modern'] .tokui-datepicker-control:hover { border-color: var(--tokui-border-strong); }
+[data-tokui-theme='modern'] .tokui-datepicker--open .tokui-datepicker-control {
+  border-color: var(--tokui-primary);
+  box-shadow: 0 0 0 2px var(--tokui-bg), 0 0 0 4px var(--tokui-primary-focus);
+}
+[data-tokui-theme='modern'] .tokui-datepicker-dropdown { border-radius: var(--tokui-control-radius); border-color: var(--tokui-border); }
+[data-tokui-theme='modern'] .tokui-datepicker-day:hover { background: var(--tokui-primary-bg); }
+[data-tokui-theme='modern'] .tokui-datepicker-day--today { color: var(--tokui-primary); box-shadow: inset 0 0 0 1px var(--tokui-primary); }
+[data-tokui-theme='modern'] .tokui-datepicker-day--selected,
+[data-tokui-theme='modern'] .tokui-datepicker-day--selected:hover { background: var(--tokui-primary); color: var(--tokui-btn-text-inverse); }
+[data-tokui-theme='modern'] .tokui-datepicker-nav:hover { background: var(--tokui-primary-bg); color: var(--tokui-primary); }
+
+/* Cascader：同 input 语言 */
+[data-tokui-theme='modern'] .tokui-cascader-control {
+  border-radius: var(--tokui-control-radius); border-color: var(--tokui-border);
+  background: var(--tokui-bg); box-shadow: var(--tokui-shadow-sm);
+}
+[data-tokui-theme='modern'] .tokui-cascader-control:hover { border-color: var(--tokui-border-strong); }
+[data-tokui-theme='modern'] .tokui-cascader--open .tokui-cascader-control {
+  border-color: var(--tokui-primary);
+  box-shadow: 0 0 0 2px var(--tokui-bg), 0 0 0 4px var(--tokui-primary-focus);
+}
+[data-tokui-theme='modern'] .tokui-cascader-menus { border-radius: var(--tokui-control-radius); border-color: var(--tokui-border); }
+[data-tokui-theme='modern'] .tokui-cascader-option:hover,
+[data-tokui-theme='modern'] .tokui-cascader-option--active { background: var(--tokui-primary-bg); color: var(--tokui-primary); }
+
+/* Input-group：Modern 风 —— 容器即统一 field（边框 + bg + shadow + 12px + focus 环），
+   内部 input / pre / app / prebtn / appbtn 全部去边框，透明融入容器；
+   prefix/suffix 保留 base 的 stripe 软底 / variant 填充语义，仅消除拼接缝。
+   primary = 默认带阴影；pill 变体容器药丸化。 */
+[data-tokui-theme='modern'] .tokui-input-group {
+  border: 1px solid var(--tokui-border);
+  border-radius: var(--tokui-control-radius);
+  background: var(--tokui-bg);
+  box-shadow: var(--tokui-shadow-sm);
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+[data-tokui-theme='modern'] .tokui-input-group:hover { border-color: var(--tokui-border-strong); }
+[data-tokui-theme='modern'] .tokui-input-group:focus-within {
+  border-color: var(--tokui-primary);
+  box-shadow: 0 0 0 2px var(--tokui-bg), 0 0 0 4px var(--tokui-primary-focus);
+}
+/* 内部 input / search：去 own 边框/阴影/圆角/底，透明（容器承载 field 外观） */
+[data-tokui-theme='modern'] .tokui-input-group .tokui-input,
+[data-tokui-theme='modern'] .tokui-input-group .tokui-search-input {
+  border: none; border-radius: 0; background: transparent; box-shadow: none;
+}
+[data-tokui-theme='modern'] .tokui-input-group .tokui-input:focus,
+[data-tokui-theme='modern'] .tokui-input-group .tokui-search-input:focus { box-shadow: none; }
+/* prefix/suffix addon 与按钮：去边框（保留 stripe 软底 / variant 填充，消除拼接双线） */
+[data-tokui-theme='modern'] .tokui-input-group .tokui-input-pre,
+[data-tokui-theme='modern'] .tokui-input-group .tokui-input-app,
+[data-tokui-theme='modern'] .tokui-input-group .tokui-input-prebtn,
+[data-tokui-theme='modern'] .tokui-input-group .tokui-input-appbtn { border: none; }
+[data-tokui-theme='modern'] .tokui-input-group .tokui-input-prebtn:hover,
+[data-tokui-theme='modern'] .tokui-input-group .tokui-input-appbtn:hover { background: var(--tokui-bg-muted); }
+[data-tokui-theme='modern'] .tokui-input-group--pill { border-radius: 999px; }
+
+/* Calendar：无边框 + inset 弱描边， header 分隔用更浅的 separator */
+[data-tokui-theme='modern'] .tokui-calendar { border-color: transparent; border-radius: var(--tokui-control-radius); box-shadow: var(--tokui-inset-shadow); }
+[data-tokui-theme='modern'] .tokui-calendar--card { box-shadow: var(--tokui-surface-shadow); }
+[data-tokui-theme='modern'] .tokui-calendar__header { border-bottom-color: var(--tokui-separator); }
+[data-tokui-theme='modern'] .tokui-calendar__day:hover { background: var(--tokui-primary-bg); }
+
+/* Transfer：药丸 panel + inset + token 化 */
+[data-tokui-theme='modern'] .tokui-transfer__panel { border-radius: var(--tokui-control-radius); border-color: transparent; box-shadow: var(--tokui-inset-shadow); }
+[data-tokui-theme='modern'] .tokui-transfer__header { background: var(--tokui-bg-subtle); border-bottom-color: var(--tokui-border); }
+[data-tokui-theme='modern'] .tokui-transfer__item:hover { background: var(--tokui-bg-muted); }
+[data-tokui-theme='modern'] .tokui-transfer__btn { border-radius: 999px; border-color: var(--tokui-border); }
+[data-tokui-theme='modern'] .tokui-transfer__btn:hover:not(:disabled) { background: var(--tokui-primary); color: var(--tokui-btn-text-inverse); border-color: var(--tokui-primary); }
+
+/* Tree：药丸行 hover + selected 走 primary-bg */
+[data-tokui-theme='modern'] .tokui-tree-node-header { border-radius: 999px; }
+[data-tokui-theme='modern'] .tokui-tree-node-header:hover { background: var(--tokui-bg-muted); }
+[data-tokui-theme='modern'] .tokui-tree-node--selected > .tokui-tree-node-header { background: var(--tokui-primary-bg); color: var(--tokui-primary); }
+
+/* ============================================================
+   B 组：Modern 高频件（导航/浮层/反馈/数据）
+   ============================================================ */
+
+/* Tabs：底部容器线 + label muted→hover primary；选中走 base 下划线 primary */
+[data-tokui-theme='modern'] .tokui-tabs { border-bottom: 1px solid var(--tokui-border); gap: 4px; }
+[data-tokui-theme='modern'] .tokui-tabs-label { color: var(--tokui-text-muted); font-weight: 500; }
+[data-tokui-theme='modern'] .tokui-tabs-label:hover { color: var(--tokui-primary); }
+[data-tokui-theme='modern'] .tokui-tabs-panel { border-top: none; padding-top: 16px; }
+
+/* Accordion / Collapse：药丸卡 + 无外边框 + title 次级表面 */
+[data-tokui-theme='modern'] .tokui-collapse {
+  border-color: transparent; border-radius: var(--tokui-control-radius);
+  background: var(--tokui-bg); box-shadow: var(--tokui-inset-shadow); margin-bottom: 8px;
+}
+[data-tokui-theme='modern'] .tokui-collapse-title { background: var(--tokui-bg-subtle); }
+[data-tokui-theme='modern'] .tokui-collapse-title::before { color: var(--tokui-text-muted); }
+[data-tokui-theme='modern'] .tokui-collapse-body { color: var(--tokui-text-secondary); }
+
+/* Dialog：16px + 大浮层阴影；header/footer 去 stripe 改细 border */
+[data-tokui-theme='modern'] .tokui-dialog { border-radius: 16px; }
+[data-tokui-theme='modern'] .tokui-dialog::backdrop { background: var(--tokui-mask-bg); }
+[data-tokui-theme='modern'] .tokui-dialog-header { background: var(--tokui-bg); border-bottom-color: var(--tokui-border); }
+[data-tokui-theme='modern'] .tokui-dialog-footer { background: var(--tokui-bg); border-top-color: var(--tokui-border); }
+[data-tokui-theme='modern'] .tokui-dialog-close { border-radius: 999px; }
+[data-tokui-theme='modern'] .tokui-dialog-close:hover { background: var(--tokui-bg-muted); color: var(--tokui-text); }
+
+/* Drawer：大浮层阴影 + 遮罩 token */
+[data-tokui-theme='modern'] .tokui-drawer--open .tokui-drawer__overlay { background: var(--tokui-mask-bg); }
+[data-tokui-theme='modern'] .tokui-drawer__header { background: var(--tokui-bg); border-bottom-color: var(--tokui-border); }
+[data-tokui-theme='modern'] .tokui-drawer__close { border-radius: 999px; }
+[data-tokui-theme='modern'] .tokui-drawer__close:hover { background: var(--tokui-bg-muted); color: var(--tokui-text); }
+
+/* Popover / Popconfirm / HoverCard：浮层阴影 + 12px + trigger 走 btn 语言 */
+[data-tokui-theme='modern'] .tokui-popover__panel,
+[data-tokui-theme='modern'] .tokui-popconfirm__popup,
+[data-tokui-theme='modern'] .tokui-hover-card__content { border-radius: var(--tokui-control-radius); border-color: var(--tokui-border); }
+[data-tokui-theme='modern'] .tokui-popover__trigger,
+[data-tokui-theme='modern'] .tokui-popconfirm__trigger {
+  border-radius: 8px; border-color: var(--tokui-border); background: var(--tokui-bg);
+  box-shadow: var(--tokui-inset-shadow); transition: border-color 0.2s, box-shadow 0.2s;
+}
+[data-tokui-theme='modern'] .tokui-popover__trigger:hover,
+[data-tokui-theme='modern'] .tokui-popconfirm__trigger:hover { border-color: var(--tokui-border-strong); color: var(--tokui-text); }
+[data-tokui-theme='modern'] .tokui-popconfirm__btn { border-radius: 8px; }
+
+/* Tooltip：反转色 + 12px + 柔光 */
+[data-tokui-theme='modern'] .tokui-tooltip__popup { border-radius: 8px; box-shadow: var(--tokui-shadow-sm); }
+[data-tokui-theme='modern'] .tokui-tooltip { border-bottom-color: var(--tokui-text-disabled); }
+
+/* Menu：容器浮层阴影 + item 药丸 hover + active primary-bg */
+[data-tokui-theme='modern'] .tokui-menu { border-radius: var(--tokui-control-radius); box-shadow: var(--tokui-inset-shadow); }
+[data-tokui-theme='modern'] .tokui-menu__item { border-radius: 999px; color: var(--tokui-text-secondary); }
+[data-tokui-theme='modern'] .tokui-menu__item:hover { background: var(--tokui-bg-muted); color: var(--tokui-text); }
+[data-tokui-theme='modern'] .tokui-menu__item--active { background: var(--tokui-primary-bg); color: var(--tokui-primary); font-weight: 600; }
+[data-tokui-theme='modern'] .tokui-menu--horizontal .tokui-menu__item--active { border-bottom-color: var(--tokui-primary); background: transparent; color: var(--tokui-primary); }
+
+/* Dropdown：浮层阴影 + item hover bg-muted + danger hover 软底 */
+[data-tokui-theme='modern'] .tokui-dropdown__panel { border-radius: var(--tokui-control-radius); border-color: var(--tokui-border); }
+[data-tokui-theme='modern'] .tokui-dropdown__item:hover { background: var(--tokui-bg-muted); }
+[data-tokui-theme='modern'] .tokui-dropdown__item--danger:hover { background: var(--tokui-danger-bg); color: var(--tokui-danger); }
+
+/* Avatar：text 头像 primary 底；可叠 ring */
+[data-tokui-theme='modern'] .tokui-avatar--text { background: var(--tokui-primary); color: var(--tokui-btn-text-inverse); }
+
+/* Badge / BadgeBox：药丸；类型变体走 soft 配色（替实心白字） */
+[data-tokui-theme='modern'] .tokui-badge { border-radius: 999px; font-weight: 500; }
+[data-tokui-theme='modern'] .tokui-badge--default { background: var(--tokui-bg-muted); color: var(--tokui-text-secondary); }
+[data-tokui-theme='modern'] .tokui-badge--primary { background: var(--tokui-primary-bg); color: var(--tokui-primary); }
+[data-tokui-theme='modern'] .tokui-badge--success { background: var(--tokui-success-bg); color: var(--tokui-success); }
+[data-tokui-theme='modern'] .tokui-badge--warning { background: var(--tokui-warning-bg); color: var(--tokui-warning); }
+[data-tokui-theme='modern'] .tokui-badge--error,
+[data-tokui-theme='modern'] .tokui-badge--danger { background: var(--tokui-danger-bg); color: var(--tokui-danger); }
+[data-tokui-theme='modern'] .tokui-badge--info { background: var(--tokui-info-bg); color: var(--tokui-info); }
+[data-tokui-theme='modern'] .tokui-badge-box__count { border-radius: 999px; }
+
+/* Progress：药丸 track + bar；circle bg border；状态色 success/error/danger */
+[data-tokui-theme='modern'] .tokui-progress__track { background: var(--tokui-surface-secondary); border-radius: 999px; }
+[data-tokui-theme='modern'] .tokui-progress__bar { border-radius: 999px; background: var(--tokui-primary); }
+[data-tokui-theme='modern'] .tokui-progress--success .tokui-progress__bar { background: var(--tokui-success); }
+[data-tokui-theme='modern'] .tokui-progress--error .tokui-progress__bar,
+[data-tokui-theme='modern'] .tokui-progress--danger .tokui-progress__bar { background: var(--tokui-danger); }
+[data-tokui-theme='modern'] .tokui-progress__circle-bg { stroke: var(--tokui-border); }
+[data-tokui-theme='modern'] .tokui-progress__circle-bar { stroke: var(--tokui-primary); }
+[data-tokui-theme='modern'] .tokui-progress--success .tokui-progress__circle-bar { stroke: var(--tokui-success); }
+[data-tokui-theme='modern'] .tokui-progress--error .tokui-progress__circle-bar,
+[data-tokui-theme='modern'] .tokui-progress--danger .tokui-progress__circle-bar { stroke: var(--tokui-danger); }
+[data-tokui-theme='modern'] .tokui-progress__mini-bar { background: var(--tokui-surface-secondary); border-radius: 999px; }
+[data-tokui-theme='modern'] .tokui-progress__mini-fill { border-radius: 999px; }
+
+/* Spin：spinner/dots/pulse 走 primary */
+[data-tokui-theme='modern'] .tokui-spin { color: var(--tokui-primary); }
+[data-tokui-theme='modern'] .tokui-spin__spinner { border-color: var(--tokui-border); border-top-color: var(--tokui-primary); }
+[data-tokui-theme='modern'] .tokui-spin__dot,
+[data-tokui-theme='modern'] .tokui-spin__pulse { background: var(--tokui-primary); }
+
+/* Skeleton / Shimmer：base surface-secondary → 中段 border-strong 提对比 */
+[data-tokui-theme='modern'] .tokui-skeleton {
+  background: linear-gradient(90deg, var(--tokui-surface-secondary) 25%, var(--tokui-border-strong) 50%, var(--tokui-surface-secondary) 75%);
+  background-size: 800px 100%; border-radius: var(--tokui-control-radius);
+}
+[data-tokui-theme='modern'] .tokui-skeleton__row,
+[data-tokui-theme='modern'] .tokui-skeleton__rect,
+[data-tokui-theme='modern'] .tokui-skeleton__circle { background: var(--tokui-border-strong); }
+[data-tokui-theme='modern'] .tokui-shimmer__row,
+[data-tokui-theme='modern'] .tokui-shimmer__circle {
+  background: linear-gradient(90deg, var(--tokui-surface-secondary) 25%, var(--tokui-border-strong) 37%, var(--tokui-surface-secondary) 63%);
+  background-size: 400% 100%;
+}
+
+/* Steps：circle inset 边框 + done/active primary + hover ring primary-focus */
+[data-tokui-theme='modern'] .tokui-step__circle { background: var(--tokui-bg); border-color: var(--tokui-border-strong); box-shadow: var(--tokui-inset-shadow); }
+[data-tokui-theme='modern'] .tokui-step:hover .tokui-step__circle { box-shadow: 0 0 0 4px var(--tokui-primary-focus); }
+[data-tokui-theme='modern'] .tokui-step--done:hover .tokui-step__circle { box-shadow: 0 0 0 4px var(--tokui-success-bg); }
+[data-tokui-theme='modern'] .tokui-step--error:hover .tokui-step__circle { box-shadow: 0 0 0 4px var(--tokui-danger-bg); }
+
+/* Timeline：主轴 border + dot primary + 外环 primary-focus */
+[data-tokui-theme='modern'] .tokui-timeline::before { background: var(--tokui-border); }
+[data-tokui-theme='modern'] .tokui-ti__dot::after { background: var(--tokui-primary); box-shadow: 0 0 0 2px var(--tokui-primary-bg); }
+[data-tokui-theme='modern'] .tokui-ti--success .tokui-ti__dot::after { background: var(--tokui-success); box-shadow: 0 0 0 2px var(--tokui-success-bg); }
+[data-tokui-theme='modern'] .tokui-ti--warning .tokui-ti__dot::after { background: var(--tokui-warning); box-shadow: 0 0 0 2px var(--tokui-warning-bg); }
+[data-tokui-theme='modern'] .tokui-ti--error .tokui-ti__dot::after,
+[data-tokui-theme='modern'] .tokui-ti--danger .tokui-ti__dot::after { background: var(--tokui-danger); box-shadow: 0 0 0 2px var(--tokui-danger-bg); }
+[data-tokui-theme='modern'] .tokui-ti--info .tokui-ti__dot::after { background: var(--tokui-info); box-shadow: 0 0 0 2px var(--tokui-info-bg); }
+
+/* Notification：浮层阴影 + 12px + inset 边框 + close 药丸 */
+[data-tokui-theme='modern'] .tokui-notification {
+  border-radius: var(--tokui-control-radius); border-color: transparent; box-shadow: var(--tokui-overlay-shadow);
+}
+[data-tokui-theme='modern'] .tokui-notification__close { border-radius: 999px; }
+[data-tokui-theme='modern'] .tokui-notification__close:hover { background: var(--tokui-bg-muted); color: var(--tokui-text); }
+
+/* Toast：12px + 浮层阴影 */
+[data-tokui-theme='modern'] .tokui-toast { border-radius: var(--tokui-control-radius); box-shadow: var(--tokui-overlay-shadow); }
+
+/* Empty / Result：icon 状态色 token；result circle fill 软底 */
+[data-tokui-theme='modern'] .tokui-empty__text { color: var(--tokui-text-muted); }
+[data-tokui-theme='modern'] .tokui-result__title { color: var(--tokui-text); }
+[data-tokui-theme='modern'] .tokui-result__desc { color: var(--tokui-text-muted); }
+
+/* Stat（KPI 风，对标 Modern Pro KPI）：value 字距 + trend 药丸 */
+[data-tokui-theme='modern'] .tokui-stat__value { letter-spacing: -0.02em; }
+[data-tokui-theme='modern'] .tokui-stat__title { color: var(--tokui-text-muted); }
+[data-tokui-theme='modern'] .tokui-stat__trend--up { color: var(--tokui-success); }
+[data-tokui-theme='modern'] .tokui-stat__trend--down { color: var(--tokui-danger); }
+
+/* Backtop：药丸 + surface 阴影 + inset；hover primary-bg */
+[data-tokui-theme='modern'] .tokui-backtop {
+  border-radius: 999px; border-color: transparent;
+  box-shadow: var(--tokui-surface-shadow), var(--tokui-inset-shadow);
+}
+[data-tokui-theme='modern'] .tokui-backtop:hover { background: var(--tokui-primary-bg); color: var(--tokui-primary); }
+
+/* Markdown（md）：内联 code 软底 + quote primary 左条 + 表格走 table 语言 */
+[data-tokui-theme='modern'] .tokui-md code { background: var(--tokui-bg-muted); color: var(--tokui-code-text); border-radius: 6px; padding: 0.12em 0.4em; }
+[data-tokui-theme='modern'] .tokui-md__quote { border-left-color: var(--tokui-primary); background: var(--tokui-primary-bg); }
+[data-tokui-theme='modern'] .tokui-md__hr { border-top-color: var(--tokui-border); }
+[data-tokui-theme='modern'] .tokui-md a { color: var(--tokui-primary); }
+[data-tokui-theme='modern'] .tokui-md-table th { background: var(--tokui-bg-subtle); border-color: var(--tokui-border); }
+[data-tokui-theme='modern'] .tokui-md-table td { border-color: var(--tokui-border); }
+
+/* ============================================================
+   C 组：AI 组件（项目核心）
+   ============================================================ */
+
+/* Bubble：avatar 药丸；user body 软蓝底 + 非对称圆角 + 柔光；system 药丸 */
+[data-tokui-theme='modern'] .tokui-bubble__avatar { border-radius: 999px; }
+[data-tokui-theme='modern'] .tokui-bubble--user .tokui-bubble__body {
+  background: var(--tokui-primary-bg); color: var(--tokui-primary-7);
+  border-radius: 16px 16px 4px 16px; box-shadow: var(--tokui-surface-shadow);
+}
+[data-tokui-theme='modern'] .tokui-bubble--user .tokui-bubble__avatar { background: var(--tokui-primary-bg); color: var(--tokui-primary); }
+[data-tokui-theme='modern'] .tokui-bubble--ai .tokui-bubble__avatar { background: var(--tokui-bg-muted); color: var(--tokui-text-secondary); }
+[data-tokui-theme='modern'] .tokui-bubble--system .tokui-bubble__body { background: var(--tokui-bg-muted); color: var(--tokui-text-muted); border-radius: 999px; }
+
+/* Agent：inset 边框 + status idle token + status pill 软配色 */
+[data-tokui-theme='modern'] .tokui-agent { border-color: transparent; border-radius: var(--tokui-control-radius); box-shadow: var(--tokui-inset-shadow); }
+[data-tokui-theme='modern'] .tokui-agent__status { background: var(--tokui-bg-muted); color: var(--tokui-text-secondary); border-radius: 999px; }
+[data-tokui-theme='modern'] .tokui-agent--running .tokui-agent__status { color: var(--tokui-primary); background: var(--tokui-primary-bg); }
+[data-tokui-theme='modern'] .tokui-agent--done .tokui-agent__status { color: var(--tokui-success); background: var(--tokui-success-bg); }
+[data-tokui-theme='modern'] .tokui-agent--error .tokui-agent__status,
+[data-tokui-theme='modern'] .tokui-agent--danger .tokui-agent__status { color: var(--tokui-danger); background: var(--tokui-danger-bg); }
+
+/* Tool-call：inset 边框 + header 次级表面 + name mono + status pill 软底 + result/error 软底左条 */
+[data-tokui-theme='modern'] .tokui-tool-call { border-color: transparent; border-radius: var(--tokui-control-radius); box-shadow: var(--tokui-inset-shadow); }
+[data-tokui-theme='modern'] .tokui-tool-call__header { background: var(--tokui-bg-subtle); border-bottom-color: var(--tokui-border); }
+[data-tokui-theme='modern'] .tokui-tool-call__name { color: var(--tokui-text); }
+[data-tokui-theme='modern'] .tokui-tool-call__status { background: var(--tokui-bg-muted); color: var(--tokui-text-secondary); border-radius: 999px; }
+[data-tokui-theme='modern'] .tokui-tool-call--running .tokui-tool-call__status { color: var(--tokui-primary); background: var(--tokui-primary-bg); }
+[data-tokui-theme='modern'] .tokui-tool-call--done .tokui-tool-call__status { color: var(--tokui-success); background: var(--tokui-success-bg); }
+[data-tokui-theme='modern'] .tokui-tool-call--error .tokui-tool-call__status,
+[data-tokui-theme='modern'] .tokui-tool-call--danger .tokui-tool-call__status { color: var(--tokui-danger); background: var(--tokui-danger-bg); }
+[data-tokui-theme='modern'] .tokui-tool-call__result { background: var(--tokui-success-bg); border-left-color: var(--tokui-success); color: var(--tokui-text); }
+[data-tokui-theme='modern'] .tokui-tool-call__error { background: var(--tokui-danger-bg); border-left-color: var(--tokui-danger); color: var(--tokui-danger); }
+
+/* Think / Think-chain：次级表面底 + 左条 border-strong + summary 三角 muted */
+[data-tokui-theme='modern'] .tokui-think,
+[data-tokui-theme='modern'] .tokui-think-chain { background: var(--tokui-bg-subtle); border-left-color: var(--tokui-border-strong); border-radius: var(--tokui-control-radius); }
+[data-tokui-theme='modern'] .tokui-think__summary::before,
+[data-tokui-theme='modern'] .tokui-think-chain__summary::before { color: var(--tokui-text-muted); }
+
+/* Think-step：icon done/error/running token；line done/running 上色（补 base 缺）；dur 药丸 */
+[data-tokui-theme='modern'] .tokui-think-step__line { background: var(--tokui-border); }
+[data-tokui-theme='modern'] .tokui-think-step--done .tokui-think-step__line { background: var(--tokui-success); }
+[data-tokui-theme='modern'] .tokui-think-step--running .tokui-think-step__line { background: var(--tokui-primary); }
+[data-tokui-theme='modern'] .tokui-think-step__dot { background: var(--tokui-border-strong); }
+[data-tokui-theme='modern'] .tokui-think-step__dur { background: var(--tokui-bg-muted); color: var(--tokui-text-muted); border-radius: 999px; }
+
+/* Chat-input：24px 药丸 + inset 边框 + 柔光 + focus 双环 + send 药丸 */
+[data-tokui-theme='modern'] .tokui-chat-input {
+  border-radius: 24px; border-color: var(--tokui-border);
+  background: var(--tokui-bg); box-shadow: var(--tokui-shadow-sm);
+}
+[data-tokui-theme='modern'] .tokui-chat-input:focus-within {
+  border-color: var(--tokui-primary);
+  box-shadow: 0 0 0 2px var(--tokui-bg), 0 0 0 4px var(--tokui-primary-focus);
+}
+[data-tokui-theme='modern'] .tokui-chat-input__send { border-radius: 999px; background: var(--tokui-primary); }
+[data-tokui-theme='modern'] .tokui-chat-input__counter { background: var(--tokui-bg); color: var(--tokui-text-muted); }
+
+/* Quick-reply：药丸 + inset + hover 软蓝底 */
+[data-tokui-theme='modern'] .tokui-quick-reply__item {
+  border-radius: 999px; border-color: var(--tokui-border); background: var(--tokui-bg);
+}
+[data-tokui-theme='modern'] .tokui-quick-reply__item:hover { background: var(--tokui-primary-bg); color: var(--tokui-primary); border-color: var(--tokui-primary-3); }
+
+/* Suggestion：surface 阴影 + 12px + hover 抬升 + 左条/icon primary */
+[data-tokui-theme='modern'] .tokui-suggestion {
+  border-radius: var(--tokui-control-radius); border-color: var(--tokui-border);
+  box-shadow: var(--tokui-surface-shadow);
+}
+[data-tokui-theme='modern'] .tokui-suggestion:hover { box-shadow: var(--tokui-surface-shadow-hover); border-left-color: var(--tokui-primary-hover); }
+[data-tokui-theme='modern'] .tokui-suggestion__icon { background: var(--tokui-primary-bg); color: var(--tokui-primary); border-radius: var(--tokui-control-radius); }
+
+/* Msg-actions：药丸 btn + hover bg-muted */
+[data-tokui-theme='modern'] .tokui-msg-actions__btn { border-radius: 999px; }
+[data-tokui-theme='modern'] .tokui-msg-actions__btn:hover { background: var(--tokui-bg-muted); color: var(--tokui-text); }
+
+/* Command：16px + 大浮层阴影 + item 药丸 hover/selected */
+[data-tokui-theme='modern'] .tokui-command__overlay { background: var(--tokui-mask-bg); }
+[data-tokui-theme='modern'] .tokui-command__panel { border-radius: 16px; border-color: var(--tokui-border); }
+[data-tokui-theme='modern'] .tokui-command__item { border-radius: 999px; }
+[data-tokui-theme='modern'] .tokui-command__item:hover { background: var(--tokui-bg-muted); }
+[data-tokui-theme='modern'] .tokui-command__item--selected { background: var(--tokui-primary-bg); color: var(--tokui-primary); }
+[data-tokui-theme='modern'] .tokui-command__shortcut { background: var(--tokui-bg-muted); border-radius: 6px; }
+
+/* Quote：左条 primary + content 次级表面 + role 药丸软底 */
+[data-tokui-theme='modern'] .tokui-quote { background: var(--tokui-bg-subtle); border-radius: var(--tokui-control-radius); }
+[data-tokui-theme='modern'] .tokui-quote__bar { background: var(--tokui-primary); }
+[data-tokui-theme='modern'] .tokui-quote__role { background: var(--tokui-primary-bg); color: var(--tokui-primary); border-radius: 999px; }
+[data-tokui-theme='modern'] .tokui-quote__text { color: var(--tokui-text-secondary); }
+
+/* File-tree：inset 边框 + 行 hover 药丸 bg-muted + badge 药丸 */
+[data-tokui-theme='modern'] .tokui-file-tree { border-color: transparent; border-radius: var(--tokui-control-radius); box-shadow: var(--tokui-inset-shadow); }
+[data-tokui-theme='modern'] .tokui-file-tree__folder-name:hover,
+[data-tokui-theme='modern'] .tokui-file-tree__file:hover { background: var(--tokui-bg-muted); border-radius: 6px; }
+[data-tokui-theme='modern'] .tokui-file-tree__file-badge { background: var(--tokui-bg-muted); color: var(--tokui-text-secondary); border-radius: 999px; }
+
+/* Carousel：inset 边框 + dot token */
+[data-tokui-theme='modern'] .tokui-carousel { border-radius: var(--tokui-control-radius); box-shadow: var(--tokui-inset-shadow); }
+[data-tokui-theme='modern'] .tokui-carousel__arrow { box-shadow: var(--tokui-shadow-sm); }
+
+/* Artifact / Sandbox / Diff：inset 边框 + header 次级表面 + lang badge 药丸软底 + tab active primary */
+[data-tokui-theme='modern'] .tokui-artifact,
+[data-tokui-theme='modern'] .tokui-sandbox,
+[data-tokui-theme='modern'] .tokui-diff { border-color: transparent; border-radius: var(--tokui-control-radius); box-shadow: var(--tokui-inset-shadow); }
+[data-tokui-theme='modern'] .tokui-artifact__header,
+[data-tokui-theme='modern'] .tokui-sandbox__header,
+[data-tokui-theme='modern'] .tokui-diff__header { background: var(--tokui-bg-subtle); border-bottom-color: var(--tokui-border); }
+[data-tokui-theme='modern'] .tokui-artifact__tab--active { background: var(--tokui-primary); color: var(--tokui-btn-text-inverse); }
+[data-tokui-theme='modern'] .tokui-sandbox__lang,
+[data-tokui-theme='modern'] .tokui-diff__lang { background: var(--tokui-primary-bg); color: var(--tokui-primary); border-radius: 999px; }
+[data-tokui-theme='modern'] .tokui-diff__line--add { background: var(--tokui-success-bg); }
+[data-tokui-theme='modern'] .tokui-diff__line--add .tokui-diff__code { color: var(--tokui-success); }
+[data-tokui-theme='modern'] .tokui-diff__line--remove { background: var(--tokui-danger-bg); }
+[data-tokui-theme='modern'] .tokui-diff__line--remove .tokui-diff__code { color: var(--tokui-danger); }
+
+/* Welcome：feature 卡 inset + hover 抬升；icon 软底 */
+[data-tokui-theme='modern'] .tokui-welcome-feature { border-color: var(--tokui-border); border-radius: var(--tokui-control-radius); }
+[data-tokui-theme='modern'] .tokui-welcome-feature:hover { box-shadow: var(--tokui-surface-shadow-hover); }
+[data-tokui-theme='modern'] .tokui-welcome-feature__icon { border-radius: var(--tokui-control-radius); }
+
+/* Latency：状态软底药丸 */
+[data-tokui-theme='modern'] .tokui-latency--generating { background: var(--tokui-primary-bg); }
+[data-tokui-theme='modern'] .tokui-latency--thinking { background: var(--tokui-warning-bg); }
+
+/* Dot：默认 idle 走 text-disabled，类型变体走 token（base 已有，确保不被压） */
+[data-tokui-theme='modern'] .tokui-dot__circle { background: var(--tokui-text-disabled); }
+[data-tokui-theme='modern'] .tokui-dot--primary .tokui-dot__circle { background: var(--tokui-primary); }
+[data-tokui-theme='modern'] .tokui-dot--success .tokui-dot__circle { background: var(--tokui-success); }
+[data-tokui-theme='modern'] .tokui-dot--warning .tokui-dot__circle { background: var(--tokui-warning); }
+[data-tokui-theme='modern'] .tokui-dot--danger .tokui-dot__circle,
+[data-tokui-theme='modern'] .tokui-dot--error .tokui-dot__circle { background: var(--tokui-danger); }
+[data-tokui-theme='modern'] .tokui-dot--info .tokui-dot__circle { background: var(--tokui-info); }

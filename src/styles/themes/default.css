@@ -1,0 +1,211 @@
+/**
+ * TokUI 默认主题
+ * 三层令牌体系：色板层 → 语义层 → 组件层
+ * 通过 :root 或 [data-tokui-theme="default"] 选择器限定作用域。
+ */
+:root,
+[data-tokui-theme="default"] {
+
+  /* ========== 第一层：色板层 ========== */
+
+  /* 主色色板（Primary #1677ff） */
+  --tokui-primary-1: #e6f4ff;
+  --tokui-primary-2: #bae0ff;
+  --tokui-primary-3: #91caff;
+  --tokui-primary-4: #69b1ff;
+  --tokui-primary-5: #4096ff;
+  --tokui-primary-6: #1677ff;
+  --tokui-primary-7: #0958d9;
+  --tokui-primary-8: #003eb3;
+  --tokui-primary-9: #002c8c;
+  --tokui-primary-10: #001d66;
+
+  /* 危险色色板（Danger #f5222d） */
+  --tokui-danger-1: #fff1f0;
+  --tokui-danger-2: #ffccc7;
+  --tokui-danger-3: #ffa39e;
+  --tokui-danger-4: #ff7875;
+  --tokui-danger-5: #ff4d4f;
+  --tokui-danger-6: #f5222d;
+  --tokui-danger-7: #cf1322;
+  --tokui-danger-8: #a8071a;
+  --tokui-danger-9: #820014;
+  --tokui-danger-10: #5c0011;
+
+  /* 成功色色板（Success #52c41a） */
+  --tokui-success-1: #f6ffed;
+  --tokui-success-2: #d9f7be;
+  --tokui-success-3: #b7eb8f;
+  --tokui-success-4: #95de64;
+  --tokui-success-5: #73d13d;
+  --tokui-success-6: #52c41a;
+  --tokui-success-7: #389e0d;
+  --tokui-success-8: #237804;
+  --tokui-success-9: #135200;
+  --tokui-success-10: #092b00;
+
+  /* 警告色色板（Warning #faad14） */
+  --tokui-warning-1: #fffbe6;
+  --tokui-warning-2: #fff1b8;
+  --tokui-warning-3: #ffe58f;
+  --tokui-warning-4: #ffd666;
+  --tokui-warning-5: #ffc53d;
+  --tokui-warning-6: #faad14;
+  --tokui-warning-7: #d48806;
+  --tokui-warning-8: #ad6800;
+  --tokui-warning-9: #874d00;
+  --tokui-warning-10: #613400;
+
+  /* ========== 第二层：语义层 ========== */
+
+  /* 主色语义 */
+  --tokui-primary: var(--tokui-primary-6);
+  --tokui-primary-hover: var(--tokui-primary-5);
+  --tokui-primary-active: var(--tokui-primary-7);
+  --tokui-primary-bg: var(--tokui-primary-1);
+  --tokui-primary-border: var(--tokui-primary-3);
+  --tokui-primary-focus: var(--tokui-primary-2);
+
+  /* 危险色语义 */
+  --tokui-danger: var(--tokui-danger-6);
+  --tokui-danger-hover: var(--tokui-danger-5);
+  --tokui-danger-active: var(--tokui-danger-7);
+  --tokui-danger-bg: var(--tokui-danger-1);
+  --tokui-danger-border: var(--tokui-danger-3);
+
+  /* 成功色语义 */
+  --tokui-success: var(--tokui-success-6);
+  --tokui-success-hover: var(--tokui-success-5);
+  --tokui-success-active: var(--tokui-success-7);
+  --tokui-success-bg: var(--tokui-success-1);
+  --tokui-success-border: var(--tokui-success-3);
+
+  /* 警告色语义 */
+  --tokui-warning: var(--tokui-warning-6);
+  --tokui-warning-hover: var(--tokui-warning-5);
+  --tokui-warning-active: var(--tokui-warning-7);
+  --tokui-warning-bg: var(--tokui-warning-1);
+  --tokui-warning-border: var(--tokui-warning-3);
+
+  /* 信息色语义（复用主色色板） */
+  --tokui-info: var(--tokui-primary-6);
+  --tokui-info-hover: var(--tokui-primary-5);
+  --tokui-info-bg: var(--tokui-primary-1);
+  --tokui-info-border: var(--tokui-primary-3);
+
+  /* 中性色（基于透明度） */
+  --tokui-text: rgba(0, 0, 0, 0.88);
+  --tokui-text-secondary: rgba(0, 0, 0, 0.65);
+  --tokui-text-muted: rgba(0, 0, 0, 0.45);
+  --tokui-text-disabled: rgba(0, 0, 0, 0.25);
+  --tokui-border: rgba(0, 0, 0, 0.06);
+  --tokui-bg: #ffffff;
+  --tokui-stripe: rgba(0, 0, 0, 0.04);
+
+  /* 辅助色 */
+  --tokui-dark: rgba(0, 0, 0, 0.88);
+  --tokui-light: rgba(0, 0, 0, 0.04);
+
+  /* ========== 第三层：组件层 ========== */
+
+  /* 通用 */
+  --tokui-radius: 4px;
+  --tokui-avatar-size: 80px;
+
+  /* 代码块 */
+  --tokui-code-bg: #f6f8fa;
+  --tokui-code-text: #24292f;
+
+  /* 按钮 */
+  --tokui-btn-primary-hover: var(--tokui-primary-7);
+  --tokui-btn-danger-hover: var(--tokui-danger-7);
+  --tokui-btn-success-hover: var(--tokui-success-7);
+  --tokui-btn-warning-hover: var(--tokui-warning-7);
+  --tokui-btn-warning-text: #fff;
+  --tokui-btn-ghost-hover-bg: var(--tokui-primary-hover);
+  --tokui-btn-ghost-hover-text: var(--tokui-primary);
+  --tokui-btn-text-inverse: #fff;
+
+  /* 灯箱（保持不变） */
+  --tokui-lightbox-bg: rgba(0, 0, 0, 0.85);
+  --tokui-lightbox-btn-bg: rgba(255, 255, 255, 0.2);
+  --tokui-lightbox-btn-hover: rgba(255, 255, 255, 0.4);
+  --tokui-lightbox-counter-bg: rgba(0, 0, 0, 0.5);
+  --tokui-lightbox-counter-color: #fff;
+
+  /* 警告组件（保持不变） */
+  --tokui-warning-text: #92400e;
+
+  /* 输入框状态 */
+  --tokui-input-error-focus: var(--tokui-danger-2);
+  --tokui-input-success-focus: var(--tokui-success-2);
+
+  /* 标签 Tag - 基础 */
+  --tokui-tag-bg: var(--tokui-stripe);
+  --tokui-tag-text: var(--tokui-text);
+  --tokui-tag-border: var(--tokui-border);
+  --tokui-tag-close-color: var(--tokui-text-muted);
+  --tokui-tag-close-hover: var(--tokui-text);
+
+  /* 标签 Tag - 主色 */
+  --tokui-tag-primary-bg: var(--tokui-primary-1);
+  --tokui-tag-primary-text: var(--tokui-primary-6);
+  --tokui-tag-primary-border: var(--tokui-primary-3);
+
+  /* 标签 Tag - 信息（复用主色） */
+  --tokui-tag-info-bg: var(--tokui-primary-1);
+  --tokui-tag-info-text: var(--tokui-primary-6);
+  --tokui-tag-info-border: var(--tokui-primary-3);
+
+  /* 标签 Tag - 成功 */
+  --tokui-tag-success-bg: var(--tokui-success-1);
+  --tokui-tag-success-text: var(--tokui-success-6);
+  --tokui-tag-success-border: var(--tokui-success-3);
+
+  /* 标签 Tag - 警告 */
+  --tokui-tag-warning-bg: var(--tokui-warning-1);
+  --tokui-tag-warning-text: var(--tokui-warning-6);
+  --tokui-tag-warning-border: var(--tokui-warning-3);
+
+  /* 标签 Tag - 错误（复用危险色） */
+  --tokui-tag-error-bg: var(--tokui-danger-1);
+  --tokui-tag-error-text: var(--tokui-danger-6);
+  --tokui-tag-error-border: var(--tokui-danger-3);
+
+  /* Callout 提示框 */
+  --tokui-callout-info-bg: var(--tokui-primary-1);
+  --tokui-callout-info-border: var(--tokui-primary-6);
+  --tokui-callout-success-bg: var(--tokui-success-1);
+  --tokui-callout-success-border: var(--tokui-success-6);
+  --tokui-callout-warning-bg: var(--tokui-warning-1);
+  --tokui-callout-warning-border: var(--tokui-warning-6);
+  --tokui-callout-error-bg: var(--tokui-danger-1);
+  --tokui-callout-error-border: var(--tokui-danger-6);
+  --tokui-callout-tip-bg: #f9f0ff;
+  --tokui-callout-tip-border: #722ed1;
+
+  /* Think 思考块 */
+  --tokui-think-bg: var(--tokui-stripe);
+  --tokui-think-border: var(--tokui-border);
+
+  /* Chart 图表 */
+  --tokui-chart-grid: #e8e8e8;
+  --tokui-chart-text: #999;
+  --tokui-chart-today-line: #fa541c;
+  --tokui-chart-task-dep: #bbb;
+
+  /* ========== 浮层 / 遮罩 / 反转（供 tokui.css 基类写死值引用） ========== */
+  /* 浮层阴影：两段柔光 + 1px 发丝边，Modern 风分层 */
+  --tokui-overlay-shadow: 0 4px 16px rgba(0, 0, 0, 0.10), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  /* 大浮层（dialog/drawer/command panel）：更重更柔 */
+  --tokui-overlay-shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  /* 全屏遮罩底色（dialog/drawer/command backdrop） */
+  --tokui-mask-bg: rgba(0, 0, 0, 0.45);
+  /* tooltip 反转配色：light = 深底浅字 */
+  --tokui-tooltip-bg: #1F2024;
+  --tokui-tooltip-text: #FFFFFF;
+  /* 状态「空闲」点（agent/tool-call idle/pending/denied），替代写死灰 */
+  --tokui-status-idle: rgba(0, 0, 0, 0.25);
+  /* carousel 箭头/圆点浮在图片暗渐变上的中性色 */
+  --tokui-overlay-bg-muted: rgba(255, 255, 255, 0.5);
+}

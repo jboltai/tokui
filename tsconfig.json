@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "paths": {
+      "@jboltai/tokui": ["./src/index.d.ts"],
+      "@jboltai/tokui/css": ["./dist/tokui.css"],
+      "@jboltai/tokui/builder": ["./src/server/tokui-builder.d.ts"]
+    }
+  },
+  "include": ["src/**/*.d.ts", "tests/types.test.ts"]
+}

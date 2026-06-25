@@ -1,0 +1,46 @@
+{
+  "name": "@jboltai/tokui-webc",
+  "version": "0.1.0",
+  "description": "TokUI Web Component — framework-agnostic <tokui-view> custom element wrapping @jboltai/tokui. Works in React, Vue, Svelte, Angular, vanilla, or any HTML.",
+  "license": "MIT",
+  "author": "sdxiaomu (https://jboltai.com)",
+  "homepage": "https://github.com/jboltai/tokui",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jboltai/tokui.git",
+    "directory": "packages/webc"
+  },
+  "main": "src/index.js",
+  "module": "src/index.js",
+  "types": "src/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js",
+      "require": "./src/index.js",
+      "default": "./src/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@jboltai/tokui": "workspace:^"
+  },
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "keywords": [
+    "tokui",
+    "web-component",
+    "custom-element",
+    "tokui-view",
+    "framework-agnostic"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

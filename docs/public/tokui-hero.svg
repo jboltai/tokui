@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="420" height="160" viewBox="0 0 420 160" fill="none">
+  <defs>
+    <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6366f1"/>
+      <stop offset="0.5" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#ec4899"/>
+    </linearGradient>
+    <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a78bfa"/>
+      <stop offset="1" stop-color="#6366f1"/>
+    </linearGradient>
+  </defs>
+  <!-- 方括号视觉 -->
+  <rect x="6" y="12" width="408" height="136" rx="22" fill="url(#g1)" opacity="0.10"/>
+  <path d="M30 44 L18 44 L18 116 L30 116" stroke="url(#g1)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M390 44 L402 44 L402 116 L390 116" stroke="url(#g1)" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Token 流动点 -->
+  <circle cx="120" cy="80" r="7" fill="#6366f1"/>
+  <circle cx="150" cy="80" r="5" fill="#8b5cf6" opacity="0.7"/>
+  <circle cx="174" cy="80" r="4" fill="#ec4899" opacity="0.5"/>
+  <!-- 箭头 -->
+  <path d="M196 80 L224 80" stroke="url(#g2)" stroke-width="4" stroke-linecap="round"/>
+  <path d="M218 73 L228 80 L218 87" stroke="url(#g2)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- UI 方块（渲染结果隐喻） -->
+  <rect x="240" y="52" width="120" height="14" rx="4" fill="url(#g1)"/>
+  <rect x="240" y="74" width="80" height="10" rx="4" fill="#8b5cf6" opacity="0.6"/>
+  <rect x="240" y="90" width="100" height="10" rx="4" fill="#6366f1" opacity="0.5"/>
+  <rect x="240" y="106" width="56" height="16" rx="8" fill="url(#g2)"/>
+</svg>

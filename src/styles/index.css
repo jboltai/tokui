@@ -1,0 +1,8 @@
+/* TokUI 打包样式入口。
+ * 主题令牌（CSS 变量）必须先于组件样式定义，故 @import 顺序：主题先行。
+ * Vite (cssCodeSplit:false) 会将本入口及其 @import 合并压缩为单个 dist/tokui.css。 */
+@import './themes/default.css';
+@import './themes/dark.css';
+@import './themes/modern.css';
+@import './themes/modern-dark.css';
+@import './tokui.css';

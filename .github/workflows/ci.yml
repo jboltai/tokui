@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test & Build (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 20, 22]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Setup Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Run full test suite
+        run: npm run test:all
+
+      - name: Build library (ESM + UMD + CJS + CSS)
+        run: npm run build
+
+      - name: Verify build artifacts (smoke import)
+        run: |
+          node --input-type=module -e "import('./dist/tokui.mjs').then(m=>{ if(!m.TokUI && !(m.default&&m.default.TokUI)) throw new Error('ESM TokUI missing'); console.log('ESM OK'); })"
+          node -e "const m=require('./dist/tokui.cjs'); if(!m.TokUI) throw new Error('CJS TokUI missing'); console.log('CJS OK');"

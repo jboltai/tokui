@@ -1,0 +1,52 @@
+{
+  "name": "@jboltai/tokui-react",
+  "version": "0.1.0",
+  "description": "TokUI React adapter — <TokUIView> component and useTokUIStream() hook for streaming DSL UI.",
+  "license": "MIT",
+  "author": "sdxiaomu (https://jboltai.com)",
+  "homepage": "https://github.com/jboltai/tokui",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jboltai/tokui.git",
+    "directory": "packages/react"
+  },
+  "main": "src/index.js",
+  "module": "src/index.js",
+  "types": "src/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./src/index.js",
+      "require": "./src/index.js",
+      "default": "./src/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@jboltai/tokui": "workspace:^"
+  },
+  "peerDependencies": {
+    "react": ">=16.8.0"
+  },
+  "peerDependenciesMeta": {
+    "react": { "optional": false }
+  },
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "keywords": [
+    "tokui",
+    "react",
+    "streaming-ui",
+    "dsl",
+    "hook"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

@@ -1,0 +1,9 @@
+# Issue 模板配置
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 提问 / 讨论
+    url: https://github.com/jboltai/tokui/discussions
+    about: 使用问题、想法讨论请到 Discussions（Issue 仅用于 Bug 与具体功能请求）。
+  - name: 🔒 安全漏洞
+    url: https://github.com/jboltai/tokui/blob/master/SECURITY.md
+    about: 安全问题请勿公开 Issue，按 SECURITY.md 私下上报。

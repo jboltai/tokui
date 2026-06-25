@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+.superpowers/
+.playwright-cli/
+docs/.vitepress/cache/
+docs/.vitepress/dist/
+docs/superpowers/
+server.pid
+.idea/
+coverage/

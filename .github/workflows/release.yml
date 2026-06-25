@@ -1,0 +1,50 @@
+name: Release
+
+# 打 v* 标签时触发：构建并发布到 npm（带 provenance）。
+# 需要 repo secret: NPM_TOKEN（npm 自动化 token，支持 publish）。
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  id-token: write   # npm publish --provenance 必需
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build library
+        run: npm run build
+
+      - name: Verify (typecheck + tests + smoke import)
+        run: |
+          npm run typecheck
+          npm run test:all
+          node --input-type=module -e "import('./dist/tokui.mjs').then(m=>{ if(!m.TokUI && !(m.default&&m.default.TokUI)) throw new Error('ESM TokUI missing'); })"
+
+      - name: Publish all workspace packages
+        # -r 递归发布 monorepo 全部包；--no-git-checks 允许在脏工作区发布；
+        # workspace:^ 会被 pnpm 自动改写为 ^0.x.0；provenance 由 publishConfig 开启。
+        run: pnpm publish -r --no-git-checks --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

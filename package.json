@@ -1,0 +1,101 @@
+{
+  "name": "@jboltai/tokui",
+  "version": "0.1.0",
+  "description": "TokUI — Zero-dependency streaming UI description & rendering framework for AI chat. Describe UI with a tiny DSL, stream over SSE, render to real DOM incrementally.",
+  "keywords": [
+    "tokui",
+    "streaming-ui",
+    "dsl",
+    "ui-framework",
+    "ai",
+    "sse",
+    "server-sent-events",
+    "component",
+    "render",
+    "framework-agnostic",
+    "react",
+    "vue",
+    "svelte",
+    "web-components"
+  ],
+  "license": "MIT",
+  "author": "sdxiaomu (https://jboltai.com)",
+  "contributors": [
+    "sdxiaomu <mumengmeng@vecspc.com>"
+  ],
+  "homepage": "https://github.com/jboltai/tokui",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jboltai/tokui.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jboltai/tokui/issues"
+  },
+  "main": "dist/tokui.cjs",
+  "module": "dist/tokui.mjs",
+  "types": "src/index.d.ts",
+  "browser": "dist/tokui.umd.js",
+  "unpkg": "dist/tokui.umd.js",
+  "jsdelivr": "dist/tokui.umd.js",
+  "style": "dist/tokui.css",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "import": "./dist/tokui.mjs",
+      "require": "./dist/tokui.cjs",
+      "browser": "./dist/tokui.umd.js",
+      "default": "./dist/tokui.mjs"
+    },
+    "./css": "./dist/tokui.css",
+    "./builder": {
+      "types": "./src/server/tokui-builder.d.ts",
+      "node": "./src/server/tokui-builder.js",
+      "require": "./src/server/tokui-builder.js",
+      "default": "./src/server/tokui-builder.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "src/index.d.ts",
+    "src/server/tokui-builder.js",
+    "src/server/tokui-builder.d.ts",
+    "README.md",
+    "README_EN.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "test": "npm run test:all",
+    "test:all": "for f in tests/test-*.js; do node \"$f\" || exit 1; done",
+    "test:core": "node tests/test-event-bus.js && node tests/test-theme.js && node tests/test-renderer.js",
+    "test:parser": "node tests/test-parser.js",
+    "test:builder": "node tests/test-builder.js",
+    "test:layout": "node tests/test-layout.js",
+    "test:table": "node tests/test-table.js",
+    "typecheck": "tsc",
+    "coverage": "c8 --include='src/**/*.js' --exclude='src/server/**' npm run test:all",
+    "server": "node src/server/sse-server.js",
+    "dev": "vite",
+    "build": "vite build --mode lib",
+    "prepublishOnly": "npm run build && npm run typecheck && npm run test:all",
+    "build:lib": "vite build --mode lib",
+    "dev:lib": "vite build --mode lib --watch",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "npm run build && vitepress build docs",
+    "docs:preview": "vitepress preview docs"
+  },
+  "devDependencies": {
+    "c8": "^10.1.3",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16",
+    "vitepress": "^1.6.4"
+  }
+}
