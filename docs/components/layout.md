@@ -133,17 +133,27 @@
 
 ## 轮播 `carousel` / `carousel-item`
 
-`carousel` 容器，子项为 `carousel-item`（或直接 `img`）。**`carousel` 的子项也可写 `[item]`**——在 `carousel` 内自动按幻灯片渲染（与 `list`/`desc` 内的 `[item]` 同名不同义，按父级区分；`item` 与 `carousel-item` 等价，可混用）。`auto` 设置自动播放间隔（毫秒），支持左右箭头、指示点、拖动、键盘左右键切换。
+`carousel` 容器，子项为 `carousel-item`（或直接 `img`）。**`carousel` 的子项也可写 `[item]`**——在 `carousel` 内自动按幻灯片渲染（与 `list`/`desc` 内的 `[item]` 同名不同义，按父级区分；`item` 与 `carousel-item` 等价，可混用）。`auto` 设置自动播放间隔（毫秒），支持左右箭头、指示点、拖动、键盘左右键切换。`thumb` 改用下方缩略图图例（替代指示点，点击丝滑跳转）。尺寸：`w` 宽、`h` 高（纯数字按 px，亦支持 `%`/`vw`/`rem`），或 `ratio` 宽高比（如 `16:9` / `4:3` / `1`）；设了 `h` 或 `ratio` 时幻灯片撑满高度、图片 `object-fit:cover` 裁切，`h` 优先于 `ratio`。
 
 | 属性 | 含义 | 适用 | 示例 |
 |------|------|------|------|
 | `auto` | 自动播放间隔（ms） | `carousel` | `auto:3000` |
 | `id` | 标识 | `carousel` | `id:myCarousel` |
+| `thumb` | 显示缩略图图例（替代指示点） | `carousel` | `thumb` |
+| `w` | 宽度（纯数字→px，或 `%`/`vw`/`rem`） | `carousel` | `w:480` / `w:100%` |
+| `h` | 高度（px，优先于 `ratio`） | `carousel` | `h:240` |
+| `ratio` | 宽高比（`16:9` / `4:3` / `1`） | `carousel` | `ratio:16:9` |
 | `s` | 图片地址 | `carousel-item` / `item` | `s:https://...` |
 | `tt` | 幻灯片标题 | `carousel-item` / `item` | `tt:第一张` |
 | `tx` | 幻灯片描述 | `carousel-item` / `item` | `tx:说明文字` |
 
 <Playground dsl='[carousel auto:4000][item s:https://picsum.photos/seed/c1/600/280 tt:第一张 tx:用 item 声明][carousel-item s:https://picsum.photos/seed/c2/600/280 tt:第二张 tx:两种可混用][item s:https://picsum.photos/seed/c3/600/280 tt:第三张 tx:等价于 carousel-item][/carousel]' />
+
+固定尺寸（`h`）/ 比例尺寸（`ratio`）/ 缩略图图例（`thumb`）：
+
+<Playground dsl='[row][col span:6][carousel h:200][carousel-item s:https://picsum.photos/seed/cs1/600/300 tt:固定高 200px][/carousel][/col][col span:6][carousel ratio:16:9][carousel-item s:https://picsum.photos/seed/cs2/600/338 tt:16:9 比例][/carousel][/col][/row]' />
+
+<Playground dsl='[carousel thumb ratio:21:9][carousel-item s:https://picsum.photos/seed/ct1/800/343 tt:日出][carousel-item s:https://picsum.photos/seed/ct2/800/343 tt:正午][carousel-item s:https://picsum.photos/seed/ct3/800/343 tt:黄昏][carousel-item s:https://picsum.photos/seed/ct4/800/343 tt:夜晚][/carousel]' />
 
 ## 树 `tree` / `tn`
 

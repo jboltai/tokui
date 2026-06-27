@@ -834,16 +834,46 @@ function registerLayoutComponents(renderer) {
   }
 
   // === Carousel 轮播图容器 ===
-  // attrs: id, auto(自动播放间隔ms)
+  // attrs: id, auto(自动播放间隔ms), thumb(显示缩略图图例)
   // 子节点为 carousel-item / item（等价）/ img 类型
   renderer.register('carousel', (node, rc) => {
     var attrs = node.attrs || {};
-    var wrapperAttrs = { class: 'tokui-carousel' };
+    var useThumb = attrs.thumb !== undefined;
+    var wrapperAttrs = { class: 'tokui-carousel' + (useThumb ? ' tokui-carousel--thumb' : '') };
     if (attrs.id) wrapperAttrs.id = attrs.id;
     wrapperAttrs['data-carousel'] = attrs.id || ('carousel-' + Math.random().toString(36).slice(2, 8));
     var wrapper = el('div', wrapperAttrs);
 
+    // viewport：包裹 track+箭头+圆点，提供圆角裁剪与箭头/圆点定位上下文
+    var viewport = el('div', { class: 'tokui-carousel__viewport' });
     var track = el('div', { class: 'tokui-carousel__track' });
+
+    // 尺寸：w 宽（纯数字→px，亦支持 %/vw/rem）；h 高（px）；ratio 宽高比（如 16:9 / 4:3 / 1）。
+    // 设了 h 或 ratio 时加 --sized，track/slide/img 撑满视口高度（img object-fit:cover）。
+    function sizeVal(v) {
+      v = String(v).trim();
+      return /^\d+(\.\d+)?$/.test(v) ? v + 'px' : v;
+    }
+    function parseRatio(v) {
+      var parts = String(v).split(':');
+      if (parts.length === 2) {
+        var a = parseFloat(parts[0]), b = parseFloat(parts[1]);
+        return a && b ? a / b : 0;
+      }
+      var n = parseFloat(v);
+      return n > 0 ? n : 0;
+    }
+    if (attrs.w) wrapper.style.width = sizeVal(attrs.w);
+    if (attrs.h) {
+      viewport.style.height = sizeVal(attrs.h);
+      wrapper.classList.add('tokui-carousel--sized');
+    } else if (attrs.ratio) {
+      var ar = parseRatio(attrs.ratio);
+      if (ar) {
+        viewport.style.aspectRatio = String(ar);
+        wrapper.classList.add('tokui-carousel--sized');
+      }
+    }
 
     // 收集 carousel-item / item（等价）/ img 子节点
     var itemNodes = (node.children || []).filter(function(c) {
@@ -863,7 +893,7 @@ function registerLayoutComponents(renderer) {
       }
     });
 
-    wrapper.appendChild(track);
+    viewport.appendChild(track);
 
     // 左右箭头
     var prevBtn = el('button', {
@@ -872,7 +902,7 @@ function registerLayoutComponents(renderer) {
       'data-dir': 'prev'
     });
     prevBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>';
-    wrapper.appendChild(prevBtn);
+    viewport.appendChild(prevBtn);
 
     var nextBtn = el('button', {
       class: 'tokui-carousel__arrow tokui-carousel__arrow--next',
@@ -880,43 +910,105 @@ function registerLayoutComponents(renderer) {
       'data-dir': 'next'
     });
     nextBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg>';
-    wrapper.appendChild(nextBtn);
+    viewport.appendChild(nextBtn);
 
-    // 指示点
-    var dots = el('div', { class: 'tokui-carousel__dots' });
-    var slideCount = itemNodes.length;
-    for (var i = 0; i < slideCount; i++) {
-      var dot = el('button', {
-        class: 'tokui-carousel__dot' + (i === 0 ? ' tokui-carousel__dot--active' : ''),
-        'aria-label': '第' + (i + 1) + '张',
-        'data-index': String(i)
+    wrapper.appendChild(viewport);
+
+    // 指示器（圆点 / 缩略图）延迟构建：流式下子节点经 _slot 后续追加到 track，
+    // render 时 node.children 为空，须等 track 实际有 slide 后（一次性立即 / 流式在 close hook）再建。
+    var dots = null;
+    var thumbs = null;
+    var indicatorsBuilt = false;
+    // track 的直接 slide 子节点（用 .children 过滤，规避某些环境 :scope> 支持差异）
+    function getSlides() {
+      return Array.prototype.filter.call(track.children, function (c) {
+        return c && c.nodeType === 1 && /\btokui-carousel__slide\b/.test(c.className || '');
       });
-      dots.appendChild(dot);
     }
-    wrapper.appendChild(dots);
+    function ensureIndicators() {
+      if (indicatorsBuilt) return;
+      var slideEls = getSlides();
+      if (!slideEls.length) return; // 等待子节点到达（流式）
+      indicatorsBuilt = true;
+      if (useThumb) {
+        // 缩略图图例：track 下方一排可点击小图，点击丝滑切换（复用 track transform 过渡）
+        thumbs = el('div', { class: 'tokui-carousel__thumbs' });
+        slideEls.forEach(function(slide, ti) {
+          var imgEl = slide.querySelector('img');
+          var src = imgEl ? imgEl.getAttribute('src') : '';
+          var titleEl = slide.querySelector('.tokui-carousel__slide-title');
+          var alt = titleEl ? (titleEl.textContent || '').trim() : '';
+          var thumb = el('button', {
+            class: 'tokui-carousel__thumb' + (ti === 0 ? ' tokui-carousel__thumb--active' : ''),
+            'aria-label': '第' + (ti + 1) + '张',
+            'data-index': String(ti)
+          });
+          if (src) {
+            var tImg = el('img', { src: src, alt: alt });
+            tImg.style.width = '100%';
+            tImg.style.height = '100%';
+            tImg.style.objectFit = 'cover';
+            thumb.appendChild(tImg);
+          } else {
+            thumb.textContent = String(ti + 1); // 无图幻灯片：序号占位
+          }
+          thumbs.appendChild(thumb);
+        });
+        wrapper.appendChild(thumbs);
+      } else {
+        dots = el('div', { class: 'tokui-carousel__dots' });
+        slideEls.forEach(function(slide, di) {
+          var dot = el('button', {
+            class: 'tokui-carousel__dot' + (di === 0 ? ' tokui-carousel__dot--active' : ''),
+            'aria-label': '第' + (di + 1) + '张',
+            'data-index': String(di)
+          });
+          dots.appendChild(dot);
+        });
+        viewport.appendChild(dots);
+      }
+    }
 
     wrapper._slot = track;
     wrapper._tokuiType = 'carousel';
 
     // 交互行为绑定
     function initCarouselBehavior() {
+      ensureIndicators(); // 先构建指示器（一次性/流式统一入口）
       var currentIndex = 0;
-      var slideEls = track.querySelectorAll(':scope > .tokui-carousel__slide');
-      var dotEls = dots.querySelectorAll('.tokui-carousel__dot');
+      var slideEls = getSlides();
+      var dotEls = dots ? dots.querySelectorAll('.tokui-carousel__dot') : [];
+      var thumbEls = thumbs ? thumbs.querySelectorAll('.tokui-carousel__thumb') : [];
       var autoInterval = null;
+
+      function setActive() {
+        if (dotEls.forEach) {
+          dotEls.forEach(function(d, di) {
+            if (di === currentIndex) d.classList.add('tokui-carousel__dot--active');
+            else d.classList.remove('tokui-carousel__dot--active');
+          });
+        }
+        if (thumbEls.forEach) {
+          thumbEls.forEach(function(t, ti) {
+            if (ti === currentIndex) {
+              t.classList.add('tokui-carousel__thumb--active');
+              // active 缩略图滚入可视区
+              if (t.scrollIntoView) {
+                t.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+              }
+            } else {
+              t.classList.remove('tokui-carousel__thumb--active');
+            }
+          });
+        }
+      }
 
       function goTo(index) {
         if (index < 0) index = slideEls.length - 1;
         if (index >= slideEls.length) index = 0;
         currentIndex = index;
         track.style.transform = 'translateX(-' + (currentIndex * 100) + '%)';
-        dotEls.forEach(function(d, di) {
-          if (di === currentIndex) {
-            d.classList.add('tokui-carousel__dot--active');
-          } else {
-            d.classList.remove('tokui-carousel__dot--active');
-          }
-        });
+        setActive();
       }
 
       prevBtn.addEventListener('click', function() {
@@ -927,12 +1019,22 @@ function registerLayoutComponents(renderer) {
         goTo(currentIndex + 1);
         resetAuto();
       });
-      dots.addEventListener('click', function(e) {
-        var dot = e.target.closest('.tokui-carousel__dot');
-        if (!dot) return;
-        goTo(parseInt(dot.getAttribute('data-index')));
-        resetAuto();
-      });
+      if (dots) {
+        dots.addEventListener('click', function(e) {
+          var dot = e.target.closest('.tokui-carousel__dot');
+          if (!dot) return;
+          goTo(parseInt(dot.getAttribute('data-index')));
+          resetAuto();
+        });
+      }
+      if (thumbs) {
+        thumbs.addEventListener('click', function(e) {
+          var thumb = e.target.closest('.tokui-carousel__thumb');
+          if (!thumb) return;
+          goTo(parseInt(thumb.getAttribute('data-index')));
+          resetAuto();
+        });
+      }
 
       function startAuto() {
         var interval = parseInt(attrs.auto);

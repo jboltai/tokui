@@ -257,6 +257,31 @@
   box-shadow: none;
 }
 
+/* 验证态：base 的 .tokui-input--error/--success（0,1,0）被上面的四边框覆盖（0,2,0）压掉，
+   同 underline 在此同特异性恢复。error→danger / success→success 边框 + 同色双环 focus
+   （白间隙 + 半透同色环，对应 --tokui-input-error-focus / --success-focus）。
+   textarea 复用 .tokui-input 类，自动随此生效。 */
+[data-tokui-theme='modern'] .tokui-input--error,
+[data-tokui-theme='modern'] .tokui-select--error {
+  border-color: var(--tokui-danger);
+}
+[data-tokui-theme='modern'] .tokui-input--error:focus,
+[data-tokui-theme='modern'] .tokui-select--error:focus {
+  outline: none;
+  border-color: var(--tokui-danger);
+  box-shadow: 0 0 0 2px var(--tokui-bg), 0 0 0 4px var(--tokui-input-error-focus);
+}
+[data-tokui-theme='modern'] .tokui-input--success,
+[data-tokui-theme='modern'] .tokui-select--success {
+  border-color: var(--tokui-success);
+}
+[data-tokui-theme='modern'] .tokui-input--success:focus,
+[data-tokui-theme='modern'] .tokui-select--success:focus {
+  outline: none;
+  border-color: var(--tokui-success);
+  box-shadow: 0 0 0 2px var(--tokui-bg), 0 0 0 4px var(--tokui-input-success-focus);
+}
+
 /* Slider：Modern 风 —— 加粗药丸轨道(surface-secondary) + 主色填充 + 主色实心 thumb(背景色边框造分离)。
    参考 .slider-track{h-2 rounded-full bg-surface-secondary} / .slider-fill{bg-accent} / .slider-thumb{size-4 bg-accent border-2 border-background}。 */
 [data-tokui-theme='modern'] .tokui-slider__track {
@@ -733,6 +758,12 @@
 /* Carousel：inset 边框 + dot token */
 [data-tokui-theme='modern'] .tokui-carousel { border-radius: var(--tokui-control-radius); box-shadow: var(--tokui-inset-shadow); }
 [data-tokui-theme='modern'] .tokui-carousel__arrow { box-shadow: var(--tokui-shadow-sm); }
+/* Carousel 缩略图：Modern 风 —— 大号圆角图例 + shadow-sm，active 走主色双环（白间隙 + primary ring） */
+[data-tokui-theme='modern'] .tokui-carousel--thumb { background: var(--tokui-bg); }
+[data-tokui-theme='modern'] .tokui-carousel__thumbs { padding: 12px; gap: 10px; }
+[data-tokui-theme='modern'] .tokui-carousel__thumb { width: 84px; height: 56px; border-radius: 10px; border: none; box-shadow: var(--tokui-shadow-sm); opacity: 0.6; }
+[data-tokui-theme='modern'] .tokui-carousel__thumb:hover { opacity: 0.85; }
+[data-tokui-theme='modern'] .tokui-carousel__thumb--active { opacity: 1; box-shadow: 0 0 0 2px var(--tokui-bg), 0 0 0 4px var(--tokui-primary-focus), var(--tokui-shadow-sm); }
 
 /* Artifact / Sandbox / Diff：inset 边框 + header 次级表面 + lang badge 药丸软底 + tab active primary */
 [data-tokui-theme='modern'] .tokui-artifact,

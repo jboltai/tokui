@@ -923,6 +923,17 @@ textarea.tokui-textarea--auto { resize: none !important; }
 .tokui-input--underline, .tokui-select--underline { border: none; border-bottom: 1px solid var(--tokui-border); border-radius: 0; background: transparent; padding-left: 0; padding-right: 0; }
 .tokui-input--underline:focus, .tokui-select--underline:focus { box-shadow: none; border-bottom-color: var(--tokui-primary); }
 
+/* underline + 验证态组合：underline 的 border-bottom（源序在后、同特异性 0,1,0）压过 --error/--success
+   的 border-color，且 underline:focus 会把底线染回 primary。补 (0,2,0) 组合规则让底线随验证色，focus 不回退。 */
+.tokui-input--underline.tokui-input--error,
+.tokui-select--underline.tokui-select--error { border-bottom-color: var(--tokui-danger); }
+.tokui-input--underline.tokui-input--error:focus,
+.tokui-select--underline.tokui-select--error:focus { border-bottom-color: var(--tokui-danger); box-shadow: none; }
+.tokui-input--underline.tokui-input--success,
+.tokui-select--underline.tokui-select--success { border-bottom-color: var(--tokui-success); }
+.tokui-input--underline.tokui-input--success:focus,
+.tokui-select--underline.tokui-select--success:focus { border-bottom-color: var(--tokui-success); box-shadow: none; }
+
 /* input/pwd pill 圆角变体 */
 .tokui-input--pill { border-radius: 999px; }
 
@@ -976,7 +987,7 @@ textarea.tokui-textarea--auto { resize: none !important; }
   width: 6px;
   height: 100%;
   background: rgba(0, 0, 0, 0.15);
-  border-radius: 3px 0 0 3px;
+  border-radius: 3px 0 0 0;
 }
 .tokui-h1--ribbon::after, .tokui-h2--ribbon::after, .tokui-h3--ribbon::after,
 .tokui-h4--ribbon::after, .tokui-h5--ribbon::after, .tokui-h6--ribbon::after {
@@ -989,6 +1000,51 @@ textarea.tokui-textarea--auto { resize: none !important; }
   border-style: solid;
   border-width: 8px 8px 0 0;
   border-color: rgba(0, 0, 0, 0.18) transparent transparent transparent;
+}
+
+/* Ribbon 暗色适配：::before/::after 落在缎带外的暗色页面区，黑色半透叠层不可见，
+   改为深 primary 折叠色（不透明）+ 加深投影，使其在暗背景上仍可辨 */
+[data-tokui-theme="dark"] .tokui-h1--ribbon,
+[data-tokui-theme="dark"] .tokui-h2--ribbon,
+[data-tokui-theme="dark"] .tokui-h3--ribbon,
+[data-tokui-theme="dark"] .tokui-h4--ribbon,
+[data-tokui-theme="dark"] .tokui-h5--ribbon,
+[data-tokui-theme="dark"] .tokui-h6--ribbon,
+[data-tokui-theme="modern-dark"] .tokui-h1--ribbon,
+[data-tokui-theme="modern-dark"] .tokui-h2--ribbon,
+[data-tokui-theme="modern-dark"] .tokui-h3--ribbon,
+[data-tokui-theme="modern-dark"] .tokui-h4--ribbon,
+[data-tokui-theme="modern-dark"] .tokui-h5--ribbon,
+[data-tokui-theme="modern-dark"] .tokui-h6--ribbon {
+  box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.45);
+}
+[data-tokui-theme="dark"] .tokui-h1--ribbon::before,
+[data-tokui-theme="dark"] .tokui-h2--ribbon::before,
+[data-tokui-theme="dark"] .tokui-h3--ribbon::before,
+[data-tokui-theme="dark"] .tokui-h4--ribbon::before,
+[data-tokui-theme="dark"] .tokui-h5--ribbon::before,
+[data-tokui-theme="dark"] .tokui-h6--ribbon::before,
+[data-tokui-theme="modern-dark"] .tokui-h1--ribbon::before,
+[data-tokui-theme="modern-dark"] .tokui-h2--ribbon::before,
+[data-tokui-theme="modern-dark"] .tokui-h3--ribbon::before,
+[data-tokui-theme="modern-dark"] .tokui-h4--ribbon::before,
+[data-tokui-theme="modern-dark"] .tokui-h5--ribbon::before,
+[data-tokui-theme="modern-dark"] .tokui-h6--ribbon::before {
+  background: color-mix(in srgb, var(--tokui-primary) 70%, #000);
+}
+[data-tokui-theme="dark"] .tokui-h1--ribbon::after,
+[data-tokui-theme="dark"] .tokui-h2--ribbon::after,
+[data-tokui-theme="dark"] .tokui-h3--ribbon::after,
+[data-tokui-theme="dark"] .tokui-h4--ribbon::after,
+[data-tokui-theme="dark"] .tokui-h5--ribbon::after,
+[data-tokui-theme="dark"] .tokui-h6--ribbon::after,
+[data-tokui-theme="modern-dark"] .tokui-h1--ribbon::after,
+[data-tokui-theme="modern-dark"] .tokui-h2--ribbon::after,
+[data-tokui-theme="modern-dark"] .tokui-h3--ribbon::after,
+[data-tokui-theme="modern-dark"] .tokui-h4--ribbon::after,
+[data-tokui-theme="modern-dark"] .tokui-h5--ribbon::after,
+[data-tokui-theme="modern-dark"] .tokui-h6--ribbon::after {
+  border-color: color-mix(in srgb, var(--tokui-primary) 70%, #000) transparent transparent transparent;
 }
 
 /* Underline: 底线风格 — 背景色块式高亮（记号笔效果） */
@@ -2916,6 +2972,22 @@ textarea.tokui-textarea--auto { resize: none !important; }
 .tokui-carousel__dot--active { background: var(--tokui-btn-text-inverse); }
 [data-tokui-theme="dark"] .tokui-carousel__arrow { background: rgba(0,0,0,0.5); color: #fff; }
 [data-tokui-theme="dark"] .tokui-carousel__arrow:hover { background: rgba(0,0,0,0.8); }
+
+/* viewport：包裹 track+箭头+圆点，圆角裁剪并提供定位上下文 */
+.tokui-carousel__viewport { position: relative; overflow: hidden; border-radius: inherit; }
+
+/* 固定/比例尺寸（设了 h 或 ratio）：track/slide/img 撑满视口高度，img object-fit:cover */
+.tokui-carousel--sized .tokui-carousel__track,
+.tokui-carousel--sized .tokui-carousel__slide { height: 100%; }
+.tokui-carousel--sized .tokui-carousel__slide img { height: 100%; object-fit: cover; }
+
+/* 缩略图图例：track 下方一排可点击小图，点击丝滑切换（复用 track transform 过渡） */
+.tokui-carousel--thumb { background: var(--tokui-bg, #fff); }
+.tokui-carousel__thumbs { display: flex; gap: 8px; padding: 10px; overflow-x: auto; justify-content: safe center; scrollbar-width: thin; }
+.tokui-carousel__thumb { flex: 0 0 auto; width: 72px; height: 48px; padding: 0; border: 2px solid transparent; border-radius: 6px; overflow: hidden; cursor: pointer; background: var(--tokui-stripe, #f5f5f5); opacity: 0.55; transition: opacity 0.2s, border-color 0.2s, transform 0.2s; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; color: var(--tokui-text-muted); }
+.tokui-carousel__thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.tokui-carousel__thumb:hover { opacity: 0.85; transform: translateY(-1px); }
+.tokui-carousel__thumb--active { opacity: 1; border-color: var(--tokui-primary); }
 
 /* ====== Popover 气泡卡片 ====== */
 .tokui-popover { position: relative; display: inline-block; }

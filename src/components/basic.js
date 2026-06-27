@@ -1839,6 +1839,9 @@ function registerBasicComponents(renderer) {
     var decimals = parseInt(attrs.dec) || 0;
 
     var wrapper = el('div', { class: 'tokui-stat' });
+    // 透传 id：upd 指令靠 document.getElementById(id) 定位 stat 并调用 _update，
+    // 不透传则 upd 找不到目标、数值不更新（与 switch/form 等组件一致）。
+    if (attrs.id) wrapper.id = attrs.id;
 
     if (title) {
       var titleEl = el('div', { class: 'tokui-stat__title' });

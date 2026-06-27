@@ -229,7 +229,7 @@ v:avatar                         ; 图片头像样式
 | `step` | 容器 | `tt` `status` | 步骤 |
 | `desc` | 容器 | `cols` `stripe` `bordered` `v` `lw` | 描述列表；子项用 `item`（推荐）或 `desc-item`，两者等价 |
 | `desc-item` | 自闭合 | `l` `tx` `span` | 描述项；推荐改用 `item`（desc 内自动按描述项渲染） |
-| `carousel` | 容器 | `auto` `id` | 轮播 |
+| `carousel` | 容器 | `auto` `id` `thumb` `w` `h` `ratio` | 轮播 |
 | `carousel-item` | 容器 | `s` `tt` `tx` | 轮播项 |
 | `tree` | 容器 | `l` `id` `clk` `chk` `dis` | 树 |
 | `tn` | 容器 | `v` `tx` `open` `leaf` `chk` `dis` | 树节点 |

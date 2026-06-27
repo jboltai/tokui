@@ -1682,7 +1682,7 @@ const DSL_REF = {
         { tag: 'step', desc: '步骤 容器 tt:title status', self: false },
         { tag: 'desc', desc: '描述列表 容器 cols stripe bordered v:horizontal lw 子项用 item(推荐)或 desc-item', self: false },
         { tag: 'desc-item', desc: '描述项 l:label tx:value span 推荐改用 item(desc 内等价)', self: true },
-        { tag: 'carousel', desc: '轮播 容器 auto interval id', self: false },
+        { tag: 'carousel', desc: '轮播 容器 auto id thumb 缩略图 w 宽 h 高 ratio 比例(16:9)', self: false },
         { tag: 'carousel-item', desc: '轮播项 容器 s:image tt tx', self: false },
         { tag: 'tree', desc: '树 容器 l:label id clk chk/dis', self: false },
         { tag: 'tn', desc: '树节点 容器 v tx open leaf chk/dis', self: false },

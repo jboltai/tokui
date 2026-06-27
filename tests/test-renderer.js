@@ -857,6 +857,28 @@ test('stat renders trend down', () => {
   assert.strictEqual(trend.textContent, '↓');
 });
 
+test('stat exposes id attr so upd can target it via getElementById', () => {
+  const rc = new TokUIRenderer();
+  registerBasicComponents(rc);
+  const node = { type: 'stat', attrs: { id: 'uss1-abc', v: '0', l: '在线用户', trend: 'up' }, children: [] };
+  const dom = rc.render(node);
+  // upd 指令靠 document.getElementById(id) 定位目标并调用 _update；
+  // stat 必须把 attrs.id 透传到 wrapper，否则 upd 找不到元素、数值不更新。
+  assert.strictEqual(dom.id, 'uss1-abc');
+});
+
+test('stat _update applies new value and trend', () => {
+  const rc = new TokUIRenderer();
+  registerBasicComponents(rc);
+  const node = { type: 'stat', attrs: { id: 's1', v: '0', trend: 'up' }, children: [] };
+  const dom = rc.render(node);
+  dom._update({ v: '128', trend: 'down' });
+  assert.strictEqual(dom.querySelector('.tokui-stat__number').textContent, '128');
+  const trend = dom.querySelector('.tokui-stat__trend');
+  assert.ok(trend.classList.contains('tokui-stat__trend--down'));
+  assert.strictEqual(trend.textContent, '↓');
+});
+
 test('stat without title has no title element', () => {
   const rc = new TokUIRenderer();
   registerBasicComponents(rc);

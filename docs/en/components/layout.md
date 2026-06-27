@@ -133,17 +133,27 @@ A horizontal flow indicator. `v` sets the current step (1-based), `vd:vertical` 
 
 ## Carousel `carousel` / `carousel-item`
 
-`carousel` is the container; children are `carousel-item` (or plain `img`). **Children may also be written as `[item]`** — inside `carousel` it renders as a slide (same name as `[item]` in `list`/`desc`, disambiguated by parent; `item` and `carousel-item` are equivalent and can be mixed). `auto` sets the autoplay interval (in milliseconds). Supports left/right arrows, indicator dots, dragging, and left/right keyboard navigation.
+`carousel` is the container; children are `carousel-item` (or plain `img`). **Children may also be written as `[item]`** — inside `carousel` it renders as a slide (same name as `[item]` in `list`/`desc`, disambiguated by parent; `item` and `carousel-item` are equivalent and can be mixed). `auto` sets the autoplay interval (in milliseconds). Supports left/right arrows, indicator dots, dragging, and left/right keyboard navigation. `thumb` switches to a thumbnail legend below (replaces dots; click to jump smoothly). Sizing: `w` width, `h` height (plain numbers are px; `%`/`vw`/`rem` also accepted), or `ratio` aspect ratio (e.g. `16:9` / `4:3` / `1`); when `h` or `ratio` is set, slides fill the height and images are cropped with `object-fit:cover`; `h` takes precedence over `ratio`.
 
 | Prop | Meaning | Applies to | Example |
 |------|---------|------------|---------|
 | `auto` | Autoplay interval (ms) | `carousel` | `auto:3000` |
 | `id` | Identifier | `carousel` | `id:myCarousel` |
+| `thumb` | Show thumbnail legend (replaces dots) | `carousel` | `thumb` |
+| `w` | Width (plain number → px, or `%`/`vw`/`rem`) | `carousel` | `w:480` / `w:100%` |
+| `h` | Height (px; overrides `ratio`) | `carousel` | `h:240` |
+| `ratio` | Aspect ratio (`16:9` / `4:3` / `1`) | `carousel` | `ratio:16:9` |
 | `s` | Image URL | `carousel-item` / `item` | `s:https://...` |
 | `tt` | Slide title | `carousel-item` / `item` | `tt:第一张` |
 | `tx` | Slide description | `carousel-item` / `item` | `tx:说明文字` |
 
 <Playground dsl='[carousel auto:4000][item s:https://picsum.photos/seed/c1/600/280 tt:第一张 tx:用 item 声明][carousel-item s:https://picsum.photos/seed/c2/600/280 tt:第二张 tx:两种可混用][item s:https://picsum.photos/seed/c3/600/280 tt:第三张 tx:等价于 carousel-item][/carousel]' />
+
+Fixed size (`h`) / aspect ratio (`ratio`) / thumbnail legend (`thumb`):
+
+<Playground dsl='[row][col span:6][carousel h:200][carousel-item s:https://picsum.photos/seed/cs1/600/300 tt:固定高 200px][/carousel][/col][col span:6][carousel ratio:16:9][carousel-item s:https://picsum.photos/seed/cs2/600/338 tt:16:9 比例][/carousel][/col][/row]' />
+
+<Playground dsl='[carousel thumb ratio:21:9][carousel-item s:https://picsum.photos/seed/ct1/800/343 tt:日出][carousel-item s:https://picsum.photos/seed/ct2/800/343 tt:正午][carousel-item s:https://picsum.photos/seed/ct3/800/343 tt:黄昏][carousel-item s:https://picsum.photos/seed/ct4/800/343 tt:夜晚][/carousel]' />
 
 ## Tree `tree` / `tn`
 

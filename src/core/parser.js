@@ -104,7 +104,8 @@ const BOOLEAN_ATTRS = new Set([
   'active',
   'collapsible',
   'toggle',
-  'search'
+  'search',
+  'thumb'
 ]);
 
 function parseTag(raw) {

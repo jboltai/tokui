@@ -242,6 +242,31 @@
   box-shadow: none;
 }
 
+/* 验证态：base 的 .tokui-input--error/--success（0,1,0）被上面的四边框覆盖（0,2,0）压掉，
+   同 underline 在此同特异性恢复。error→danger / success→success 边框 + 同色双环 focus
+   （bg-subtle 间隙 + 半透同色环，对应 --tokui-input-error-focus / --success-focus）。
+   textarea 复用 .tokui-input 类，自动随此生效。 */
+[data-tokui-theme='modern-dark'] .tokui-input--error,
+[data-tokui-theme='modern-dark'] .tokui-select--error {
+  border-color: var(--tokui-danger);
+}
+[data-tokui-theme='modern-dark'] .tokui-input--error:focus,
+[data-tokui-theme='modern-dark'] .tokui-select--error:focus {
+  outline: none;
+  border-color: var(--tokui-danger);
+  box-shadow: 0 0 0 2px var(--tokui-bg-subtle), 0 0 0 4px var(--tokui-input-error-focus);
+}
+[data-tokui-theme='modern-dark'] .tokui-input--success,
+[data-tokui-theme='modern-dark'] .tokui-select--success {
+  border-color: var(--tokui-success);
+}
+[data-tokui-theme='modern-dark'] .tokui-input--success:focus,
+[data-tokui-theme='modern-dark'] .tokui-select--success:focus {
+  outline: none;
+  border-color: var(--tokui-success);
+  box-shadow: 0 0 0 2px var(--tokui-bg-subtle), 0 0 0 4px var(--tokui-input-success-focus);
+}
+
 /* Slider：Modern 风 —— 药丸轨道(深底用 bg-muted 提亮) + 主色填充 + 主色实心 thumb(surface 色边框造分离)。 */
 [data-tokui-theme='modern-dark'] .tokui-slider__track {
   height: 8px;
@@ -673,6 +698,12 @@
 /* Carousel */
 [data-tokui-theme='modern-dark'] .tokui-carousel { border-radius: var(--tokui-control-radius); }
 [data-tokui-theme='modern-dark'] .tokui-carousel__arrow { box-shadow: var(--tokui-shadow-sm); }
+/* Carousel 缩略图：Modern-dark —— 大号圆角图例 + shadow-sm，active 走主色双环（bg-subtle 间隙 + primary ring） */
+[data-tokui-theme='modern-dark'] .tokui-carousel--thumb { background: var(--tokui-bg-subtle); }
+[data-tokui-theme='modern-dark'] .tokui-carousel__thumbs { padding: 12px; gap: 10px; }
+[data-tokui-theme='modern-dark'] .tokui-carousel__thumb { width: 84px; height: 56px; border-radius: 10px; border: none; box-shadow: var(--tokui-shadow-sm); opacity: 0.55; background: var(--tokui-bg-muted); }
+[data-tokui-theme='modern-dark'] .tokui-carousel__thumb:hover { opacity: 0.85; }
+[data-tokui-theme='modern-dark'] .tokui-carousel__thumb--active { opacity: 1; box-shadow: 0 0 0 2px var(--tokui-bg-subtle), 0 0 0 4px var(--tokui-primary-focus), var(--tokui-shadow-sm); }
 
 /* Artifact / Sandbox / Diff */
 [data-tokui-theme='modern-dark'] .tokui-artifact,
