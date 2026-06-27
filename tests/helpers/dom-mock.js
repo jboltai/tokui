@@ -51,8 +51,10 @@ function createElement(tag) {
     children: [],
     attributes: {},
     style: {
-      setProperty(key, value) { this[key] = value; },
+      _prio: {},
+      setProperty(key, value, prio) { this[key] = value; if (prio) { this._prio[key] = prio; } else { delete this._prio[key]; } },
       getPropertyValue(key) { return this[key] || ''; },
+      getPropertyPriority(key) { return this._prio[key] || ''; },
     },
     _events: {},
     _slot: null,

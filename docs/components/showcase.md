@@ -6,7 +6,7 @@
 
 `card` 包 `form`，覆盖最典型的注册场景：用户名、密码、邮箱输入，`select` 选国家，`checkbox` 同意条款，`ft` 页脚放提交与重置按钮。
 
-<Playground dsl='[card tt:"创建账号"][p v:muted 填写以下信息即可完成注册，所有字段均为必填。][form act:/api/register mtd:post sub:onRegister][row][col span:12][input l:"用户名" n:username ph:"3-16 位字母数字" req][/col][col span:12][pwd l:"密码" n:password ph:"至少 8 位" req][/col][/row][row][col span:12][input t:email l:"邮箱" n:email ph:"name@example.com" req][/col][col span:12][select l:"所在国家" n:country ph:"请选择" req][opt v:cn tx:"中国" chk][opt v:us tx:"美国"][opt v:jp tx:"日本"][opt v:sg tx:"新加坡"][opt v:de tx:"德国"][/select][/col][/row][checkbox l:"我已阅读并同意《用户协议》与《隐私政策》" id:agree req][ft][btn tx:"立即注册" v:primary sub:onRegister][btn tx:"重置" t:reset][/ft][/form][/card]' />
+<Playground dsl='[card tt:"创建账号"][p v:muted 填写以下信息即可完成注册，所有字段均为必填。][form act:/api/register mtd:post sub:onRegister][row][col span:12][input l:"用户名" n:username ph:"3-16 位字母数字" req][/col][col span:12][pwd l:"密码" n:password ph:"至少 8 位" req][/col][/row][row][col span:12][input t:email l:"邮箱" n:email ph:"name@example.com" req][/col][col span:12][select l:"所在国家" n:country ph:"请选择" req][opt v:cn tx:"中国" chk][opt v:us tx:"美国"][opt v:jp tx:"日本"][opt v:sg tx:"新加坡"][opt v:de tx:"德国"][/select][/col][/row][checkbox l:"我已阅读并同意《用户协议》与《隐私政策》" id:agree req][ft][btn tx:"立即注册" v:primary sub:onRegister][btn tx:"重置" reset][/ft][/form][/card]' />
 
 > 表单的 `sub:` 处理器需通过 `TokUI.registerHandler('onRegister', fn)` 预先注册，按下提交按钮时被调用；`act` / `mtd` 用于无 JS 时的原生表单降级。
 
@@ -14,7 +14,7 @@
 
 上方一个录入表单，下方一个 `table` 展示已录入的数据。常见于「快速添加成员」这类后台子页。
 
-<Playground dsl='[card tt:"团队成员管理"][p v:muted 录入成员后即时追加到下方列表。][form sub:onAddMember][row][col span:8][input l:"姓名" n:name ph:"如：王磊" req][/col][col span:8][select l:"角色" n:role ph:"请选择"][opt v:dev tx:"开发"][opt v:design tx:"设计"][opt v:pm tx:"产品"][opt v:qa tx:"测试"][/select][/col][col span:8][input t:email l:"邮箱" n:email ph:"name@team.com"][/col][/row][ft][btn tx:"添加成员" v:primary sub:onAddMember][btn tx:"清空" t:reset][/ft][/form][/card][card tt:"成员列表" v:flat][table stripe][thead cols:"姓名,角色,邮箱,状态"][tbody][tr 王磊,开发,wanglei@team.com,在职][tr 林晓,设计,linxiao@team.com,在职][tr 赵峰,产品,zhaofeng@team.com,休假][tr 陈雨,测试,chenyu@team.com,在职][/tbody][/table][/card]' />
+<Playground dsl='[card tt:"团队成员管理"][p v:muted 录入成员后即时追加到下方列表。][form sub:onAddMember][row][col span:8][input l:"姓名" n:name ph:"如：王磊" req][/col][col span:8][select l:"角色" n:role ph:"请选择"][opt v:dev tx:"开发"][opt v:design tx:"设计"][opt v:pm tx:"产品"][opt v:qa tx:"测试"][/select][/col][col span:8][input t:email l:"邮箱" n:email ph:"name@team.com"][/col][/row][ft][btn tx:"添加成员" v:primary sub:onAddMember][btn tx:"清空" reset][/ft][/form][/card][card tt:"成员列表" v:flat][table stripe][thead cols:"姓名,角色,邮箱,状态"][tbody][tr 王磊,开发,wanglei@team.com,在职][tr 林晓,设计,linxiao@team.com,在职][tr 赵峰,产品,zhaofeng@team.com,休假][tr 陈雨,测试,chenyu@team.com,在职][/tbody][/table][/card]' />
 
 ## CRUD 管理界面
 

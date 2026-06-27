@@ -34,6 +34,27 @@ const chunks = b.reset().card({ tt: '卡片' }).p('内容').end().toChunks();
 
 `toString()` / `toChunks()` 内部调用 `_finalizeChunks()`，**未关闭的容器会自动补全**，无需手动 `endAll()`。
 
+## 表单动作与打印
+
+按钮的内置动作直接作为 `btn()` 的属性透传，无需额外方法：
+
+```js
+b.btn({ tx: '提交', form: 'loginForm', sub: 'onLogin', v: 'primary' })  // → [btn ... form:loginForm sub:onLogin v:primary]
+b.btn({ tx: '重置', form: 'loginForm', reset: true })                   // → [btn ... form:loginForm reset]
+b.btn({ tx: '打印', print: 'invoice' })                                 // → [btn ... print:invoice]
+```
+
+打印区是容器，用 `printArea()`：
+
+```js
+b.printArea({ id: 'invoice', tt: '收款单' })
+  .stat({ tt: '应付金额', v: '12800', pre: '¥ ', trend: 'up' })
+  .end()
+// → [print-area id:invoice tt:收款单][stat ...][/print-area]
+```
+
+详见[表单组件 · 表单动作 / 打印区](/components/form)。
+
 ## 双行为方法
 
 下列方法根据参数自动选择自闭合或容器模式：

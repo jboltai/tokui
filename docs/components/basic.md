@@ -80,12 +80,16 @@
 |------|------|------|
 | `tx` | 文本 | `tx:提交` |
 | `clk` | 点击处理器名 | `clk:onSave` |
-| `sub` | 表单提交处理器名 | `sub:onSubmit` |
+| `sub` | 表单提交处理器名（内置 submit 动作） | `sub:onSubmit` |
+| `reset` | 重置绑定表单（内置 reset 动作，裸写或 `reset:H` 回调） | `reset` |
+| `print` | 打印目标区域（内置 print 动作，`print:ID` / `print:self`） | `print:invoice` |
+| `form` | 显式绑定表单 ID（按钮在表单外时用） | `form:loginForm` |
 | `dis` | 禁用 | `dis` |
 | `w` | 宽度 | `w:200` |
 | `bg` / `fc` | 背景色 / 文字色 | `bg:4f46e5` |
-| `t` | 原生 type | `t:reset` |
 | `v` | 变体（类型/尺寸/形状） | `v:"primary,pill"` |
+
+> **内置动作**：`sub` / `reset` / `print` 由 renderer 自动解析，无需 `registerHandler`（仅 `sub` 的业务回调仍需注册）。优先级 `print > reset > submit > clk`。详见[表单组件 · 表单动作](/components/form#表单动作-提交-重置-数据收集)与[打印区](/components/form#打印区-print-area)。
 
 **类型变体**：`primary` / `danger` / `success` / `warning` / `ghost`。
 **尺寸/形状变体**：`sm` / `lg` / `pill`（圆角）/ `square`（直角）/ `block`（块级宽）。

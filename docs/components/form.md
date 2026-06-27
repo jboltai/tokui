@@ -8,14 +8,60 @@
 
 | 属性 | 含义 | 示例 |
 |------|------|------|
+| `id` | 表单标识，供按钮 `form:ID` 显式绑定 | `id:loginForm` |
 | `act` | 提交地址 | `act:/api/save` |
 | `mtd` | 提交方法 | `mtd:post` |
 | `sub` | 提交处理器名 | `sub:onSubmit` |
 | `clk` | 通用事件处理器名 | `clk:onFormClick` |
 
 > `sub:` 指向的处理器需通过 `TokUI.registerHandler(name, fn)` 预先注册；`btn` 上用 `sub:xxx` 触发表单提交。
+> 表单外的按钮可用 `form:ID` 显式绑定目标表单（见下节[表单动作](#表单动作-提交-重置-数据收集)），不再依赖 DOM 层级。
 
-<Playground dsl='[card tt:登录表单][form act:/api/login mtd:post sub:onLogin][input l:账号 ph:"请输入账号" req][pwd l:密码 ph:"请输入密码" req][ft][btn tx:登录 v:primary sub:onLogin][btn tx:重置 v:ghost t:reset][/ft][/form][/card]' />
+<Playground dsl='[card tt:登录表单][form id:loginForm act:/api/login mtd:post sub:onLogin][input l:账号 n:username ph:"请输入账号" req][pwd l:密码 n:password ph:"请输入密码" req][btngroup][btn tx:登录 v:primary form:loginForm sub:onLogin][btn tx:重置 v:ghost form:loginForm reset][/btngroup][/form][/card]' />
+
+## 表单动作：提交 / 重置 / 数据收集
+
+`btn` 内置三类动作，由 renderer 自动解析，**无需 `registerHandler`**（仅 `sub` 的业务处理仍需注册）。优先级 `print > reset > submit > clk`。
+
+| DSL | 动作 | 说明 |
+|-----|------|------|
+| `[btn form:F sub:H]` | **提交** | 收集表单 F 的全部字段（含 slider/rate/picker 等自定义控件的 hidden 值），调用 handler `H` |
+| `[btn form:F reset]` | **重置** | 一键复原表单 F：原生输入走 `form.reset()`，自定义控件走内置 `_tokuiReset`；可选 `reset:H` 在复位后回调 |
+| `[btn form:F clk:H]` | **普通点击** | 不收集数据，走 event-bus（`form:` 可省略，仅用于让 handler 拿到 `data`） |
+
+**`form:ID` 显式绑定**（关键能力）：按钮放在表单**外部**时，靠 `form:ID` 精确指明收集哪个表单，跨层级、多表单互不干扰。解析用 `getElementById` 且校验目标为 `<form>`，防 id 伪造。
+
+```
+[form id:formA sub:onA] ... [/form]
+[form id:formB sub:onB] ... [/form]
+[btn tx:"提交 A" form:formA sub:onA t:primary]   ← 只收集 formA
+[btn tx:"提交 B" form:formB sub:onB t:primary]   ← 只收集 formB
+```
+
+**重置覆盖范围**：`input/pwd/select/textarea/checkbox` 等原生控件 + `slider/rate/numinput/switch/transfer/picker/cascader` 等自定义控件均实现复位契约（`data-tokui-resettable` + `_tokuiReset`），renderer 遍历调用并向 form 广播 `tokuireset` 事件供外部监听。
+
+<Playground dsl='[h3 表单外按钮靠 form:ID 绑定][row][col span:6][card tt:表单 A][form id:fa sub:onA][input l:姓名 n:name ph:张三][input l:邮箱 n:email ph:a@x.com][/form][btngroup][btn tx:"提交 A" form:fa sub:onA v:primary][btn tx:重置 form:fa reset v:ghost][/btngroup][/card][/col][col span:6][card tt:表单 B][form id:fb sub:onB][input l:公司 n:company ph:TokUI][numinput l:人数 n:count v:5 min:1 max:99][/form][btngroup][btn tx:"提交 B" form:fb sub:onB v:primary][btn tx:重置 form:fb reset v:ghost][/btngroup][/card][/col][/row]' />
+
+## 打印区 `print-area`
+
+标记一块 **1:1 打印**区域，配合 `[btn print:ID]` 触发浏览器打印。打印时仅该区域可见、如实还原配色与布局；打印按钮自身不进预览。
+
+| 属性 | 含义 | 示例 |
+|------|------|------|
+| `id` | 打印区标识，供 `print:ID` 引用 | `id:invoice` |
+| `tt` | 可选标题（打印文档标题） | `tt:收款单` |
+
+**触发打印**（`btn` 的 `print` 动作，内置、无需 handler）：
+
+| DSL | 行为 |
+|-----|------|
+| `[btn print:invoice]` | 打印 `#invoice` 打印区 |
+| `[btn print:self]` | 打印按钮所在的最近 `print-area` / `card` |
+| `[btn print]` | 裸写，等价 `print:self` |
+
+> 打印机制：renderer 给目标加 `.tokui-print-target` + `body[data-tokui-printing]`，`@media print` 用 visibility 仅令该作用域可见（1:1）。响应式断点已限定 `screen`，打印不触发堆叠。`@page` 页边 + 打印区内边距构成文档边界；暗色主题下强制白底省墨。
+
+<Playground dsl='[print-area id:invoice tt:"收款单 #20260627"][row][col span:6][stat tt:应付金额 v:"12,800.00" pre:"¥ " trend:up][/col][col span:6][stat tt:已付定金 v:"3,000.00" pre:"¥ " trend:down][/col][/row][table bordered][thead cols:"项目,数量,单价,小计"][tr 产品授权,5,¥1800,¥9000][tr 实施服务,1,¥2800,¥2800][/table][p v:bold 合计：¥12,800.00  账期：30 天][/print-area][btngroup][btn tx:"🖨 打印此单" print:invoice v:primary][btn tx:打印本卡 print:self v:ghost][/btngroup]' />
 
 ## 输入框 `input`
 

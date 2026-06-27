@@ -2601,13 +2601,13 @@ textarea.tokui-textarea--auto { resize: none !important; }
 /* === 未知组件（警告样式）=== */
 .tokui-unknown { padding: 8px 12px; background: var(--tokui-warning-bg); border: 1px dashed var(--tokui-warning-border); border-radius: var(--tokui-radius); font-size: 0.85rem; color: var(--tokui-warning-text); }
 
-/* === 响应式 === */
-@media (max-width: 1024px) {
+/* === 响应式（仅屏幕态；打印用 screen 限定，避免按页宽求值 max-width 触发堆叠破坏 1:1）=== */
+@media screen and (max-width: 1024px) {
   .tokui-row { grid-template-columns: repeat(6, 1fr); gap: 10px; }
   .tokui-col--3, .tokui-col--4 { grid-column: span 3 !important; }
   .tokui-col--6 { grid-column: span 6 !important; }
 }
-@media (max-width: 640px) {
+@media screen and (max-width: 640px) {
   .tokui-row { grid-template-columns: 1fr; gap: 8px; }
   .tokui-col { grid-column: span 1 !important; }
   .tokui-radio-group { flex-direction: column; gap: 8px; }
@@ -5152,6 +5152,11 @@ a.tokui-source__title:hover { text-decoration: underline; }
    打印样式 — 隐藏辅助 UI，只保留核心渲染内容
    ======================================== */
 @media print {
+  /* 强制页面白底：避免暗色主题/页面 body 背景色透到打印预览 */
+  body {
+    background: #ffffff !important;
+  }
+
   /* 隐藏页面框架 */
   .app-header,
   .app-nav,
@@ -5276,6 +5281,94 @@ a.tokui-source__title:hover { text-decoration: underline; }
     widows: 3;
   }
 }
+
+/* ========================================
+   打印区（print-area）— 1:1 打印作用域
+   [print-area id:X tt:标题]...[/print-area] 标记一块打印区域；
+   [btn print:X] 触发，renderer 给目标加 .tokui-print-target + body[data-tokui-printing]，
+   @media print 仅令该作用域可见，data-tokui-print-trigger 的按钮自身隐藏（不进预览）。
+   ======================================== */
+.tokui-print-area {
+  position: relative;
+  /* 屏幕态给可见边界，标识"这块会被打印"；打印态会去掉虚线框 */
+  padding: 14px;
+  border: 1px dashed var(--tokui-border, #e5e7eb);
+  border-radius: 8px;
+  margin: 8px 0;
+}
+.tokui-print-area__title {
+  font-size: 17px;
+  font-weight: 700;
+  margin: 0 0 14px;
+  color: var(--tokui-text, #1f2937);
+}
+.tokui-print-area__body {
+  /* 1:1 还原：不额外改动子内容布局 */
+}
+/* 打印按钮语义类（可选样式区分） */
+.tokui-btn--print { /* 继承 btn 默认样式，可被 t:ghost 等变体覆盖 */ }
+
+@media print {
+  /* 打印触发按钮自身不进打印预览 */
+  [data-tokui-print-trigger] {
+    display: none !important;
+  }
+  /* 被标记的非目标顶层节点直接移出布局（消除 visibility:hidden 占位导致的空白页） */
+  body[data-tokui-printing="1"] [data-tokui-print-hidden] {
+    display: none !important;
+  }
+
+  /* Scoped 打印：仅目标作用域可见，1:1 还原 UI */
+  body[data-tokui-printing="1"] * {
+    visibility: hidden;
+  }
+  body[data-tokui-printing="1"] .tokui-print-target,
+  body[data-tokui-printing="1"] .tokui-print-target * {
+    visibility: visible;
+  }
+  /* 作用域置于页面起点；加内边距形成文档边界；强制白底省墨（兼容暗色主题） */
+  body[data-tokui-printing="1"] .tokui-print-target {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 6px 10px;
+    background: #ffffff !important;
+    color: #1f2937;
+  }
+  /* 打印态去掉屏幕态虚线框，保持文档整洁 */
+  body[data-tokui-printing="1"] .tokui-print-area {
+    border: none;
+    padding: 0;
+    margin: 0;
+  }
+  /* 打印态确保作用域内颜色如实呈现 */
+  body[data-tokui-printing="1"] .tokui-print-target * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* 分页优化：标题不孤立页底，卡片/统计/提示/表格行尽量不被切断 */
+  body[data-tokui-printing="1"] .tokui-print-target .tokui-h1,
+  body[data-tokui-printing="1"] .tokui-print-target .tokui-h2,
+  body[data-tokui-printing="1"] .tokui-print-target .tokui-h3,
+  body[data-tokui-printing="1"] .tokui-print-target .tokui-h4,
+  body[data-tokui-printing="1"] .tokui-print-target .tokui-h5,
+  body[data-tokui-printing="1"] .tokui-print-target .tokui-h6,
+  body[data-tokui-printing="1"] .tokui-print-target .tokui-print-area__title,
+  body[data-tokui-printing="1"] .tokui-print-target .tokui-card__header {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+  body[data-tokui-printing="1"] .tokui-print-target .tokui-card,
+  body[data-tokui-printing="1"] .tokui-print-target .tokui-stat,
+  body[data-tokui-printing="1"] .tokui-print-target .tokui-callout,
+  body[data-tokui-printing="1"] .tokui-print-target .tokui-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}
+
 /* === danger 别名（由脚本生成，镜像 --error 规则；renderer t:danger → --danger 类，与 --error 等价） === */
 .tokui-picker--danger .tokui-picker-control { border-color: var(--tokui-danger); }
 .tokui-cascader--danger .tokui-cascader-control { border-color: var(--tokui-danger); }

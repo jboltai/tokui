@@ -46,6 +46,7 @@ const CONTAINERS = new Set([
   'bubble', 'toolbar', 'badge-box', 'dropdown', 'transfer', 'callout',
   'cascader', 'tree', 'tn', 'desc', 'carousel',
   'popover', 'input-tag', 'watermark', 'menu',
+  'print-area',
   'chat-input', 'msg-actions',
   'tool-call', 'diff', 'quick-reply',
   'plan', 'file-tree', 'ft-folder',
@@ -105,7 +106,9 @@ const BOOLEAN_ATTRS = new Set([
   'collapsible',
   'toggle',
   'search',
-  'thumb'
+  'thumb',
+  'reset',
+  'print'
 ]);
 
 function parseTag(raw) {

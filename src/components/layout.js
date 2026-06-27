@@ -265,6 +265,12 @@ function registerLayoutComponents(renderer) {
         if (radio) radio.checked = true;
       }
     };
+    // 流式结束复位：所有 tab 渲染完后默认切回首项（_streamClose 触发，仅流式生效）
+    container._streamCloseHook = function () {
+      if (!container._tokuiStreamActive) return; // 一次性 render 不复位
+      var first = container.querySelector('input[data-index="0"]');
+      if (first) first.checked = true;
+    };
     return container;
   });
   /**
@@ -313,6 +319,15 @@ function registerLayoutComponents(renderer) {
     });
     container._slot = container;
     container._tokuiType = 'accordion';
+    // 流式结束复位：展开首项 collapse、收起其余（手风琴单展开语义，_streamClose 触发，仅流式生效）
+    container._streamCloseHook = function () {
+      if (!container._tokuiStreamActive) return; // 一次性 render 不复位
+      var items = container.querySelectorAll('.tokui-collapse');
+      for (var i = 0; i < items.length; i++) {
+        if (i === 0) { items[i].setAttribute('open', ''); items[i].setAttribute('aria-expanded', 'true'); }
+        else { items[i].removeAttribute('open'); items[i].setAttribute('aria-expanded', 'false'); }
+      }
+    };
     return container;
   });
 

@@ -253,6 +253,8 @@ class TokUIBuilder {
   }
   /** 卡片页脚 */
   ft(attrs) { return this._open('ft', attrs); }
+  /** 打印区（容器模式：配合 [btn print:ID] 触发 1:1 打印） */
+  printArea(attrs) { return this._open('print-area', attrs); }
   /** 栅格行（使用 row_layout 避免与 table.row 冲突） */
   row_layout(attrs) { return this._open('row', attrs); }
   /** 栅格列 */

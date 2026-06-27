@@ -860,4 +860,43 @@ test('builder sankeyFlow 产 flow 子节点（sankey 流式逐条）', () => {
   assert.ok(out.indexOf('A->B:10') >= 0, '含流数据');
 });
 
+// === 表单动作绑定（form:ID / reset / print / printArea）===
+test('builder printArea 容器开闭', () => {
+  const b = new TokUIBuilder();
+  b.printArea({ id: 'pa1', tt: '订单' }).p('内容').end();
+  assert.strictEqual(b.toString(), '[print-area id:pa1 tt:订单][p 内容][/print-area]');
+});
+
+test('builder btn form:ID + sub 绑定', () => {
+  const b = new TokUIBuilder();
+  b.btn({ tx: '提交', form: 'login', sub: 'onLogin', t: 'primary' });
+  assert.strictEqual(b.toString(), '[btn tx:提交 form:login sub:onLogin t:primary]');
+});
+
+test('builder btn reset 裸写', () => {
+  const b = new TokUIBuilder();
+  b.btn({ tx: '重置', form: 'f', reset: true });
+  // reset 为布尔属性，输出裸 reset
+  assert.strictEqual(b.toString(), '[btn tx:重置 form:f reset]');
+});
+
+test('builder btn print:T', () => {
+  const b = new TokUIBuilder();
+  b.btn({ tx: '打印', print: 'pa1' });
+  assert.strictEqual(b.toString(), '[btn tx:打印 print:pa1]');
+});
+
+test('builder 表单+按钮+打印区组合（端到端 DSL 形态）', () => {
+  const b = new TokUIBuilder();
+  b.form({ id: 'login', sub: 'onLogin' })
+    .input({ l: '用户名', n: 'username', req: true })
+    .end()
+    .btn({ tx: '登录', form: 'login', sub: 'onLogin', t: 'primary' })
+    .btn({ tx: '重置', form: 'login', reset: true });
+  const out = b.toString();
+  assert.ok(out.indexOf('[form id:login sub:onLogin]') >= 0);
+  assert.ok(out.indexOf('form:login sub:onLogin') >= 0);
+  assert.ok(out.indexOf('form:login reset') >= 0);
+});
+
 run();

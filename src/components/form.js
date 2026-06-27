@@ -17,7 +17,7 @@
  * @param {TokUIRenderer} renderer - 渲染器实例
  */
 function registerFormComponents(renderer) {
-  const { el } = (typeof require === 'function')
+  const { el, resolveButtonAction } = (typeof require === 'function')
     ? require('../core/renderer')
     : window.TokUI._internal;
   const resolveColor = (typeof require === 'function')
@@ -482,6 +482,38 @@ function registerFormComponents(renderer) {
       }
     };
 
+    // 重置契约：单选复原 hidden/search/选中项；多选按 data-selected-initial 复原标签与 hidden
+    wrapper.setAttribute('data-tokui-resettable', '');
+    wrapper._tokuiReset = function () {
+      var s = pickerEl.querySelector('.tokui-picker-search');
+      var h = pickerEl.querySelector('input[type=hidden]');
+      var allOpts = dropdown.querySelectorAll('.tokui-picker-option');
+      if (!isMulti) {
+        if (s) s.value = initialSingleText;
+        if (h) h.value = initialSingleValue;
+        allOpts.forEach(function (o) {
+          var isSel = !!initialSingleValue && o.getAttribute('data-value') === initialSingleValue;
+          o.classList.toggle('tokui-picker-option--selected', isSel);
+        });
+      } else {
+        // 清用户标签与多余 hidden
+        control.querySelectorAll('.tokui-picker-tag').forEach(function (t) { control.removeChild(t); });
+        pickerEl.querySelectorAll('input[type=hidden][name="' + name + '"]').forEach(function (inp) { pickerEl.removeChild(inp); });
+        allOpts.forEach(function (o) {
+          var isSel = o.getAttribute('data-selected-initial') === '1';
+          o.classList.toggle('tokui-picker-option--selected', isSel);
+          if (isSel) {
+            var tv = o.getAttribute('data-text');
+            var vv = o.getAttribute('data-value');
+            var tag = el('span', { class: 'tokui-picker-tag', 'data-value': vv }, tv + ' ');
+            tag.appendChild(el('span', { class: 'tokui-picker-tag-close' }, '×'));
+            control.insertBefore(tag, s);
+            pickerEl.appendChild(el('input', { type: 'hidden', name: name, value: vv }));
+          }
+        });
+      }
+    };
+
     return wrapper;
   });
 
@@ -495,6 +527,8 @@ function registerFormComponents(renderer) {
     const liAttrs = { class: 'tokui-picker-option', 'data-value': value, 'data-text': text, 'data-tokui-tag': 'opt', role: 'option', 'aria-selected': String(isChecked) };
     const li = el('li', liAttrs, text);
     if (isChecked) li.classList.add('tokui-picker-option--selected');
+    // 记录初始选中态（reset 时按此复原，区别于用户后续交互）
+    if (isChecked) li.setAttribute('data-selected-initial', '1');
     return li;
   }
 
@@ -879,6 +913,12 @@ function registerFormComponents(renderer) {
     if (node.attrs.id) {
       wrapper.id = node.attrs.id;
     }
+    var switchInit = node.attrs.chk !== undefined;
+    wrapper.setAttribute('data-tokui-resettable', '');
+    wrapper._tokuiReset = function () {
+      input.checked = switchInit;
+      track.setAttribute('aria-checked', String(switchInit));
+    };
     return wrapper;
   });
 
@@ -984,6 +1024,18 @@ function registerFormComponents(renderer) {
       } else if (uAttrs.dis === false || uAttrs.dis === 'false') {
         slider.classList.remove('tokui-slider--disabled');
       }
+    };
+    // 重置契约：复原初始值（hidden + 视觉）
+    var sliderInit = value;
+    field.setAttribute('data-tokui-resettable', '');
+    field._tokuiReset = function () {
+      value = sliderInit;
+      var p = ((value - min) / (max - min)) * 100;
+      fill.style.width = p + '%';
+      thumb.style.left = p + '%';
+      valSpan.textContent = String(value);
+      hidden.value = value;
+      thumb.setAttribute('aria-valuenow', String(value));
     };
     slider._variantTarget = slider;
     field.appendChild(slider);
@@ -1098,6 +1150,18 @@ function registerFormComponents(renderer) {
         rate.classList.add('tokui-rate--disabled');
       } else if (uAttrs.dis === false || uAttrs.dis === 'false') {
         rate.classList.remove('tokui-rate--disabled');
+      }
+    };
+    var rateInit = current;
+    field.setAttribute('data-tokui-resettable', '');
+    field._tokuiReset = function () {
+      current = rateInit;
+      hidden.value = current;
+      textSpan.textContent = current > 0 ? current + '/' + max : '';
+      for (var j = 0; j < stars.length; j++) {
+        stars[j].textContent = j < current ? charOn : charOff;
+        stars[j].classList.toggle('tokui-rate__star--active', j < current);
+        stars[j].setAttribute('aria-checked', String(j < current));
       }
     };
     rate._variantTarget = rate;
@@ -1245,6 +1309,8 @@ function registerFormComponents(renderer) {
       var text = (optNode.attrs && optNode.attrs.tx) || val;
       var chk = optNode.attrs && optNode.attrs.chk !== undefined;
       var item = makeItem(val, text, field._transferOptIdx++);
+      // 记录初始栏位（reset 时按此归位）
+      item.setAttribute('data-tokui-init-side', chk ? 'right' : 'left');
       if (chk) {
         rightPanel._body.appendChild(item);
         rightPanel._items.push(item);
@@ -1298,6 +1364,25 @@ function registerFormComponents(renderer) {
     field._slot = staging;
     field._tokuiType = 'transfer';
     transfer._variantTarget = transfer;
+    // 重置契约：每项按 data-tokui-init-side 归位，清空勾选，重算计数/hidden
+    field.setAttribute('data-tokui-resettable', '');
+    field._tokuiReset = function () {
+      var allItems = leftPanel._items.concat(rightPanel._items);
+      allItems.forEach(function (item) {
+        var side = item.getAttribute('data-tokui-init-side') || 'left';
+        var target = side === 'right' ? rightPanel : leftPanel;
+        var current = (rightPanel._items.indexOf(item) !== -1) ? rightPanel : leftPanel;
+        if (current !== target) {
+          current._items.splice(current._items.indexOf(item), 1);
+          target._body.appendChild(item);
+          target._items.push(item);
+        }
+        if (item._cb) item._cb.checked = false;
+      });
+      updateCount(leftPanel);
+      updateCount(rightPanel);
+      updateHidden();
+    };
     field.appendChild(transfer);
     return field;
   });
@@ -1405,28 +1490,56 @@ function registerFormComponents(renderer) {
         wrapper.classList.remove('tokui-numinput--disabled');
       }
     };
+    var numInit = value;
+    field.setAttribute('data-tokui-resettable', '');
+    field._tokuiReset = function () {
+      value = numInit;
+      input.value = String(value);
+      input.setAttribute('value', String(value));
+      hidden.value = value;
+    };
     field.appendChild(wrapper);
     field._variantTarget = wrapper;
     return field;
   });
 
   // === 按钮组件 ===
-  // attrs.t = type, attrs.tx = text, attrs.clk = click handler
-  // attrs.w = width, attrs.bg = background color, attrs.fc = font color
-  // attrs.radius = border radius
+  // attrs.t = 样式类型(primary/danger/...), attrs.tx = text
+  // 内置动作（renderer 自动解析，无需 registerHandler）：
+  //   sub:H       → 提交绑定表单 + 收集数据 + 调 handler H
+  //   reset[:H]   → 重置绑定表单（+ post-reset 回调 H）
+  //   print:T     → 打印 target 指定的 print-area/card（T='self' 表最近祖先）
+  //   clk:H       → 普通点击 handler（走 event-bus）
+  // attrs.form:ID = 显式绑定表单（优先于 DOM 祖先推断）
+  // attrs.w/bg/fc/radius = 自定义样式
   var BTN_STYLES = new Set(['primary', 'danger', 'success', 'warning', 'ghost', 'sm', 'lg', 'pill', 'square', 'block']);
 
   renderer.register('btn', (node) => {
-    // sub 属性时 type 设为 submit 触发表单提交；否则用 t 的样式类型
-    var btnType = node.attrs.sub ? 'submit' : 'button';
+    // 统一动作解析：btn 渲染与 renderer.bindEvents 分发共用同一来源
+    const action = resolveButtonAction(node.attrs);
+    var btnType = action.act === 'submit' ? 'submit'
+      : action.act === 'reset' ? 'reset' : 'button';
     var cls = 'tokui-btn';
     // t 属性映射为 CSS 变体 class
     if (node.attrs.t && BTN_STYLES.has(node.attrs.t)) {
       cls += ' tokui-btn--' + node.attrs.t;
     }
+    // 打印动作加语义类（样式可区分 + 打印预览隐藏用 data-tokui-print-trigger）
+    if (action.act === 'print') cls += ' tokui-btn--print';
     const attrs = { class: cls, type: btnType };
-    if (node.attrs.clk) attrs['data-tokui-clk'] = node.attrs.clk;
-    if (node.attrs.sub) attrs['data-tokui-sub'] = node.attrs.sub;
+    // 显式表单绑定
+    if (action.formId) attrs['data-tokui-form'] = action.formId;
+    // 内置动作印章（renderer.bindEvents 按 act 分发）
+    if (action.act) attrs['data-tokui-act'] = action.act;
+    if (action.act === 'submit' && action.handler) attrs['data-tokui-sub'] = action.handler; // 向后兼容旧 sub 链路
+    if (action.act === 'reset' && action.handler) attrs['data-tokui-handler'] = action.handler;
+    if (action.act === 'print') {
+      attrs['data-tokui-target'] = action.target;
+      // 触发器印章：@media print 时隐藏自身，不进打印预览
+      attrs['data-tokui-print-trigger'] = '';
+    }
+    // 无内置动作的普通点击
+    if (!action.act && action.handler) attrs['data-tokui-clk'] = action.handler;
     if (node.attrs.id) attrs.id = node.attrs.id;
     if (node.attrs.dis !== undefined) attrs.disabled = 'disabled';
     Object.keys(node.attrs).forEach(key => {
@@ -1449,6 +1562,26 @@ function registerFormComponents(renderer) {
       if (uAttrs.tx !== undefined) btn.textContent = uAttrs.tx;
     };
     return btn;
+  });
+
+  // === 打印区容器 ===
+  // 标记一块 1:1 打印区域。配合 [btn print:ID] 触发，打印时仅该区可见。
+  // attrs.id = 打印区标识（btn print:ID 引用），attrs.tt = 可选标题
+  renderer.register('print-area', (node, rc) => {
+    const attrs = { class: 'tokui-print-area' };
+    if (node.attrs.id) attrs.id = node.attrs.id;
+    const area = el('div', attrs);
+    if (node.attrs.tt) {
+      area.appendChild(el('div', { class: 'tokui-print-area__title' }, node.attrs.tt));
+    }
+    const body = el('div', { class: 'tokui-print-area__body' });
+    rc(node.children).forEach(child => {
+      if (child && child.nodeType) body.appendChild(child);
+    });
+    area.appendChild(body);
+    area._slot = body;       // 子内容插槽指向 body
+    area._tokuiType = 'print-area';
+    return area;
   });
 
   // === 按钮组容器 ===
@@ -1671,6 +1804,7 @@ function registerFormComponents(renderer) {
     }
 
     // 设置树数据并初始化
+    var cascaderInit = { hidden: '', text: '' };
     function setupTree(tree) {
       state.tree = tree;
       // 预选值
@@ -1696,6 +1830,9 @@ function registerFormComponents(renderer) {
           hidden.value = node.attrs.v;
         }
       }
+      // 捕获初始值供 reset 复原（mount 与流式关闭均会走到）
+      cascaderInit.hidden = hidden.value;
+      cascaderInit.text = searchInput.value;
     }
 
     // mount 模式
@@ -1711,6 +1848,13 @@ function registerFormComponents(renderer) {
     field._slot = staging;
     field._tokuiType = 'cascader';
     field._variantTarget = cascaderEl;
+    // 重置契约：复原 hidden/搜索文本并关闭面板
+    field.setAttribute('data-tokui-resettable', '');
+    field._tokuiReset = function () {
+      hidden.value = cascaderInit.hidden;
+      searchInput.value = cascaderInit.text;
+      if (state.isOpen) closeMenus();
+    };
 
     return field;
   });

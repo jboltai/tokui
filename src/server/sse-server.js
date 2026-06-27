@@ -8938,6 +8938,171 @@ const DEMOS = [
       }
       sendNext();
     }
+  },
+  // ========== 表单动作专题（form:ID / reset / print / print-area）==========
+  {
+    trigger: 'fa-bind',
+    title: '表单显式绑定（form:ID）',
+    desc: '按钮在表单外，靠 form:ID 精确绑定，各自提交互不干扰',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('表单显式绑定 form:ID')
+        .callout({ t: 'info', tx: '按钮放在表单外部，通过 form:ID 显式绑定目标表单。点击各自的"提交"只收集对应表单数据，"重置"只复原对应表单——不再依赖 DOM 层级推断。' })
+        .row_layout()
+          .col_layout({ span: 6 })
+            .card({ tt: '登录表单 A' })
+              .form({ id: 'formA', sub: 'faBindA' })
+                .input({ l: '用户名', n: 'username', ph: '输入用户名', req: true })
+                .pwd({ l: '密码', n: 'password', ph: '输入密码', req: true })
+              .end()
+              .btngroup()
+                .btn({ tx: '提交 A', form: 'formA', sub: 'faBindA', t: 'primary' })
+                .btn({ tx: '重置 A', form: 'formA', reset: true })
+              .end()
+            .end()
+          .end()
+          .col_layout({ span: 6 })
+            .card({ tt: '注册表单 B' })
+              .form({ id: 'formB', sub: 'faBindB' })
+                .input({ l: '邮箱', n: 'email', ph: '输入邮箱', req: true })
+                .input({ l: '手机号', n: 'phone', ph: '输入手机号' })
+                .checkbox({ l: '同意服务条款', n: 'agree' })
+              .end()
+              .btngroup()
+                .btn({ tx: '提交 B', form: 'formB', sub: 'faBindB', t: 'primary' })
+                .btn({ tx: '重置 B', form: 'formB', reset: true })
+              .end()
+            .end()
+          .end()
+        .end();
+      return b;
+    }
+  },
+  {
+    trigger: 'fa-submit-reset',
+    title: '提交与重置（内置动作）',
+    desc: 'sub 收集全字段；reset 一键复原原生+自定义控件',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('提交与重置（内置动作）')
+        .callout({ t: 'info', tx: '提交：sub:H 收集表单全部字段（含 slider/rate/picker 等自定义控件的 hidden 值）。重置：reset 裸写即可，无需 handler——原生输入与自定义控件一并复原。' })
+        .form({ id: 'faForm', sub: 'faSubmit' })
+          .row_layout()
+            .col_layout({ span: 6 })
+              .input({ l: '姓名', n: 'name', val: '张三', req: true })
+              .input({ l: '邮箱', n: 'email', val: 'zhang@tokui.dev' })
+              .select({ l: '部门', n: 'dept' })
+                .opt({ v: 'tech', tx: '技术部' })
+                .opt({ v: 'sales', tx: '销售部', chk: true })
+                .opt({ v: 'hr', tx: '人事部' })
+              .end()
+              .slider({ l: '满意度', n: 'sat', v: '80', min: '0', max: '100' })
+            .end()
+            .col_layout({ span: 6 })
+              .rate({ l: '综合评分', n: 'stars', v: '4', max: '5' })
+              .switcher({ l: '订阅周报', n: 'weekly', chk: true })
+              .numinput({ l: '数量', n: 'qty', v: '3', min: '1', max: '99' })
+              .picker({ l: '技能栈', n: 'skills', multi: true })
+                .opt({ v: 'js', tx: 'JavaScript', chk: true })
+                .opt({ v: 'py', tx: 'Python' })
+                .opt({ v: 'go', tx: 'Go', chk: true })
+                .opt({ v: 'rs', tx: 'Rust' })
+              .end()
+            .end()
+          .end()
+          .btngroup()
+            .btn({ tx: '提交', form: 'faForm', sub: 'faSubmit', t: 'primary' })
+            .btn({ tx: '重置', form: 'faForm', reset: 'faResetCb' })
+          .end()
+        .end();
+      return b;
+    }
+  },
+  {
+    trigger: 'fa-print',
+    title: '打印区与打印按钮（1:1 打印）',
+    desc: 'print-area 标记区域；print:ID / print:self 触发，按钮不进预览',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('打印区与打印按钮')
+        .callout({ t: 'info', tx: '[print-area id:X] 标记一块 1:1 打印区域；[btn print:X] 触发浏览器打印，仅该区域可见、如实还原配色。打印按钮自身不会出现在打印预览中。print:self 打印按钮所在的最近 print-area / card。' })
+        .row_layout()
+          .col_layout({ span: 8 })
+            .printArea({ id: 'invoice', tt: '收款单 #20260627-0042' })
+              .row_layout()
+                .col_layout({ span: 6 })
+                  .stat({ tt: '应付金额', v: '12,800.00', pre: '¥ ', trend: 'up' })
+                .end()
+                .col_layout({ span: 6 })
+                  .stat({ tt: '已付定金', v: '3,000.00', pre: '¥ ', trend: 'down' })
+                .end()
+              .end()
+              .table({ bordered: true })
+                .thead({ cols: '项目,数量,单价,小计' })
+                .row('产品授权', '5', '¥1,800', '¥9,000')
+                .row('实施服务', '1', '¥2,800', '¥2,800')
+                .row('技术培训', '1', '¥1,000', '¥1,000')
+              .end()
+              .p('合计：¥12,800.00    账期：30 天', { v: 'bold' })
+              .p('收款方：TokUI 科技   开户行：招商银行科苑支行', { v: 'muted' })
+            .end()
+          .end()
+          .col_layout({ span: 4 })
+            .card({ tt: '打印操作' })
+              .p('点击下方按钮调用浏览器打印，仅"收款单"区域 1:1 输出到预览。')
+              .btngroup()
+                .btn({ tx: '🖨 打印此单', print: 'invoice', t: 'primary' })
+              .end()
+              .dv({})
+              .p('print:self 示例：打印按钮所在的最近卡片：', { v: 'sm' })
+              .btn({ tx: '打印本卡', print: 'self' })
+            .end()
+          .end()
+        .end();
+      return b;
+    }
+  },
+  {
+    trigger: 'fa-order',
+    title: '综合：表单 + 提交/重置 + 打印整卡',
+    desc: '订单录入卡片，提交/重置/打印整张卡片',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('综合：订单录入卡片')
+        .callout({ t: 'info', tx: '一张卡片内整合：表单录入（form:ID 绑定）、提交收集、重置复原、print:self 打印整张卡片。提交/重置/打印均为内置动作，仅"提交"需要一个数据处理 handler。' })
+        .card({ tt: '订单录入 · #ORD-20260627' })
+          .form({ id: 'orderForm', sub: 'faSubmit' })
+            .row_layout()
+              .col_layout({ span: 6 })
+                .input({ l: '客户名称', n: 'customer', val: '深圳 TokUI 科技', req: true })
+                .input({ l: '联系人', n: 'contact', val: '王经理' })
+                .select({ l: '订单类型', n: 'type' })
+                  .opt({ v: 'new', tx: '新购', chk: true })
+                  .opt({ v: 'renew', tx: '续费' })
+                  .opt({ v: 'upgrade', tx: '升级' })
+                .end()
+                .numinput({ l: '授权数量', n: 'licenses', v: '10', min: '1', max: '999' })
+              .end()
+              .col_layout({ span: 6 })
+                .rate({ l: '优先级', n: 'priority', v: '3', max: '5' })
+                .switcher({ l: '需要上门实施', n: 'impl', chk: true })
+                .picker({ l: '附加模块', n: 'modules', multi: true })
+                  .opt({ v: 'bi', tx: 'BI 报表', chk: true })
+                  .opt({ v: 'flow', tx: '工作流' })
+                  .opt({ v: 'ai', tx: 'AI 助手', chk: true })
+                .end()
+                .textarea({ l: '备注', n: 'remark', ph: '订单备注（选填）' }).end()
+              .end()
+            .end()
+            .btngroup()
+              .btn({ tx: '提交订单', form: 'orderForm', sub: 'faSubmit', t: 'primary' })
+              .btn({ tx: '重置', form: 'orderForm', reset: true })
+              .btn({ tx: '🖨 打印整卡', print: 'self' })
+            .end()
+          .end()
+        .end();
+      return b;
+    }
   }
 ];
 

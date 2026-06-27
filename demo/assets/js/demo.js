@@ -92,6 +92,17 @@ const NAV_DATA = [
     ]
   },
   {
+    id: 'form-action',
+    name: { zh: '表单动作专题', en: 'Form Actions' },
+    icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
+    items: [
+      { trigger: 'fa-bind', name: { zh: '表单显式绑定', en: 'form:ID Binding' }, desc: { zh: '按钮在表单外靠 form:ID 精确绑定', en: 'Outside-button binds form by ID' }, icon: '🔗' },
+      { trigger: 'fa-submit-reset', name: { zh: '提交与重置', en: 'Submit & Reset' }, desc: { zh: 'sub 收集全字段 / reset 复原自定义控件', en: 'Collect all / reset custom controls' }, icon: '↺' },
+      { trigger: 'fa-print', name: { zh: '打印区与打印按钮', en: 'Print Area' }, desc: { zh: 'print-area 1:1 打印 / 按钮不进预览', en: '1:1 print, button hidden in preview' }, icon: '🖨' },
+      { trigger: 'fa-order', name: { zh: '综合订单页', en: 'Combo Order' }, desc: { zh: '表单+提交+重置+打印整卡', en: 'Form+submit+reset+print card' }, icon: '✦' },
+    ]
+  },
+  {
     id: 'ai-chat',
     name: { zh: 'AI 对话', en: 'AI Chat' },
     icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
@@ -477,6 +488,12 @@ TokUI.registerHandler('handleSave', () => addSystemMessage(t('action'), '保存'
 TokUI.registerHandler('handleCancel', () => addSystemMessage(t('action'), '取消'));
 TokUI.registerHandler('handleExport', () => addSystemMessage(t('action'), '导出'));
 TokUI.registerHandler('handleSearch', (data) => addSystemMessage('搜索', JSON.stringify(data, null, 2)));
+
+// === 表单动作专题 handler（reset/print 为内置动作，无需 handler）===
+TokUI.registerHandler('faBindA', (data) => addSystemMessage('表单 A 提交数据', JSON.stringify(data, null, 2)));
+TokUI.registerHandler('faBindB', (data) => addSystemMessage('表单 B 提交数据', JSON.stringify(data, null, 2)));
+TokUI.registerHandler('faSubmit', (data) => addSystemMessage('表单提交数据', JSON.stringify(data, null, 2)));
+TokUI.registerHandler('faResetCb', () => addSystemMessage('已重置', '表单已恢复初始值（含自定义控件）'));
 
 // 收集 card 内所有 input/pwd/textarea/select 的 name:value 键值对
 TokUI.registerHandler('collectCardInputs', (data, event, element) => {

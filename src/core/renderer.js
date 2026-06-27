@@ -1,4 +1,91 @@
 /**
+ * 解析按钮节点的内置动作（submit/reset/print）。
+ * 单一事实来源：btn 渲染与 bindEvents 分发共用，避免双端不一致。
+ *
+ * 优先级：print > reset > submit > clk(无内置动作)。
+ * - print:T        → 打印 target 指定的 print-area / card（T='self' 表最近祖先）
+ * - reset[:H]      → 重置绑定的表单（裸写无回调，reset:H 带 post-reset 回调）
+ * - sub:H          → 提交绑定的表单并收集数据，调用 handler H
+ * - clk:H          → 普通点击，无内置动作（走 event-bus）
+ *
+ * form:ID 始终透传为 formId，用于显式绑定（优先于 DOM 祖先推断）。
+ *
+ * @param {Object} attrs - 节点属性
+ * @returns {{act, formId, handler, target, trigger}}
+ */
+function resolveButtonAction(attrs) {
+  var a = attrs || {};
+  var formId = a.form != null && a.form !== '' ? String(a.form) : null;
+  if (a.print !== undefined) {
+    // 裸写 print（===true）默认打印最近祖先区
+    var printTarget = (a.print === true || a.print === '' || a.print == null) ? 'self' : String(a.print);
+    return { act: 'print', formId: formId, handler: null, target: printTarget, trigger: true };
+  }
+  if (a.reset !== undefined) {
+    var rh = (a.reset === true || a.reset === '' || a.reset == null) ? null : String(a.reset);
+    return { act: 'reset', formId: formId, handler: rh, target: null, trigger: false };
+  }
+  if (a.sub !== undefined && a.sub !== false && a.sub !== '') {
+    // 裸写 sub（===true）仅触发表单提交，无 handler
+    var sh = (a.sub === true) ? null : String(a.sub);
+    return { act: 'submit', formId: formId, handler: sh, target: null, trigger: false };
+  }
+  return { act: null, formId: formId, handler: a.clk ? String(a.clk) : null, target: null, trigger: false };
+}
+
+/**
+ * 按显式 form:ID 解析按钮绑定的表单元素。
+ * 解析顺序：getElementById(ID) 且须为 FORM（防 id 伪造指向非表单）→ 降级最近祖先 form。
+ * 用 getElementById 而非 querySelector(原始ID)，杜绝选择器注入。
+ *
+ * @param {HTMLElement} el - 按钮元素
+ * @param {string|null} formId - 显式绑定的表单 ID
+ * @returns {HTMLFormElement|null}
+ */
+function resolveTargetForm(el, formId) {
+  if (!el) return null;
+  if (formId) {
+    var doc = (el.ownerDocument && el.ownerDocument.getElementById)
+      ? el.ownerDocument
+      : (typeof document !== 'undefined' ? document : null);
+    var byId = doc && doc.getElementById ? doc.getElementById(formId) : null;
+    if (byId && byId.tagName === 'FORM') return byId;
+  }
+  return el.closest ? el.closest('form') : null;
+}
+
+/**
+ * 解析打印按钮的目标作用域元素。
+ * - target='self' → 最近祖先 print-area / card（"打印所在卡片"语义）
+ * - target=ID     → getElementById(ID)（用 id 查找，非选择器，防注入）
+ *
+ * @param {HTMLElement} btn - 打印按钮元素
+ * @param {string} target - data-tokui-target 值
+ * @returns {HTMLElement|null}
+ */
+function resolvePrintScope(btn, target) {
+  if (!btn) return null;
+  if (target && target !== 'self') {
+    var doc = (btn.ownerDocument && btn.ownerDocument.getElementById)
+      ? btn.ownerDocument
+      : (typeof document !== 'undefined' ? document : null);
+    return doc && doc.getElementById ? doc.getElementById(target) : null;
+  }
+  return btn.closest ? (btn.closest('.tokui-print-area') || btn.closest('.tokui-card') || null) : null;
+}
+
+/**
+ * 向表单广播 tokuireset 事件（供外部监听；内部自定义控件走 _tokuiReset 契约）。
+ * 浏览器环境才派发；Node 测试环境无 CustomEvent/dispatchEvent 时静默跳过。
+ */
+function broadcastTokuiReset(form) {
+  if (!form) return;
+  if (typeof CustomEvent === 'function' && typeof form.dispatchEvent === 'function') {
+    try { form.dispatchEvent(new CustomEvent('tokuireset', { bubbles: true })); } catch (e) { /* noop */ }
+  }
+}
+
+/**
  * TokUI 渲染器模块
  * 将解析器输出的节点树渲染为 DOM 元素。
  * 支持一次性挂载（mount）和流式挂载（mountStreaming）两种模式。
@@ -296,6 +383,8 @@ class TokUIRenderer {
    */
   _streamOpen(node, rootContainer) {
     const dom = this.render(node);
+    // 标记"经流式打开"：供 tabs/accordion 的 _streamCloseHook 区分流式（复位首项）与一次性（保持原样）
+    if (dom && dom.nodeType === 1) dom._tokuiStreamActive = true;
     // 跳过隐藏元素的 fadeIn 动画（如 hover-content 临时容器）
     if (dom.nodeType === 1 && !dom.classList.contains('tokui-hover-card__content-temp')) {
       dom.style.animation = 'tokuiFadeIn 0.3s ease';
@@ -325,7 +414,9 @@ class TokUIRenderer {
         input.className = 'tokui-tabs-input';
         input.id = tabId + '-' + idx;
         input.setAttribute('data-index', String(idx));
-        if (idx === 0) input.checked = true;
+        // 流式跟随：每个新到达的 tab 激活为当前页（radio 同组互斥，浏览器自动取消其余），
+        // 用户随流看到正在输出的 tab；tabs 闭合时由 _streamCloseHook 复位回首项
+        input.checked = true;
         tabsEl.appendChild(input);
         // 创建 label
         const label = document.createElement('label');
@@ -343,6 +434,21 @@ class TokUIRenderer {
         this.slotStack.push({ slot: dom._slot || dom, el: dom, containerType: node.type });
         return dom;
       }
+    }
+    // collapse 在 accordion 内：流式跟随——展开当前项、收起兄弟（输出到谁展开谁）；
+    // accordion 闭合时由 _streamCloseHook 复位为仅展开首项
+    if (node.type === 'collapse' && this.slotStack.length > 0
+        && this.slotStack[this.slotStack.length - 1].containerType === 'accordion') {
+      var accEl = this.slotStack[this.slotStack.length - 1].el;
+      var sibs = accEl.querySelectorAll('.tokui-collapse');
+      for (var si = 0; si < sibs.length; si++) {
+        if (sibs[si] !== dom) {
+          sibs[si].removeAttribute('open');
+          sibs[si].setAttribute('aria-expanded', 'false');
+        }
+      }
+      dom.setAttribute('open', '');
+      dom.setAttribute('aria-expanded', 'true');
     }
     parentSlot.appendChild(dom);
     // 记录插槽信息：_slot 为内容插入点，_tokuiType 为组件类型
@@ -597,6 +703,146 @@ class TokUIRenderer {
         self._boundElements.push({ element: dom, listeners: [{ type: 'click', fn: domClickFn }] });
       }
     }
+
+    // 绑定内置动作按钮（submit/reset/print，data-tokui-act 印章）
+    // 与 clk 互斥：btn 渲染时按优先级只产出一种语义印章，无双重分发。
+    const actElements = [];
+    if (dom.hasAttribute && dom.hasAttribute('data-tokui-act')) actElements.push(dom);
+    dom.querySelectorAll('[data-tokui-act]').forEach(el => actElements.push(el));
+    actElements.forEach((element) => {
+      if (element._tokuiActBound) return;
+      element._tokuiActBound = true;
+      const act = element.getAttribute('data-tokui-act');
+      const formId = element.getAttribute('data-tokui-form');
+      var actFn = function (e) {
+        if (e && typeof e.preventDefault === 'function') e.preventDefault();
+        if (act === 'submit') self._doSubmit(element, formId);
+        else if (act === 'reset') self._doReset(element, formId);
+        else if (act === 'print') self._triggerPrint(element);
+      };
+      element.addEventListener('click', actFn);
+      self._boundElements.push({ element: element, listeners: [{ type: 'click', fn: actFn }] });
+    });
+  }
+
+  /**
+   * 内置 submit 动作：按 form:ID / 祖先解析目标表单，收集数据后调用 handler。
+   * click 已 preventDefault → 不触发原生表单提交，避免与 form[data-tokui-sub] 双重收集。
+   */
+  _doSubmit(btn, formId) {
+    var form = resolveTargetForm(btn, formId);
+    if (!form) return;
+    var handlerName = btn.getAttribute('data-tokui-sub');
+    var data = this._collectFormData(form);
+    if (handlerName) {
+      var handler = this.eventBus.getHandler(handlerName);
+      if (handler) handler(data, null, form);
+    }
+  }
+
+  /**
+   * 内置 reset 动作：原生 form.reset() 复位原生控件；
+   * 广播 tokuireset 事件（外部监听）+ 遍历 [data-tokui-resettable] 调 _tokuiReset（自定义控件）。
+   */
+  _doReset(btn, formId) {
+    var form = resolveTargetForm(btn, formId);
+    if (!form) return;
+    if (typeof form.reset === 'function') { try { form.reset(); } catch (e) { /* noop */ } }
+    broadcastTokuiReset(form);
+    var resettables = form.querySelectorAll('[data-tokui-resettable]');
+    resettables.forEach(function (el) {
+      if (typeof el._tokuiReset === 'function') el._tokuiReset();
+    });
+    var handlerName = btn.getAttribute('data-tokui-handler');
+    if (handlerName) {
+      var handler = this.eventBus.getHandler(handlerName);
+      if (handler) handler(null, null, form);
+    }
+  }
+
+  /**
+   * 内置 print 动作：给目标作用域加 tokui-print-target 类 + body[data-tokui-printing]，
+   * 调 window.print()。@media print 的 CSS 仅令该作用域可见（1:1 还原），
+   * data-tokui-print-trigger 的按钮自身隐藏（不进预览）。
+   * 另：临时复位祖主链的 containing-block 属性（position/transform/filter…）为
+   * static/none，确保 .tokui-print-target 的 position:absolute; left:0 锚定到页面
+   * 起点（宿主无关），afterprint 还原，不动 DOM 结构。
+   * 仅浏览器执行；Node 环境无 window 时安全跳过。
+   */
+  _triggerPrint(btn) {
+    var target = btn.getAttribute('data-tokui-target') || 'self';
+    var scope = resolvePrintScope(btn, target);
+    if (!scope) return;
+    if (typeof window === 'undefined' || typeof document === 'undefined' || !document.body || typeof window.print !== 'function') return;
+    scope.classList.add('tokui-print-target');
+    document.body.setAttribute('data-tokui-printing', '1');
+    // 隐藏不含目标的 body 顶层节点（header/nav/footer/其它消息…），
+    // 否则 visibility:hidden 仍占布局 → 打印产生大量空白页。
+    var hiddenNodes = [];
+    var bodyChildren = document.body.children || [];
+    for (var i = 0; i < bodyChildren.length; i++) {
+      var child = bodyChildren[i];
+      if (child && child.nodeType === 1 && child !== scope && !(child.contains && child.contains(scope))) {
+        child.setAttribute('data-tokui-print-hidden', '1');
+        hiddenNodes.push(child);
+      }
+    }
+    // 临时复位祖先链的 containing-block 创造属性（position/transform/filter/…），
+    // 否则 .tokui-print-target 的 position:absolute; left:0 会锚定到最近 positioned/
+    // transformed 祖主（如文档站侧栏容器、居中列、带 transform 的气泡），导致打印内容
+    // 偏右、左侧大片留白。复位后绝对定位锚回页面起点；afterprint 还原，不动 DOM 结构。
+    var CB_PROPS = [
+      ['position', 'static'], ['transform', 'none'], ['perspective', 'none'],
+      ['filter', 'none'], ['backdrop-filter', 'none'], ['will-change', 'auto'], ['contain', 'none']
+    ];
+    var resetNodes = [];
+    var ancestor = scope.parentNode;
+    while (ancestor && ancestor.nodeType === 1 && ancestor !== document.documentElement) {
+      var cs = (typeof getComputedStyle === 'function') ? getComputedStyle(ancestor) : null;
+      if (cs) {
+        var saved = null;
+        for (var k = 0; k < CB_PROPS.length; k++) {
+          var prop = CB_PROPS[k][0], defVal = CB_PROPS[k][1];
+          var cur = cs.getPropertyValue(prop);
+          // computed 非 static/none/normal 即认定该祖主截获了绝对定位的包含块
+          if (cur && cur !== defVal && cur !== 'normal') {
+            saved = saved || {};
+            saved[prop] = { v: ancestor.style.getPropertyValue(prop), p: ancestor.style.getPropertyPriority(prop) };
+            ancestor.style.setProperty(prop, defVal, 'important');
+          }
+        }
+        if (saved) resetNodes.push({ el: ancestor, saved: saved });
+      }
+      ancestor = ancestor.parentNode;
+    }
+    var done = false;
+    var self = this;
+    var cleanup = function () {
+      if (done) return; done = true;
+      scope.classList.remove('tokui-print-target');
+      if (typeof document !== 'undefined' && document.body) {
+        document.body.removeAttribute('data-tokui-printing');
+      }
+      for (var j = 0; j < hiddenNodes.length; j++) {
+        hiddenNodes[j].removeAttribute('data-tokui-print-hidden');
+      }
+      // 还原祖主被复位的内联样式（值 + 优先级），让 CSS 类规则重新生效
+      for (var n = 0; n < resetNodes.length; n++) {
+        var rn = resetNodes[n];
+        for (var pn in rn.saved) {
+          if (Object.prototype.hasOwnProperty.call(rn.saved, pn)) {
+            rn.el.style.setProperty(pn, rn.saved[pn].v, rn.saved[pn].p);
+          }
+        }
+      }
+      if (typeof window !== 'undefined' && typeof window.removeEventListener === 'function') {
+        window.removeEventListener('afterprint', cleanup);
+      }
+    };
+    if (typeof window.addEventListener === 'function') window.addEventListener('afterprint', cleanup);
+    try { window.print(); } catch (e) { /* noop */ }
+    // afterprint 兜底（部分浏览器/取消打印不触发时），1s 后强制清理
+    setTimeout(cleanup, 1000);
   }
 }
 
@@ -607,7 +853,11 @@ if (typeof window !== 'undefined') {
   window.TokUI._internal.el = el;
   window.TokUI._internal.VARIANTS = VARIANTS;
   window.TokUI._internal.TokUIRenderer = TokUIRenderer;
+  window.TokUI._internal.resolveButtonAction = resolveButtonAction;
+  window.TokUI._internal.resolveTargetForm = resolveTargetForm;
+  window.TokUI._internal.resolvePrintScope = resolvePrintScope;
+  window.TokUI._internal.broadcastTokuiReset = broadcastTokuiReset;
 }
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { el, TokUIRenderer, VARIANTS };
+  module.exports = { el, TokUIRenderer, VARIANTS, resolveButtonAction, resolveTargetForm, resolvePrintScope, broadcastTokuiReset };
 }
