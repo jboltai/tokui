@@ -10,7 +10,7 @@
 [![零运行时依赖](https://img.shields.io/badge/runtime%20deps-0-brightgreen.svg)](#)
 [![bundle size](https://img.shields.io/bundlephobia/minzip/@jboltai/tokui.svg)](https://bundlephobia.com/package/@jboltai/tokui)
 
-[官网文档站](https://tokui.jboltai.com/) · [组件画廊演示](https://tokui_demo.jboltai.com) · [DSL 完整参考](./demo/TOKUI_DSL_REFERENCE.md) · [在线体验（StackBlitz）](https://stackblitz.com/github/jboltai/tokui)
+[官网文档站](https://tokui.jboltai.com/) · [组件画廊演示](https://tokui_demo.jboltai.com/) · [DSL 完整参考](./demo/TOKUI_DSL_REFERENCE.md) · [在线体验（StackBlitz）](https://stackblitz.com/github/jboltai/tokui)
 
 ---
 
