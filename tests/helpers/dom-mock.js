@@ -96,6 +96,20 @@ function createElement(tag) {
       if (child.parentNode === this) child.parentNode = null;
       return child;
     },
+    insertBefore(newNode, referenceNode) {
+      if (!newNode || typeof newNode !== 'object') return newNode;
+      // 若 newNode 已有父，先从原父移除（真实 DOM 语义）
+      if (newNode.parentNode && newNode.parentNode.removeChild) {
+        newNode.parentNode.removeChild(newNode);
+      }
+      var idx = referenceNode ? this.childNodes.indexOf(referenceNode) : this.childNodes.length;
+      if (idx === -1) idx = this.childNodes.length;
+      this.childNodes.splice(idx, 0, newNode);
+      // 重建元素子节点列表（仅 nodeType===1，按 childNodes 顺序）
+      this.children = this.childNodes.filter(function (c) { return c && c.nodeType === 1; });
+      newNode.parentNode = this;
+      return newNode;
+    },
     addEventListener(type, fn) {
       if (!this._events[type]) this._events[type] = [];
       this._events[type].push(fn);

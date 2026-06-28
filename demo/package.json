@@ -1,0 +1,13 @@
+{
+  "name": "tokui-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TokUI 独立演示 —— 自带 SSE 服务端 + 前端 + 库快照（lib/），零依赖，整个 demo/ 目录可独立取出运行",
+  "scripts": {
+    "start": "node server/sse-server.js",
+    "server": "node server/sse-server.js"
+  },
+  "engines": {
+    "node": ">=14"
+  }
+}

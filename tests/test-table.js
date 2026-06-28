@@ -411,29 +411,56 @@ test('smartSplit basic comma split (via tr)', () => {
   assert.strictEqual(tds[3].textContent, 'four');
 });
 
-// 测试：smartSplit 双引号字段包含逗号（通过 tr 渲染间接测试）
-test('smartSplit with double-quoted fields containing commas (via tr)', () => {
+// 测试：首尾单元格各自引号（混合引号）不被误剥外层引号 → 正确多格（回归 bug）
+// 场景：[tr "酸汤肥牛（已退菜）",1,¥58.00,"-¥58.00"] 曾被合并成单格
+test('tr with first and last cells quoted (mixed quotes) - no false outer-strip', () => {
   const rc = new TokUIRenderer();
   registerTableComponents(rc);
   const node = {
     type: 'table',
     attrs: {},
     children: [
-      { type: 'thead', attrs: { cols: 'Name,Address,Phone' }, children: [] },
+      { type: 'thead', attrs: { cols: '菜名,份数,单价,金额' }, children: [] },
       {
         type: 'tbody',
         children: [
-          { type: 'tr', content: '"John, Jr.","123 Main St, Apt 4",555-1234', children: [] }
+          { type: 'tr', content: '"酸汤肥牛（已退菜）",1,¥58.00,"-¥58.00"', children: [] }
         ]
       }
     ]
   };
   const dom = rc.render(node);
   const tds = dom.querySelector('tbody tr').querySelectorAll('td');
-  assert.strictEqual(tds.length, 3);
-  assert.strictEqual(tds[0].textContent, 'John, Jr.');
-  assert.strictEqual(tds[1].textContent, '123 Main St, Apt 4');
-  assert.strictEqual(tds[2].textContent, '555-1234');
+  assert.strictEqual(tds.length, 4, '应拆成 4 格，首格带引号不能误剥外层');
+  assert.strictEqual(tds[0].textContent, '酸汤肥牛（已退菜）');
+  assert.strictEqual(tds[1].textContent, '1');
+  assert.strictEqual(tds[2].textContent, '¥58.00');
+  assert.strictEqual(tds[3].textContent, '-¥58.00');
+});
+
+// 测试：整体包裹（首尾各一个 "、中间无 "）仍剥外层引号 → 多格（保留旧 demo 写法）
+test('tr fully wrapped single-pair quotes - still strips to multi-cell', () => {
+  const rc = new TokUIRenderer();
+  registerTableComponents(rc);
+  const node = {
+    type: 'table',
+    attrs: {},
+    children: [
+      { type: 'thead', attrs: { cols: '姓名,角色,状态' }, children: [] },
+      {
+        type: 'tbody',
+        children: [
+          { type: 'tr', content: '"李明,管理员,正常"', children: [] }
+        ]
+      }
+    ]
+  };
+  const dom = rc.render(node);
+  const tds = dom.querySelector('tbody tr').querySelectorAll('td');
+  assert.strictEqual(tds.length, 3, '整体包裹应剥外层后拆 3 格');
+  assert.strictEqual(tds[0].textContent, '李明');
+  assert.strictEqual(tds[1].textContent, '管理员');
+  assert.strictEqual(tds[2].textContent, '正常');
 });
 
 run();

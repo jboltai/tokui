@@ -6,7 +6,7 @@
 'use strict';
 
 const assert = require('assert');
-const { parseTag, TokUIParser, CONTAINERS } = require('../src/core/parser');
+const { parseTag, TokUIParser, setVariantHints, CONTAINERS } = require('../src/core/parser');
 
 /** 测试用例存储 */
 const tests = [];
@@ -1187,6 +1187,110 @@ test('流式：原始内容块字面 \\n 跨 chunk 解码', () => {
   // 流式逐块 emit（不再等到 [/code] 一次性吐）；多块拼接应得完整解码后文本，字面 \n 均解码为真换行
   assert.strictEqual(texts.join(''), 'a\nb\nc');
   assert.ok(texts.every(t => !t.includes('\\n')), '字面 \\n 应解码为真换行，不残留');
+});
+
+// ===== 变体吸收（v: 后空格分隔的裸变体名智能并入 v）=====
+test('变体吸收：v: 后空格分隔的已知变体并入 v，不进正文', () => {
+  setVariantHints({ p: new Set(['left', 'center', 'right', 'muted', 'bold', 'sm', 'lg']) });
+  const nodes = [];
+  new TokUIParser((n) => nodes.push(n)).parse('[p v:center muted 欢迎再次光临]');
+  assert.strictEqual(nodes[0].attrs.v, 'center,muted');
+  assert.strictEqual(nodes[0].content, '欢迎再次光临');
+});
+
+test('变体吸收：多个空格变体与逗号混用，顺序合并', () => {
+  setVariantHints({ p: new Set(['left', 'center', 'right', 'muted', 'bold', 'sm', 'lg']) });
+  const nodes = [];
+  new TokUIParser((n) => nodes.push(n)).parse('[p v:center,bold muted sm 内容]');
+  assert.strictEqual(nodes[0].attrs.v, 'center,bold,muted,sm');
+  assert.strictEqual(nodes[0].content, '内容');
+});
+
+test('变体吸收：无 v: 时不吞裸变体名（保持纯文本意图）', () => {
+  setVariantHints({ p: new Set(['center', 'muted']) });
+  const nodes = [];
+  new TokUIParser((n) => nodes.push(n)).parse('[p center 文本]');
+  assert.strictEqual(nodes[0].content, 'center 文本');
+  assert.strictEqual(nodes[0].attrs.v, undefined);
+});
+
+test('变体吸收：v: 存在但裸词非已知变体 → 留正文', () => {
+  setVariantHints({ p: new Set(['center', 'muted']) });
+  const nodes = [];
+  new TokUIParser((n) => nodes.push(n)).parse('[p v:center randomword 欢迎]');
+  assert.strictEqual(nodes[0].attrs.v, 'center');
+  assert.strictEqual(nodes[0].content, 'randomword 欢迎');
+});
+
+test('变体吸收：流式场景同样生效（跨 chunk）', () => {
+  setVariantHints({ p: new Set(['left', 'center', 'right', 'muted', 'bold', 'sm', 'lg']) });
+  const events = [];
+  const parser = new TokUIParser((n) => events.push(n), { streaming: true });
+  parser.feed('[p v:center mut');
+  parser.feed('ed 欢迎]');
+  assert.strictEqual(events[0].attrs.v, 'center,muted');
+  assert.strictEqual(events[0].content, '欢迎');
+});
+
+test('变体吸收：boolean 与 variant 同名时，v: 存在优先当变体（修 bordered/pill 等）', () => {
+  // img 的 bordered 既是 BOOLEAN_ATTRS 又是 VARIANTS；v: 存在时应并入 v 生成变体类
+  setVariantHints({ img: new Set(['avatar', 'rounded', 'bordered']) });
+  const nodes = [];
+  new TokUIParser((n) => nodes.push(n)).parse('[img v:avatar bordered s:a.png]');
+  assert.strictEqual(nodes[0].attrs.v, 'avatar,bordered');
+  assert.strictEqual(nodes[0].attrs.bordered, undefined);
+});
+
+// ===== 漏空格容错（CJK 值后粘连下个属性）=====
+test('漏空格：全角括号后无空格接 tx: → 拆成 l + tx', () => {
+  const nodes = [];
+  new TokUIParser((n) => nodes.push(n)).parse('[item l:服务费（10%）tx:¥48.20]');
+  assert.strictEqual(nodes[0].attrs.l, '服务费（10%）');
+  assert.strictEqual(nodes[0].attrs.tx, '¥48.20');
+});
+
+test('漏空格：CJK 后无空格接 tx: → 拆开', () => {
+  const nodes = [];
+  new TokUIParser((n) => nodes.push(n)).parse('[item l:服务费tx:¥48.20]');
+  assert.strictEqual(nodes[0].attrs.l, '服务费');
+  assert.strictEqual(nodes[0].attrs.tx, '¥48.20');
+});
+
+test('漏空格：一个 token 内多属性粘连 → 全部拆开', () => {
+  const nodes = [];
+  new TokUIParser((n) => nodes.push(n)).parse('[item l:服务费（10%）tt:小计 tx:¥48.20]');
+  assert.strictEqual(nodes[0].attrs.l, '服务费（10%）');
+  assert.strictEqual(nodes[0].attrs.tt, '小计');
+  assert.strictEqual(nodes[0].attrs.tx, '¥48.20');
+});
+
+test('漏空格：纯 ASCII 冒号值（URL/时间）不误切', () => {
+  const nodes = [];
+  new TokUIParser((n) => nodes.push(n)).parse('[a u:https://x.com tx:链接]');
+  assert.strictEqual(nodes[0].attrs.u, 'https://x.com');
+  assert.strictEqual(nodes[0].attrs.tx, '链接');
+});
+
+test('漏空格：ASCII 冒号边界（:l:）不误切，保留字面值', () => {
+  const nodes = [];
+  new TokUIParser((n) => nodes.push(n)).parse('[p tt:服务:l:oops]');
+  assert.strictEqual(nodes[0].attrs.tt, '服务:l:oops');
+});
+
+test('漏空格：CJK 值内含冒号（价格:10元）保留字面', () => {
+  const nodes = [];
+  new TokUIParser((n) => nodes.push(n)).parse('[item l:价格:10元 tx:¥48.20]');
+  assert.strictEqual(nodes[0].attrs.l, '价格:10元');
+  assert.strictEqual(nodes[0].attrs.tx, '¥48.20');
+});
+
+test('漏空格：流式场景同样生效', () => {
+  const events = [];
+  const parser = new TokUIParser((n) => events.push(n), { streaming: true });
+  parser.feed('[item l:服务费（10%）tx');
+  parser.feed(':¥48.20]');
+  assert.strictEqual(events[0].attrs.l, '服务费（10%）');
+  assert.strictEqual(events[0].attrs.tx, '¥48.20');
 });
 
 run();

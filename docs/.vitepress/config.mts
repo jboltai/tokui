@@ -107,10 +107,12 @@ function zhNav() {
   return [
     { text: '指南', link: '/guide/introduction', activeMatch: '/guide/' },
     { text: '组件', link: '/components/basic', activeMatch: '/components/' },
+    { text: '演示平台', link: 'https://tokui_demo.jboltai.com' },
     { text: 'API', link: '/api/builder', activeMatch: '/api/' },
     { text: 'JBoltAI', link: 'https://jboltai.com' },
     { text: '关于我们', link: 'https://vecspc.com/about.html' },
     { text: '视频站', link: 'https://www.bilibili.com/video/BV1GDJw61ENJ' },
+    { text: '加入社群', link: '/community' },
   ];
 }
 
@@ -172,10 +174,12 @@ function enNav() {
   return [
     { text: 'Guide', link: '/en/guide/introduction', activeMatch: '/en/guide/' },
     { text: 'Components', link: '/en/components/basic', activeMatch: '/en/components/' },
+    { text: 'Demo', link: 'https://tokui_demo.jboltai.com' },
     { text: 'API', link: '/en/api/builder', activeMatch: '/en/api/' },
     { text: 'JBoltAI', link: 'https://jboltai.com' },
     { text: 'About', link: 'https://vecspc.com/about.html' },
     { text: 'Video', link: 'https://www.bilibili.com/video/BV1GDJw61ENJ' },
+    { text: 'Community', link: '/en/community' },
   ];
 }
 

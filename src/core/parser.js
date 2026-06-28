@@ -31,6 +31,32 @@ function findCloseBracket(str) {
 }
 
 /**
+ * tr 标签专用闭合查找：括号深度 + 引号双感知。
+ * tr 单元格可能含内联组件 [btn:...]/[img:...]（其内层 ] 不能误关 tr），
+ * 或双引号包裹的含 ] / , 文本。findCloseBracket 只引号感知，会在内层 ] 误关 tr
+ * → 单元格泄漏、串行。此处按 [ 深度跳过配对的内层 ]。
+ * 注：TAG_OPEN 态 buffer 已剥掉 tr 自身的外层 [（从 tag 名开始），故 depth 从 0 起计，
+ *     首个 depth=0 的 ] 即 tr 自身闭合；引号内的 [ ] 一律视为字面。
+ */
+function findTrCloseBracket(str) {
+  let inQuote = false;
+  let depth = 0;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    if (ch === '"') {
+      inQuote = !inQuote;
+    } else if (!inQuote) {
+      if (ch === '[') depth++;
+      else if (ch === ']') {
+        if (depth === 0) return i;
+        depth--;
+      }
+    }
+  }
+  return -1;
+}
+
+/**
  * 容器类型集合
  * 这些标签需要开闭标签配对（如 [card]...[/card]），
  * 解析时会将其子节点收集到 children 数组中。
@@ -111,6 +137,48 @@ const BOOLEAN_ATTRS = new Set([
   'print'
 ]);
 
+// 变体提示（Variant hints）
+// 当标签已出现 v: 时，紧跟的裸 token 若命中该组件的已知变体名，则并入 v 而非当作正文。
+// 数据来源优先 setVariantHints 注入；否则回退读 window.TokUI._internal.VARIANTS（renderer 已挂载）。
+// Why: 兼容 [p v:center muted 文本] 这种「空格分隔多变体」写法，避免 muted 漏进正文。
+var _VARIANT_HINTS = null;
+function setVariantHints(map) { _VARIANT_HINTS = map; }
+function _knownVariantsOf(type) {
+  if (_VARIANT_HINTS) return _VARIANT_HINTS[type];
+  if (typeof window !== 'undefined' && window.TokUI && window.TokUI._internal) {
+    var v = window.TokUI._internal.VARIANTS;
+    return v ? v[type] : null;
+  }
+  return null;
+}
+
+// 已知属性 key 白名单（短标识符）：用于检测 CJK 值后「漏空格」粘连的下个属性。
+// 例：AI 写 [item l:服务费（10%）tx:¥48.20]（全角）后漏空格），据此切成 l:服务费（10%） + tx:¥48.20。
+var ATTR_KEYS = new Set([
+  't', 'l', 'tx', 'tt', 'ph', 'u', 's', 'n', 'v', 'w', 'h',
+  'clk', 'sub', 'act', 'mtd', 'dis', 'ro', 'req', 'chk', 'id',
+  'bg', 'fc', 'cap', 'cols', 'span', 'min', 'max', 'step',
+  'alt', 'target', 'src', 'name', 'value', 'pre', 'pos'
+]);
+
+// 值尾部若粘连「<非ASCII><已知key>:」→ 拆成多对属性（修复 AI 漏空格）。
+// 守卫：仅当值含非ASCII且含内部冒号时才进；纯ASCII值（URL/时间/版本号）零成本跳过、零误伤。
+// 返回 [[key,val],...]；无粘连则返回 [[key, val]]。
+function _expandAttrKeyVal(key, val) {
+  var pairs = [];
+  while (true) {
+    var m = val.match(/^([\s\S]*?[^\x00-\x7f])([a-zA-Z][a-zA-Z0-9]{0,6}):([\s\S]*)$/);
+    if (!m) break;
+    var k2 = m[2];
+    if (!ATTR_KEYS.has(k2)) break;
+    pairs.push([key, m[1]]);
+    key = k2;
+    val = m[3];
+  }
+  pairs.push([key, val]);
+  return pairs;
+}
+
 function parseTag(raw) {
   if (!raw || !raw.trim()) {
     return { type: '_text', attrs: {}, content: '', children: [] };
@@ -145,7 +213,14 @@ function parseTag(raw) {
         let val = token.slice(colonIdx + 1);
         // 还原引号占位符
         val = val.replace(/__QUOTE(\d+)__/g, (_, idx) => quotes[parseInt(idx)]);
-        node.attrs[key] = val;
+        // 漏空格容错：CJK 值尾部粘连「<非ASCII><已知key>:」时拆成多属性
+        // （如 AI 写 [item l:服务费（10%）tx:¥48.20]，全角）后漏空格）
+        // 守卫：仅 CJK 值且含内部冒号才进，纯 ASCII 值零成本跳过
+        if (/[^\x00-\x7f]/.test(val) && val.indexOf(':') !== -1) {
+          _expandAttrKeyVal(key, val).forEach(function (kv) { node.attrs[kv[0]] = kv[1]; });
+        } else {
+          node.attrs[key] = val;
+        }
       } else {
         const withQuotes = token.replace(/__QUOTE(\d+)__/g, (_, idx) => `"${quotes[parseInt(idx)]}"`);
         contentParts.push(withQuotes);
@@ -153,6 +228,15 @@ function parseTag(raw) {
     } else {
       // 非属性 token
       const unquoted = token.replace(/__QUOTE(\d+)__/g, (_, idx) => quotes[parseInt(idx)]);
+      // 智能变体吸收：v: 已出现 且 裸 token 是该组件已知变体 → 并入 v（逗号续写），不当正文
+      // 仅在 v: 存在时触发，避免误吞 [p center 文本] 这种纯文本意图
+      if (node.attrs.v) {
+        const knownVariants = _knownVariantsOf(node.type);
+        if (knownVariants && knownVariants.has && knownVariants.has(unquoted)) {
+          node.attrs.v = node.attrs.v + ',' + unquoted;
+          continue;
+        }
+      }
       // 布尔属性（如 stripe、disabled 等，出现即为 true）
       if (BOOLEAN_ATTRS.has(unquoted)) {
         node.attrs[unquoted] = true;
@@ -221,6 +305,8 @@ class TokUIParser {
     this._totalOffset = 0;
     this._dslText = '';
     this._tagStartPos = -1;
+    this._lastTrPreview = '';
+    this._trOpenKey = -2;   // 与任何 _dslStart（>=0 或 -1）都不等的哨兵
   }
 
   /**
@@ -332,6 +418,32 @@ class TokUIParser {
         if (kid.type === 'hrow' || kid.type === 'flow') {
           kid._kidPreview = true;
           this.onNode(kid);
+        }
+      }
+    }
+    // tr 流式预览：TAG_OPEN 累积 tr 标签时，按「引号 + 深度」感知的逗号逐 cell emit 半成品，
+    // renderer 边收边 fill <tr>（逐格渐显、末格文本字符级），不等整个 ] 闭合。
+    // 引号处理：cell 值 "a,b 残缺时末尾补闭引号放行（避免残缺逗号被当分隔）；其他残缺引号等更多数据。
+    // 占位 open 仅发一次（_trOpenKey 标识当前 tr）；完整 ] 到达由主循环 _emitStreaming 标 finalize 收尾。
+    if (this.streaming && this.state === 'TAG_OPEN'
+        && /^tr\b/.test(this.buffer)
+        && this.buffer !== this._lastTrPreview) {
+      let tprobe = this.buffer;
+      if ((tprobe.match(/"/g) || []).length % 2 === 1) {
+        if (/"[^"]*$/.test(tprobe)) tprobe += '"';
+        else tprobe = null;
+      }
+      if (tprobe !== null) {
+        this._lastTrPreview = this.buffer;
+        const parsed = parseTag(tprobe);
+        if (parsed.type === 'tr') {
+          if (this._trOpenKey !== this._tagStartPos) {
+            this._trOpenKey = this._tagStartPos;
+            this.onNode({ type: 'tr', _stream: 'open', _trKey: this._tagStartPos, attrs: parsed.attrs });
+          }
+          parsed._stream = 'preview';
+          parsed._trKey = this._tagStartPos;
+          this.onNode(parsed);
         }
       }
     }
@@ -570,7 +682,8 @@ class TokUIParser {
           continue;
         }
         // 查找闭合 ] 并解析标签
-        const closeIdx = findCloseBracket(this.buffer);
+        // tr 单元格可能含内联 [btn]/[img]（内层 ] 须按深度跳过），用深度感知闭合查找
+        const closeIdx = /^tr\b/.test(this.buffer) ? findTrCloseBracket(this.buffer) : findCloseBracket(this.buffer);
         if (closeIdx === -1) break; // 标签不完整，等待更多数据
         // 容错：容器开标签跨行漏写 ]、直接接子标签（AI 习惯 HTML <li> 裸开），
         // 例 [item 文本\n[list] —— closeIdx 命中的其实是子标签的 ]，父标签头被吞进 content。
@@ -718,8 +831,14 @@ class TokUIParser {
       prevP._stream = 'close';
       this.onNode(prevP);
     }
+    // tr 流式收尾：被预览过的 tr（_trOpenKey 命中其 _dslStart）到达完整 ] 时标记 finalize，
+    // renderer 复用占位 <tr> 做最终 cell reconcile，不再当普通子节点重新渲染（防重复行）。
+    if (node.type === 'tr' && this._trOpenKey === node._dslStart) {
+      node._stream = 'finalize';
+      node._trKey = node._dslStart;
+    }
     // tx on popover/input-tag means trigger/label text, not self-closing body content
-    const TX_CONTAINER_EXCLUDE = new Set(['tn', 'popover', 'input-tag', 'watermark']);
+    const TX_CONTAINER_EXCLUDE = new Set(['tn', 'popover', 'input-tag', 'watermark', 'badge-box']);
     const isTxSelfClosing = CONTAINERS.has(node.type) && !TX_CONTAINER_EXCLUDE.has(node.type) && node.attrs.tx;
     const isLeafSelfClosing = node.type === 'tn' && node.attrs.leaf !== undefined;
     // input-tag 带 tags 属性 → 自闭合（与 builder.inputTag() 的 _selfClosing 分支对齐）；
@@ -778,7 +897,7 @@ class TokUIParser {
         this.onNode(prevP); // 根级兄弟：无父可挂，直接 emit（否则丢失）
       }
     }
-    const TX_CONTAINER_EXCLUDE = new Set(['tn', 'popover', 'input-tag', 'watermark']);
+    const TX_CONTAINER_EXCLUDE = new Set(['tn', 'popover', 'input-tag', 'watermark', 'badge-box']);
     const isTxSelfClosing = CONTAINERS.has(node.type) && !TX_CONTAINER_EXCLUDE.has(node.type) && node.attrs.tx;
     const isLeafSelfClosing = node.type === 'tn' && node.attrs.leaf !== undefined;
     const isTagsSelfClosing = node.type === 'input-tag' && node.attrs.tags;
@@ -822,8 +941,9 @@ if (typeof window !== 'undefined') {
   window.TokUI._internal = window.TokUI._internal || {};
   window.TokUI._internal.TokUIParser = TokUIParser;
   window.TokUI._internal.parseTag = parseTag;
+  window.TokUI._internal.setVariantHints = setVariantHints;
   window.TokUI._internal.CONTAINERS = CONTAINERS;
 }
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { TokUIParser, parseTag, CONTAINERS };
+  module.exports = { TokUIParser, parseTag, setVariantHints, CONTAINERS };
 }

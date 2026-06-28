@@ -17,11 +17,16 @@ Six-level headings, self-closing. `tx` is the text (optional — you can write t
 
 ## Paragraph `p`
 
-Body paragraph, self-closing. `v` controls alignment and weight.
+Body paragraph, **dual-mode** (same trap as card's `tx` self-closing): **body text present** → leaf self-closing; **no body text** → container collecting children. `v` controls alignment and weight.
+
+- **Leaf mode** `[p text]` / `[p v:bold text]`: text is the body; may hold **inline** children (`a`/`tag`/`b`/`strong`/`em`/`mark`/`spin`/`sub`/`sup`/`code`); auto-closes on a block sibling.
+- **Container mode** `[p]...[/p]`: use when placing block children like `btn`/`form`/`card`; must close with `[/p]`.
+- Body text shaped like `word:value` (e.g. `Q:`/`A:`) is parsed as an attribute (no-space → body empty; with-space → prefix vanishes) — use a full-width `：` or drop the colon (see [DSL syntax](/en/guide/dsl-syntax)).
 
 **Variants**: `left` / `center` / `right` (alignment), `muted`, `bold`, `sm` / `lg` (font size).
 
 <Playground dsl='[p 这是默认段落，用于承载正文内容。][p v:muted 弱化段落，用于次要信息或辅助说明。][p v:bold 加粗段落，用于强调重点。][p v:sm 小字号段落，常用于脚注。][p v:lg 大字号段落，用于引语。]' />
+<Playground dsl='[p Leaf mode allows [a u:# tx:inline link] and [b inline bold].][p][btn tx:block btn in container clk:ok][btn tx:reset clk:cancel][/p][p Q：full-width colon counts as body.]' />
 
 ## Link `a`
 
@@ -142,12 +147,24 @@ Status indicator, self-closing.
 
 | Prop | Meaning | Applies to |
 |------|---------|------------|
-| `count` | Number | `badge` |
-| `dot` | Dot | `badge` |
-| `t` | Status color | both |
-| `overflow` | Overflow display (e.g. 99+) | `badge-box` |
+| `count` | Number (`parseInt` truncates decimals; use `tx` for versions/decimals) | both |
+| `dot` | Dot | both |
+| `tx` | Text badge | both (`badge-box` also accepts legacy `label`; `tx` preferred) |
+| `t` | Status color (default/primary/success/warning/error) | both |
+| `overflow` | Overflow display (e.g. 99+) | both |
+| `pill` | Pill (rounded) | `badge` |
+| `size` | Size (sm/lg) | `badge` |
+| `title` | Hover tooltip | `badge` |
 
 <Playground dsl='[badge count:5][btn tx:消息 v:ghost][/badge] [badge count:99][btn tx:通知 v:ghost][/badge] [badge dot][btn tx:待办 v:ghost][/badge]' />
+
+**Two ways to badge a heading** (`h3` is self-closing; never nest `[h3 text [badge]]`):
+
+- **Inline pill** (a label beside the title, e.g. a version/status): wrap `h3` + `badge` in `row v:inline` (flex mode). **Must use `v:inline`** — the default `row` is a 12-col grid that squeezes the heading into wrap.
+- **Corner badge** (top-right marker, e.g. unread/dot): wrap `h3` in `badge-box`.
+
+<Playground dsl='[row v:inline][h3 SaaS Pro][badge tx:v2.4 pill t:primary][/row]' />
+<Playground dsl='[badge-box tx:v2.4 t:primary][h3 SaaS Pro][/badge-box]' />
 
 ## Progress `progress`
 

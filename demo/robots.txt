@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# 禁止索引演示后端 API 与内部资源
+Disallow: /api/
+Disallow: /assets/js/demo.js
+
+Sitemap: https://tokui_demo.jboltai.com/sitemap.xml

@@ -1,0 +1,37 @@
+# TokUI Demo
+
+> TokUI 零依赖流式 UI 渲染框架在线演示：后端用极简 DSL 描述组件，经 SSE 流式推送，前端实时增量解析渲染为真实 DOM，覆盖 80+ 组件。由 JBoltAI 团队开源。
+
+## Docs
+
+- [TokUI 演示主页](https://tokui_demo.jboltai.com): 组件画廊 + AI 对话式 SSE 流式渲染。左侧分类导航与搜索，触发关键词实时流式推送 DSL，前端增量渲染为 DOM，支持 default/dark/modern/modern-dark 四主题与中英双语切换。
+- [DSL 语法参考](https://tokui_demo.jboltai.com/TOKUI_DSL_REFERENCE.md): TokUI DSL 完整语法手册。自闭合与容器标签、属性简写（t/l/tx/ph/v 等）、布尔属性、变体 v:primary、表格流式 cell 级渲染、colspan/rowspan 合并、列对齐/列配色、按钮内置动作（submit/reset/print）与动态更新。
+- [演示包说明（中文）](https://tokui_demo.jboltai.com/README.md): demo 目录中文文档。特性概览、demo.sh 管理脚本（start/stop/restart/status）、目录结构、SSE 接口表、与主项目 TokUI 的快照关系及 demo:sync 刷新方式。
+- [演示包说明（英文）](https://tokui_demo.jboltai.com/README_EN.md): demo 目录英文文档。面向英文读者，覆盖同等特性、启动方式、目录结构、SSE 接口与主项目关系。
+
+## Source & Docs (off-site)
+
+- [TokUI GitHub 仓库](https://github.com/jboltai/tokui): 项目主仓库源码。src/core（parser/renderer/event-bus/theme/color-generator）、src/components 全组件实现、tests 自定义 runner、Vite 8 构建配置与 package.json exports 映射。
+- [TokUI Gitee 镜像](https://gitee.com/jboltai_main/tokui): 国内镜像仓库，与 GitHub 同步，便于中国大陆开发者克隆访问。
+- [TokUI 官方文档站](https://tokui.jboltai.com/): 完整使用教程、组件 API、主题开发指南与入门示例。
+- [JBoltAI 团队](https://jboltai.com): TokUI 的开发与维护团队官网，展示其他开源项目与产品。
+
+## Key Facts
+
+- 项目: TokUI（当前演示版本 v0.1.2）
+- 定位: 零依赖的流式 UI 描述与渲染框架，核心场景为 AI 对话中的流式 UI 生成
+- 架构: 后端 TokUIBuilder 生成 DSL → SSE 流式推送 → 前端 TokUIParser 增量解析 → TokUIRenderer 渲染真实 DOM
+- 组件数: 80+，含表格、表单、图表（柱状/折线/饼图/雷达/散点/甘特/漏斗/仪表盘）、卡片、栅格、列表、AI 对话气泡、流式 Markdown、代码高亮、时间线、步骤条等
+- 主题: default / dark / modern / modern-dark（CSS 变量驱动，data-tokui-theme 属性切换）
+- 语言: 中英双语（zh-CN / en）
+- 依赖: 零外部 npm 依赖，前后端均使用原生 API
+- 授权: 免费开源
+- 维护: JBoltAI 团队 · 开源贡献
+
+## Contact
+
+- 官方文档站: https://tokui.jboltai.com
+- 团队官网: https://jboltai.com
+- GitHub: https://github.com/jboltai/tokui
+- Gitee: https://gitee.com/jboltai_main/tokui
+- 联系与社群: 演示主页右上角「联系」「社群」按钮（微信扫码加作者，拉进 TokUI 技术交流群）

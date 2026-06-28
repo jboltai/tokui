@@ -55,6 +55,8 @@ pill dot leaf inline rounded container
 
 <Playground dsl='[h1 v:underline Decorated title][p v:muted Muted text][p v:bold Bold text][dv v:dashed Divider with text]' />
 
+> **Badging a heading**: `h3` and other headings are self-closing — never nest `[h3 text [badge]]`. Two official patterns — inline pill via `row v:inline` (flex; **must use `v:inline`** — the default `row` is a 12-col grid that squeezes the heading): `[row v:inline][h3 SaaS Pro][badge tx:v2.4 pill][/row]`; top-right corner badge via `badge-box`: `[badge-box tx:v2.4][h3 SaaS Pro][/badge-box]`. Use `tx` for versions/decimals (`count` runs through `parseInt` and truncates `2.4` to `2`). `badge-box` text badge uses `tx` (legacy `label` still works).
+
 ## Dynamic update
 
 `[upd]` updates an already-rendered component:
@@ -86,6 +88,54 @@ The 150+ components are organized into seven categories, each with full prop tab
 ## Raw content mode
 
 Inside `code`, `md`, `diff`, `terminal`, `sandbox`, and `artifact-code` containers, `[` is treated as a literal character (not parsed as a tag) until the matching `[/type]`. So brackets inside code snippets never break parsing.
+
+## The two modes of paragraph `p` (leaf vs container)
+
+`p` is a **dual-mode** tag: it switches automatically based on whether there is **body text inside the tag**. Getting it wrong makes child nodes break out as siblings or body text disappear (same trap as card's `tx` self-closing).
+
+- **Leaf mode** (body text present): `[p text]`, `[p v:bold text]`. The text becomes the paragraph body; it auto-closes when the next **block-level** sibling arrives (mirrors HTML `<p>`). The body stream may contain **inline** children — inline whitelist only: `a`, `tag`, `b`/`strong`, `em`, `mark`, `spin`, `sub`/`sup`, `code`.
+
+```dsl
+[p First [a u:# register], then run [b npm install].]   ✅ inline children sit inside the body
+```
+
+- **Container mode** (no body text, only attrs or empty): `[p]...[/p]`, `[p v:muted]...[/p]`. It collects **all** children until `[/p]`. When a paragraph must hold **block-level** components like `btn`/`form`/`card`/`list`/`table`/another `[p]`, use this mode and list children one per line.
+
+```dsl
+[p]
+[btn tx:Agree clk:agree]
+[btn tx:Decline v:danger clk:reject]
+[/p]
+```
+
+**Common mistake** — stuffing a block component into a leaf-mode body stream:
+
+```dsl
+[p Click [btn tx:Submit] to continue.]   ❌ btn is not in the inline whitelist; leaf p auto-closes on [btn], which breaks out as a top-level sibling
+```
+
+Rule of thumb: paragraph holds `btn`/`form`/`card`/`list`/`table` or any container → container mode `[p]...[/p]`; holds `a`/`tag`/`strong` inline or plain text → leaf mode `[p text]`. Full inline whitelist: `src/core/parser.js` `P_INLINE_CHILDREN`.
+
+<Playground dsl='[p Leaf mode allows [a u:# tx:inline link] and [b inline bold] children.][p][btn tx:block btn in container clk:ok][btn tx:another v:danger clk:cancel][/p]' />
+
+## Body text shaped like `word:value` (e.g. `Q:` `A:`) is parsed as an attribute
+
+For every token after `[`, the parser checks for an ASCII `:`: as long as the part before `:` is an English identifier (`Q`, `A`, `step`, `note`, `id`… all qualify), the whole `key:value` is treated as an **attribute**. So a "Q&A prefix" like this loses all its body text:
+
+```dsl
+[p Q:How to submit?]            ❌ no space: Q becomes the attr name, the whole sentence its value — paragraph body empty, nothing renders
+[p Q: How to submit?]            ❌ with space: the Q: prefix is eaten as an attribute, only "How to submit?" remains
+```
+
+This applies to any text component: `item`, `h1~h6`, `callout`'s `tt`, etc. **Three fixes**:
+
+```dsl
+[p Q：How to submit?]       ✅ full-width colon ：（parser only matches ASCII :, full-width counts as text）
+[p Q How to submit?]         ✅ drop the colon, fold the prefix into the body
+[p "Q: How to submit?"]      ✅ wrap the whole body in double quotes (literal text)
+```
+
+For Q&A scenarios prefer the full-width `：` or no prefix at all — don't write `Q:`/`A:` as a Markdown-style prefix into the DSL.
 
 ## Text containing literal `[` `]` must be wrapped in double quotes
 

@@ -17,11 +17,16 @@
 
 ## 段落 `p`
 
-正文段落，自闭合。`v` 控制对齐与字重。
+正文段落，**双模**（与 card 的 `tx` 自闭合陷阱同理）：标签内**有正文** → 叶子自闭合；**无正文** → 容器收子节点。`v` 控制对齐与字重。
+
+- **叶子模式** `[p 文本]` / `[p v:bold 文本]`：文本作正文，可夹**内联**子节点（`a`/`tag`/`b`/`strong`/`em`/`mark`/`spin`/`sub`/`sup`/`code`），遇块级兄弟自动闭合。
+- **容器模式** `[p]...[/p]`：放 `btn`/`form`/`card` 等块级子节点时用，必须 `[/p]` 闭合。
+- 正文里写 `英文:值`（如 `Q:`/`A:`）会被解析成属性吞掉（无空格→正文空、带空格→前缀消失）——改全角 `：` 或去冒号（详见 [DSL 语法](/guide/dsl-syntax)）。
 
 **变体**：`left` / `center` / `right`（对齐），`muted`（弱化），`bold`（加粗），`sm` / `lg`（字号）。
 
 <Playground dsl='[p 这是默认段落，用于承载正文内容。][p v:muted 弱化段落，用于次要信息或辅助说明。][p v:bold 加粗段落，用于强调重点。][p v:sm 小字号段落，常用于脚注。][p v:lg 大字号段落，用于引语。]' />
+<Playground dsl='[p 叶子模式可夹 [a u:# tx:内联链接] 与 [b 行内加粗] 等内联子节点。][p][btn tx:容器模式放块级按钮 clk:ok][btn tx:重置 clk:cancel][/p][p Q：全角冒号当正文，规避属性陷阱。]' />
 
 ## 链接 `a`
 
@@ -146,12 +151,24 @@
 
 | 属性 | 含义 | 适用 |
 |------|------|------|
-| `count` | 数字 | `badge` |
-| `dot` | 小红点 | `badge` |
-| `t` | 状态色 | 两者 |
-| `overflow` | 数字溢出显示（如 99+） | `badge-box` |
+| `count` | 数字（`parseInt` 截断小数，版本号/小数请用 `tx`） | 两者 |
+| `dot` | 小红点 | 两者 |
+| `tx` | 文本徽标 | 两者（`badge-box` 兼容旧写法 `label`，推荐 `tx`） |
+| `t` | 状态色（default/primary/success/warning/error） | 两者 |
+| `overflow` | 数字溢出显示（如 99+） | 两者 |
+| `pill` | 胶囊圆角 | `badge` |
+| `size` | 尺寸（sm/lg） | `badge` |
+| `title` | 悬停提示 | `badge` |
 
 <Playground dsl='[badge count:5][btn tx:消息 v:ghost][/badge] [badge count:99][btn tx:通知 v:ghost][/badge] [badge dot][btn tx:待办 v:ghost][/badge]' />
+
+**标题加徽标有两种写法**（`h3` 是自闭合组件，禁止 `[h3 文本 [badge]]` 嵌套）：
+
+- **并排 pill**（标题旁标签，如版本号/状态）：用 `row v:inline`（flex 模式）托管 `h3` + `badge`。**必须 `v:inline`**——默认 `row` 是 12 列 grid，直接放标题会被挤窄换行。
+- **右上角角标**（贴角，如未读/红点）：用 `badge-box` 包裹 `h3`。
+
+<Playground dsl='[row v:inline][h3 SaaS Pro][badge tx:v2.4 pill t:primary][/row]' />
+<Playground dsl='[badge-box tx:v2.4 t:primary][h3 SaaS Pro][/badge-box]' />
 
 ## 进度条 `progress`
 

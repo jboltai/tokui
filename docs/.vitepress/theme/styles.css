@@ -232,19 +232,8 @@ a, a:hover { text-decoration: none !important; }
 }
 
 /* 窄屏堆叠 */
-@media (max-width: 768px) {
-  .vp-playground-body {
-    flex-direction: column;
-  }
-  .vp-playground-code,
-  .vp-playground-mirror,
-  .vp-playground-readonly {
-    width: 100%;
-    min-height: 130px;
-    border-right: 0;
-    border-bottom: 1px solid var(--vp-c-border);
-  }
-}
+/* 移动端 Playground 响应式见文件末尾（须在 .vp-playground-readonly / -editor 基础规则之后，
+   同特异性源序在后才覆盖 width:42% → 100%，否则代码区在移动端只占 42%）*/
 
 /* ============ TokUI DSL 语法高亮配色 ============ */
 :root {
@@ -877,4 +866,36 @@ html .VPDoc.has-aside .content-container {
 @media (max-width: 640px) {
   .home-why-grid, .home-cat-grid { grid-template-columns: 1fr; }
   .home-section-title { font-size: 24px; }
+}
+
+/* ============ Playground 移动端响应式（须在基础规则之后，覆盖 width:42%）============ */
+@media (max-width: 768px) {
+  .vp-playground-body {
+    flex-direction: column;
+  }
+  /* 三态代码区（只读 readonly / 编辑 editor+code / 流式）移动端占满宽度 */
+  .vp-playground-code,
+  .vp-playground-editor,
+  .vp-playground-mirror,
+  .vp-playground-readonly {
+    width: 100%;
+    min-width: 0;          /* 覆盖基础 min-width:200px，防挤压溢出 */
+    min-height: 130px;
+    border-right: 0;
+    border-bottom: 1px solid var(--vp-c-border);
+  }
+  /* 底部按钮栏：允许换行（按钮过多时整齐折行，不挤压换行拥挤）+ 隐藏提示文字省空间 */
+  .vp-playground-bar {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 10px;
+  }
+  .vp-playground-btn {
+    padding: 3px 8px;
+    font-size: 12px;
+    white-space: nowrap;   /* 单个按钮文字不内部换行 */
+  }
+  .vp-playground-hint {
+    display: none;         /* 移动端隐藏「TokUI DSL · 左代码右渲染」提示，腾出按钮空间 */
+  }
 }

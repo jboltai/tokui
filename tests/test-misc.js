@@ -1077,6 +1077,25 @@ test('artifact _tokuiType is set', function() {
   assert.strictEqual(dom._tokuiType, 'artifact');
 });
 
+// 流式回归：parser 增量 emit，artifact open 节点不带 children。
+// finalize(_streamCloseHook) 不能从 node.children 取代码（流式为空）→ 会清空 code 区。
+test('artifact 流式渲染 finalize 后 code 区保留源代码（不丢内容）', function() {
+  var { TokUIParser } = require('../src/core/parser');
+  var dsl = '[artifact lang:jsx pos:right w:50][artifact-code]function Counter() {\n  const c = 1;\n  return c;\n}[/artifact-code][artifact-preview][/artifact-preview][/artifact]';
+  var rc = makeRenderer();
+  var root = document.createElement('div');
+  var parser = new TokUIParser(function(node) { rc.mountStreaming(node, root); });
+  // 模拟 SSE 分块逐字到达
+  (dsl.match(/.{1,25}/g) || []).forEach(function(ch) { parser.feed(ch); });
+  parser.feed('');
+  var code = root.querySelector('.tokui-artifact__code');
+  assert.ok(code, 'code 区应存在');
+  code = code.querySelector('code');
+  assert.ok(code, 'code 元素应存在');
+  var txt = code.textContent || '';
+  assert.ok(txt.indexOf('function Counter') >= 0, '流式 finalize 后应保留源代码，实际: ' + JSON.stringify(txt));
+});
+
 // ===== command / command-group / command-item 测试 =====
 
 test('command basic render - div.tokui-command with overlay, input, and list', function() {
@@ -1561,6 +1580,35 @@ test('builder hoverCard + hoverTrigger + hoverContent generates correct DSL', fu
   assert.ok(dsl.indexOf('[hover-content]') !== -1);
   assert.ok(dsl.indexOf('[/hover-content]') !== -1);
   assert.ok(dsl.indexOf('[/hover-card]') !== -1);
+});
+
+// badge-box 文本徽标：tx 与单 badge 一致（修复 [badge-box tx:x] 无 indicator 的 bug）
+test('badge-box tx renders text badge', function() {
+  var rc = makeRenderer();
+  var dom = rc.render({
+    type: 'badge-box',
+    attrs: { tx: 'v2.4', t: 'primary' },
+    children: [{ type: 'h3', attrs: {}, children: [], content: 'SaaS Pro' }]
+  });
+  var text = dom.querySelector('.tokui-badge-box__text');
+  assert.notStrictEqual(text, null, 'tx 应触发文本徽标');
+  assert.strictEqual(text.textContent, 'v2.4');
+});
+
+test('badge-box label still works (backward compat)', function() {
+  var rc = makeRenderer();
+  var dom = rc.render({ type: 'badge-box', attrs: { label: 'v2.4' }, children: [] });
+  var text = dom.querySelector('.tokui-badge-box__text');
+  assert.notStrictEqual(text, null, 'label 应向后兼容');
+  assert.strictEqual(text.textContent, 'v2.4');
+});
+
+test('badge-box count renders number badge (regression after tx change)', function() {
+  var rc = makeRenderer();
+  var dom = rc.render({ type: 'badge-box', attrs: { count: '5' }, children: [] });
+  var count = dom.querySelector('.tokui-badge-box__count');
+  assert.notStrictEqual(count, null, 'count 数字模式不应被 tx 改动破坏');
+  assert.strictEqual(count.textContent, '5');
 });
 
 run();

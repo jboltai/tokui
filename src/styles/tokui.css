@@ -132,7 +132,15 @@
 .tokui-code .code-line::before { counter-increment: line-number; content: counter(line-number); position: absolute; left: 0; width: 2.5em; text-align: right; color: var(--tokui-code-cmt, #5c6370); opacity: 0.5; user-select: none; font-size: 0.85em; }
 
 /* === 表格 === */
-.tokui-table-wrapper { overflow-x: auto; margin: 0.5em 0; }
+.tokui-table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;   /* iOS 惯性滚动 */
+  margin: 0.5em 0;
+}
+/* 细滚动条（不占横向空间）*/
+.tokui-table-wrapper::-webkit-scrollbar { height: 8px; }
+.tokui-table-wrapper::-webkit-scrollbar-thumb { background: var(--tokui-border); border-radius: 4px; }
+.tokui-table-wrapper::-webkit-scrollbar-thumb:hover { background: var(--tokui-text-muted); }
 .tokui-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
 .tokui-table th, .tokui-table td { padding: 8px 12px; border-bottom: 1px solid var(--tokui-border); text-align: left; transition: background 0.15s ease; }
 .tokui-table th { background: var(--tokui-stripe); font-weight: 600; color: var(--tokui-text); border-bottom: 1px solid var(--tokui-border); }
@@ -890,6 +898,16 @@ textarea.tokui-textarea--auto { resize: none !important; }
 .tokui-table .tokui-col-left { text-align: left; }
 .tokui-table .tokui-col-center { text-align: center; }
 .tokui-table .tokui-col-right { text-align: right; }
+/* 列文本配色（col spec 第三段 /color：primary/success/warning/danger/info）*/
+.tokui-table .tokui-text--primary { color: var(--tokui-primary); }
+.tokui-table .tokui-text--success { color: var(--tokui-success); }
+.tokui-table .tokui-text--warning { color: var(--tokui-warning); }
+.tokui-table .tokui-text--danger { color: var(--tokui-danger); }
+.tokui-table .tokui-text--info { color: var(--tokui-info); }
+/* 汇总行变体 v:total：整行加粗，汇总格(first-child)居右，金额格(last-child)加粗居中带色 */
+.tokui-table .tokui-table-row--total td { font-weight: 600; background: var(--tokui-stripe, #fafafa); }
+.tokui-table .tokui-table-row--total td:first-child { text-align: right; }
+.tokui-table .tokui-table-row--total td:last-child { text-align: center; font-weight: 700; color: var(--tokui-danger, #e5484d); }
 
 .tokui-table input[type="checkbox"].tokui-chk-all,
 .tokui-table input[type="checkbox"].tokui-chk-row {
@@ -963,7 +981,7 @@ textarea.tokui-textarea--auto { resize: none !important; }
 .tokui-row--left { justify-items: start; }
 .tokui-row--center { justify-items: center; }
 .tokui-row--right { justify-items: end; }
-.tokui-row--inline { display: flex; flex-wrap: wrap; gap: 12px; grid-template-columns: none; }
+.tokui-row--inline { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; grid-template-columns: none; }
 
 /* === 标题装饰风格 === */
 
@@ -2449,6 +2467,14 @@ textarea.tokui-textarea--auto { resize: none !important; }
 }
 .tokui-skeleton--image { padding: 0; overflow: hidden; }
 .tokui-skeleton--image .tokui-skeleton__rect { width: 100%; height: 100%; min-height: 120px; border-radius: 0; }
+/* tr 流式：组件 cell 未完成时的骨架占位（轻量内联 shimmer 条，覆盖整块 .tokui-skeleton） */
+.tokui-td--skeleton { padding: 8px 10px; }
+.tokui-td--skeleton > .tokui-skeleton {
+  display: block;
+  flex-direction: unset;
+  height: 14px; width: 70%; min-width: 28px;
+  padding: 0; gap: 0; border-radius: 3px;
+}
 
 /* === Toast 轻提示 === */
 .tokui-toast-container {
@@ -2476,23 +2502,73 @@ textarea.tokui-textarea--auto { resize: none !important; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 48px 24px 36px;
+  padding: 40px 20px 32px;
   text-align: center;
+}
+
+/* === Hero 区：标题 + 副标题 + 能力徽标条 === */
+.tokui-welcome__hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 560px;
+  margin-bottom: 26px;
 }
 .tokui-welcome__title {
   font-size: 1.6rem;
   font-weight: 700;
   color: var(--tokui-text, #1f2937);
   margin-bottom: 8px;
-  line-height: 1.35;
+  line-height: 1.3;
   letter-spacing: -0.01em;
 }
 .tokui-welcome__subtitle {
   font-size: 0.9rem;
   color: var(--tokui-text-secondary, #6b7280);
-  margin-bottom: 32px;
+  margin-bottom: 16px;
   line-height: 1.5;
 }
+.tokui-welcome__badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+.tokui-welcome__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 11px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--tokui-text-secondary, #6b7280);
+  background: var(--tokui-bg-secondary, #f3f4f6);
+  border: 1px solid var(--tokui-border, #e5e7eb);
+  border-radius: 999px;
+  line-height: 1.4;
+}
+.tokui-welcome__badge::before {
+  content: "◈";
+  margin-right: 5px;
+  color: var(--tokui-primary, #6366f1);
+}
+
+/* === 起步卡分区标题 === */
+.tokui-welcome__section {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--tokui-text-secondary, #6b7280);
+  margin-bottom: 14px;
+  letter-spacing: 0.02em;
+}
+
+/* === 页脚引导语 === */
+.tokui-welcome__footer {
+  margin-top: 22px;
+  font-size: 0.78rem;
+  color: var(--tokui-text-tertiary, #9ca3af);
+  line-height: 1.5;
+}
+
 .tokui-welcome__grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
@@ -2501,7 +2577,7 @@ textarea.tokui-textarea--auto { resize: none !important; }
   max-width: 720px;
 }
 
-/* === Welcome Feature 功能特性卡片 === */
+/* === Welcome Feature 起步卡 === */
 .tokui-welcome-feature {
   display: flex;
   align-items: center;
@@ -2535,18 +2611,14 @@ textarea.tokui-textarea--auto { resize: none !important; }
   height: 40px;
   border-radius: 10px;
 }
-.tokui-welcome-feature--code .tokui-welcome-feature__icon {
-  background: var(--tokui-primary-bg);
-  color: var(--tokui-primary);
-}
-.tokui-welcome-feature--chart .tokui-welcome-feature__icon {
-  background: rgba(34, 197, 94, 0.1);
-  color: var(--tokui-success, #22c55e);
-}
-.tokui-welcome-feature--doc .tokui-welcome-feature__icon {
-  background: rgba(245, 158, 11, 0.1);
-  color: var(--tokui-warning, #f59e0b);
-}
+.tokui-welcome-feature--code .tokui-welcome-feature__icon { background: var(--tokui-primary-bg); color: var(--tokui-primary); }
+.tokui-welcome-feature--chart .tokui-welcome-feature__icon { background: rgba(34, 197, 94, 0.1); color: var(--tokui-success, #22c55e); }
+.tokui-welcome-feature--doc .tokui-welcome-feature__icon { background: rgba(245, 158, 11, 0.1); color: var(--tokui-warning, #f59e0b); }
+.tokui-welcome-feature--dashboard .tokui-welcome-feature__icon { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+.tokui-welcome-feature--print .tokui-welcome-feature__icon { background: rgba(244, 63, 94, 0.1); color: #f43f5e; }
+.tokui-welcome-feature--chat .tokui-welcome-feature__icon { background: rgba(6, 182, 212, 0.1); color: #06b6d4; }
+.tokui-welcome-feature--table .tokui-welcome-feature__icon { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
+.tokui-welcome-feature--form .tokui-welcome-feature__icon { background: rgba(20, 184, 166, 0.1); color: #14b8a6; }
 .tokui-welcome-feature__body {
   flex: 1;
   min-width: 0;
@@ -2565,12 +2637,15 @@ textarea.tokui-textarea--auto { resize: none !important; }
 }
 
 /* Welcome 暗色主题 */
-[data-tokui-theme="dark"] .tokui-welcome__title {
-  color: var(--tokui-text, #f3f4f6);
-}
-[data-tokui-theme="dark"] .tokui-welcome__subtitle {
+[data-tokui-theme="dark"] .tokui-welcome__title { color: var(--tokui-text, #f3f4f6); }
+[data-tokui-theme="dark"] .tokui-welcome__subtitle { color: var(--tokui-text-secondary, #9ca3af); }
+[data-tokui-theme="dark"] .tokui-welcome__badge {
   color: var(--tokui-text-secondary, #9ca3af);
+  background: var(--tokui-bg-secondary, #2a2a3a);
+  border-color: var(--tokui-border, #374151);
 }
+[data-tokui-theme="dark"] .tokui-welcome__section { color: var(--tokui-text-secondary, #9ca3af); }
+[data-tokui-theme="dark"] .tokui-welcome__footer { color: var(--tokui-text-tertiary, #6b7280); }
 [data-tokui-theme="dark"] .tokui-welcome-feature {
   border-color: var(--tokui-border, #374151);
   background: var(--tokui-bg, #1e1e2e);
@@ -2579,24 +2654,16 @@ textarea.tokui-textarea--auto { resize: none !important; }
   border-color: transparent;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
-[data-tokui-theme="dark"] .tokui-welcome-feature--code .tokui-welcome-feature__icon {
-  background: rgba(99, 102, 241, 0.15);
-  color: var(--tokui-primary, #818cf8);
-}
-[data-tokui-theme="dark"] .tokui-welcome-feature--chart .tokui-welcome-feature__icon {
-  background: rgba(74, 222, 128, 0.15);
-  color: #4ade80;
-}
-[data-tokui-theme="dark"] .tokui-welcome-feature--doc .tokui-welcome-feature__icon {
-  background: rgba(251, 191, 36, 0.15);
-  color: #fbbf24;
-}
-[data-tokui-theme="dark"] .tokui-welcome-feature__title {
-  color: var(--tokui-text, #f3f4f6);
-}
-[data-tokui-theme="dark"] .tokui-welcome-feature__desc {
-  color: var(--tokui-text-secondary, #9ca3af);
-}
+[data-tokui-theme="dark"] .tokui-welcome-feature--code .tokui-welcome-feature__icon { background: rgba(99, 102, 241, 0.15); color: var(--tokui-primary, #818cf8); }
+[data-tokui-theme="dark"] .tokui-welcome-feature--chart .tokui-welcome-feature__icon { background: rgba(74, 222, 128, 0.15); color: #4ade80; }
+[data-tokui-theme="dark"] .tokui-welcome-feature--doc .tokui-welcome-feature__icon { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+[data-tokui-theme="dark"] .tokui-welcome-feature--dashboard .tokui-welcome-feature__icon { background: rgba(96, 165, 250, 0.15); color: #60a5fa; }
+[data-tokui-theme="dark"] .tokui-welcome-feature--print .tokui-welcome-feature__icon { background: rgba(251, 113, 133, 0.15); color: #fb7185; }
+[data-tokui-theme="dark"] .tokui-welcome-feature--chat .tokui-welcome-feature__icon { background: rgba(34, 211, 238, 0.15); color: #22d3ee; }
+[data-tokui-theme="dark"] .tokui-welcome-feature--table .tokui-welcome-feature__icon { background: rgba(167, 139, 250, 0.15); color: #a78bfa; }
+[data-tokui-theme="dark"] .tokui-welcome-feature--form .tokui-welcome-feature__icon { background: rgba(45, 212, 191, 0.15); color: #2dd4bf; }
+[data-tokui-theme="dark"] .tokui-welcome-feature__title { color: var(--tokui-text, #f3f4f6); }
+[data-tokui-theme="dark"] .tokui-welcome-feature__desc { color: var(--tokui-text-secondary, #9ca3af); }
 
 /* === 未知组件（警告样式）=== */
 .tokui-unknown { padding: 8px 12px; background: var(--tokui-warning-bg); border: 1px dashed var(--tokui-warning-border); border-radius: var(--tokui-radius); font-size: 0.85rem; color: var(--tokui-warning-text); }
@@ -2878,6 +2945,8 @@ textarea.tokui-textarea--auto { resize: none !important; }
   padding: 10px 14px;
   border-bottom: 1px solid var(--tokui-border);
 }
+/* 最后一行整体去 border-bottom（JS 测量同 top 标记，支持多列/span）；:last-child 兜底 */
+.tokui-desc__item--last-row,
 .tokui-desc__item:last-child {
   border-bottom: none;
 }
@@ -2913,8 +2982,11 @@ textarea.tokui-textarea--auto { resize: none !important; }
   align-items: center;
 }
 .tokui-desc--horizontal .tokui-desc__label {
-  width: var(--tokui-desc-label-w, 120px);
+  /* min-width + nowrap：label 文本宽于 lw 时不换行、按内容撑宽（value 右移避让），
+     避免长 label（如「服务费（10%）」）在固定 lw 内折行破坏行对齐 */
+  min-width: var(--tokui-desc-label-w, 120px);
   flex-shrink: 0;
+  white-space: nowrap;
   margin-bottom: 0;
   color: var(--tokui-text);
   font-size: 0.9rem;

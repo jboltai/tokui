@@ -243,6 +243,7 @@ const NAV_DATA = [
     icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
     items: [
       { trigger: 'test-fragment', name: { zh: '碎片推送渲染', en: 'Fragment Push' }, desc: { zh: '标签拆碎推送/解析鲁棒性', en: 'Fragmented tag push/parser robustness' }, icon: '🧩' },
+      { trigger: 'test-big-table', name: { zh: '超大型表格流式', en: 'Huge Table Stream' }, desc: { zh: '合并表头+单元格多组件·逐 cell 流式', en: 'Merged header + cell components · cell stream' }, icon: '📋' },
     ]
   }
 ];
@@ -269,8 +270,8 @@ const I18N = {
   tokenStats:     { zh: '{{count}} tokens · {{chars}} 字符', en: '{{count}} tokens · {{chars}} chars' },
   thinking:       { zh: '思考中', en: 'Thinking' },
   error:          { zh: '错误', en: 'Error' },
-  errorMsg:       { zh: '无法连接服务器: {{msg}}\n请确保运行了: node src/server/sse-server.js',
-                    en: 'Cannot connect: {{msg}}\nMake sure to run: node src/server/sse-server.js' },
+  errorMsg:       { zh: '无法连接服务器: {{msg}}\n请确保在 demo 目录运行了: npm start',
+                    en: 'Cannot connect: {{msg}}\nMake sure to run: npm start inside demo/' },
   featZero:       { zh: '零依赖', en: 'Zero Deps' },
   featStream:     { zh: '流式渲染', en: 'Streaming' },
   featIncr:       { zh: '增量解析', en: 'Incremental' },
@@ -285,8 +286,12 @@ const I18N = {
   footerCopy:     { zh: '零依赖 · 流式UI描述与渲染框架', en: 'Zero Deps · Streaming UI Framework' },
   dslRef:         { zh: 'DSL 语法速查', en: 'DSL Syntax Ref' },
   clearBtn:       { zh: '清空', en: 'Clear' },
-  constructionBadge: { zh: '🚧 当前网站正在抓紧完善建设，敬请期待', en: '🚧 Site under construction, stay tuned' },
   contactBtn:     { zh: '联系', en: 'Contact' },
+  officialSite:   { zh: '官网', en: 'Official Site' },
+  community:      { zh: '社群', en: 'Community' },
+  communityTitle: { zh: '加入社群', en: 'Join Community' },
+  communitySub:   { zh: '微信扫码 · 加作者进群交流', en: 'Scan with WeChat · Join the group' },
+  communityHint:  { zh: '扫码加作者微信，拉你进 TokUI 技术交流群', en: 'Scan to add the author on WeChat and join the TokUI group' },
   qrTitle:        { zh: '联系我们', en: 'Contact Us' },
   qrSub:          { zh: '扫码添加，欢迎反馈', en: 'Scan to connect' },
   qrHint:         { zh: '扫码联系我们', en: 'Scan to contact us' },
@@ -757,7 +762,8 @@ TokUI.registerHandler('downloadReport', function (data) {
 // ========================================
 
 // const API_BASE = 'https://tokui.jboltai.com';
-const API_BASE = 'http://localhost:3109';
+// 同源：sse-server 同时托管前端 + SSE（3109）；vite dev（5173）由 /api 代理转发
+const API_BASE = '';
 let sending = false;
 let sendingName = '';
 let renderMode = 'stream';
@@ -1036,6 +1042,49 @@ function _hlEscape(s) {
 }
 function _hlSpan(cls, text) { return '<span class="' + cls + '">' + _hlEscape(text) + '</span>'; }
 
+// 变体白名单快照（与 renderer.js VARIANTS 保持同步）
+// 优先取 window.TokUI._internal.VARIANTS 运行时数据（自动同步），回退快照
+var DSL_VARIANTS_FALLBACK = {
+  img: ['avatar', 'rounded', 'bordered'],
+  card: ['highlight', 'flat', 'bordered', 'center', 'right'],
+  btn: ['primary', 'danger', 'success', 'warning', 'ghost', 'sm', 'lg', 'pill', 'square', 'block'],
+  btngroup: ['vertical', 'pill'],
+  table: ['bordered', 'compact'],
+  input: ['error', 'success', 'sm', 'lg', 'underline', 'pill'],
+  pwd: ['error', 'success', 'sm', 'lg', 'underline', 'pill'],
+  select: ['error', 'success'],
+  picker: ['error', 'success'],
+  h1: ['left', 'center', 'right', 'ribbon', 'underline', 'badge', 'pill'],
+  h2: ['left', 'center', 'right', 'ribbon', 'underline', 'badge', 'pill'],
+  h3: ['left', 'center', 'right', 'ribbon', 'underline', 'badge', 'pill'],
+  h4: ['left', 'center', 'right', 'ribbon', 'underline', 'badge', 'pill'],
+  h5: ['left', 'center', 'right', 'ribbon', 'underline', 'badge', 'pill'],
+  h6: ['left', 'center', 'right', 'ribbon', 'underline', 'badge', 'pill'],
+  p: ['left', 'center', 'right', 'muted', 'bold', 'sm', 'lg'],
+  a: ['muted', 'danger', 'success', 'underline'],
+  ft: ['left', 'center', 'right'],
+  row: ['left', 'center', 'right', 'inline'],
+  dv: ['dashed', 'dotted', 'sm', 'md', 'lg', 'vert', 'plain'],
+  dot: ['sm', 'lg'],
+  avatar: ['sm', 'md', 'lg', 'xl'],
+  tooltip: ['top', 'bottom', 'left', 'right'],
+  pagination: ['sm', 'lg'],
+  switch: ['sm', 'lg'],
+  drawer: ['left', 'right', 'top', 'bottom'],
+  breadcrumb: ['arrow'],
+  slider: ['sm', 'lg'],
+  rate: ['sm', 'lg'],
+  transfer: ['sm', 'lg'],
+  cascader: ['error', 'success'],
+  upload: ['sm', 'lg'],
+  tree: ['sm', 'lg']
+};
+function _variantSetFor(type) {
+  var live = (typeof window !== 'undefined') && window.TokUI && window.TokUI._internal && window.TokUI._internal.VARIANTS;
+  var arr = (live && live[type]) ? Array.from(live[type]) : DSL_VARIANTS_FALLBACK[type];
+  return arr ? new Set(arr) : null;
+}
+
 // 高亮单个标签内部（不含外层方括号）
 function _hlInterior(interior) {
   if (interior.charAt(0) === '/') {
@@ -1048,6 +1097,9 @@ function _hlInterior(interior) {
   while (i < n && !/[\s:"]/.test(interior.charAt(i))) i++;
   var tagName = interior.slice(nameStart, i);
   if (tagName) out.push(_hlSpan('tok-tag', tagName));
+  // 变体吸收着色：与 parser 同源——v: 出现后，紧跟的裸 token 若命中该组件变体白名单，按变体着色
+  var vSeen = false;
+  var variantSet = tagName ? _variantSetFor(tagName) : null;
   while (i < n) {
     var ch = interior.charAt(i);
     if (/\s/.test(ch)) { out.push(_hlEscape(ch)); i++; continue; }
@@ -1069,9 +1121,14 @@ function _hlInterior(interior) {
         while (i < n && interior.charAt(i) !== '"') { val += interior.charAt(i); i++; }
         if (i < n) { val += interior.charAt(i); i++; }
       }
+      if (key === 'v') vSeen = true;
       var valClass = key === 'v' ? 'tok-variant' : 'tok-val';
       out.push(_hlSpan('tok-attr', key) + _hlSpan('tok-punct', ':') + _hlSpan(valClass, val));
     } else if (token.charAt(0) === 'v' && token.charAt(1) === ':') {
+      vSeen = true;
+      out.push(_hlSpan('tok-variant', token));
+    } else if (vSeen && variantSet && variantSet.has(token)) {
+      // v: 后的裸变体（如 [p v:center muted 文本] 的 muted）→ 与 v:center 同色
       out.push(_hlSpan('tok-variant', token));
     } else {
       out.push(_hlSpan('tok-bool', token));
@@ -1384,9 +1441,23 @@ function escapeHtml(str) {
 // Render Mode Toggle
 // ========================================
 
+// 初始：从 localStorage 恢复 源码流/流式渲染 偏好（默认 stream）
+(function initModeFromStorage() {
+  var toggle = document.getElementById('streamToggle');
+  if (!toggle) return;
+  var saved;
+  try { saved = localStorage.getItem('tokui-demo-rendermode'); } catch (e) {}
+  var isStream = saved ? (saved === 'stream') : toggle.checked;
+  toggle.checked = isStream;
+  renderMode = isStream ? 'stream' : 'source';
+  var ml = document.getElementById('modeLabel');
+  if (ml) ml.textContent = t(isStream ? 'modeStream' : 'modeSource');
+})();
+
 document.getElementById('streamToggle').addEventListener('change', function() {
   renderMode = this.checked ? 'stream' : 'source';
   document.getElementById('modeLabel').textContent = this.checked ? t('modeStream') : t('modeSource');
+  try { localStorage.setItem('tokui-demo-rendermode', renderMode); } catch (e) {}
 });
 
 // ========================================
@@ -1439,8 +1510,12 @@ function applyLang() {
   document.getElementById('footerCopy').textContent = t('footerCopy');
   document.getElementById('dslRefText').textContent = t('dslRef');
   document.getElementById('clearBtnText').textContent = t('clearBtn');
-  document.getElementById('constructionBadge').textContent = t('constructionBadge');
   document.getElementById('contactBtnText').textContent = t('contactBtn');
+  document.getElementById('officialSiteText').textContent = t('officialSite');
+  document.getElementById('communityText').textContent = t('community');
+  document.getElementById('communityTitleText').textContent = t('communityTitle');
+  document.getElementById('communitySub').textContent = t('communitySub');
+  document.getElementById('communityHint').textContent = t('communityHint');
   document.getElementById('qrTitleText').textContent = t('qrTitle');
   document.getElementById('qrSub').textContent = t('qrSub');
   document.getElementById('qrHint').textContent = t('qrHint');
@@ -1451,9 +1526,37 @@ function applyLang() {
 // Mobile Menu
 // ========================================
 
-document.getElementById('menuToggle').onclick = () => {
-  document.getElementById('nav').classList.toggle('open');
-};
+// === 侧边栏折叠/展开（桌面 collapse + 移动 off-canvas，icon 切换 + 状态持久化）===
+(function () {
+  var nav = document.getElementById('nav');
+  var menuBtn = document.getElementById('menuToggle');
+  if (!nav || !menuBtn) return;
+  var NAV_KEY = 'tokui-demo-nav-collapsed';
+  var SVG_BURGER = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>';
+  var SVG_PANEL = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="9" y1="4" x2="9" y2="20"/></svg>';
+  function isMobile() { return window.matchMedia('(max-width: 768px)').matches; }
+  function syncIcon() {
+    var collapsed = !isMobile() && nav.classList.contains('collapsed');
+    menuBtn.innerHTML = collapsed ? SVG_PANEL : SVG_BURGER;
+    menuBtn.title = collapsed
+      ? (lang === 'en' ? 'Expand sidebar' : '展开导航')
+      : (lang === 'en' ? 'Collapse sidebar' : '折叠导航');
+  }
+  // 桌面初始：恢复持久化折叠态（移动用 off-canvas，不套 collapsed）
+  if (!isMobile()) {
+    try { if (localStorage.getItem(NAV_KEY) === '1') nav.classList.add('collapsed'); } catch (e) {}
+  }
+  syncIcon();
+  menuBtn.onclick = function () {
+    if (isMobile()) { nav.classList.toggle('open'); return; }   // 移动：off-canvas 滑入
+    var collapsed = !nav.classList.contains('collapsed');
+    nav.classList.toggle('collapsed', collapsed);
+    try { localStorage.setItem(NAV_KEY, collapsed ? '1' : '0'); } catch (e) {}
+    syncIcon();
+  };
+  // 断点切换时重算图标（移动不显示 collapsed 态）
+  window.addEventListener('resize', syncIcon);
+})();
 
 // ========================================
 // Clear & Reset
@@ -1855,6 +1958,14 @@ document.getElementById('contactBtn').onclick = () => {
 
 document.getElementById('qrClose').onclick = () => {
   document.getElementById('qrDialog').close();
+};
+
+// 社群弹层（同联系层结构，显示项目根 qrcode.jpg + 加作者微信进群提示）
+document.getElementById('communityBtn').onclick = () => {
+  document.getElementById('communityDialog').showModal();
+};
+document.getElementById('communityClose').onclick = () => {
+  document.getElementById('communityDialog').close();
 };
 
 // ========================================

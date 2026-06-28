@@ -209,24 +209,32 @@ function registerLayoutComponents(renderer) {
 
   // item 视父级自适应：desc 内 → 描述项；list/ol/ul 内 → <li> 列表项。
   renderer.register('item', (node, rc, parentType) => {
-    if (parentType === 'desc') return buildDescItem(node);
-    if (parentType === 'carousel') return buildCarouselSlide(node, rc);
-    if (parentType === 'command-group') {
+    var dom;
+    if (parentType === 'desc') dom = buildDescItem(node);
+    else if (parentType === 'carousel') dom = buildCarouselSlide(node, rc);
+    else if (parentType === 'command-group') {
       // buildCommandItem 定义在 basic.js，经 window.TokUI._internal 跨模块共享（同 el）
       var bci = (typeof window !== 'undefined' && window.TokUI && window.TokUI._internal && window.TokUI._internal.buildCommandItem) || null;
-      if (bci) return bci(node);
+      if (bci) dom = bci(node);
     }
-    const li = el('li', { class: 'tokui-list-item' });
-    var text = node.content || (node.attrs && node.attrs.tx) || '';
-    if (text) {
-      li.textContent = text;
+    if (!dom) {
+      // 默认：list/ol/ul 内 → <li> 列表项；无特殊父级也兜底为 li
+      dom = el('li', { class: 'tokui-list-item' });
+      var text = node.content || (node.attrs && node.attrs.tx) || '';
+      if (text) {
+        dom.textContent = text;
+      }
+      rc(node.children || []).forEach(child => {
+        if (child && child.nodeType) dom.appendChild(child);
+      });
+      dom._slot = dom;
     }
-    rc(node.children || []).forEach(child => {
-      if (child && child.nodeType) li.appendChild(child);
-    });
-    li._slot = li;
-    li._tokuiType = 'item';
-    return li;
+    // 统一盖 item 类型印章：流式 _streamClose 按 _tokuiType 匹配容器闭合，
+    // 而 desc__item / 幻灯片 / 命令项 的 className 不含 "tokui-item"（desc__item 会被
+    // _getNodeType 误判成 'desc'），不盖印章 → 关闭兄弟 item 时匹配失败、过度弹栈，
+    // 把父级 desc 一起弹出，后续 item 悬空到 root 变成游离 li。
+    if (dom.nodeType === 1) dom._tokuiType = 'item';
+    return dom;
   });
 
   // === 标签页容器 ===
@@ -787,6 +795,46 @@ function registerLayoutComponents(renderer) {
   });
 
   // === Description List 描述列表（容器）===
+  // 重算 desc 最后一行 item 的 border：多列时最后一行（同 top 的尾部 item）整体去边框，
+  // 不止 :last-child。测量法（getBoundingClientRect().top）天然兼容 span 跨列与动态 cols。
+  // 无测量能力（Node 测试/无 getBoundingClientRect）则跳过，由 CSS :last-child 兜底。
+  function _markDescLastRow(wrapper) {
+    var prev = wrapper.querySelectorAll('.tokui-desc__item--last-row');
+    for (var i = 0; i < prev.length; i++) prev[i].classList.remove('tokui-desc__item--last-row');
+    var items = wrapper.querySelectorAll('.tokui-desc__item');
+    if (!items.length) return;
+    var last = items[items.length - 1];
+    if (!last.getBoundingClientRect) return;
+    var lastTop = last.getBoundingClientRect().top;
+    // 从末尾往前：同 top（同一最后一行）的标记；遇不同 top 停
+    for (var j = items.length - 1; j >= 0; j--) {
+      if (Math.abs(items[j].getBoundingClientRect().top - lastTop) < 1) {
+        items[j].classList.add('tokui-desc__item--last-row');
+      } else break;
+    }
+  }
+
+  // 监听 desc 子项增减（流式逐 item 追加），每次重算末行边框；wrapper 卸载自断开。
+  // 首次标记延迟到挂载后（rAF）：渲染器返回时 wrapper 尚未进 document，
+  // detached 元素 getBoundingClientRect 全为 0 → 误判全部同行。
+  function _watchDescRows(wrapper) {
+    if (typeof MutationObserver === 'undefined') {
+      _markDescLastRow(wrapper); // Node 等无 observer：尽力（无测量则跳过，:last-child 兜底）
+      return;
+    }
+    var obs = new MutationObserver(function () {
+      if (!wrapper.isConnected) { obs.disconnect(); return; }
+      _markDescLastRow(wrapper);
+    });
+    obs.observe(wrapper, { childList: true });
+    var mark = function () {
+      if (!wrapper.isConnected) return; // 仍未挂载：等 observer 后续触发
+      _markDescLastRow(wrapper);
+    };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(mark);
+    else setTimeout(mark, 0);
+  }
+
   // attrs.cols = 每行列数(默认3), attrs.stripe = 斑马纹, attrs.bordered = 带边框
   // attrs.v = 布局: horizontal/h(label和value左右排列), 默认上下排列
   // attrs.lw = label宽度(如 '120px'，horizontal模式生效)
@@ -811,6 +859,9 @@ function registerLayoutComponents(renderer) {
         wrapper.appendChild(buildDescItem(childNode, cols));
       });
     }
+
+    // 末行边框智能处理（多列时整行去 border-bottom，含流式追加自适应）
+    _watchDescRows(wrapper);
 
     wrapper._slot = wrapper;
     wrapper._tokuiType = 'desc';

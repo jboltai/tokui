@@ -212,7 +212,8 @@ function registerBasicComponents(renderer) {
   // === 标题组件 h1 ~ h6 ===
   ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].forEach((tag) => {
     renderer.register(tag, (node) => {
-      const dom = el(tag, { class: `tokui-${tag}` }, node.content);
+      // 标题文本优先 content（[h1 标题]），兜底 tx（[h1 tx:标题]，与 item 一致，forgive AI 泛化 tx 到文本组件）
+      const dom = el(tag, { class: `tokui-${tag}` }, node.content || (node.attrs && node.attrs.tx));
       const bgColor = resolveColor(node.attrs.bg);
       const textColor = resolveColor(node.attrs.fc);
       const variant = node.attrs.v || '';
@@ -236,8 +237,10 @@ function registerBasicComponents(renderer) {
     var pAttrs = { class: 'tokui-p' };
     if (node.attrs && node.attrs.id) pAttrs.id = node.attrs.id; // 透传 id（copy 等需 getElementById 定位）
     var p = el('p', pAttrs);
-    if (node.content) {
-      p.appendChild(document.createTextNode(node.content));
+    // 段落文本优先 content（[p 文本]），兜底 tx（[p tx:文本]，与 h1-h6/item 一致）
+    var pText = node.content || (node.attrs && node.attrs.tx);
+    if (pText) {
+      p.appendChild(document.createTextNode(pText));
     }
     if (node.children && node.children.length) {
       rc(node.children).forEach(function (child) {
@@ -1259,10 +1262,9 @@ function registerBasicComponents(renderer) {
     var attrs = node.attrs || {};
     var wrapper = el('span', { class: 'tokui-badge-box' });
 
-    // 渲染子节点
+    // 渲染子节点（rc 接收 children 数组，与其他容器一致）
     if (node.children && node.children.length) {
-      node.children.forEach(function (child) {
-        var rendered = rc(child);
+      rc(node.children).forEach(function (rendered) {
         if (rendered) wrapper.appendChild(rendered);
       });
     }
@@ -1286,9 +1288,10 @@ function registerBasicComponents(renderer) {
       indicator = el('sup', { class: 'tokui-badge-box__count' });
       indicator.textContent = display;
       indicator.style.background = bgColor;
-    } else if (attrs.label) {
+    } else if (attrs.tx || attrs.label) {
+      // 文本徽标：tx 优先（与单 badge 一致），label 向后兼容
       indicator = el('sup', { class: 'tokui-badge-box__text' });
-      indicator.textContent = attrs.label;
+      indicator.textContent = attrs.tx || attrs.label;
       if (status === 'default') {
         indicator.style.background = 'var(--tokui-stripe, #f5f5f5)';
         indicator.style.color = 'var(--tokui-text-secondary, #666)';
@@ -4269,19 +4272,45 @@ function registerBasicComponents(renderer) {
     var attrs = node.attrs || {};
     var title = attrs.tt || '';
     var subtitle = attrs.st || '';
+    // bd 能力徽标条（逗号分隔），hd 起步卡分区标题，ft 页脚引导语
+    var badges = attrs.bd ? String(attrs.bd).split(',') : [];
+    var sectionTitle = attrs.hd || '';
+    var footer = attrs.ft || '';
 
     var wrapper = el('div', { class: 'tokui-welcome' });
 
-    if (title) {
-      var titleEl = el('div', { class: 'tokui-welcome__title' });
-      titleEl.textContent = title;
-      wrapper.appendChild(titleEl);
+    // === Hero：标题 + 副标题 + 能力徽标条 ===
+    if (title || subtitle || badges.length) {
+      var hero = el('div', { class: 'tokui-welcome__hero' });
+      if (title) {
+        var titleEl = el('div', { class: 'tokui-welcome__title' });
+        titleEl.textContent = title;
+        hero.appendChild(titleEl);
+      }
+      if (subtitle) {
+        var subtitleEl = el('div', { class: 'tokui-welcome__subtitle' });
+        subtitleEl.textContent = subtitle;
+        hero.appendChild(subtitleEl);
+      }
+      if (badges.length) {
+        var badgeRow = el('div', { class: 'tokui-welcome__badges' });
+        badges.forEach(function (b) {
+          var t = String(b).trim();
+          if (!t) return;
+          var badge = el('span', { class: 'tokui-welcome__badge' });
+          badge.textContent = t;
+          badgeRow.appendChild(badge);
+        });
+        hero.appendChild(badgeRow);
+      }
+      wrapper.appendChild(hero);
     }
 
-    if (subtitle) {
-      var subtitleEl = el('div', { class: 'tokui-welcome__subtitle' });
-      subtitleEl.textContent = subtitle;
-      wrapper.appendChild(subtitleEl);
+    // === 起步卡分区标题 ===
+    if (sectionTitle) {
+      var secEl = el('div', { class: 'tokui-welcome__section' });
+      secEl.textContent = sectionTitle;
+      wrapper.appendChild(secEl);
     }
 
     var grid = el('div', { class: 'tokui-welcome__grid' });
@@ -4289,6 +4318,13 @@ function registerBasicComponents(renderer) {
       if (child && child.nodeType) grid.appendChild(child);
     });
     wrapper.appendChild(grid);
+
+    // === 页脚引导语 ===
+    if (footer) {
+      var ftEl = el('div', { class: 'tokui-welcome__footer' });
+      ftEl.textContent = footer;
+      wrapper.appendChild(ftEl);
+    }
 
     wrapper._slot = grid;
     wrapper._tokuiType = 'welcome';
@@ -4309,13 +4345,22 @@ function registerBasicComponents(renderer) {
     var FEATURE_ICONS = {
       code: '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
       chart: '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
-      doc: '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>'
+      doc: '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+      dashboard: '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="8" height="10" rx="1"/><rect x="13" y="3" width="8" height="6" rx="1"/><rect x="13" y="13" width="8" height="8" rx="1"/><rect x="3" y="17" width="8" height="4" rx="1"/></svg>',
+      print: '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></svg>',
+      chat: '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>',
+      table: '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="10" x2="9" y2="20"/></svg>',
+      form: '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>'
     };
 
     var classes = ['tokui-welcome-feature', 'tokui-welcome-feature--' + iconType];
 
     var cardAttrs = { class: classes.join(' '), role: 'button', tabindex: '0', 'data-tokui-tag': node.type };
     if (handlerName) cardAttrs['data-tokui-clk'] = handlerName;
+    // 透传 data-* 属性（如 data-prompt）到卡片 DOM，供 usePrompt 等处理器读取（与 btn 一致）
+    Object.keys(attrs).forEach(function (key) {
+      if (key.indexOf('data-') === 0) cardAttrs[key] = attrs[key];
+    });
 
     var card = el('div', cardAttrs);
 
@@ -4339,16 +4384,9 @@ function registerBasicComponents(renderer) {
 
     card.appendChild(body);
 
-    // 点击事件通过事件总线触发
-    if (handlerName) {
-      card.addEventListener('click', function() {
-        var bus = (typeof window !== 'undefined' && window.TokUI && window.TokUI._internal)
-          ? window.TokUI._internal.eventBus : null;
-        if (bus && typeof bus.emit === 'function') {
-          bus.emit(handlerName, { title: title, icon: iconType });
-        }
-      });
-    }
+    // 点击事件由 renderer 的通用 data-tokui-clk 绑定处理（bindEvents），
+    // 处理器经 (data, e, element) 拿到卡片 DOM，读 data-prompt 等属性。
+    // 不在此自绑 click（旧实现 bus.emit 不传 element，usePrompt 读不到 data-prompt → 点击无效）。
 
     card._tokuiType = 'welcome-feature';
     return card;
@@ -4669,11 +4707,27 @@ function registerBasicComponents(renderer) {
 
     // Stream close hook: re-highlight when streaming is done
     wrapper._streamCloseHook = function() {
-      // 从 node.children 重新提取 artifact-code 文本（parser 的 _unescapeRaw 已把字面 \n 转真换行），
-      // 【不】从 code DOM childNodes 反读——wrapLines 已把 \n 去掉，DOM round-trip 丢换行 → 塌成一行。
-      // mount 模式下 mount() 也会调本 hook，故必须用保留换行的源。
+      // 取代码原文 raw：
+      // - mount 模式：node.children 完整，从 artifact-code 子节点提取（parser 的 _unescapeRaw 已把字面 \n 转真换行）。
+      // - 流式模式：parser 增量 emit，artifact 的 open 节点不带 children —— 代码原文是作为 artifact-code
+      //   子组件的文本流式追加进了 code 元素，此刻 node.children 仍为空。故从已渲染的 artifact-code <pre>
+      //   反读 textContent 兜底（流式文本尚未高亮，\n 保留，round-trip 安全）。
+      //   注：mount 后的 code DOM 不可反读（wrapLines 已去掉 \n，会塌成一行）—— 仅流式分支走 DOM 兜底。
       var acNode = (node.children || []).find(function(c) { return c.type === 'artifact-code'; });
-      var raw = acNode ? (acNode.children || []).map(function(c) { return c.content || ''; }).join('') : (wrapper._artifactCode || '');
+      var raw;
+      if (acNode) {
+        raw = (acNode.children || []).map(function(c) { return c.content || ''; }).join('');
+      } else {
+        raw = '';
+        var pres = wrapper.querySelectorAll('pre');
+        for (var i = 0; i < pres.length; i++) {
+          if (pres[i]._tokuiType === 'artifact-code') {
+            var cc = pres[i].querySelector('code');
+            if (cc) { raw = cc.textContent || ''; break; }
+          }
+        }
+        if (!raw) raw = wrapper._artifactCode || '';
+      }
       if (lang !== 'text' && HL_LANGS[lang]) {
         code.innerHTML = wrapLines(highlightCode(raw, lang));
       } else {

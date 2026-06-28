@@ -49,7 +49,7 @@ TokUI 是一个**零依赖的流式 UI 描述与渲染框架**。三层数据流
 | `core/color-generator.js` | HSB 算法 10 级色板与主题 token 生成器 |
 | `components/*` | 按类型分文件的组件库，`index.js` 统一注册 |
 | `server/tokui-builder.js` | 链式 API 生成 DSL，`toString()` + `toChunks()` 两种输出 |
-| `server/sse-server.js` | Node 原生 http 实现的 SSE 演示服务器 |
+| `demo/server/sse-server.js` | Node 原生 http 实现的 SSE 演示服务器（demo 自带后端，非库代码） |
 
 ## 试一下
 

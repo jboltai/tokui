@@ -8939,6 +8939,86 @@ const DEMOS = [
       sendNext();
     }
   },
+  {
+    trigger: 'test-big-table',
+    title: '超大型表格流式',
+    desc: '20 行 × 12 列（chk 全选 + # 序号 + 10 数据列）随机碎片推送，逐行逐 cell 流式渲染 + 分页',
+    build() { return new TokUIBuilder(); },
+    stream(res) {
+      // 手写 DSL 字符串（精确控制 cell 引号：含逗号/空格/冒号的 cell 单独引号包，
+      // 避免 builder _selfClosing 对含冒号的整行 content 误整体加引号）。
+      var customers = ['北京字节科技','上海星辰网络','深圳云图信息','杭州脉络数据','广州微创互联','成都立体视界','南京极光传媒','武汉正通金融','苏州量子智能','西安瀚海文创'];
+      var products = ['机械键盘','无线鼠标','4K显示器','降噪耳机','固态硬盘','智能音箱','高清摄像头','手绘平板','移动硬盘','短焦投影'];
+      var owners = ['张明','李娜','王强','赵琳','刘洋','陈静','杨帆','黄磊','周婷','吴昊'];
+      var statusList = ['tag:已发货 t:success','tag:待付款 t:warning','tag:处理中 t:info','tag:已完成 t:success','tag:已退款 t:danger'];
+      // cell 引号策略：含逗号/空格/冒号/引号 → 双引号包（parser 引号感知，splitCellsDepthAware 还原）
+      function cell(v) {
+        v = String(v);
+        if (v.indexOf(',') >= 0 || v.indexOf(' ') >= 0 || v.indexOf(':') >= 0 || v.indexOf('"') >= 0) {
+          return '"' + v.replace(/"/g, '\\"') + '"';
+        }
+        return v;
+      }
+      var fmt = function (v) { return '¥' + Number(v).toLocaleString('en-US') + '.00'; };
+
+      var regions = ['华北区', '华东区', '华南区', '西北区', '西南区'];
+      var grandTotal = 0;
+      var dsl = ''
+        + '[card tt:"超大型表格流式（合并表头 + 单元格多组件 + 逐 cell 流式）"]'
+        + '[callout t:info tx:"随机碎片推送模拟 AI 流式。单元格内可放任意组件:图片 [img]、头像 [avatar]、进度 progress、状态 tag、评分 [rate]、操作 btn——带空格属性的组件格自动引号包。表头 ; 分两行 + =cN/=rN 合并 + 列对齐 / 列配色；大区 =r4 分组、末行 汇总 v:total。"]'
+        + '[table id:bigTable stripe v:bordered]'
+        + '[thead cols:"大区=r2/c,商品=c2,客户=c2,交易=c3,履约=c2,评价=r2,操作=r2;商品图,商品名,客户,负责,数量/c,单价/r/warning,金额/r/danger,进度,状态"]'
+        + '[tbody]';
+      for (var r = 0; r < 20; r++) {
+        var qty = 3 + (r * 7) % 48;                  // 3..50
+        var unit = 199 + (r * 137) % 3201;            // 单价（整数，fmt 加千分位逗号）
+        var total = qty * unit;
+        grandTotal += total;
+        var progressVal = 20 + (r * 13) % 80;          // 进度 20..99
+        var rateVal = 3 + (r * 2) % 3;                 // 评分 3..5
+        var cells = [];
+        // 每 4 行一组：首行写 大区=r4（纵跨 4 行），其余 3 行省略大区格（浏览器自动占位）
+        if (r % 4 === 0) cells.push(regions[(r / 4) | 0] + '=r4');
+        cells.push('[img s:https://picsum.photos/seed/t' + (r % 10) + '/80 w:36 h:36 v:rounded]');  // 商品图
+        cells.push(products[r % products.length]);    // 商品名
+        cells.push(customers[r % customers.length]);  // 客户
+        cells.push('[avatar tx:' + owners[r % owners.length].charAt(0) + ']');  // 负责（头像）
+        cells.push(String(qty));                        // 数量
+        cells.push(fmt(unit));                          // 单价
+        cells.push(fmt(total));                         // 金额
+        cells.push('progress v:' + progressVal + ' t:span');  // 进度
+        cells.push(statusList[r % statusList.length]);  // 状态（tag）
+        cells.push('[rate v:' + rateVal + ' max:5 ro]');  // 评分
+        cells.push('btn:详情 clk:handleEdit|btn:删除 clk:handleDelete');  // 操作
+        dsl += '[tr ' + cells.map(cell).join(',') + ']';
+      }
+      // 汇总行：汇总横跨 11 列（居右加粗），末格总金额（居中加粗带色）—— v:total 变体 + CSS
+      dsl += '[tr ' + cell('汇总=c11') + ',' + cell(fmt(grandTotal)) + ' v:total]';
+      dsl += '[/tbody][/table]'
+        + '[pagination page:1 total:4 count:20 show-total clk:handlePage]'
+        + '[/card]';
+
+      // 随机碎片化推送（2~20 字符/chunk，模拟 AI token 级流式输出）
+      var chunks = _fragmentDsl(dsl);
+      var i = 0;
+      var cleaned = false;
+      res.on('close', function () { cleaned = true; });
+      function sendNext() {
+        if (cleaned || i >= chunks.length) {
+          if (!cleaned) {
+            res.write('data: [DONE]\n\n');
+            res.end();
+          }
+          return;
+        }
+        res.write('data: ' + JSON.stringify({ tokui: chunks[i] }) + '\n\n');
+        i++;
+        // 大表流式稍慢，便于看清逐行逐 cell 填充（12~52ms/chunk）
+        setTimeout(sendNext, 12 + Math.floor(Math.random() * 40));
+      }
+      sendNext();
+    }
+  },
   // ========== 表单动作专题（form:ID / reset / print / print-area）==========
   {
     trigger: 'fa-bind',
@@ -9150,6 +9230,77 @@ function streamBuilder(res, builder, demo) {
   sendNext();
 }
 
+// ===== IP 限流（SSE 接口，每 IP 每分钟最多 10 次）=====
+// 窗口内累计达上限即触发「整 60s 冷却」：从被限流那一刻起锁 60s，
+// 倒计时恒为 60（与历史请求分布无关），冷却到期后计数清零、重新放行。
+const RATE_LIMIT_WINDOW = 60 * 1000; // 限流冷却时长 1 分钟
+const RATE_LIMIT_MAX = 10;            // 每 IP 窗口内最大请求数
+const _rateMap = new Map();            // ip -> { reqs:[时间戳], blockedUntil:ms }
+
+// 提取客户端真实 IP：
+// 1) X-Forwarded-For（取最左客户端，vite/nginx 代理会写入）
+// 2) X-Real-IP（nginx 常用）
+// 3) 回退到 TCP 连接地址
+// 规范化 IPv6 映射的 IPv4（::ffff:1.2.3.4 -> 1.2.3.4）便于统一计数
+function _normalizeIp(ip) {
+  if (!ip) return 'unknown';
+  return String(ip).replace(/^::ffff:/, '').trim() || 'unknown';
+}
+function _clientIp(req) {
+  var xf = req.headers['x-forwarded-for'];
+  if (xf) {
+    var first = String(xf).split(',')[0].trim();
+    if (first) return _normalizeIp(first);
+  }
+  var xri = req.headers['x-real-ip'];
+  if (xri) {
+    var v = String(xri).trim();
+    if (v) return _normalizeIp(v);
+  }
+  return _normalizeIp((req.socket && req.socket.remoteAddress) || 'unknown');
+}
+
+// 检查并（放行时）累加；返回 { allowed, retryAfter }
+// allowed=false 时 retryAfter = 距冷却结束的剩余秒数（首次触发恒为 60）
+function _checkRateLimit(ip) {
+  var now = Date.now();
+  var rec = _rateMap.get(ip);
+  if (!rec) { rec = { reqs: [], blockedUntil: 0 }; _rateMap.set(ip, rec); }
+  // 冷却期内一律拒绝，倒计时 = 距 blockedUntil 的剩余秒
+  if (rec.blockedUntil && now < rec.blockedUntil) {
+    return { allowed: false, retryAfter: Math.max(1, Math.ceil((rec.blockedUntil - now) / 1000)) };
+  }
+  // 冷却已过：清零重新计数
+  if (rec.blockedUntil && now >= rec.blockedUntil) {
+    rec.reqs = [];
+    rec.blockedUntil = 0;
+  }
+  // 清理窗口外时间戳
+  while (rec.reqs.length && now - rec.reqs[0] > RATE_LIMIT_WINDOW) rec.reqs.shift();
+  if (rec.reqs.length >= RATE_LIMIT_MAX) {
+    // 触发限流：进入整 60s 冷却
+    rec.blockedUntil = now + RATE_LIMIT_WINDOW;
+    return { allowed: false, retryAfter: Math.ceil(RATE_LIMIT_WINDOW / 1000) };
+  }
+  rec.reqs.push(now);
+  return { allowed: true, retryAfter: 0 };
+}
+
+// 构造限流提示 SSE 响应（卡片 + 说明 + 倒计时）
+function _sendRateLimited(res, retryAfter) {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive'
+  });
+  var rb = new TokUIBuilder();
+  rb.card({ tt: '请求过于频繁' })
+    .md('当前 IP 对 SSE 接口的访问已达上限：**每分钟最多 10 次**。\n\n请等待下方倒计时结束后再试：')
+    .countdown({ dur: retryAfter, fmt: 'ms', l: '距离可再次访问', tx: '现在可以重试了' })
+    .end();
+  streamBuilder(res, rb);
+}
+
 // ===== HTTP 服务器 =====
 
 // 静态文件路径安全检查
@@ -9195,6 +9346,14 @@ const server = http.createServer((req, res) => {
 
   // API: SSE 流式聊天
   if (req.url === '/api/chat/stream' && req.method === 'POST') {
+    // IP 限流：每 IP 每分钟最多 10 次，超限直接返回带倒计时的提示流
+    var rl = _checkRateLimit(_clientIp(req));
+    if (!rl.allowed) {
+      // 已响应，丢弃后续请求体避免管道残留
+      req.resume();
+      _sendRateLimited(res, rl.retryAfter);
+      return;
+    }
     let body = '';
     let bodySize = 0;
     const MAX_BODY = 1e6; // 1MB
@@ -9250,9 +9409,12 @@ const server = http.createServer((req, res) => {
 
   // 静态文件服务
   if (req.method === 'GET') {
-    const rootDir = path.join(__dirname, '../..');
-    const urlPath = (req.url || '/').split('?')[0];
-    let filePath = path.join(rootDir, urlPath === '/' || urlPath === '/demo/' ? 'demo/index.html' : urlPath);
+    const rootDir = path.join(__dirname, '..'); // 站点根 = demo/
+    let urlPath = (req.url || '/').split('?')[0];
+    // 兼容 /demo 前缀（经 vite 代理或直接键入 /demo/index.html 时）
+    if (urlPath.indexOf('/demo') === 0) urlPath = urlPath.slice(5);
+    if (urlPath === '' || urlPath === '/') urlPath = '/index.html';
+    const filePath = path.join(rootDir, urlPath);
 
     // 防止路径穿越攻击
     if (!_isPathSafe(filePath, rootDir)) {
@@ -9267,6 +9429,8 @@ const server = http.createServer((req, res) => {
       '.css': 'text/css',
       '.js': 'application/javascript',
       '.json': 'application/json',
+      '.txt': 'text/plain; charset=utf-8',
+      '.xml': 'application/xml; charset=utf-8',
       '.png': 'image/png',
       '.jpg': 'image/jpeg',
       '.svg': 'image/svg+xml'
@@ -9274,23 +9438,8 @@ const server = http.createServer((req, res) => {
 
     fs.readFile(filePath, (err, data) => {
       if (err) {
-        // 主路径未找到时，尝试在 demo/ 目录下查找
-        const demoPath = path.join(rootDir, 'demo', urlPath);
-        if (!_isPathSafe(demoPath, rootDir)) {
-          res.writeHead(403);
-          res.end('Forbidden');
-          return;
-        }
-        fs.readFile(demoPath, (err2, data2) => {
-          if (err2) {
-            res.writeHead(404, { 'Content-Type': 'text/plain' });
-            res.end('Not Found');
-            return;
-          }
-          const ext = path.extname(demoPath);
-          res.writeHead(200, { 'Content-Type': mimeTypes[ext] || 'application/octet-stream' });
-          res.end(data2);
-        });
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('Not Found');
         return;
       }
       const ext = path.extname(filePath);
@@ -9343,7 +9492,7 @@ server.on('error', (err) => {
 
 server.listen(PORT, () => {
   console.log(`TokUI SSE Server 运行于 http://localhost:${PORT}`);
-  console.log(`演示页面: 在浏览器中打开 demo/index.html`);
+  console.log(`演示页面: 浏览器打开 http://localhost:${PORT}/`);
   console.log(`API 端点:`);
   console.log(`  GET  /api/demo/list    — 获取演示场景列表`);
   console.log(`  POST /api/chat/stream  — SSE 流式推送 TokUI 组件`);

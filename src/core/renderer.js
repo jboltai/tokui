@@ -331,6 +331,17 @@ class TokUIRenderer {
     if (node._streamPreview) {
       return this._streamChartPreview(node, rootContainer);
     }
+    // tr 流式：占位 open / 逐 cell preview / finalize 复用同一 <tr>。
+    // 须在通用 _stream:'open' 之前拦截（tr 的 open 复用值同名为 'open'，但走专用路径不入 slotStack）。
+    if (node.type === 'tr' && node._stream === 'open') {
+      return this._streamTrOpen(node, rootContainer);
+    }
+    if (node.type === 'tr' && node._stream === 'preview') {
+      return this._streamTrPreview(node);
+    }
+    if (node.type === 'tr' && node._stream === 'finalize') {
+      return this._streamTrFinalize(node, rootContainer);
+    }
     if (node._stream === 'open') {
       return this._streamOpen(node, rootContainer);
     }
@@ -376,13 +387,51 @@ class TokUIRenderer {
     return this._streamChild(node, rootContainer);
   }
 
+  // tr 流式：占位 <tr> 建好挂到当前 slot（tbody），登记到 _trRegistry 供后续 preview/finalize 复用。
+  // tr 不入 slotStack（其 cell 由 reconcile 直接填，不走子节点插槽机制）。
+  _streamTrOpen(node, rootContainer) {
+    var _pe = this.slotStack.length > 0 ? this.slotStack[this.slotStack.length - 1] : null;
+    // 传 tbody 元素给 tr（列位追踪状态 _tokuiOccupancy 在其上），用于 rowspan 偏移修正的按列对齐
+    if (_pe && _pe.el) node._tbodyEl = _pe.el;
+    var dom = this.render(node, _pe ? _pe.containerType : undefined);
+    if (dom && dom.nodeType === 1) dom.style.animation = 'tokuiFadeIn 0.3s ease';
+    var parentSlot = _pe ? _pe.slot : rootContainer;
+    parentSlot.appendChild(dom);
+    this._trRegistry = this._trRegistry || {};
+    this._trRegistry[node._trKey] = dom;
+    return dom;
+  }
+
+  // tr 流式：增量 reconcile cell（逐格渐显、末格字符级、组件格骨架）。
+  _streamTrPreview(node) {
+    this._trRegistry = this._trRegistry || {};
+    var dom = this._trRegistry[node._trKey];
+    if (dom && dom._tokuiTrReconcile) dom._tokuiTrReconcile(node.content || '', false, node.attrs);
+    return dom;
+  }
+
+  // tr 流式收尾：最终 reconcile（组件格转正）+ 清理登记。无占位（buffer 极短直奔 ]）→ 普通渲染兜底。
+  _streamTrFinalize(node, rootContainer) {
+    this._trRegistry = this._trRegistry || {};
+    var dom = this._trRegistry[node._trKey];
+    if (dom) {
+      if (dom._tokuiTrReconcile) dom._tokuiTrReconcile(node.content || '', true, node.attrs);
+      delete this._trRegistry[node._trKey];
+      return dom;
+    }
+    return this._streamChild(node, rootContainer);
+  }
+
   /**
    * 流式渲染：打开容器
    * 渲染容器 DOM，添加淡入动画，挂载到栈顶的插槽位置，
    * 然后将自身压入插槽栈（使用 _slot 作为新的插入点）。
    */
   _streamOpen(node, rootContainer) {
-    const dom = this.render(node);
+    // 流式打开容器时也要传 parentType：否则容器模式的子节点（如 desc / carousel / command-group 内的 item）
+    // 拿不到父级类型，会退化成默认 li 分支（与非流式时父容器 handler 直接调 buildDescItem 等不一致）。
+    const _pe = this.slotStack.length > 0 ? this.slotStack[this.slotStack.length - 1] : null;
+    const dom = this.render(node, _pe ? _pe.containerType : undefined);
     // 标记"经流式打开"：供 tabs/accordion 的 _streamCloseHook 区分流式（复位首项）与一次性（保持原样）
     if (dom && dom.nodeType === 1) dom._tokuiStreamActive = true;
     // 跳过隐藏元素的 fadeIn 动画（如 hover-content 临时容器）

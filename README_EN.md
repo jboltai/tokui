@@ -10,7 +10,7 @@ English | **[简体中文](./README.md)**
 [![zero runtime deps](https://img.shields.io/badge/runtime%20deps-0-brightgreen.svg)](#)
 [![bundle size](https://img.shields.io/bundlephobia/minzip/@jboltai/tokui.svg)](https://bundlephobia.com/package/@jboltai/tokui)
 
-[Try on StackBlitz](https://stackblitz.com/github/jboltai/tokui) · [Component gallery demo](./demo/index.html) · [DSL reference](./demo/TOKUI_DSL_REFERENCE.md) · [Docs site](https://tokui.jboltai.com/)
+[Official Docs site](https://tokui.jboltai.com/) · [Component gallery demo](https://tokui_demo.jboltai.com) · [DSL reference](./demo/TOKUI_DSL_REFERENCE.md) · [Try on StackBlitz](https://stackblitz.com/github/jboltai/tokui)
 
 ---
 
@@ -339,7 +339,7 @@ Adding a new component takes four steps:
 
 4. **Add styles** (`src/styles/tokui.css`): class `.tokui-mycard`; variants use `.tokui-mycard--{variant}` and must be added to the `VARIANTS` whitelist in `renderer.js`.
 
-Finally, add a test in `tests/`, and optionally a demo in the `DEMOS` array of `src/server/sse-server.js`.
+Finally, add a test in `tests/`, and optionally a demo in the `DEMOS` array of `demo/server/sse-server.js`.
 
 ---
 

@@ -12,7 +12,7 @@ The most common data-display combination: the `table` container is the shell, `t
 | `cap` | Table caption | `table` | `cap:用户列表` |
 | `v` | Variant | `table` | `v:bordered` |
 | `cols` | Header column definitions (comma-separated; quote if it contains `,` or CJK) | `thead` | `cols:"姓名,年龄"` |
-| `cs` | Column span (applies to the leading cell) | `tr` | `cs:2` |
+| `cs` | Column span (leading cell, legacy; prefer cell suffix `=cN`) | `tr` | `cs:2` |
 | `n` | Column title (only for `tcol` children) | `tcol` | `n:名称` |
 
 **Special `thead cols` placeholders**:
@@ -38,11 +38,50 @@ Declare a checkbox column with the `chk` placeholder in `thead cols`; leave the 
 
 ### Cell Merging
 
-`tr cs:N` makes the **leading cell** span N columns horizontally; the other cells inside the merged range are simply omitted. The most common use is a grouping divider row where `cs` equals the total column count, merging the whole row into one section title; other data rows must keep a cell count matching the header columns.
+Append a cell suffix `=cN` / `=rN` to merge horizontally (colspan) / vertically (rowspan) — **supported in both header and body**. The browser's native table layout tracks column positions automatically: a column occupied by a rowspan from above is simply **omitted on the next row** — no `,,,` empty placeholders needed.
 
-<Playground dsl='[table bordered][thead cols:"分类,项目,负责人"][tbody][tr cs:3 "前端组（共 2 项）"][tr 重构,张三,进行中][tr 性能,李四,已完成][tr cs:3 "后端组（共 1 项）"][tr 接口,王五,规划中][/tbody][/table]' />
+| Suffix | Meaning | Example |
+|--------|---------|---------|
+| `=cN` | span N columns | `Total=c4` |
+| `=rN` | span N rows | `Region=r4` |
+| `=cNrM` | both, c/r order irrelevant | `val=c2r2` |
 
-> **Parser constraint for `tr` containing spaces**: The parser splits tokens on spaces. If a row has inline attributes (`cs:2`, `tag:`, `btn:`, `progress`) or a cell value containing spaces, **the entire row content must be wrapped in double quotes** — e.g. `[tr cs:2 "前端,合并区"]` or `[tr "任务 A,进度 80%,<...>"]` — otherwise anything after the space is misparsed as an attribute. See the [DSL syntax guide](/guide/dsl-syntax).
+Strict trailing regex — only matches `=c<digit>` / `=r<digit>`; values like `formula=x=2` or `ver=v2` are preserved verbatim.
+
+<Playground dsl='[table bordered][thead cols:"大区=r2,客户,金额/r"][tbody][tr 华北区=r2,字节,¥1280][tr 星辰,¥960][tr 华东区,云图,¥2100][/tbody][/table]' />
+
+> Above, `大区=r2` makes 「华北区」 span 2 rows; the second row omits that column (browser reserves the slot). `金额/r` also declares that column right-aligned.
+
+### Column Alignment & Color
+
+Each `thead cols` entry may append `/align` and `/color` after the column name:
+
+| Suffix | Values | Example |
+|--------|--------|---------|
+| `/align` | `c` center / `r` right / `l` left | `单价/r`, `数量/c` |
+| `/color` | `primary` / `success` / `warning` / `danger` / `info` | `金额/r/danger` |
+
+Alignment / color **propagate by column position to the body** (the renderer tracks rowspan offsets, so shifted rows and component cells align correctly). Full col-spec order: `name[=cN[rM]][/align][/color]`, e.g. `金额/r/danger` (right + red).
+
+<Playground dsl='[table stripe bordered][thead cols:"商品,数量/c/primary,单价/r/warning,金额/r/danger"][tbody][tr 键盘,5,¥128,¥640][tr 鼠标,8,¥45,¥360][tr 显示器,3,¥999,¥2997][/tbody][/table]' />
+
+### Total Row `v:total`
+
+Adding the `v:total` variant to a `tr` makes it a total row: whole row bold, the leading (summary) cell right-aligned, the trailing (amount) cell bold + centered + `--danger` colored. Often combined with `汇总=cN` to span the whole row.
+
+<Playground dsl='[table stripe bordered][thead cols:"商品,数量/c,单价/r,金额/r"][tbody][tr 键盘,5,¥128,¥640][tr 鼠标,8,¥45,¥360][tr 汇总=c3,"¥1,000" v:total][/tbody][/table]' />
+
+### Multi-row Header
+
+Separate `thead cols` rows with `;` (thead stays a single self-closing tag — no container mode). Group columns span with `=cN`, leaf columns span down with `=rN`; `chk`/`#` special columns only take effect on the **last row**.
+
+<Playground dsl='[table stripe bordered][thead cols:"基本信息=c2,金额=r2,操作=r2;姓名,年龄"][tbody][tr 张三,28,"¥12,800",查看][tr 李四,32,"¥9,600",编辑][/tbody][/table]' />
+
+> Above, 「基本信息」 spans the 姓名/年龄 columns, while 「金额」/「操作」 span both header rows; the second header row lists only the 姓名/年龄 leaves, and each body row has 4 cells for the 4 leaf columns.
+
+> **legacy `cs:N`**: the old `tr cs:N` only merges the **leading** cell horizontally and requires `,,,` empty placeholders (e.g. `[tr cs:3 "前端组"]`). Prefer `=cN[rM]` for new code (any cell, no placeholders). `cs:N` is still supported.
+
+> **Parser constraint for `tr` containing spaces**: The parser splits tokens on spaces. If a row has inline attributes (`tag:`, `btn:`, `progress`; note `=cN`/`=rN` are cell suffixes and `v:total` is a row variant — **neither triggers this**) or a cell value containing spaces, **the entire row content must be wrapped in double quotes** — e.g. `[tr "任务 A,进度 80%,<...>"]` — otherwise anything after the space is misparsed as an attribute. See the [DSL syntax guide](/guide/dsl-syntax).
 
 ### Column Placeholders via `tcol`
 

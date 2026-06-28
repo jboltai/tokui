@@ -49,7 +49,7 @@ One component semantics end to end: the Builder chains out DSL, the Parser state
 | `core/color-generator.js` | HSB 10-step palette & theme token generator |
 | `components/*` | Component library by category, `index.js` registers all |
 | `server/tokui-builder.js` | Chainable DSL builder, `toString()` + `toChunks()` |
-| `server/sse-server.js` | SSE demo server on Node native http |
+| `demo/server/sse-server.js` | SSE demo server on Node native http (bundled in demo/, not library code) |
 
 ## Try it
 

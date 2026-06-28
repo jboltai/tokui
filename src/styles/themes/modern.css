@@ -329,7 +329,7 @@
 [data-tokui-theme='modern'] .tokui-card-footer { background: transparent; border-top: 1px solid var(--tokui-border); padding: 12px 20px; }
 
 /* 表格：白底 surface 卡 + 表头次级表面 + 行分隔 separator + hover 极轻 */
-[data-tokui-theme='modern'] .tokui-table-wrapper { background: var(--tokui-bg); border-radius: 12px; box-shadow: var(--tokui-surface-shadow); overflow: hidden; }
+[data-tokui-theme='modern'] .tokui-table-wrapper { background: var(--tokui-bg); border-radius: 12px; box-shadow: var(--tokui-surface-shadow); overflow-x: auto; overflow-y: hidden; }
 [data-tokui-theme='modern'] .tokui-table th { background: var(--tokui-bg-subtle); color: var(--tokui-text-muted); border-bottom: 1px solid var(--tokui-border); font-weight: 500; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; }
 [data-tokui-theme='modern'] .tokui-table td { border-bottom: 1px solid var(--tokui-border); }
 [data-tokui-theme='modern'] .tokui-table--stripe tr:nth-child(even) td { background: var(--tokui-bg-subtle); }

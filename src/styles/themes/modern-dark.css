@@ -313,7 +313,7 @@
 [data-tokui-theme='modern-dark'] .tokui-card-footer { background: transparent; border-top: 1px solid var(--tokui-border); padding: 12px 20px; }
 
 /* 表格：surface 卡 + 表头 surface-secondary + 行分隔 border-strong（保证可读） */
-[data-tokui-theme='modern-dark'] .tokui-table-wrapper { background: var(--tokui-bg); border-radius: 12px; box-shadow: var(--tokui-surface-shadow); overflow: hidden; border: 1px solid var(--tokui-border); }
+[data-tokui-theme='modern-dark'] .tokui-table-wrapper { background: var(--tokui-bg); border-radius: 12px; box-shadow: var(--tokui-surface-shadow); overflow-x: auto; overflow-y: hidden; border: 1px solid var(--tokui-border); }
 [data-tokui-theme='modern-dark'] .tokui-table th { background: var(--tokui-surface-secondary); color: var(--tokui-text-muted); border-bottom: 1px solid var(--tokui-border-strong); font-weight: 500; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; }
 [data-tokui-theme='modern-dark'] .tokui-table td { border-bottom: 1px solid var(--tokui-border-strong); color: var(--tokui-text); }
 [data-tokui-theme='modern-dark'] .tokui-table--stripe tr:nth-child(even) td { background: var(--tokui-bg-subtle); }

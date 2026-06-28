@@ -1,14 +1,16 @@
 #!/bin/bash
-# TokUI SSE Server 管理脚本
-# 用法: ./server.sh {start|stop|restart|status}
+# TokUI Demo 管理脚本（自包含：静态前端 + SSE 后端同源）
+# 用法: ./demo.sh {start|stop|restart|status}
+# demo/ 目录可独立取出运行，路径均相对本脚本。
 
 PORT=3109
-PID_FILE="$(cd "$(dirname "$0")" && pwd)/server.pid"
-LOG_FILE="$(cd "$(dirname "$0")" && pwd)/server.log"
-SERVER_JS="$(cd "$(dirname "$0")" && pwd)/src/server/sse-server.js"
+DIR="$(cd "$(dirname "$0")" && pwd)"
+PID_FILE="$DIR/server.pid"
+LOG_FILE="$DIR/server.log"
+SERVER_JS="$DIR/server/sse-server.js"
 
 start() {
-  # 无论 PID 文件是否存在，先确保端口空闲
+  # 无论 PID 文件是否存在，先确保端口空闲（端口占用 → 关掉 → 启动）
   local port_pid
   port_pid=$(lsof -ti:"$PORT" 2>/dev/null)
   if [ -n "$port_pid" ]; then
@@ -26,7 +28,7 @@ start() {
     rm -f "$PID_FILE"
   fi
 
-  echo "正在启动 SSE Server..."
+  echo "正在启动 TokUI Demo (静态 + SSE)..."
   nohup node "$SERVER_JS" >> "$LOG_FILE" 2>&1 &
   local pid=$!
   echo "$pid" > "$PID_FILE"

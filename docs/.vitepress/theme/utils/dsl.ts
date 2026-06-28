@@ -110,6 +110,54 @@ function escapeHtml(s: string): string {
 
 const span = (cls: string, text: string) => `<span class="${cls}">${escapeHtml(text)}</span>`;
 
+// 变体白名单快照（与 src/core/renderer.js 的 VARIANTS 保持同步）
+// 优先取 window.TokUI._internal.VARIANTS 运行时数据（自动同步），回退快照（SSG/Node 安全）
+const DSL_VARIANTS_FALLBACK: Record<string, string[]> = {
+  img: ['avatar', 'rounded', 'bordered'],
+  card: ['highlight', 'flat', 'bordered', 'center', 'right'],
+  btn: ['primary', 'danger', 'success', 'warning', 'ghost', 'sm', 'lg', 'pill', 'square', 'block'],
+  btngroup: ['vertical', 'pill'],
+  table: ['bordered', 'compact'],
+  input: ['error', 'success', 'sm', 'lg', 'underline', 'pill'],
+  pwd: ['error', 'success', 'sm', 'lg', 'underline', 'pill'],
+  select: ['error', 'success'],
+  picker: ['error', 'success'],
+  h1: ['left', 'center', 'right', 'ribbon', 'underline', 'badge', 'pill'],
+  h2: ['left', 'center', 'right', 'ribbon', 'underline', 'badge', 'pill'],
+  h3: ['left', 'center', 'right', 'ribbon', 'underline', 'badge', 'pill'],
+  h4: ['left', 'center', 'right', 'ribbon', 'underline', 'badge', 'pill'],
+  h5: ['left', 'center', 'right', 'ribbon', 'underline', 'badge', 'pill'],
+  h6: ['left', 'center', 'right', 'ribbon', 'underline', 'badge', 'pill'],
+  p: ['left', 'center', 'right', 'muted', 'bold', 'sm', 'lg'],
+  a: ['muted', 'danger', 'success', 'underline'],
+  ft: ['left', 'center', 'right'],
+  row: ['left', 'center', 'right', 'inline'],
+  dv: ['dashed', 'dotted', 'sm', 'md', 'lg', 'vert', 'plain'],
+  dot: ['sm', 'lg'],
+  avatar: ['sm', 'md', 'lg', 'xl'],
+  tooltip: ['top', 'bottom', 'left', 'right'],
+  pagination: ['sm', 'lg'],
+  switch: ['sm', 'lg'],
+  drawer: ['left', 'right', 'top', 'bottom'],
+  breadcrumb: ['arrow'],
+  slider: ['sm', 'lg'],
+  rate: ['sm', 'lg'],
+  transfer: ['sm', 'lg'],
+  cascader: ['error', 'success'],
+  upload: ['sm', 'lg'],
+  tree: ['sm', 'lg']
+};
+function variantSetFor(type: string): Set<string> | null {
+  let arr: string[] | undefined;
+  if (typeof window !== 'undefined') {
+    const w = window as any;
+    const live = w && w.TokUI && w.TokUI._internal && w.TokUI._internal.VARIANTS;
+    if (live && live[type]) arr = Array.from(live[type]) as string[];
+  }
+  if (!arr) arr = DSL_VARIANTS_FALLBACK[type];
+  return arr ? new Set(arr) : null;
+}
+
 /**
  * 高亮单个标签内部（不含外层方括号）。
  * interior = '[' 与 ']' 之间的原始内容（未转义）。
@@ -131,6 +179,10 @@ function highlightInterior(interior: string): string {
   while (i < n && !/[\s:"]/.test(interior[i])) i++;
   const tagName = interior.slice(nameStart, i);
   if (tagName) out.push(span('tok-tag', tagName));
+
+  // 变体吸收着色：与 parser 同源——v: 出现后，紧跟的裸 token 若命中该组件变体白名单，按变体着色
+  let vSeen = false;
+  const variantSet = tagName ? variantSetFor(tagName) : null;
 
   // 剩余部分：属性 key:value / 裸布尔 / 文本内容，引号整体吞
   while (i < n) {
@@ -162,10 +214,15 @@ function highlightInterior(interior: string): string {
         while (i < n && interior[i] !== '"' && interior[i] !== '\n') { val += interior[i]; i++; }
         if (i < n && interior[i] === '"') { val += interior[i]; i++; }
       }
+      if (key === 'v') vSeen = true;
       const valClass = key === 'v' ? 'tok-variant' : 'tok-val';
       out.push(span('tok-attr', key) + span('tok-punct', ':') + span(valClass, val));
     } else if (token.startsWith('v:')) {
       // 形如 v:primary 无值时（理论上 v 必有值，兜底）
+      vSeen = true;
+      out.push(span('tok-variant', token));
+    } else if (vSeen && variantSet && variantSet.has(token)) {
+      // v: 后的裸变体（如 [p v:center muted 文本] 的 muted）→ 与 v:center 同色
       out.push(span('tok-variant', token));
     } else {
       // 布尔属性 / 裸文本
