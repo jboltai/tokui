@@ -36,8 +36,9 @@ class TokUIBuilder {
         let val = String(v);
         // 转义值中的双引号
         val = val.replace(/"/g, '\\"');
-        // 值含空格、引号、换行符或 ] 时用双引号包裹
-        if (val.includes(' ') || val.includes('"') || val.includes('\n') || val.includes(']')) {
+        // opt 简写值含 : ; 分隔符，必须强制双引号（parser 引号感知整串作字面值）；
+        // 其余含空格/引号/换行/] 的值同样需引号
+        if (k === 'opt' || val.includes(' ') || val.includes('"') || val.includes('\n') || val.includes(']')) {
           return `${k}:"${val}"`;
         }
         return `${k}:${val}`;
@@ -228,13 +229,26 @@ class TokUIBuilder {
   /** 自定义选择器 */
   picker(attrs) { return this._open('picker', attrs); }
   /** 下拉选择框 */
-  select(attrs) { return this._open('select', attrs); }
+  select(attrs) {
+    return attrs && attrs.opt
+      ? this._selfClosing('select', null, attrs)
+      : this._open('select', attrs);
+  }
   /** 选项 */
   opt(attrs) { return this._selfClosing('opt', null, attrs); }
   /** 单选按钮组 */
-  radio(attrs) { return this._open('radio', attrs); }
+  radio(attrs) {
+    return attrs && attrs.opt
+      ? this._selfClosing('radio', null, attrs)
+      : this._open('radio', attrs);
+  }
   /** 复选框 */
-  checkbox(attrs) { return this._selfClosing('checkbox', null, attrs); }
+  checkbox(attrs) {
+    // 简写 opt:"..." → 自闭合；多选容器 multi → _open；单布尔 → 自闭合
+    if (attrs && attrs.opt) return this._selfClosing('checkbox', null, attrs);
+    if (attrs && attrs.multi !== undefined) return this._open('checkbox', attrs);
+    return this._selfClosing('checkbox', null, attrs);
+  }
   /** 开关组件（方法名 switcher 避开 JS 关键字） */
   switcher(attrs) { return this._selfClosing('switch', null, attrs); }
   /** 多行文本框 */
@@ -355,6 +369,10 @@ class TokUIBuilder {
 
   /** Empty 空状态（自闭合） */
   empty(attrs) { return this._selfClosing('empty', null, attrs); }
+  /** Code128 条形码：tx 数据 / l 标签 / s 尺寸(sm/md/lg) */
+  barcode(attrs) { return this._selfClosing('barcode', null, attrs); }
+  /** QR 二维码：tx 数据 / l 标签 / s 尺寸 / ec 纠错级(L/M/Q/H) */
+  qrcode(attrs) { return this._selfClosing('qrcode', null, attrs); }
   /** Result 结果页（自闭合） */
   result(attrs) { return this._selfClosing('result', null, attrs); }
   /** Stat 统计数值（自闭合） */

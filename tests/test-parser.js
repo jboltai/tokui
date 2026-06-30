@@ -1293,4 +1293,51 @@ test('漏空格：流式场景同样生效', () => {
   assert.strictEqual(events[0].attrs.tx, '¥48.20');
 });
 
+// === checkbox 三态 + opt 简写自闭合 ===
+test('checkbox 在 CONTAINERS 内', () => {
+  assert.ok(CONTAINERS.has('checkbox'), 'checkbox 应在 CONTAINERS');
+});
+test('checkbox 无 multi 无 opt → 自闭合叶子（单布尔）', () => {
+  const p = new TokUIParser();
+  const nodes = [];
+  p.onNode = n => nodes.push(n);
+  p.parse('[card][checkbox l:同意][btn tx:下一项][/card]');
+  // checkbox 不应吞掉 btn：btn 是 checkbox 的兄弟（card 的子），不是 checkbox 的子
+  const card = nodes.find(n => n.type === 'card');
+  const cb = card.children.find(n => n.type === 'checkbox');
+  assert.ok(cb, 'checkbox 存在');
+  assert.strictEqual(cb.children.length, 0, '单布尔 checkbox 无子节点');
+  const btn = card.children.find(n => n.type === 'btn');
+  assert.ok(btn && btn.attrs.tx === '下一项', 'btn 是 checkbox 兄弟，未被吞');
+});
+test('checkbox multi → 容器收 opt 子节点', () => {
+  const p = new TokUIParser();
+  const nodes = [];
+  p.onNode = n => nodes.push(n);
+  p.parse('[checkbox n:brand multi][opt v:1 tx:篮球][opt v:2 tx:足球][/checkbox]');
+  const cb = nodes.find(n => n.type === 'checkbox');
+  assert.ok(cb, 'checkbox 存在');
+  assert.strictEqual(cb.children.length, 2, '收了 2 个 opt');
+  assert.strictEqual(cb.children[0].type, 'opt');
+});
+test('checkbox opt:"..." → 原子自闭合（无子节点）', () => {
+  const p = new TokUIParser();
+  const nodes = [];
+  p.onNode = n => nodes.push(n);
+  p.parse('[checkbox n:brand opt:"1:篮球;2:足球"]');
+  const cb = nodes.find(n => n.type === 'checkbox');
+  assert.ok(cb, 'checkbox 存在');
+  assert.strictEqual(cb.attrs.opt, '1:篮球;2:足球', 'opt 属性原样保留');
+  assert.strictEqual(cb.children.length, 0, '简写原子自闭合，无子节点');
+});
+test('radio opt:"..." → 原子自闭合', () => {
+  const p = new TokUIParser();
+  const nodes = [];
+  p.onNode = n => nodes.push(n);
+  p.parse('[radio n:gender opt:"1:男;2:女"]');
+  const r = nodes.find(n => n.type === 'radio');
+  assert.ok(r && r.attrs.opt === '1:男;2:女');
+  assert.strictEqual(r.children.length, 0);
+});
+
 run();

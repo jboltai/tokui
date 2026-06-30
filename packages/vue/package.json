@@ -1,6 +1,6 @@
 {
   "name": "@jboltai/tokui-vue",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "TokUI Vue 3 adapter — <TokUIView> component and useTokUIStream() composable for streaming DSL UI.",
   "license": "MIT",
   "author": "sdxiaomu (https://jboltai.com)",

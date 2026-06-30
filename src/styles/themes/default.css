@@ -101,6 +101,8 @@
   --tokui-border: rgba(0, 0, 0, 0.06);
   --tokui-bg: #ffffff;
   --tokui-stripe: rgba(0, 0, 0, 0.04);
+  --tokui-skeleton-base: rgba(0, 0, 0, 0.04);   /* 骨架屏静态条/底色（轻于 border，避免过深）*/
+  --tokui-skeleton-shine: rgba(0, 0, 0, 0.07);  /* shimmer 高光带（略深一档造对比）*/
 
   /* 辅助色 */
   --tokui-dark: rgba(0, 0, 0, 0.88);

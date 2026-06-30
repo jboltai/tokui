@@ -65,7 +65,7 @@ function findTrCloseBracket(str) {
 const CONTAINERS = new Set([
   'form', 'table', 'thead', 'tbody',
   'card', 'ft', 'row', 'col', 'list',
-  'select', 'radio', 'code', 'imgs', 'md',
+  'select', 'radio', 'checkbox', 'code', 'imgs', 'md',
   'textarea', 'tabs', 'tab', 'accordion', 'collapse', 'dialog',
   'btngroup', 'picker', 'timeline', 'steps', 'drawer',
   'ol', 'ul', 'i', 'item', 'think', 'think-chain', 'think-step',
@@ -102,6 +102,29 @@ function chartHasInline(node) {
   return !!(a.d || a.tasks || a.rows || (a.nodes && a.flows) ||
     (a.v !== undefined && (a.t === 'gauge' || a.t === 'progress')));
 }
+
+// radio/select/checkbox 带 opt:"..." 属性 → 原子自闭合简写（renderer 展开）。
+// 须与 _emitStreaming / _emitBuffered 两路同步：判定为自闭合即不入容器栈。
+function isOptShorthandSelfClosing(node) {
+  if (node.type !== 'radio' && node.type !== 'select' && node.type !== 'checkbox') return false;
+  return !!(node.attrs && node.attrs.opt);
+}
+// checkbox 在 CONTAINERS 内，但单布尔（无 multi 无 opt）须维持自闭合叶子，兼容 legacy。
+// 仅 multi 标记触发容器模式收 opt 子节点。
+function isCheckboxSingleSelfClosing(node) {
+  return node.type === 'checkbox'
+    && (node.attrs ? node.attrs.multi : undefined) === undefined
+    && !isOptShorthandSelfClosing(node);
+}
+
+// 纯自闭合大块组件：流式期 emit 骨架占位（pending），] 到达 swap 为真节点（finalize）。
+// 仅收「无法容器化、体积大、pop-in 洞明显」的类型；小件(tag/btn/dot 等)保持 pop-in，不骨架。
+// 容器型大文本(callout/code/md/terminal/diff)用容器模式实现真流式，不在此列。
+const SKELETON_ELIGIBLE = new Set([
+  'stat', 'img', 'avatar', 'result', 'empty',
+  'video', 'audio', 'file', 'attach', 'commit'
+]);
+const SKELETON_TYPE_RE = /^(stat|img|avatar|result|empty|video|audio|file|attach|commit)\b/;
 
 // p 的内联子节点白名单：只有这些类型可作为 p 的子节点（其余兄弟到达时自动闭合 p，
 // 保 [p 文本] / [p a][p b] 的自闭合兄弟语义，对标 HTML <p>）。
@@ -446,6 +469,15 @@ class TokUIParser {
           this.onNode(parsed);
         }
       }
+    }
+    // 纯自闭合大块骨架占位：TAG_OPEN 累积 stat/img/... 时，类型名确定即 emit skeleton-pending（每标签一次）。
+    // renderer 挂骨架；] 到达由 _emitStreaming 标 skeleton-finalize 配对 swap。小件不在此列（pop-in 即可）。
+    if (this.streaming && this.state === 'TAG_OPEN'
+        && this._skelEmittedKey !== this._tagStartPos
+        && SKELETON_TYPE_RE.test(this.buffer)
+        && this.buffer.length > SKELETON_TYPE_RE.exec(this.buffer)[0].length) {
+      this._skelEmittedKey = this._tagStartPos;
+      this.onNode({ type: SKELETON_TYPE_RE.exec(this.buffer)[1], _stream: 'skeleton-pending', _skelKey: this._tagStartPos, attrs: {} });
     }
   }
 
@@ -837,6 +869,12 @@ class TokUIParser {
       node._stream = 'finalize';
       node._trKey = node._dslStart;
     }
+    // 骨架占位收尾：纯自闭合大块（stat/img/...）开标签时 emit 过 skeleton-pending，
+    // ] 到达标 skeleton-finalize + 原 key，renderer 据此把骨架 swap 为真节点（无 pending 则正常渲染）。
+    if (SKELETON_ELIGIBLE.has(node.type) && this._skelEmittedKey === node._dslStart) {
+      node._stream = 'skeleton-finalize';
+      node._skelKey = node._dslStart;
+    }
     // tx on popover/input-tag means trigger/label text, not self-closing body content
     const TX_CONTAINER_EXCLUDE = new Set(['tn', 'popover', 'input-tag', 'watermark', 'badge-box']);
     const isTxSelfClosing = CONTAINERS.has(node.type) && !TX_CONTAINER_EXCLUDE.has(node.type) && node.attrs.tx;
@@ -844,7 +882,8 @@ class TokUIParser {
     // input-tag 带 tags 属性 → 自闭合（与 builder.inputTag() 的 _selfClosing 分支对齐）；
     // 否则按容器打开收子节点。
     const isTagsSelfClosing = node.type === 'input-tag' && node.attrs.tags;
-    const isSelfClosing = isTxSelfClosing || isLeafSelfClosing || isTagsSelfClosing;
+    const isSelfClosing = isTxSelfClosing || isLeafSelfClosing || isTagsSelfClosing
+      || isOptShorthandSelfClosing(node) || isCheckboxSingleSelfClosing(node);
     // desc/suggestions use cols as layout attribute, not as self-closing trigger
     // chart 的 cols 是数据列标签（heatmap），非布局自闭合触发，须豁免（否则容器写法 [/chart] 报错）
     const hasColsTrigger = node.attrs.cols && node.type !== 'desc' && node.type !== 'suggestions' && node.type !== 'chart';
@@ -901,7 +940,8 @@ class TokUIParser {
     const isTxSelfClosing = CONTAINERS.has(node.type) && !TX_CONTAINER_EXCLUDE.has(node.type) && node.attrs.tx;
     const isLeafSelfClosing = node.type === 'tn' && node.attrs.leaf !== undefined;
     const isTagsSelfClosing = node.type === 'input-tag' && node.attrs.tags;
-    const isSelfClosing = isTxSelfClosing || isLeafSelfClosing || isTagsSelfClosing;
+    const isSelfClosing = isTxSelfClosing || isLeafSelfClosing || isTagsSelfClosing
+      || isOptShorthandSelfClosing(node) || isCheckboxSingleSelfClosing(node);
     // desc/suggestions use cols as layout attribute, not as self-closing trigger
     // chart 的 cols 是数据列标签（heatmap），非布局自闭合触发，须豁免（否则容器写法 [/chart] 报错）
     const hasColsTrigger = node.attrs.cols && node.type !== 'desc' && node.type !== 'suggestions' && node.type !== 'chart';

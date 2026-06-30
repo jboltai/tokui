@@ -4,7 +4,7 @@ const { setupDOM, teardownDOM } = require('./helpers/dom-mock');
 setupDOM();
 
 const { TokUIRenderer } = require('../src/core/renderer');
-const { registerChartComponents, registerChartRenderer } = require('../src/components/chart');
+const { registerChartComponents, registerChartRenderer, bumpFsUnits, solvePieFs, pieSizing, MIN_CHART_PX } = require('../src/components/chart');
 
 // 递归收集元素及其后代的 textContent（dom-mock 不自动汇总）
 function collectText(el) {
@@ -742,6 +742,98 @@ test('chart candlestick 动态宽度：50 根 viewBox 宽 > 默认 480', () => {
   var dom = renderer.render({ type: 'chart', attrs: { t: 'candlestick', d: ohlc.join(';') }, content: '', children: [] });
   var sz = viewBoxSize(dom.querySelector('.tokui-chart__svg'));
   assert.ok(sz.w > 480, '50 根 K 线应自动加宽，实际 ' + sz.w);
+});
+
+// CJK 双倍计宽，近似 chart.js 的 estTextW（对 font-size:7 略宽估，安全）
+function pieLabelW(str) {
+  var w = 0;
+  for (var i = 0; i < str.length; i++) w += (str.charCodeAt(i) > 127) ? 8 : 4.5;
+  return w;
+}
+
+test('chart pie 引线标签不超出 viewBox（长 CJK 标签不被外框裁切）', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  // 真实 demo 数据：5 段、长 CJK 标签，两侧均有切片
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'pie', d: '35,25,20,12,8', l: '微信,抖音,淘宝,京东,其他', w: 240, h: 240 }, content: '', children: [] });
+  var svg = dom.querySelector('.tokui-chart__svg');
+  var sz = viewBoxSize(svg);
+  // 引线标签文本：含 '(' 与 '%'（区别于图例 / tooltip）
+  var violations = [];
+  svg.querySelectorAll('text').forEach(function (t) {
+    var s = t.textContent || '';
+    if (s.indexOf('%') < 0 || s.indexOf('(') < 0) return; // 仅引线标签
+    var anchor = t.getAttribute('text-anchor') || 'start';
+    var x = parseFloat(t.getAttribute('x'));
+    var w = pieLabelW(s);
+    var left = anchor === 'end' ? x - w : x;
+    var right = anchor === 'end' ? x : x + w;
+    if (left < -0.5 || right > sz.w + 0.5) violations.push(s + ' [' + left.toFixed(1) + '..' + right.toFixed(1) + '] vbW=' + sz.w);
+  });
+  assert.strictEqual(violations.length, 0, '引线标签超出画布：\n  ' + violations.join('\n  '));
+});
+
+test('chart pie 拓宽画布：长标签时 viewBox 宽 > 用户 w', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'pie', d: '35,25,20,12,8', l: '微信,抖音,淘宝,京东,其他', w: 240, h: 240 }, content: '', children: [] });
+  var sz = viewBoxSize(dom.querySelector('.tokui-chart__svg'));
+  assert.ok(sz.w > 240, '长 CJK 标签应触发画布拓宽，实际 ' + sz.w);
+});
+
+// === 字号保底纯函数 ===
+test('bumpFsUnits：窄缩放抬到 minPx，已达标不动', () => {
+  assert.strictEqual(bumpFsUnits(7, 1, 12), 12);      // 7px → 抬到 12
+  assert.strictEqual(bumpFsUnits(7, 2, 12), 7);       // 14px 已 ≥12
+  assert.strictEqual(bumpFsUnits(7, 0.5, 12), 24);    // 3.5px → 抬到 24
+  assert.strictEqual(bumpFsUnits(9, 1, 12), 12);      // 9px → 12
+  assert.strictEqual(bumpFsUnits(10, 1.3, 12), 10);   // 13px ≥12
+  assert.strictEqual(bumpFsUnits(10, 1.2, 12), 10);   // 12px 边界（≥）不动
+  assert.strictEqual(bumpFsUnits(7, 0, 12), 7);       // 非法 scale 原样
+});
+
+test('solvePieFs：C440 / R0106 / fixedA30 / coefB≈7.43 → ≈11.4 且闭环渲染=12px', () => {
+  var C = 440, R0 = 106, fixedA = 30, coefB = 52 / 7; // 52≈长 CJK 标签 estTextW
+  var fs = solvePieFs(C, R0, fixedA, coefB, MIN_CHART_PX);
+  assert.ok(fs > 11.2 && fs < 11.6, 'fs 应 ≈11.4，实际 ' + fs);
+  // 闭环验证：r(fs)=R0−fs，W(fs)=2(r+fixedA+coefB·fs)，渲染 px = fs·C/W 应 ≈12
+  var r = R0 - fs;
+  var W = 2 * (r + fixedA + coefB * fs);
+  var px = fs * C / W;
+  assert.ok(px > 11.8 && px < 12.2, '闭环渲染 px 应 ≈12，实际 ' + px);
+});
+
+test('solvePieFs：超大容器（自然已 ≥12）→ fs<7（无需抬）', () => {
+  var fs = solvePieFs(2000, 106, 30, 52 / 7, MIN_CHART_PX);
+  assert.ok(fs < 7, '超大容器 fs 应 <7，实际 ' + fs);
+});
+
+test('solvePieFs：极窄容器 denom≤0 → 0（回退）', () => {
+  // denom = C − 2·12·(coefB−1)；coefB=10 → 2·12·9=216 > C=100
+  assert.strictEqual(solvePieFs(100, 106, 30, 10, MIN_CHART_PX), 0);
+  assert.strictEqual(solvePieFs(0, 106, 30, 7, MIN_CHART_PX), 0); // C=0
+});
+
+test('pieSizing：fs=7 时 labelSpace = fixedA + maxLabelW（与历史布局等价）', () => {
+  var data = [35, 25, 20, 12, 8];
+  var labels = ['微信', '抖音', '淘宝', '京东', '其他'];
+  var total = 100;
+  var L = pieSizing(data, labels, {}, 7, total);
+  assert.strictEqual(L.labelSpace, L.fixedA + L.maxLabelW);
+  assert.strictEqual(L.coefB, L.maxLabelW / 7);
+  assert.ok(L.r > 0 && L.W > L.r * 2);
+});
+
+test('chart pie _pieFs 覆盖：标签/图例用 fs，viewBox 随 fs 拓宽', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  var base = renderer.render({ type: 'chart', attrs: { t: 'pie', d: '35,25,20,12,8', l: '微信,抖音,淘宝,京东,其他', w: 240, h: 240 }, content: '', children: [] });
+  var big = renderer.render({ type: 'chart', attrs: { t: 'pie', d: '35,25,20,12,8', l: '微信,抖音,淘宝,京东,其他', w: 240, h: 240, _pieFs: 14 }, content: '', children: [] });
+  var szB = viewBoxSize(base.querySelector('.tokui-chart__svg'));
+  var szBig = viewBoxSize(big.querySelector('.tokui-chart__svg'));
+  assert.ok(szBig.w > szB.w, 'fs=14 应比 fs=7 拓宽，' + szBig.w + ' vs ' + szB.w);
+  // 标签字号 = _pieFs
+  var lbl = Array.from(big.querySelector('.tokui-chart__svg').querySelectorAll('text'))
+    .find(t => (t.textContent || '').includes('%') && (t.textContent || '').includes('('));
+  assert.ok(lbl, '应存在引线标签');
+  assert.strictEqual(lbl.getAttribute('font-size'), '14');
 });
 
 run();

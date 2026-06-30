@@ -642,4 +642,138 @@ test('form 容器透传 clk/sub（表单提交链路依赖）', () => {
   assert.strictEqual(dom.getAttribute('data-tokui-clk'), 'formSubmit', 'form clk → data-tokui-clk（formSubmit handler 绑定依赖）');
 });
 
+// === opt 简写解析助手 ===
+test('_parseOptShorthand: value:label 冒号分隔', () => {
+  const { _parseOptShorthand } = require('../src/components/form');
+  assert.deepStrictEqual(_parseOptShorthand('1:男;2:女'), [
+    { v: '1', tx: '男' }, { v: '2', tx: '女' }
+  ]);
+});
+test('_parseOptShorthand: 冒号可缺，v=tx=token', () => {
+  const { _parseOptShorthand } = require('../src/components/form');
+  assert.deepStrictEqual(_parseOptShorthand('1:篮球;2足球;3:羽毛球'), [
+    { v: '1', tx: '篮球' }, { v: '2足球', tx: '2足球' }, { v: '3', tx: '羽毛球' }
+  ]);
+});
+test('_parseOptShorthand: 空串/纯分隔返回 []', () => {
+  const { _parseOptShorthand } = require('../src/components/form');
+  assert.deepStrictEqual(_parseOptShorthand(''), []);
+  assert.deepStrictEqual(_parseOptShorthand(';;'), []);
+  assert.deepStrictEqual(_parseOptShorthand(null), []);
+});
+
+// === _expandOptChildren 助手（select/radio/checkbox 共用）===
+test('_expandOptChildren: opt 属性合成 opt 子节点追加到 children', () => {
+  const { _expandOptChildren } = require('../src/components/form');
+  const node = { type: 'radio', attrs: { opt: '1:男;2:女' }, children: [] };
+  const out = _expandOptChildren(node);
+  assert.strictEqual(out.children.length, 2);
+  assert.deepStrictEqual(out.children[0], { type: 'opt', attrs: { v: '1', tx: '男' } });
+  assert.deepStrictEqual(out.children[1], { type: 'opt', attrs: { v: '2', tx: '女' } });
+});
+test('_expandOptChildren: 保留既有 children（合成项追加在末尾）', () => {
+  const { _expandOptChildren } = require('../src/components/form');
+  const existing = { type: 'opt', attrs: { v: 'a', tx: 'A' } };
+  const node = { type: 'select', attrs: { opt: 'b:B' }, children: [existing] };
+  const out = _expandOptChildren(node);
+  assert.strictEqual(out.children.length, 2);
+  assert.strictEqual(out.children[0], existing);
+  assert.strictEqual(out.children[1].attrs.v, 'b');
+});
+test('_expandOptChildren: 无 opt 属性原样返回（同引用）', () => {
+  const { _expandOptChildren } = require('../src/components/form');
+  const node = { type: 'checkbox', attrs: { l: '同意' }, children: [] };
+  assert.strictEqual(_expandOptChildren(node), node, '无 opt 应返回原对象');
+});
+test('_expandOptChildren: 不 mutate 原 node', () => {
+  const { _expandOptChildren } = require('../src/components/form');
+  const node = { type: 'radio', attrs: { opt: '1:男' }, children: [] };
+  _expandOptChildren(node);
+  assert.strictEqual(node.children.length, 0, '原 node.children 不被修改');
+});
+
+// === checkbox 多选（简写 + 容器）===
+test('checkbox 单布尔回归：渲染单个 input', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'checkbox', attrs: { l: '同意' }, children: [] });
+  const inputs = dom.querySelectorAll('input[type=checkbox]');
+  assert.strictEqual(inputs.length, 1, '单个布尔 checkbox');
+});
+test('checkbox 简写多选：opt 展开为多个 input 共享 name', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'checkbox', attrs: { n: 'brand', opt: '1:篮球;2:足球;3:羽毛球' }, children: [] });
+  const group = dom.querySelector('.tokui-checkbox-group');
+  assert.ok(group, '渲染了 checkbox-group');
+  const inputs = dom.querySelectorAll('input[type=checkbox][name=brand]');
+  assert.strictEqual(inputs.length, 3, '展开 3 个 checkbox');
+  assert.strictEqual(inputs[0].value, '1');
+  assert.strictEqual(inputs[2].value, '3');
+});
+test('checkbox 容器多选：children 渲染为 input', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({
+    type: 'checkbox', attrs: { n: 'hobby' },
+    children: [
+      { type: 'opt', attrs: { v: 'a', tx: 'A', chk: true } },
+      { type: 'opt', attrs: { v: 'b', tx: 'B' } }
+    ]
+  });
+  const inputs = dom.querySelectorAll('input[type=checkbox][name=hobby]');
+  assert.strictEqual(inputs.length, 2);
+  assert.strictEqual(inputs[0].checked, true, 'chk 项默认选中');
+  assert.strictEqual(inputs[1].checked, false);
+});
+test('checkbox 组：group._checkboxName 供流式注入', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'checkbox', attrs: { n: 'x', opt: '1:A;2:B' }, children: [] });
+  const group = dom.querySelector('.tokui-checkbox-group');
+  assert.strictEqual(group._checkboxName, 'x');
+});
+test('checkbox name 回退 id', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'checkbox', attrs: { id: 'cb1', opt: '1:A' }, children: [] });
+  const inp = dom.querySelector('input[type=checkbox]');
+  assert.strictEqual(inp.name, 'cb1');
+});
+
+// === radio / select 简写 ===
+test('radio opt 简写：展开为多个 radio 共享 name', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'radio', attrs: { n: 'gender', opt: '1:男;2:女' }, children: [] });
+  const inputs = dom.querySelectorAll('input[type=radio][name=gender]');
+  assert.strictEqual(inputs.length, 2);
+  assert.strictEqual(inputs[0].value, '1');
+  assert.strictEqual(inputs[1].value, '2');
+});
+test('select opt 简写：展开为多个 option', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'select', attrs: { n: 'city', opt: 'bj:北京;sh:上海' }, children: [] });
+  const opts = dom.querySelectorAll('option');
+  assert.strictEqual(opts.length, 2);
+  assert.strictEqual(opts[0].value, 'bj');
+  assert.strictEqual(opts[0].textContent, '北京');
+});
+
+// === v:vertical 竖排左对齐变体 ===
+test('radio v:vertical 加竖排修饰类', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'radio', attrs: { n: 'g', v: 'vertical', opt: '1:男;2:女' }, children: [] });
+  const group = dom.querySelector('.tokui-radio-group');
+  assert.ok(group, 'radio-group 存在');
+  assert.ok(group.className.split(' ').indexOf('tokui-radio-group--vertical') >= 0, '应有 --vertical 类');
+});
+test('checkbox v:vertical 加竖排修饰类', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'checkbox', attrs: { n: 'h', v: 'vertical', opt: '1:A;2:B' }, children: [] });
+  const group = dom.querySelector('.tokui-checkbox-group');
+  assert.ok(group, 'checkbox-group 存在');
+  assert.ok(group.className.split(' ').indexOf('tokui-checkbox-group--vertical') >= 0, '应有 --vertical 类');
+});
+test('radio 默认横排无 --vertical 类', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'radio', attrs: { n: 'g', opt: '1:男;2:女' }, children: [] });
+  const group = dom.querySelector('.tokui-radio-group');
+  assert.strictEqual(group.className.indexOf('tokui-radio-group--vertical'), -1, '默认无竖排类');
+});
+
 run();

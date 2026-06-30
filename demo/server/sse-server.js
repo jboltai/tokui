@@ -582,6 +582,238 @@ const DEMOS = [
         .end()
       .end();
 
+      // 第二行：图标按钮（icon: SVG / i: emoji）
+      b.row_layout()
+        .col_layout({ span: 4 })
+          .card({ tt: 'SVG 图标 (icon:NAME)' })
+            .p('图标 + 文字（自动继承钮色）：')
+            .btngroup()
+              .btn({ icon: 'view', tx: '详情', t: 'primary', clk: 'handleView' })
+              .btn({ icon: 'edit', tx: '编辑', t: 'warning', clk: 'handleEdit' })
+              .btn({ icon: 'delete', tx: '删除', t: 'danger', clk: 'handleDelete' })
+            .end()
+            .p('icon-only（l: 提供 tooltip + 无障碍，悬停看效果）：')
+            .btngroup()
+              .btn({ icon: 'view', l: '查看', t: 'primary', clk: 'handleView' })
+              .btn({ icon: 'edit', l: '编辑', t: 'warning', clk: 'handleEdit' })
+              .btn({ icon: 'delete', l: '删除', t: 'danger', clk: 'handleDelete' })
+              .btn({ icon: 'copy', l: '复制', clk: 'handleCopy' })
+              .btn({ icon: 'download', l: '下载', t: 'success', clk: 'handleExport' })
+            .end()
+            .p('更多内置图标：')
+            .btngroup()
+              .btn({ icon: 'add', l: '新增', t: 'success', clk: 'handleEdit' })
+              .btn({ icon: 'search', l: '搜索', clk: 'handleSearch' })
+              .btn({ icon: 'refresh', l: '刷新', clk: 'handleEdit' })
+              .btn({ icon: 'check', l: '确认', t: 'success', clk: 'handleEdit' })
+              .btn({ icon: 'close', l: '关闭', t: 'danger', clk: 'handleEdit' })
+              .btn({ icon: 'setting', l: '设置', clk: 'handleEdit' })
+            .end()
+          .end()
+        .end()
+        .col_layout({ span: 4 })
+          .card({ tt: 'Emoji 图标 (i:GLYPH)' })
+            .p('emoji + 文字：')
+            .btngroup()
+              .btn({ i: '🔍', tx: '搜索', clk: 'handleSearch' })
+              .btn({ i: '📥', tx: '收件箱', t: 'primary', clk: 'handleEdit' })
+              .btn({ i: '⭐', tx: '收藏', t: 'warning', clk: 'handleEdit' })
+            .end()
+            .p('emoji-only（紧凑钮）：')
+            .btngroup()
+              .btn({ i: '🔍', l: '搜索', clk: 'handleSearch' })
+              .btn({ i: '🏠', l: '首页', clk: 'handleEdit' })
+              .btn({ i: '🔔', l: '通知', clk: 'handleEdit' })
+              .btn({ i: '❤️', l: '点赞', t: 'danger', clk: 'handleEdit' })
+              .btn({ i: '⚙️', l: '设置', clk: 'handleEdit' })
+            .end()
+            .p('混用 SVG 与 emoji：')
+            .btngroup()
+              .btn({ icon: 'edit', tx: '编辑', t: 'primary', clk: 'handleEdit' })
+              .btn({ i: '🗑️', tx: '删除', t: 'danger', clk: 'handleDelete' })
+            .end()
+          .end()
+        .end()
+        .col_layout({ span: 4 })
+          .card({ tt: '图标按钮组' })
+            .p('CRUD 图标组：')
+            .btngroup()
+              .btn({ icon: 'add', tx: '新增', t: 'success', clk: 'handleEdit' })
+              .btn({ icon: 'edit', tx: '编辑', t: 'primary', clk: 'handleEdit' })
+              .btn({ icon: 'delete', tx: '删除', t: 'danger', clk: 'handleDelete' })
+            .end()
+            .p('icon-only 操作组（紧凑）：')
+            .btngroup()
+              .btn({ icon: 'view', l: '查看', clk: 'handleView' })
+              .btn({ icon: 'copy', l: '复制', clk: 'handleCopy' })
+              .btn({ icon: 'export', l: '导出', clk: 'handleExport' })
+              .btn({ icon: 'delete', l: '删除', t: 'danger', clk: 'handleDelete' })
+            .end()
+            .p('彩色 icon-only 矩阵：')
+            .btngroup()
+              .btn({ icon: 'check', l: '成功', t: 'success', clk: 'handleEdit' })
+              .btn({ icon: 'warn', l: '警告', t: 'warning', clk: 'handleEdit' })
+              .btn({ icon: 'info', l: '信息', t: 'primary', clk: 'handleEdit' })
+              .btn({ icon: 'close', l: '危险', t: 'danger', clk: 'handleEdit' })
+            .end()
+          .end()
+        .end()
+      .end();
+
+      return b;
+    }
+  },
+  {
+    trigger: 'demo-icon',
+    title: '图标按钮',
+    desc: 'icon(SVG) + i(emoji) 全场景集锦：按钮 / 表格操作列 / 菜单 / 欢迎 / 图标画廊',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('图标按钮：icon (SVG) + i (emoji) 全场景')
+        .callout({ t: 'info', tx: '两套图标并存：icon:NAME 出内置 SVG（自动继承钮色，24 个 Lucide 图标），i:GLYPH 出 emoji/字符。均支持 [btn] 组件、表格操作列、菜单、欢迎卡片。icon-only 用 l: 提供 tooltip + 无障碍。' });
+
+      // ===== 第一行：按钮场景 =====
+      b.row_layout()
+        .col_layout({ span: 4 })
+          .card({ tt: '按钮 · SVG 图标 (icon:)' })
+            .p('icon + 文字：')
+            .btngroup()
+              .btn({ icon: 'view', tx: '详情', t: 'primary', clk: 'handleView' })
+              .btn({ icon: 'edit', tx: '编辑', t: 'warning', clk: 'handleEdit' })
+              .btn({ icon: 'delete', tx: '删除', t: 'danger', clk: 'handleDelete' })
+            .end()
+            .p('icon-only（悬停显 tooltip）：')
+            .btngroup()
+              .btn({ icon: 'view', l: '查看', clk: 'handleView' })
+              .btn({ icon: 'copy', l: '复制', clk: 'handleCopy' })
+              .btn({ icon: 'download', l: '下载', t: 'success', clk: 'handleExport' })
+              .btn({ icon: 'refresh', l: '刷新', clk: 'handleEdit' })
+              .btn({ icon: 'setting', l: '设置', clk: 'handleEdit' })
+            .end()
+          .end()
+        .end()
+        .col_layout({ span: 4 })
+          .card({ tt: '按钮 · Emoji 图标 (i:)' })
+            .p('emoji + 文字：')
+            .btngroup()
+              .btn({ i: '🔍', tx: '搜索', clk: 'handleSearch' })
+              .btn({ i: '📥', tx: '收件箱', t: 'primary', clk: 'handleEdit' })
+              .btn({ i: '⭐', tx: '收藏', t: 'warning', clk: 'handleEdit' })
+            .end()
+            .p('emoji-only：')
+            .btngroup()
+              .btn({ i: '🔍', l: '搜索', clk: 'handleSearch' })
+              .btn({ i: '🏠', l: '首页', clk: 'handleEdit' })
+              .btn({ i: '🔔', l: '通知', clk: 'handleEdit' })
+              .btn({ i: '❤️', l: '点赞', t: 'danger', clk: 'handleEdit' })
+              .btn({ i: '⚙️', l: '设置', clk: 'handleEdit' })
+            .end()
+          .end()
+        .end()
+        .col_layout({ span: 4 })
+          .card({ tt: 'icon-only 配色矩阵' })
+            .p('5 色 × 同图标（currentColor 自动继承）：')
+            .btngroup()
+              .btn({ icon: 'check', l: 'success', t: 'success', clk: 'handleEdit' })
+              .btn({ icon: 'warn', l: 'warning', t: 'warning', clk: 'handleEdit' })
+              .btn({ icon: 'info', l: 'primary', t: 'primary', clk: 'handleEdit' })
+              .btn({ icon: 'close', l: 'danger', t: 'danger', clk: 'handleEdit' })
+              .btn({ icon: 'view', l: '默认', clk: 'handleView' })
+            .end()
+            .p('尺寸组合（icon + sm/lg）：')
+            .btngroup()
+              .btn({ icon: 'add', tx: '小', v: 'sm,success', clk: 'handleEdit' })
+              .btn({ icon: 'add', tx: '默认', v: 'success', clk: 'handleEdit' })
+              .btn({ icon: 'add', tx: '大', v: 'lg,success', clk: 'handleEdit' })
+            .end()
+          .end()
+        .end()
+      .end();
+
+      // ===== 第二行：其他组件场景 =====
+      b.row_layout()
+        .col_layout({ span: 4 })
+          .card({ tt: '表格操作列 · icon-only' })
+            .table({ stripe: true, v: 'bordered' })
+              .theadCols('名称,状态,操作/c')
+              .tbody()
+                .text('[tr "张三,tag:在职 t:success,btn: icon:view l:详情 v:primary clk:handleView|btn: icon:edit l:编辑 v:warning clk:handleEdit|btn: icon:delete l:删除 v:danger clk:handleDelete"]')
+                .text('[tr "李四,tag:试用 t:warning,btn: icon:view l:详情 v:primary clk:handleView|btn: icon:edit l:编辑 v:warning clk:handleEdit|btn: icon:delete l:删除 v:danger clk:handleDelete"]')
+                .text('[tr "王五,tag:离职 t:danger,btn: icon:view l:详情 v:primary clk:handleView|btn: icon:delete l:删除 v:danger clk:handleDelete"]')
+              .end()
+            .end()
+          .end()
+        .end()
+        .col_layout({ span: 4 })
+          .card({ tt: '菜单 · menu-item (i: emoji)' })
+            .p('导航菜单用 i: 放 emoji：')
+            .menu()
+              .menuItem({ tx: '首页', i: '🏠', clk: 'handleEdit' })
+              .menuItem({ tx: '搜索', i: '🔍', clk: 'handleSearch' })
+              .menuItem({ tx: '通知', i: '🔔', clk: 'handleEdit' })
+              .menuItem({ tx: '收藏', i: '⭐', clk: 'handleEdit' })
+              .menuItem({ tx: '设置', i: '⚙️', clk: 'handleEdit' })
+            .end()
+          .end()
+        .end()
+        .col_layout({ span: 4 })
+          .card({ tt: '欢迎卡片 · feature (i:)' })
+            .p('welcome-feature 用 i: 选内置图形：')
+            .welcome()
+              .feature({ i: 'code', tt: '代码生成', tx: '流式输出代码与差异' })
+              .feature({ i: 'chart', tt: '数据图表', tx: '20 种零依赖图表' })
+              .feature({ i: 'doc', tt: '文档速览', tx: 'Markdown 富文本' })
+            .end()
+          .end()
+        .end()
+      .end();
+
+      // ===== 第三行：24 SVG 图标画廊（3 卡 × 8 图标，名字可见）=====
+      b.row_layout()
+        .col_layout({ span: 4 })
+          .card({ tt: '图标集 · 导航/查看' })
+            .btngroup()
+              .btn({ icon: 'view', tx: 'view', clk: 'handleView' })
+              .btn({ icon: 'edit', tx: 'edit', clk: 'handleEdit' })
+              .btn({ icon: 'delete', tx: 'delete', clk: 'handleDelete' })
+              .btn({ icon: 'add', tx: 'add', clk: 'handleEdit' })
+              .btn({ icon: 'copy', tx: 'copy', clk: 'handleCopy' })
+              .btn({ icon: 'search', tx: 'search', clk: 'handleSearch' })
+              .btn({ icon: 'refresh', tx: 'refresh', clk: 'handleEdit' })
+              .btn({ icon: 'close', tx: 'close', t: 'danger', clk: 'handleEdit' })
+            .end()
+          .end()
+        .end()
+        .col_layout({ span: 4 })
+          .card({ tt: '图标集 · 操作/文件' })
+            .btngroup()
+              .btn({ icon: 'download', tx: 'download', clk: 'handleExport' })
+              .btn({ icon: 'upload', tx: 'upload', clk: 'handleEdit' })
+              .btn({ icon: 'check', tx: 'check', t: 'success', clk: 'handleEdit' })
+              .btn({ icon: 'save', tx: 'save', clk: 'handleEdit' })
+              .btn({ icon: 'export', tx: 'export', clk: 'handleExport' })
+              .btn({ icon: 'filter', tx: 'filter', clk: 'handleEdit' })
+              .btn({ icon: 'sort', tx: 'sort', clk: 'handleEdit' })
+              .btn({ icon: 'link', tx: 'link', clk: 'handleEdit' })
+            .end()
+          .end()
+        .end()
+        .col_layout({ span: 4 })
+          .card({ tt: '图标集 · 状态/其他' })
+            .btngroup()
+              .btn({ icon: 'warn', tx: 'warn', t: 'warning', clk: 'handleEdit' })
+              .btn({ icon: 'info', tx: 'info', t: 'primary', clk: 'handleEdit' })
+              .btn({ icon: 'setting', tx: 'setting', clk: 'handleEdit' })
+              .btn({ icon: 'lock', tx: 'lock', clk: 'handleEdit' })
+              .btn({ icon: 'unlock', tx: 'unlock', clk: 'handleEdit' })
+              .btn({ icon: 'more', tx: 'more', clk: 'handleEdit' })
+              .btn({ icon: 'star', tx: 'star', t: 'warning', clk: 'handleEdit' })
+              .btn({ icon: 'menu', tx: 'menu', clk: 'handleEdit' })
+            .end()
+          .end()
+        .end()
+      .end();
+
       return b;
     }
   },
@@ -736,100 +968,149 @@ const DEMOS = [
     }
   },
   {
-    trigger: 'demo-select-radio-check',
-    title: '选择组件',
-    desc: '展示下拉选择、单选、复选',
+    trigger: 'demo-select',
+    title: '选择 Select',
+    desc: '下拉单选 / 多选 / 简写 / inline / 取值',
     build() {
       const b = new TokUIBuilder();
       b.row_layout()
         .col_layout({ span: 3 })
-          .card({ tt: '下拉选择 Select' })
+          .card({ tt: '单选 Select' })
             .select({ l: '选择城市', id: 'city' })
               .opt({ v: 'beijing', tx: '北京' })
               .opt({ v: 'shanghai', tx: '上海' })
               .opt({ v: 'guangzhou', tx: '广州' })
               .opt({ v: 'shenzhen', tx: '深圳' })
             .end()
-            .select({ l: '选择角色', id: 'role2', v: 'error' })
-              .opt({ v: '', tx: '-- 请选择 --' })
-              .opt({ v: 'dev', tx: '开发者' })
-            .end()
           .end()
         .end()
         .col_layout({ span: 3 })
-          .card({ tt: '多选下拉 Multi-Select' })
-            .form({ id: 'multiSelectForm', sub: 'handleMultiSelect' })
-              .select({ l: '选择技能（多选）', id: 'skills', multi: true })
+          .card({ tt: '简写 opt' })
+            .select({ l: '角色（简写）', id: 'role', opt: 'dev:开发者;pm:产品;qa:测试' })
+          .end()
+        .end()
+        .col_layout({ span: 3 })
+          .card({ tt: '多选取值' })
+            .form({ id: 'selectForm', sub: 'getSelectVal' })
+              .select({ l: '技能（多选）', id: 'skills', multi: true })
                 .opt({ v: 'js', tx: 'JavaScript' })
                 .opt({ v: 'ts', tx: 'TypeScript' })
                 .opt({ v: 'py', tx: 'Python' })
                 .opt({ v: 'go', tx: 'Go' })
-                .opt({ v: 'rust', tx: 'Rust' })
-                .opt({ v: 'java', tx: 'Java' })
               .end()
-              .select({ l: '兴趣爱好', id: 'hobbies', multi: true })
-                .opt({ v: 'reading', tx: '阅读' })
-                .opt({ v: 'music', tx: '音乐' })
-                .opt({ v: 'sports', tx: '运动' })
-                .opt({ v: 'travel', tx: '旅行' })
-              .end()
-              .btn({ tx: '获取所选内容', t: 'submit', clk: 'handleMultiSelect' })
+              .btn({ tx: '获取所选', t: 'submit', clk: 'getSelectVal', v: 'primary' })
             .end()
           .end()
         .end()
         .col_layout({ span: 3 })
-          .card({ tt: '单选按钮组 Radio' })
-            .radio({ l: '性别', n: 'gender2', id: 'gender2' })
-              .opt({ v: 'male', tx: '男', chk: true })
-              .opt({ v: 'female', tx: '女' })
-            .end()
-            .radio({ l: '优先级', n: 'priority2', id: 'priority2' })
-              .opt({ v: 'high', tx: '高' })
-              .opt({ v: 'mid', tx: '中', chk: true })
-              .opt({ v: 'low', tx: '低' })
-            .end()
-          .end()
-        .end()
-        .col_layout({ span: 3 })
-          .card({ tt: '复选框 Checkbox' })
-            .checkbox({ l: '同意用户协议', id: 'agree2' })
-            .checkbox({ l: '已选中的复选框', id: 'checked2', chk: true })
-            .checkbox({ l: '订阅通知', id: 'notify' })
-          .end()
-        .end()
-      .end()
-      .row_layout()
-        .col_layout({ span: 3 })
-          .card({ tt: 'Inline Select' })
+          .card({ tt: 'Inline' })
             .select({ l: '城市', id: 'inlineCity', v: 'inline' })
               .opt({ v: 'bj', tx: '北京' })
               .opt({ v: 'sh', tx: '上海' })
-              .opt({ v: 'gz', tx: '广州' })
+            .end()
+          .end()
+        .end()
+      .end();
+      return b;
+    }
+  },
+  {
+    trigger: 'demo-radio',
+    title: '单选 Radio',
+    desc: '单选组 / 简写 / inline / 取值',
+    build() {
+      const b = new TokUIBuilder();
+      b.row_layout()
+        .col_layout({ span: 3 })
+          .card({ tt: '单选组' })
+            .radio({ l: '性别', n: 'gender', id: 'gender' })
+              .opt({ v: '1', tx: '男', chk: true })
+              .opt({ v: '2', tx: '女' })
             .end()
           .end()
         .end()
         .col_layout({ span: 3 })
-          .card({ tt: 'Inline Multi-Select' })
-            .select({ l: '标签', id: 'inlineTags', v: 'inline', multi: true })
-              .opt({ v: 'vue', tx: 'Vue' })
-              .opt({ v: 'react', tx: 'React' })
-              .opt({ v: 'angular', tx: 'Angular' })
-              .opt({ v: 'svelte', tx: 'Svelte' })
+          .card({ tt: '简写 opt' })
+            .radio({ l: '性别（简写）', n: 'genderShort', opt: '1:男;2:女' })
+          .end()
+        .end()
+        .col_layout({ span: 3 })
+          .card({ tt: '优先级取值' })
+            .form({ id: 'radioForm', sub: 'getRadioVal' })
+              .radio({ l: '优先级', n: 'priority' })
+                .opt({ v: 'high', tx: '高' })
+                .opt({ v: 'mid', tx: '中', chk: true })
+                .opt({ v: 'low', tx: '低' })
+              .end()
+              .btn({ tx: '获取所选', t: 'submit', clk: 'getRadioVal', v: 'primary' })
             .end()
           .end()
         .end()
         .col_layout({ span: 3 })
-          .card({ tt: 'Inline Radio' })
-            .radio({ l: '状态', n: 'inlineStatus', id: 'inlineStatus', v: 'inline' })
+          .card({ tt: 'Inline' })
+            .radio({ l: '状态', n: 'status', v: 'inline' })
               .opt({ v: 'active', tx: '激活', chk: true })
               .opt({ v: 'inactive', tx: '停用' })
             .end()
           .end()
         .end()
         .col_layout({ span: 3 })
-          .card({ tt: 'Inline Checkbox' })
-            .checkbox({ l: '记住我', id: 'inlineRemember', v: 'inline' })
-            .checkbox({ l: '自动登录', id: 'inlineAutoLogin', v: 'inline', chk: true })
+          .card({ tt: '竖排 vertical（左对齐）' })
+            .radio({ l: '渠道', n: 'channel', v: 'vertical' })
+              .opt({ v: 'web', tx: '官方网站', chk: true })
+              .opt({ v: 'app', tx: '手机 APP' })
+              .opt({ v: 'mini', tx: '微信小程序' })
+              .opt({ v: 'store', tx: '线下门店' })
+            .end()
+          .end()
+        .end()
+      .end();
+      return b;
+    }
+  },
+  {
+    trigger: 'demo-checkbox',
+    title: '多选 Checkbox',
+    desc: '单布尔 / 简写多选 / 容器多选 / inline / 取值',
+    build() {
+      const b = new TokUIBuilder();
+      b.row_layout()
+        .col_layout({ span: 3 })
+          .card({ tt: '单布尔' })
+            .checkbox({ l: '同意用户协议', id: 'agree' })
+            .checkbox({ l: '订阅通知', id: 'notify', chk: true })
+          .end()
+        .end()
+        .col_layout({ span: 3 })
+          .card({ tt: '简写多选' })
+            .checkbox({ n: 'brand', l: '品牌', opt: '1:篮球;2:足球;3:羽毛球' })
+          .end()
+        .end()
+        .col_layout({ span: 3 })
+          .card({ tt: '容器多选取值（按钮在内/外两种）' })
+            .form({ id: 'checkboxForm', sub: 'getCheckboxVal' })
+              .checkbox({ n: 'hobby', l: '爱好', multi: true })
+                .opt({ v: 'read', tx: '阅读', chk: true })
+                .opt({ v: 'music', tx: '音乐' })
+                .opt({ v: 'sport', tx: '运动', chk: true })
+                .opt({ v: 'travel', tx: '旅行' })
+              .end()
+              .btn({ tx: '获取所选(表单内)', clk: 'getCheckboxVal', v: 'primary' })
+            .end()
+            .btn({ tx: '获取所选(表单外·form:ID)', form: 'checkboxForm', clk: 'getCheckboxVal' })
+          .end()
+        .end()
+        .col_layout({ span: 3 })
+          .card({ tt: '简写多选取值' })
+            .form({ id: 'checkboxForm2', sub: 'getCheckboxVal' })
+              .checkbox({ n: 'os', l: '系统', opt: 'win:Windows;mac:macOS;linux:Linux' })
+              .btn({ tx: '获取所选', t: 'submit', clk: 'getCheckboxVal', v: 'primary' })
+            .end()
+          .end()
+        .end()
+        .col_layout({ span: 3 })
+          .card({ tt: '竖排 vertical（左对齐）' })
+            .checkbox({ n: 'feature', l: '功能', v: 'vertical', opt: '1:即时通讯;2:音视频会议;3:日历日程;4:云盘文档;5:待办审批' })
           .end()
         .end()
       .end();
@@ -1007,7 +1288,7 @@ const DEMOS = [
             .cardTx('快捷操作', '点击左侧导航选择更多组件示例。')
           .end()
           .col_layout({ span: 6 })
-            .cardTx('版本更新', 'TokUI v0.1.2 已发布，支持卡片自闭合模式。')
+            .cardTx('版本更新', 'TokUI v0.1.3 已发布，支持卡片自闭合模式。')
           .end()
         .end()
         .hr()
@@ -1197,7 +1478,7 @@ const DEMOS = [
                 .a({ tx: '帮助文档', u: '/docs' })
                 .p(' | ')
                 .a({ tx: '联系我们', u: '/contact' })
-                .p('版本 v0.1.2')
+                .p('版本 v0.1.3')
               .end()
             .end()
           .end()
@@ -5815,6 +6096,81 @@ const DEMOS = [
     }
   },
   {
+    trigger: 'demo-barcode',
+    title: 'Barcode 条形码',
+    desc: 'Code128 Set B 纯 SVG 条码，运单/订单/序列号等字母数字变长数据',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('条形码 barcode（Code128）')
+        .callout({ t: 'info', tx: '纯 SVG 零依赖 Code128 Set B 编码，扫描器自动识别。支持可见 ASCII（数字/大小写字母/常用符号），模块比例固定缩放不变形。tx=数据、l=标签、s=sm/md/lg。' })
+        .row_layout()
+          .col_layout({ span: 6 })
+            .card({ tt: '运单号' })
+              .barcode({ tx: 'SF1026883749', l: '顺丰快递', s: 'medium' })
+              .barcode({ tx: 'YT4827193645081', l: '圆通快递', s: 'medium' })
+            .end()
+          .end()
+          .col_layout({ span: 6 })
+            .card({ tt: '订单 / 序列号' })
+              .barcode({ tx: 'PO-2026-0042', l: '采购单号', s: 'small' })
+              .barcode({ tx: 'SN88001122334455', l: '序列号', s: 'large' })
+            .end()
+          .end()
+        .end()
+        .card({ tt: '尺寸对比' })
+          .row_layout()
+            .col_layout({ span: 4 }).p('sm:').barcode({ tx: 'ABC123', s: 'sm' }).end()
+            .col_layout({ span: 4 }).p('md:').barcode({ tx: 'ABC123', s: 'md' }).end()
+            .col_layout({ span: 4 }).p('lg:').barcode({ tx: 'ABC123', s: 'lg' }).end()
+          .end()
+        .end();
+      return b;
+    }
+  },
+  {
+    trigger: 'demo-qrcode',
+    title: 'QR Code 二维码',
+    desc: '纯 SVG QR 码，URL/文本/Wi-Fi/名片，自动选版本 + 静默区可扫描',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('二维码 qrcode（QR Code）')
+        .callout({ t: 'info', tx: '纯 SVG QR 码（矩阵生成 vendored 自 qrcode-generator Arase MIT）。tx=数据、l=标签、s=sm/md/lg、ec=L/M/Q/H 纠错级。含 4 模块静默区 + 白底，crispEdges 锐利渲染，缩放可扫描。' })
+        .row_layout()
+          .col_layout({ span: 4 })
+            .card({ tt: 'URL 链接' })
+              .qrcode({ tx: 'https://tokui.jboltai.com', l: 'TokUI 官网', s: 'md', ec: 'M' })
+            .end()
+          .end()
+          .col_layout({ span: 4 })
+            .card({ tt: '纯文本 / 中文' })
+              .qrcode({ tx: '你好，TokUI 流式 UI 框架', l: 'UTF-8 文本', s: 'md' })
+            .end()
+          .end()
+          .col_layout({ span: 4 })
+            .card({ tt: 'Wi-Fi 直连' })
+              .qrcode({ tx: 'WIFI:S:TokUI-Guest;T:WPA;P:welcome2026;;', l: '扫码连 Wi-Fi', s: 'md', ec: 'H' })
+            .end()
+          .end()
+        .end()
+        .card({ tt: '尺寸 sm / md / lg' })
+          .row_layout()
+            .col_layout({ span: 4 }).p('sm:').qrcode({ tx: 'https://tokui.jboltai.com', s: 'sm' }).end()
+            .col_layout({ span: 4 }).p('md:').qrcode({ tx: 'https://tokui.jboltai.com', s: 'md' }).end()
+            .col_layout({ span: 4 }).p('lg:').qrcode({ tx: 'https://tokui.jboltai.com', s: 'lg' }).end()
+          .end()
+        .end()
+        .card({ tt: '纠错级 L/M/Q/H（同数据，越高越密越抗污损）' })
+          .row_layout()
+            .col_layout({ span: 3 }).p('L 7%:').qrcode({ tx: 'https://tokui.jboltai.com', ec: 'L', s: 'sm' }).end()
+            .col_layout({ span: 3 }).p('M 15%:').qrcode({ tx: 'https://tokui.jboltai.com', ec: 'M', s: 'sm' }).end()
+            .col_layout({ span: 3 }).p('Q 25%:').qrcode({ tx: 'https://tokui.jboltai.com', ec: 'Q', s: 'sm' }).end()
+            .col_layout({ span: 3 }).p('H 30%:').qrcode({ tx: 'https://tokui.jboltai.com', ec: 'H', s: 'sm' }).end()
+          .end()
+        .end();
+      return b;
+    }
+  },
+  {
     trigger: 'demo-stat',
     title: 'Stat 统计数值',
     desc: '数据展示、趋势指示、数值滚动动画',
@@ -8914,7 +9270,7 @@ const DEMOS = [
 
         // === 底部：链接 + 提示 ===
         + '[dv]'
-        + '[callout t:info tx:"本页面通过随机碎片推送渲染，所有标签都可能被截断在任意位置。如果渲染正常，说明解析器鲁棒性良好。"]'
+        + '[callout t:info]本页面通过随机碎片推送渲染，所有标签都可能被截断在任意位置。如果渲染正常，说明解析器鲁棒性良好。[/callout]'
         + '[p v:muted 源码位于 src/core/parser.js]'
 
         + '[/card]';
@@ -8965,7 +9321,7 @@ const DEMOS = [
       var grandTotal = 0;
       var dsl = ''
         + '[card tt:"超大型表格流式（合并表头 + 单元格多组件 + 逐 cell 流式）"]'
-        + '[callout t:info tx:"随机碎片推送模拟 AI 流式。单元格内可放任意组件:图片 [img]、头像 [avatar]、进度 progress、状态 tag、评分 [rate]、操作 btn——带空格属性的组件格自动引号包。表头 ; 分两行 + =cN/=rN 合并 + 列对齐 / 列配色；大区 =r4 分组、末行 汇总 v:total。"]'
+        + '[callout t:info]随机碎片推送模拟 AI 流式。单元格内可放任意组件:图片 ［img］、头像 ［avatar］、进度 progress、状态 tag、评分 ［rate］、操作 btn——带空格属性的组件格自动引号包。表头 ; 分两行 + =cN/=rN 合并 + 列对齐 / 列配色；大区 =r4 分组、末行 汇总 v:total。[/callout]'
         + '[table id:bigTable stripe v:bordered]'
         + '[thead cols:"大区=r2/c,商品=c2,客户=c2,交易=c3,履约=c2,评价=r2,操作=r2;商品图,商品名,客户,负责,数量/c,单价/r/warning,金额/r/danger,进度,状态"]'
         + '[tbody]';
@@ -8989,7 +9345,7 @@ const DEMOS = [
         cells.push('progress v:' + progressVal + ' t:span');  // 进度
         cells.push(statusList[r % statusList.length]);  // 状态（tag）
         cells.push('[rate v:' + rateVal + ' max:5 ro]');  // 评分
-        cells.push('btn:详情 clk:handleEdit|btn:删除 clk:handleDelete');  // 操作
+        cells.push('btn: icon:view l:详情 v:primary clk:handleView|btn: icon:edit l:编辑 v:warning clk:handleEdit|btn: icon:delete l:删除 v:danger clk:handleDelete');  // 操作（SVG icon-only + tooltip + 配色）
         dsl += '[tr ' + cells.map(cell).join(',') + ']';
       }
       // 汇总行：汇总横跨 11 列（居右加粗），末格总金额（居中加粗带色）—— v:total 变体 + CSS

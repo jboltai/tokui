@@ -8,7 +8,7 @@
 // 否则 SSR 环境（无 window 且 require 被 bundler 剥离）import 本模块即崩。
 // 三态：Node CJS(require) / 浏览器(window.TokUI._internal) / SSR(无 window → no-op，渲染交还客户端)。
 var _resolved = false;
-var _regBasic, _regTable, _regForm, _regLayout, _regChart;
+var _regBasic, _regTable, _regForm, _regLayout, _regChart, _regBarcode, _regQrcode;
 
 function _resolve() {
   if (_resolved) return;
@@ -19,12 +19,16 @@ function _resolve() {
     _regForm = require('./form').registerFormComponents;
     _regLayout = require('./layout').registerLayoutComponents;
     _regChart = require('./chart').registerChartComponents;
+    _regBarcode = require('./barcode').registerBarcode;
+    _regQrcode = require('./qrcode').registerQrcode;
   } else if (typeof window !== 'undefined' && window.TokUI && window.TokUI._internal) {
     _regBasic = window.TokUI._internal.registerBasicComponents;
     _regTable = window.TokUI._internal.registerTableComponents;
     _regForm = window.TokUI._internal.registerFormComponents;
     _regLayout = window.TokUI._internal.registerLayoutComponents;
     _regChart = window.TokUI._internal.registerChartComponents;
+    _regBarcode = window.TokUI._internal.registerBarcode;
+    _regQrcode = window.TokUI._internal.registerQrcode;
   }
   // else: SSR 无 window —— 保持 undefined，registerAllComponents 将 no-op
 }
@@ -37,6 +41,8 @@ function registerAllComponents(renderer) {
   _regForm(renderer);
   _regLayout(renderer);
   _regChart(renderer);
+  if (_regBarcode) _regBarcode(renderer);
+  if (_regQrcode) _regQrcode(renderer);
 }
 
 if (typeof window !== 'undefined') {

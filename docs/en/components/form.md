@@ -91,33 +91,46 @@ Multi-line text input container. `rows` for initial row count, `maxlen` for max 
 
 ## Radio Group `radio`
 
-`radio` is a container; `opt` are child option nodes. Options within the same group are mutually exclusive.
+`radio` is a container; `opt` are child option nodes. Options sharing the same `n` are mutually exclusive. Two forms: container (`[opt]` children) or `opt:"..."` shorthand (self-closing, no `[/radio]` needed).
 
 | Prop | Meaning | Applies to |
 |------|---------|------------|
 | `l` | Group label | `radio` |
-| `n` | Field name | `radio` |
-| `v` | Variant | `radio` |
+| `n` | Field name (shared by group, submission key) | `radio` |
+| `id` | Group ID | `radio` |
+| `v` | `inline` (label beside control) / `vertical` (options stacked, left-aligned) | `radio` |
+| `opt` | Shorthand option string `opt:"v:label;v:label"` (self-closing form) | `radio` |
 | `tx` | Option text | `opt` |
 | `v` | Option value | `opt` |
 | `chk` | Default selected | `opt` |
 
-<Playground dsl='[radio l:性别][opt 男][opt 女 chk][/radio][radio l:配送方式][opt 快递 chk][opt 自提][opt 同城配送][/radio]' />
+<Playground dsl='[radio l:性别 n:gender][opt v:1 tx:男][opt v:2 tx:女 chk][/radio][radio l:配送方式（简写） n:deliver opt:"1:快递;2:自提;3:同城配送"][radio l:渠道（竖排） n:ch v:vertical opt:"1:官方网站;2:手机APP;3:门店"]' />
 
 ## Checkbox `checkbox`
 
-Self-closing. `l` for label, `chk` for default checked.
+**Three modes** (auto-detected by presence of `opt` / `multi`):
 
-| Prop | Meaning | Example |
-|------|---------|---------|
-| `l` | Label | `l:同意条款` |
-| `chk` | Default checked | `chk` |
-| `n` | Field name | `n:agree` |
-| `v` | Option value | `v:1` |
-| `id` | Element ID | `id:agree` |
-| `dis` | Disabled | `dis` |
+| Mode | Detection | Syntax | Submitted value |
+|------|-----------|--------|-----------------|
+| Single boolean | no `opt`, no `multi` (self-closing) | `[checkbox l:同意协议 n:agree chk]` | boolean (checked = `agree` present) |
+| Shorthand multi | has `opt` (self-closing) | `[checkbox n:tag l:标签 opt:"1:A;2:B;3:C"]` | `data.tag` = array |
+| Container multi | has `multi` (container) | `[checkbox n:tag l:标签 multi][opt v:1 tx:A chk][/checkbox]` | `data.tag` = array |
 
-<Playground dsl='[checkbox l:我已阅读并同意服务条款 chk][checkbox l:订阅每周精选][checkbox l:禁用且勾选 chk dis]' />
+| Prop | Meaning | Applies to |
+|------|---------|------------|
+| `l` | Label | `checkbox` |
+| `n` | Field name (multi-select submission key) | `checkbox` |
+| `opt` | Shorthand option string (self-closing multi) | `checkbox` |
+| `multi` | Marks container multi mode (needs `[/checkbox]`) | `checkbox` |
+| `v` | `inline`/`vertical` | `checkbox` |
+| `chk` | Default checked / selected | `checkbox` / `opt` |
+| `dis` | Disabled | `checkbox` |
+
+Multi-select submission uses native FormData; same-`n` values auto-aggregate into an array (e.g. checking A and C → `data.tag = ["1","3"]`). **Single-boolean and shorthand-multi are self-closing — do NOT write `[/checkbox]`**; only `multi` container-multi needs `[/checkbox]`.
+
+> **Submit-button placement** (get this wrong → no data): put it **inside** the form `[form id:F sub:H]...[btn tx:Submit clk:H][/form]` (clk auto-collects the owning form); OR **outside** the form but with explicit `form:FORM_ID` binding `[btn tx:Submit form:F clk:H]`. A button outside the form with no `form:ID` → handler receives `null`.
+
+<Playground dsl='[checkbox l:我已阅读并同意服务条款 n:agree chk][checkbox l:订阅每周精选 n:weekly][checkbox l:禁用且勾选 n:x chk dis][checkbox n:tag l:标签（简写多选） opt:"1:篮球;2:足球;3:羽毛球"][checkbox n:f l:功能（竖排） v:vertical opt:"1:即时通讯;2:会议;3:日历;4:云盘"]' />
 
 ## Switch `switch`
 

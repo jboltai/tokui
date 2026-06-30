@@ -463,4 +463,80 @@ test('tr fully wrapped single-pair quotes - still strips to multi-cell', () => {
   assert.strictEqual(tds[2].textContent, '正常');
 });
 
+// 测试：操作列 icon 按钮 - SVG icon + emoji + icon-only + 颜色 + tooltip
+test('tr action column - svg icon buttons with color + tooltip', () => {
+  const rc = new TokUIRenderer();
+  registerTableComponents(rc);
+  const node = {
+    type: 'table',
+    attrs: {},
+    children: [
+      { type: 'thead', attrs: { cols: 'Name,Action' }, children: [] },
+      { type: 'tbody', children: [
+        { type: 'tr', content: 'Alice,btn: icon:view l:详情 v:primary clk:view|btn: icon:delete l:删除 v:danger clk:del', children: [] }
+      ] }
+    ]
+  };
+  const dom = rc.render(node);
+  const td = dom.querySelector('.tokui-col-action');
+  assert.ok(td, 'missing action td');
+  const buttons = td.querySelectorAll('button');
+  assert.strictEqual(buttons.length, 2, 'expected 2 icon buttons');
+  // 第一个：详情 view primary icon-only
+  assert.ok(buttons[0].classList.contains('tokui-tbtn--icon-only'), 'btn0 icon-only');
+  assert.ok(buttons[0].classList.contains('tokui-tbtn--primary'), 'btn0 primary');
+  assert.strictEqual(buttons[0].getAttribute('data-tokui-tip'), '详情');
+  assert.strictEqual(buttons[0].getAttribute('aria-label'), '详情');
+  assert.strictEqual(buttons[0].getAttribute('data-tokui-clk'), 'view');
+  const ic0 = buttons[0].querySelector('.tokui-tbtn__icon');
+  assert.ok(ic0 && ic0.innerHTML.indexOf('tokui-icon--view') > -1, 'btn0 svg view');
+  // 第二个：删除 delete danger
+  assert.ok(buttons[1].classList.contains('tokui-tbtn--danger'), 'btn1 danger');
+  assert.strictEqual(buttons[1].getAttribute('data-tokui-tip'), '删除');
+});
+
+test('tr action column - emoji icon button via i:', () => {
+  const rc = new TokUIRenderer();
+  registerTableComponents(rc);
+  const node = {
+    type: 'table',
+    attrs: {},
+    children: [
+      { type: 'thead', attrs: { cols: 'Name,Action' }, children: [] },
+      { type: 'tbody', children: [
+        { type: 'tr', content: 'Bob,btn:搜索 i:🔍 clk:s', children: [] }
+      ] }
+    ]
+  };
+  const dom = rc.render(node);
+  const td = dom.querySelector('.tokui-col-action');
+  const btn = td.querySelectorAll('button')[0];
+  const emojiSpan = btn.querySelector('.tokui-tbtn__icon--emoji');
+  assert.ok(emojiSpan, 'missing emoji span');
+  assert.strictEqual(emojiSpan.textContent, '🔍');
+  assert.strictEqual(btn.textContent, '🔍搜索');
+});
+
+test('tr action column - warning/success/info color variants', () => {
+  const rc = new TokUIRenderer();
+  registerTableComponents(rc);
+  const node = {
+    type: 'table',
+    attrs: {},
+    children: [
+      { type: 'thead', attrs: { cols: 'Action' }, children: [] },
+      { type: 'tbody', children: [
+        { type: 'tr', content: 'btn: icon:edit v:warning clk:e|btn: icon:check v:success clk:c|btn: icon:info v:info clk:i', children: [] }
+      ] }
+    ]
+  };
+  const dom = rc.render(node);
+  const td = dom.querySelector('.tokui-col-action');
+  const btns = td.querySelectorAll('button');
+  assert.strictEqual(btns.length, 3);
+  assert.ok(btns[0].classList.contains('tokui-tbtn--warning'));
+  assert.ok(btns[1].classList.contains('tokui-tbtn--success'));
+  assert.ok(btns[2].classList.contains('tokui-tbtn--info'));
+});
+
 run();

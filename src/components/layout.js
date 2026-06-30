@@ -795,44 +795,56 @@ function registerLayoutComponents(renderer) {
   });
 
   // === Description List 描述列表（容器）===
-  // 重算 desc 最后一行 item 的 border：多列时最后一行（同 top 的尾部 item）整体去边框，
-  // 不止 :last-child。测量法（getBoundingClientRect().top）天然兼容 span 跨列与动态 cols。
-  // 无测量能力（Node 测试/无 getBoundingClientRect）则跳过，由 CSS :last-child 兜底。
+  // 重算 desc 最后一行 item 的 border：多列时最后一行整体去边框（不止 :last-child）。
+  // 双策略：
+  //   1) 测量法（getBoundingClientRect().top 同行）—— 支持任意 span 跨列，但需已布局（top≠0）。
+  //   2) 计数法兜底（据 --tokui-desc-cols 算末行起点 index）—— 确定性、不依赖布局，
+  //      覆盖 Node/SSR/隐藏容器/detached/流式未稳定等测量失效场景（此时单行只 :last-child 去边框的 bug）。
   function _markDescLastRow(wrapper) {
     var prev = wrapper.querySelectorAll('.tokui-desc__item--last-row');
     for (var i = 0; i < prev.length; i++) prev[i].classList.remove('tokui-desc__item--last-row');
     var items = wrapper.querySelectorAll('.tokui-desc__item');
     if (!items.length) return;
-    var last = items[items.length - 1];
-    if (!last.getBoundingClientRect) return;
-    var lastTop = last.getBoundingClientRect().top;
-    // 从末尾往前：同 top（同一最后一行）的标记；遇不同 top 停
-    for (var j = items.length - 1; j >= 0; j--) {
-      if (Math.abs(items[j].getBoundingClientRect().top - lastTop) < 1) {
-        items[j].classList.add('tokui-desc__item--last-row');
-      } else break;
+
+    // 读 cols（渲染时写入 --tokui-desc-cols）
+    var colsRaw = '';
+    try { colsRaw = (wrapper.style.getPropertyValue('--tokui-desc-cols') || '').trim(); } catch (e) {}
+    var cols = parseInt(colsRaw, 10) || 3;
+
+    // 策略 1：测量法（已布局时用，支持 span）
+    var measured = false;
+    var lastEl = items[items.length - 1];
+    if (lastEl.getBoundingClientRect) {
+      var lastTop = lastEl.getBoundingClientRect().top;
+      if (lastTop !== 0) {
+        for (var j = items.length - 1; j >= 0; j--) {
+          if (Math.abs(items[j].getBoundingClientRect().top - lastTop) < 1) {
+            items[j].classList.add('tokui-desc__item--last-row');
+          } else break;
+        }
+        measured = true;
+      }
+    }
+    // 策略 2：计数法兜底（测量不可用/未布局）
+    if (!measured) {
+      var lastRowStart = (Math.ceil(items.length / cols) - 1) * cols;
+      for (var k = lastRowStart; k < items.length; k++) items[k].classList.add('tokui-desc__item--last-row');
     }
   }
 
   // 监听 desc 子项增减（流式逐 item 追加），每次重算末行边框；wrapper 卸载自断开。
-  // 首次标记延迟到挂载后（rAF）：渲染器返回时 wrapper 尚未进 document，
-  // detached 元素 getBoundingClientRect 全为 0 → 误判全部同行。
+  // 同步首标（计数法立即正确）+ rAF/observer 测量精修（span/动态 cols）。
   function _watchDescRows(wrapper) {
-    if (typeof MutationObserver === 'undefined') {
-      _markDescLastRow(wrapper); // Node 等无 observer：尽力（无测量则跳过，:last-child 兜底）
-      return;
-    }
+    _markDescLastRow(wrapper); // 同步首次：计数法兜底，渲染返回时即可正确（不等布局）
+    if (typeof MutationObserver === 'undefined') return;
     var obs = new MutationObserver(function () {
       if (!wrapper.isConnected) { obs.disconnect(); return; }
       _markDescLastRow(wrapper);
     });
     obs.observe(wrapper, { childList: true });
-    var mark = function () {
-      if (!wrapper.isConnected) return; // 仍未挂载：等 observer 后续触发
-      _markDescLastRow(wrapper);
-    };
-    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(mark);
-    else setTimeout(mark, 0);
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(function () { if (wrapper.isConnected) _markDescLastRow(wrapper); });
+    }
   }
 
   // attrs.cols = 每行列数(默认3), attrs.stripe = 斑马纹, attrs.bordered = 带边框

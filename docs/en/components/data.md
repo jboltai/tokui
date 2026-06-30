@@ -83,6 +83,24 @@ Separate `thead cols` rows with `;` (thead stays a single self-closing tag — n
 
 > **Parser constraint for `tr` containing spaces**: The parser splits tokens on spaces. If a row has inline attributes (`tag:`, `btn:`, `progress`; note `=cN`/`=rN` are cell suffixes and `v:total` is a row variant — **neither triggers this**) or a cell value containing spaces, **the entire row content must be wrapped in double quotes** — e.g. `[tr "任务 A,进度 80%,<...>"]` — otherwise anything after the space is misparsed as an attribute. See the [DSL syntax guide](/guide/dsl-syntax).
 
+### Action Column (inline button shorthand)
+
+A cell starting with `btn:` is recognized as an action column; `|` separates multiple buttons (`clk:` still points to a pre-registered handler):
+
+| Syntax | Description |
+|------|------|
+| `btn:文本 clk:H` | text button |
+| `btn:文本 v:danger clk:H` | colored (`primary`/`danger`/`warning`/`success`/`info`) |
+| `btn:文本 icon:view clk:H` | SVG icon + text |
+| `btn: i:🔍 clk:H` | emoji icon |
+| `btn: icon:delete l:删除 v:danger clk:H` | **icon-only**: `l:` provides tooltip + a11y label |
+
+Icon names match [Button · Icon Buttons](/en/components/basic#icon-buttons). `icon:NAME` renders built-in SVG (inherits button color); `i:GLYPH` renders emoji.
+
+<Playground dsl='[table stripe bordered][thead cols:"姓名,操作/c"][tbody][tr 张三,btn: icon:view l:详情 v:primary clk:toast|btn: icon:edit l:编辑 v:warning clk:toast|btn: icon:delete l:删除 v:danger clk:toast][tr 李四,btn:详情 clk:toast|btn:删除 v:danger clk:toast][/tbody][/table]' />
+
+> **Streaming**: the action column is always the last cell — during streaming it shows a skeleton and only renders the buttons once the whole cell arrives (finalize), so there are never half-SVGs or split emoji surrogates.
+
 ### Column Placeholders via `tcol`
 
 When `thead` omits `cols`, you can declare columns one by one with `tcol` children (`n` sets the title), which is handy for dynamically generated columns.

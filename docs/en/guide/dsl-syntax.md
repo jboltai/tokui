@@ -30,6 +30,7 @@ v:"primary,sm"                                ; comma-separated variants
 | `mtd` | method | `clk` | onclick handler |
 | `sub` | onsubmit handler | `dis` | disabled |
 | `ro`/`req`/`chk` | readonly/required/checked | `w/h/bg/fc` | width/height/bg/color |
+| `icon` | SVG icon name (btn / action col) | `i` | emoji icon (btn / action col / menu-item) |
 
 > `clk:` / `sub:` handlers must be pre-registered via `TokUI.registerHandler(name, fn)` — the server ships no executable code.
 
@@ -48,7 +49,7 @@ pill dot leaf inline rounded container
 
 | Component | Allowed variants |
 |-----------|------------------|
-| `btn` | `primary` `danger` `success` `warning` `ghost` `sm` `lg` `pill` `block` |
+| `btn` | `primary` `danger` `success` `warning` `ghost` `sm` `lg` `pill` `block` (icons use the `icon:` / `i:` props, not variants; see [Button · Icon Buttons](/en/components/basic#icon-buttons)) |
 | `card` | `highlight` `flat` `bordered` `center` `right` |
 | `h1~h6` | `left` `center` `right` `ribbon` `underline` `badge` |
 | `p` | `left` `center` `right` `muted` `bold` `sm` `lg` |
@@ -78,7 +79,7 @@ The 150+ components are organized into seven categories, each with full prop tab
 | Category | Representative components | Docs |
 |----------|--------------------------|------|
 | Basic | headings, buttons, tags, callouts, progress, stats, Markdown, code | [basic](/en/components/basic) |
-| Form | input, select, switch, slider, rate, date, cascader, transfer, upload | [form](/en/components/form) |
+| Form | input, select, radio, checkbox, switch, slider, rate, date, cascader, transfer, upload | [form](/en/components/form) |
 | Layout | card, grid, tabs, collapse, drawer, dialog, timeline, tree | [layout](/en/components/layout) |
 | Data Display | table, descriptions, pagination, badge, avatar, skeleton, result, empty | [data](/en/components/data) |
 | Chart | bar, line, pie, radar, scatter, gantt, funnel (pure SVG, zero deps) | [chart](/en/components/chart) |

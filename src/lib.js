@@ -29,6 +29,10 @@ import './core/parser.js';
 import { TokUIRenderer, el } from './core/renderer.js'; // CJS 对象 → 命名
 import './components/lightbox.js';
 import './components/chart.js';
+import './components/icons.js';                         // 叶子：写 _internal.iconSvg/ICONS（form/table 渲染时读）
+import './components/barcode.js';                       // 叶子：写 _internal.registerBarcode/encode128B（Code128 条码组件）
+import './vendor/qrcode-generator.js';                  // vendored 第三方（Arase, MIT）：求值后挂 _internal._qrcode 供 qrcode 组件用
+import './components/qrcode.js';                        // 叶子：写 _internal.registerQrcode（QR 二维码组件，读 vendor）
 // —— 中层（读叶子）——
 import './components/basic.js';                         // 读 renderer.el、lightbox
 import './components/table.js';                         // 读 renderer、parser

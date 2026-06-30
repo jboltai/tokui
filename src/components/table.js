@@ -17,7 +17,7 @@
  * 解析操作列按钮语法：btn:文本 clk:handler v:variant key:value|btn:...
  * 以 | 分隔多个按钮，空格分隔属性
  */
-function parseActionCells(content, el) {
+function parseActionCells(content, el, iconSvg) {
   const container = el('div', {});
   // inline-flex：作为 inline 级元素，受父 td 的 text-align 影响（操作列居中对齐才生效）；
   // 纯 flex 是 block 级，text-align:center 无法居中它。
@@ -29,6 +29,9 @@ function parseActionCells(content, el) {
     if (!trimmed) return;
     const parts = trimmed.split(/\s+/);
     let text = '';
+    let iconName = '';
+    let emoji = '';
+    let label = '';
     const attrs = { class: 'tokui-tbtn', type: 'button' };
     parts.forEach((part, i) => {
       if (i === 0 && part.startsWith('btn:')) {
@@ -37,6 +40,12 @@ function parseActionCells(content, el) {
         attrs['data-tokui-clk'] = part.slice(4);
       } else if (part.startsWith('v:')) {
         attrs.class += ' tokui-tbtn--' + part.slice(2);
+      } else if (part.startsWith('icon:')) {
+        iconName = part.slice(5);
+      } else if (part.startsWith('i:')) {
+        emoji = part.slice(2);
+      } else if (part.startsWith('l:')) {
+        label = part.slice(2);
       } else if (part.includes(':')) {
         const ci = part.indexOf(':');
         const key = part.slice(0, ci);
@@ -44,7 +53,32 @@ function parseActionCells(content, el) {
         attrs[key.startsWith('data-') ? key : 'data-' + key] = part.slice(ci + 1);
       }
     });
-    container.appendChild(el('button', attrs, text));
+    const iconHtml = iconName ? iconSvg(iconName, 14) : '';
+    const hasIcon = !!(iconName || emoji);
+    // 流式增量：段尚无可见内容（无文字/图标/emoji）则跳过，避免空钮闪烁。
+    // 流式推进中（icon 名补全、文字到达）自然转正；多钮按 | 逐个现形。
+    if (!text && !iconHtml && !emoji) return;
+    const iconOnly = !text && hasIcon;
+    if (iconOnly) {
+      attrs.class += ' tokui-tbtn--icon-only';
+      const tip = label || iconName || '';
+      if (tip) {
+        attrs['aria-label'] = tip;
+        attrs['data-tokui-tip'] = tip;
+      }
+    }
+    const btn = el('button', attrs);
+    if (iconName) {
+      const iconSpan = el('span', { class: 'tokui-tbtn__icon' });
+      iconSpan.innerHTML = iconHtml;
+      btn.appendChild(iconSpan);
+      btn.classList.add('tokui-tbtn--has-icon');
+    } else if (emoji) {
+      btn.appendChild(el('span', { class: 'tokui-tbtn__icon tokui-tbtn__icon--emoji' }, emoji));
+      btn.classList.add('tokui-tbtn--has-icon');
+    }
+    if (text) btn.appendChild(el('span', { class: 'tokui-tbtn__text' }, text));
+    container.appendChild(btn);
   });
   return container;
 }
@@ -62,6 +96,9 @@ function registerTableComponents(renderer) {
   const _parseTag = (typeof require === 'function')
     ? require('../core/parser').parseTag
     : window.TokUI._internal.parseTag;
+  const iconSvg = (typeof require === 'function')
+    ? require('./icons').iconSvg
+    : window.TokUI._internal.iconSvg;
 
   /**
    * 将单元格内泄漏的方括号组件（如 [tag 5%]、[progress v:98]）重建并内联渲染。
@@ -451,7 +488,7 @@ function registerTableComponents(renderer) {
     if (trimmed.startsWith('btn:')) {
       tdAttrs.class += ' tokui-col-action';
       var btnTd = el('td', tdAttrs);
-      btnTd.appendChild(parseActionCells(trimmed, el));
+      btnTd.appendChild(parseActionCells(trimmed, el, iconSvg));
       return btnTd;
     }
     if (trimmed.startsWith('tag:')) {
@@ -531,8 +568,10 @@ function registerTableComponents(renderer) {
         var isLast = idx === cells.length - 1;
         // 组件形态：方括号内联组件，或 btn:/tag:/progress 前缀语法
         var componentShaped = /^\[/.test(trimmed) || /^(btn|tag|progress)\b/.test(trimmed);
-        // 末格组件未完成 → 骨架（partial 组件渲染无意义且闪烁）
-        var showSkeleton = componentShaped && isLast && !finalized;
+        // btn: 操作列支持逐钮真流式（parseActionCells 按 | 增量渲染，跳过未成形段）；
+        // 其余组件格（[ 内联 / tag: / progress）partial 渲染无意义且闪烁，仍走骨架到 finalize。
+        var isStreamableBtn = /^btn:/.test(trimmed);
+        var showSkeleton = componentShaped && isLast && !finalized && !isStreamableBtn;
         var renderKey = showSkeleton ? SKELETON : val;
 
         if (tr._tokuiCellText[idx] === renderKey) continue;   // 未变 → 复用现有 td

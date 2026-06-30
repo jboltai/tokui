@@ -676,4 +676,36 @@ test('sidebar without collapsible attr has no toggle button', () => {
   assert.strictEqual(toggle, null);
 });
 
+// ===== desc 末行 border 智能处理（计数法兜底，Node 无 getBoundingClientRect） =====
+const TokUIClass = require('../src/index');
+function renderDesc(dsl) {
+  const c = document.createElement('div');
+  new TokUIClass({ container: c }).render(dsl, c);
+  return c.querySelectorAll('.tokui-desc__item');
+}
+
+test('desc 末行 border：单行全项标记（非仅 :last-child）', () => {
+  const items = renderDesc('[desc cols:4 v:h][item l:姓名 tx:张三][item l:工号 tx:ZS001][item l:部门 tx:技术部][item l:状态 tx:在职][/desc]');
+  const marked = Array.from(items).map(i => i.classList.contains('tokui-desc__item--last-row'));
+  assert.deepStrictEqual(marked, [true, true, true, true], '单行 4 项应全标末行（无 border-bottom）');
+});
+
+test('desc 末行 border：多行只标末行', () => {
+  const items = renderDesc('[desc cols:4][item l:A tx:1][item l:B tx:2][item l:C tx:3][item l:D tx:4][item l:E tx:5][/desc]');
+  const marked = Array.from(items).map(i => i.classList.contains('tokui-desc__item--last-row'));
+  assert.deepStrictEqual(marked, [false, false, false, false, true], '5 项 2 行：仅末行（第 5 项）标记');
+});
+
+test('desc 末行 border：默认 cols(3) 单行', () => {
+  const items = renderDesc('[desc][item l:A tx:1][item l:B tx:2][item l:C tx:3][/desc]');
+  const marked = Array.from(items).map(i => i.classList.contains('tokui-desc__item--last-row'));
+  assert.deepStrictEqual(marked, [true, true, true], '默认 3 列 3 项单行全标');
+});
+
+test('desc 末行 border：不满一行（2 项/3 列）全标', () => {
+  const items = renderDesc('[desc cols:3][item l:A tx:1][item l:B tx:2][/desc]');
+  const marked = Array.from(items).map(i => i.classList.contains('tokui-desc__item--last-row'));
+  assert.deepStrictEqual(marked, [true, true], '2 项 < cols，都属末行');
+});
+
 run();

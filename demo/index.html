@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TokUI · 零依赖流式 UI 渲染框架 | AI 对话流式组件库在线演示</title>
-  <meta name="description" content="TokUI 在线演示 —— 零依赖的流式 UI 描述与渲染框架。后端用极简 DSL 描述组件，经 SSE 流式推送，前端实时增量解析渲染为真实 DOM。覆盖表格、表单、图表、卡片、AI 对话气泡等 80+ 组件，让 AI 消耗极少 Token 生成表现力强的 UI。">
+  <title>TokUI · 全球首个For AI的零依赖真流式UI描述与渲染框架 | TOKUI流式UI描述与渲染框架案例在线演示</title>
+  <meta name="description" content="TokUI 在线演示 —— 零依赖的真流式UI描述与渲染框架。后端用极简TokUI DSL 描述组件，经 SSE或者Websocket流式推送，前端实时增量解析渲染为真实 DOM。覆盖表格、表单、图表、卡片、AI 对话气泡等 150+ 组件，让 AI 消耗极少 Token 生成表现力强的 UI。">
   <meta name="keywords" content="TokUI, 流式UI, 流式渲染, SSE, SSE UI, DSL, 增量解析, 零依赖, AI对话UI, AI UI框架, 组件库, streaming UI, server-sent events, 前端框架, TokUI 演示, TokUI demo">
   <meta name="author" content="JBoltAI">
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
@@ -17,20 +17,20 @@
   <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:title" content="TokUI · 零依赖流式 UI 渲染框架 | 在线演示">
-  <meta property="og:description" content="零依赖的流式 UI 描述与渲染框架在线演示。极简 DSL + SSE 流式推送，实时增量解析渲染 80+ 组件，让 AI 用极少 Token 生成表现力强的 UI。">
+  <meta property="og:description" content="零依赖的流式 UI 描述与渲染框架在线演示。极简 DSL + SSE 流式推送，实时增量解析渲染 150+ 组件，让 AI 用极少 Token 生成表现力强的 UI。">
   <meta property="og:url" content="https://tokui_demo.jboltai.com/">
   <meta property="og:site_name" content="TokUI Demo">
   <meta property="og:locale" content="zh_CN">
   <meta property="og:locale:alternate" content="en_US">
   <meta property="og:image" content="https://assets.vdata.chat/jboltai/aiimg/logo_60.png">
-  <meta property="og:image:alt" content="TokUI 流式 UI 渲染框架 Logo">
+  <meta property="og:image:alt" content="TokUI 流式 UI描述与渲染框架 Logo">
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="TokUI · 零依赖流式 UI 渲染框架 | 在线演示">
-  <meta name="twitter:description" content="零依赖的流式 UI 描述与渲染框架在线演示。极简 DSL + SSE 流式推送，实时增量渲染 80+ 组件。">
+  <meta name="twitter:title" content="TokUI · 零依赖真流式UI描述与渲染框架 | 在线演示">
+  <meta name="twitter:description" content="零依赖的流式 UI 描述与渲染框架在线演示。极简 DSL + SSE 流式推送，实时增量解析渲染 150+ 组件。">
   <meta name="twitter:image" content="https://assets.vdata.chat/jboltai/aiimg/logo_60.png">
-  <meta name="twitter:image:alt" content="TokUI 流式 UI 渲染框架 Logo">
+  <meta name="twitter:image:alt" content="TokUI 零依赖真流式UI描述与渲染框架 Logo">
 
   <!-- 结构化数据（schema.org WebApplication，助搜索引擎与富结果理解） -->
   <script type="application/ld+json">
@@ -43,7 +43,7 @@
     "applicationSubCategory": "UI Framework",
     "operatingSystem": "Any (Web Browser)",
     "browserRequirements": "Requires JavaScript",
-    "description": "零依赖的流式 UI 描述与渲染框架在线演示。后端用极简 DSL 描述组件，经 SSE 流式推送，前端实时增量解析渲染为真实 DOM，覆盖表格、表单、图表、卡片、AI 对话气泡等 80+ 组件。",
+    "description": "零依赖的真流式UI描述与渲染框架在线演示。后端用极简TokUI DSL 描述组件，经 SSE或者Websocket流式推送，前端实时增量解析渲染为真实 DOM，覆盖表格、表单、图表、卡片、AI 对话气泡等 150+ 组件。",
     "inLanguage": ["zh-CN", "en"],
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
     "author": { "@type": "Organization", "name": "JBoltAI", "url": "https://jboltai.com" }
@@ -58,7 +58,7 @@
     <div style="max-width:760px;margin:40px auto;padding:0 20px;font-family:system-ui,-apple-system,sans-serif;line-height:1.75;color:#222">
       <h1>TokUI · 零依赖流式 UI 渲染框架</h1>
       <p>TokUI 是一个零依赖的流式 UI 描述与渲染框架，专为 AI 对话中的流式 UI 生成设计。后端通过极简 DSL 字符串描述 UI 组件，经 SSE（Server-Sent Events）流式推送到前端，前端实时增量解析并渲染为真实 DOM，消耗极少 Token 即可生成表现力强的 UI。</p>
-      <p>本在线演示需启用 JavaScript，提供 80+ 组件的实时流式渲染体验：表格、表单、图表（柱状/折线/饼图/雷达/甘特）、卡片、栅格、AI 对话气泡、流式 Markdown、代码高亮、时间线、步骤条等。</p>
+      <p>本在线演示需启用 JavaScript，提供 150+ 组件的实时流式渲染体验：表格、表单、图表（柱状/折线/饼图/雷达/甘特）、卡片、栅格、AI 对话气泡、流式 Markdown、代码高亮、时间线、步骤条等。</p>
       <p>关键词：流式 UI、SSE 流式渲染、DSL、增量解析、零依赖、AI 对话 UI、streaming UI、server-sent events、组件库。</p>
     </div>
   </noscript>
@@ -171,7 +171,7 @@
     <!-- Footer -->
     <footer class="app-footer">
       <div class="app-footer-left">
-        <span class="app-footer-ver" id="footerVer">当前版本:v0.1.2</span>
+        <span class="app-footer-ver" id="footerVer">当前版本:v0.1.3</span>
       </div>
       <div class="app-footer-center">
         <button class="app-footer-btn" id="clearBtn" title="清空">

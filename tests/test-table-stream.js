@@ -198,4 +198,50 @@ test('one-shot: 文本格 + btn: 操作格一次性渲染（回归）', () => {
   assert.ok(tds[1].querySelectorAll('button').length >= 2, '操作列 2 按钮');
 });
 
+// ===== 末格 btn: 操作列逐钮真流式（不再骨架到 finalize） =====
+
+test('streaming: 末格 btn: 操作列逐钮真流式（首钮不等 finalize）', () => {
+  const { container, t } = stream();
+  // op cell 带空格属性 → 双引号包（对齐 mega-table 写法）
+  t.feed('[table][thead cols:name,op][tbody][tr 张三,"btn: icon:view l:详情 v:primary clk:handleView');
+  const tds = bodyRows(container)[0].querySelectorAll('td');
+  const btns = tds[1].querySelectorAll('button');
+  assert.strictEqual(btns.length, 1, '首钮流式到位（非骨架）');
+  assert.ok(btns[0].classList.contains('tokui-tbtn--icon-only'), 'icon-only');
+  assert.ok(btns[0].querySelector('.tokui-tbtn__icon'), 'SVG 图标已注');
+  assert.strictEqual(btns[0].getAttribute('data-tokui-tip'), '详情', 'tooltip 已注');
+});
+
+test('streaming: 多钮按 | 逐个现形（未成形段跳过，不空钮闪烁）', () => {
+  const { container, t } = stream();
+  t.feed('[table][thead cols:name,op][tbody][tr 张三,"btn: icon:view l:详情 v:primary clk:handleView');
+  let tds = bodyRows(container)[0].querySelectorAll('td');
+  assert.strictEqual(tds[1].querySelectorAll('button').length, 1, '首钮 1');
+  // | 后第二钮仅前缀 btn:（无 icon/text）→ 空段跳过，不显空钮
+  t.feed('|btn: ');
+  tds = bodyRows(container)[0].querySelectorAll('td');
+  assert.strictEqual(tds[1].querySelectorAll('button').length, 1, '空段 → 仍 1 钮（不闪烁）');
+  // icon:edit 到位 → 第二钮现形
+  t.feed('icon:edit l:编辑 v:warning clk:handleEdit');
+  tds = bodyRows(container)[0].querySelectorAll('td');
+  assert.strictEqual(tds[1].querySelectorAll('button').length, 2, '第二钮 icon 到位 → 现形');
+  // 闭合 finalize → 三钮
+  t.feed('|btn: icon:delete l:删除 v:danger clk:handleDelete"]');
+  tds = bodyRows(container)[0].querySelectorAll('td');
+  assert.strictEqual(tds[1].querySelectorAll('button').length, 3, 'finalize 三钮齐');
+});
+
+test('streaming: 末格 btn 文字钮也逐钮流式（text 字符级渐显）', () => {
+  const { container, t } = stream();
+  t.feed('[table][thead cols:op][tbody][tr "');
+  t.feed('btn:详');
+  let tds = bodyRows(container)[0].querySelectorAll('td');
+  assert.strictEqual(tds[0].querySelectorAll('button').length, 1, 'btn:详 → 钮现形');
+  assert.strictEqual(tds[0].querySelectorAll('button')[0].textContent, '详', 'text 字符级');
+  t.feed('情 clk:handleEdit|btn:删除 v:danger clk:del"]');
+  tds = bodyRows(container)[0].querySelectorAll('td');
+  assert.strictEqual(tds[0].querySelectorAll('button').length, 2, '闭合后 2 钮');
+  assert.strictEqual(tds[0].querySelectorAll('button')[0].textContent, '详情', '详情 文本');
+});
+
 run();

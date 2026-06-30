@@ -196,18 +196,32 @@ function bindTooltips(svg) {
 /**
  * 通用图例渲染：在 SVG 底部绘制水平居中的图例
  */
-function appendLegend(svg, entries, w, y) {
+function appendLegend(svg, entries, w, y, fs, spread) {
   if (!entries || !entries.length) return;
-  var totalW = 0;
-  entries.forEach(function (e) { totalW += 12 + e.text.length * 5 + 14; });
-  totalW -= 14;
+  if (!(fs > 0)) fs = 7; // 默认 7；饼图按布局字号传，其余图表留 7 交由挂载后保底调整
+  // 色块 8 + 块文间距 4；estTextW 按 fs/7 缩放（estTextW 为 fs=7 基准宽，CJK 双倍计宽比 text.length*5 准）
+  var rectW = 8, gap = 4, itemGap = 14;
+  var items = entries.map(function (e) {
+    var tw = estTextW(e.text) * (fs / 7);
+    return { e: e, w: rectW + gap + tw };
+  });
+  var intrinsic = items.reduce(function (s, it) { return s + it.w; }, 0);
+  // 间距：spread（饼图）居中往两边自适应铺开——容器越宽间距越大，但封顶 maxGap 不占满全宽、
+  //       地板 minGap 不拥挤；整体居中（从中间往两边排）。默认（bar/line/gantt 等）紧凑 itemGap 不变。
+  var gapStep = itemGap;
+  if (spread && items.length > 1) {
+    var slack = Math.max(0, w - 8 - intrinsic);
+    var adaptive = slack / (items.length - 1);
+    gapStep = Math.max(18, Math.min(56, adaptive));
+  }
+  var totalW = intrinsic + gapStep * (items.length - 1);
   var x = Math.max(4, (w - totalW) / 2);
-  entries.forEach(function (e) {
-    svg.appendChild(svgEl('rect', { x: x, y: y + 1, width: 8, height: 8, fill: e.color, rx: 1.5 }));
-    var t = svgEl('text', { x: x + 11, y: y + 7, fill: 'var(--tokui-chart-text, #999)', 'font-size': '7' });
-    t.textContent = e.text;
+  items.forEach(function (it) {
+    svg.appendChild(svgEl('rect', { x: x, y: y + 1, width: rectW, height: 8, fill: it.e.color, rx: 1.5 }));
+    var t = svgEl('text', { x: x + rectW + gap, y: y + 7, fill: 'var(--tokui-chart-text, #999)', 'font-size': String(fs) });
+    t.textContent = it.e.text;
     svg.appendChild(t);
-    x += 12 + e.text.length * 5 + 14;
+    x += it.w + gapStep;
   });
 }
 
@@ -228,6 +242,39 @@ function estTextW(str) {
   var w = 0;
   for (var i = 0; i < str.length; i++) w += (str.charCodeAt(i) > 127) ? 8 : 4.5;
   return w;
+}
+
+// === 图表信息文字最小渲染 px 保底 ===
+// 图表 SVG 用 viewBox + preserveAspectRatio="meet" 等比缩放，文字 font-size 是 viewBox 单位、
+// 随图形同 scale 缩。窄容器下小号字（7/8/9）渲染 px 偏小不可读。挂载后测容器宽反推，把信息文字
+// 抬到渲染 ≥ MIN_CHART_PX。大标题（仪表盘中心/环形中心 hero 数）不抬。
+var MIN_CHART_PX = 12;
+// estTextW ≈ 文本 @ font-size 7 的渲染宽度（"微信 35(35%)" estTextW=52 vs fs7 实测 46.9，略宽估=安全）。
+// 据此把"标签宽 → 每单位 fs 宽"换算：width(fs) ≈ estTextW * (fs / PIE_FS_REF)。
+var PIE_FS_REF = 7;
+
+// 把 viewBox 单位字号 baseFs 按当前缩放 scale 抬到渲染 ≥ minPx；已达标原样返回（只抬不压）。
+function bumpFsUnits(baseFs, scale, minPx) {
+  if (!(scale > 0) || !(minPx > 0)) return baseFs;
+  return baseFs * scale >= minPx ? baseFs : minPx / scale;
+}
+
+// 饼图引线标签字号闭环解：使标签渲染 px 恰为 minPx，并把
+// 「字号↑ → 标签宽↑ → viewBox 宽↑ → scale↓」反馈计入（朴素迭代会发散，故闭式求解）。
+// 关键：饼半径随 fs 缩——vertPad 含 fs，故 r(fs)=R0−fs（R0=min(w,h)/2−leadLen−margin，与 fs 无关）。
+// 据此 W(fs)=2(R0+fixedA+(coefB−1)·fs)，px=fs·C/W ≥ minPx 自洽解得：
+//   fs = 2·minPx·(R0+fixedA) / (C − 2·minPx·(coefB−1))
+//   C       svg 实际渲染宽（px）
+//   R0      r 在 fs=0 处的截距（= r + fs；调用方由 fs=7 布局反推）
+//   fixedA  圆边外固定预留 = leadLen+tailLen+gap+margin
+//   coefB   每单位 fs 的标签宽 = maxLabelW / PIE_FS_REF
+//   minPx   目标最小渲染 px
+// 返回应使用的 fs；容器过窄（denom≤0，标签本就放不下）或入参非法返回 0（调用方回退原样）。
+function solvePieFs(C, R0, fixedA, coefB, minPx) {
+  if (!(C > 0) || !(R0 >= 0) || !(coefB >= 0) || !(minPx > 0)) return 0;
+  var denom = C - 2 * minPx * (coefB - 1);
+  if (denom <= 0) return 0;
+  return (2 * minPx * (R0 + fixedA)) / denom;
 }
 
 // Nice number：把任意值量化到 1/2/5×10^k 的"漂亮刻度"。
@@ -601,17 +648,43 @@ function renderLine(data, labels, colors, attrs) {
 
 // === Pie 饼图 ===
 
+// 饼图布局（按字号 fs 求）：标签宽度按 estTextW * (fs/PIE_FS_REF) 随 fs 缩放，
+// labelSpace 联动 → 圆心/画布宽联动。fs=7 时与历史布局逐位等价。供 renderPie 与挂载后闭环求解共用。
+function pieSizing(data, labels, attrs, fs, total) {
+  var leadLen = 10, tailLen = 12, gap = 4, margin = 4;
+  if (!(fs > 0)) fs = 7;
+  var maxLabelW = 0;
+  data.forEach(function (val, i) {
+    if (!labels[i]) return;
+    var pct = Math.round(val / total * 100);
+    var lw = estTextW(labels[i] + ' ' + val + '(' + pct + '%)');
+    if (lw > maxLabelW) maxLabelW = lw;
+  });
+  var coefB = maxLabelW / PIE_FS_REF;                 // 每单位 fs 的标签宽
+  var fixedA = leadLen + tailLen + gap + margin;       // 圆边外固定预留（与 fs 无关）
+  var labelSpace = fixedA + coefB * fs;                // fs=7 时 = fixedA + maxLabelW（历史值）
+  var w = parseInt(attrs.w) || 280;
+  var h = parseInt(attrs.h) || 280;
+  var vertPad = leadLen + fs + margin;
+  var r = Math.max(8, Math.min(w, h) / 2 - vertPad);
+  var halfW = r + labelSpace;
+  return {
+    fs: fs, leadLen: leadLen, tailLen: tailLen, gap: gap, margin: margin,
+    maxLabelW: maxLabelW, coefB: coefB, fixedA: fixedA, labelSpace: labelSpace,
+    vertPad: vertPad, r: r, cx: halfW, cy: vertPad + r,
+    W: halfW * 2, H: (vertPad + r) * 2, totalH: (vertPad + r) * 2 + LEGEND_H
+  };
+}
+
 function renderPie(data, labels, colors, attrs) {
   var w = parseInt(attrs.w) || 280;
   var h = parseInt(attrs.h) || 280;
-  var totalH = h + LEGEND_H;
-  var cx = w / 2, cy = h / 2;
   if (!data.length) return emptyChartSvg(w, h + LEGEND_H);
-  var pad = Math.max(50, w * 0.18);
-  var r = Math.min(cx, cy) - pad;
   var total = data.reduce(function (a, b) { return a + b; }, 0) || 1;
-  var svg = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + totalH, class: 'tokui-chart__svg', preserveAspectRatio: 'xMidYMid meet' });
-  var tips = createTipMgr(w, totalH);
+  // 挂载后闭环求解会带 _pieFs（使渲染 px ≥ MIN_CHART_PX）重渲染；默认 7
+  var fs = (attrs._pieFs !== undefined && attrs._pieFs !== '') ? parseFloat(attrs._pieFs) : 7;
+  if (!(fs > 0) || !isFinite(fs)) fs = 7;
+  var L = pieSizing(data, labels, attrs, fs, total);
 
   var slices = [];
   var angle = -Math.PI / 2;
@@ -620,6 +693,10 @@ function renderPie(data, labels, colors, attrs) {
     slices.push({ val: val, idx: i, start: angle, end: angle + sliceAngle, mid: angle + sliceAngle / 2 });
     angle += sliceAngle;
   });
+
+  var cx = L.cx, cy = L.cy, r = L.r;
+  var svg = svgEl('svg', { viewBox: '0 0 ' + L.W + ' ' + L.totalH, class: 'tokui-chart__svg', preserveAspectRatio: 'xMidYMid meet' });
+  var tips = createTipMgr(L.W, L.totalH);
 
   // 切片
   slices.forEach(function (s) {
@@ -641,6 +718,7 @@ function renderPie(data, labels, colors, attrs) {
   });
 
   // 引导线 + 文字
+  var leadLen = L.leadLen, tailLen = L.tailLen, gap = L.gap;
   slices.forEach(function (s) {
     var i = s.idx;
     if (!labels[i]) return;
@@ -649,24 +727,23 @@ function renderPie(data, labels, colors, attrs) {
     var isRight = Math.cos(midA) >= 0;
     var ex = cx + r * Math.cos(midA);
     var ey = cy + r * Math.sin(midA);
-    var leadLen = 10;
     var lx = cx + (r + leadLen) * Math.cos(midA);
     var ly = cy + (r + leadLen) * Math.sin(midA);
-    var tailLen = 12;
     var tx = lx + (isRight ? tailLen : -tailLen);
     svg.appendChild(svgEl('polyline', { points: ex + ',' + ey + ' ' + lx + ',' + ly + ' ' + tx + ',' + ly, fill: 'none', stroke: colors[i % colors.length], 'stroke-width': 1 }));
-    var textX = tx + (isRight ? 4 : -4);
+    var textX = tx + (isRight ? gap : -gap);
     var anchor = isRight ? 'start' : 'end';
-    var txt = svgEl('text', { x: textX, y: ly + 1, 'text-anchor': anchor, 'dominant-baseline': 'central', fill: 'var(--tokui-chart-text, #666)', 'font-size': '7' });
+    var txt = svgEl('text', { x: textX, y: ly + 1, 'text-anchor': anchor, 'dominant-baseline': 'central', fill: 'var(--tokui-chart-text, #666)', 'font-size': String(fs) });
     txt.textContent = labels[i] + ' ' + s.val + '(' + pct + '%)';
     svg.appendChild(txt);
   });
 
-  // legend
+  // legend：与 donut 一致——默认紧凑 itemGap 居中（无 spread）；字号用 L.fs（=bump 后 _pieFs，
+  // 渲染 ≥12px，等价 donut 经非 pie 分支 text-bump 的可读尺寸）
   var legendEntries = data.map(function (val, i) {
     return { color: colors[i % colors.length], text: labels[i] || ('项目' + (i + 1)) };
   });
-  appendLegend(svg, legendEntries, w, h + 6);
+  appendLegend(svg, legendEntries, L.W, L.H + 6, L.fs);
   svg.appendChild(tips.layer);
   bindTooltips(svg);
   return svg;
@@ -714,7 +791,7 @@ function renderDonut(data, labels, colors, attrs) {
   });
   // center text（仅单环 + v）
   if (!multi && attrs.v !== undefined) {
-    svg.appendChild(svgEl('text', { x: cx, y: cy, 'text-anchor': 'middle', 'dominant-baseline': 'central', fill: 'var(--tokui-text, #333)', 'font-size': '16', 'font-weight': '700' })).textContent = attrs.v + '%';
+    svg.appendChild(svgEl('text', { x: cx, y: cy, 'text-anchor': 'middle', 'dominant-baseline': 'central', fill: 'var(--tokui-text, #333)', 'font-size': '16', 'font-weight': '700', class: 'tokui-chart-donut-value' })).textContent = attrs.v + '%';
   }
   // legend（多环时标签一致，取一组）
   var legendEntries = series[0].map(function (val, i) {
@@ -900,15 +977,16 @@ function renderGauge(data, labels, colors, attrs) {
   svg.appendChild(svgEl('circle', { cx: cx, cy: baseY, r: 5, fill: arcColor, stroke: '#fff', 'stroke-width': 1.5, class: 'tokui-chart-gauge-hub' }));
 
   // 中心数值 + 指标名 + status 角标 + 底部副标题（多标题）
-  var midY = baseY - r * (rangeDeg === 180 ? 0.40 : (rangeDeg === 270 ? 0.12 : 0));
+  // 上抬 + 加大行距：避免 label/status 压住指针轴心 (hub)，中心区不再拥挤
+  var midY = baseY - r * (rangeDeg === 180 ? 0.50 : (rangeDeg === 270 ? 0.20 : 0.12));
   var vTxt = svgEl('text', { x: cx, y: midY, 'text-anchor': 'middle', 'dominant-baseline': 'central', fill: 'var(--tokui-text, #333)', 'font-size': '24', 'font-weight': '700', class: 'tokui-chart-gauge-value tokui-chart-gauge-label' });
   svg.appendChild(vTxt);
-  var capY = midY + 17;
+  var capY = midY + 20;
   if (attrs.l) {
     var lab = svgEl('text', { x: cx, y: capY, 'text-anchor': 'middle', 'dominant-baseline': 'central', fill: 'var(--tokui-chart-text, #999)', 'font-size': '10', class: 'tokui-chart-gauge-label' });
     lab.textContent = attrs.l;
     svg.appendChild(lab);
-    capY += 13;
+    capY += 15;
   }
   if (attrs.status && STATUS_LABEL[attrs.status]) {
     var cap = svgEl('text', { x: cx, y: capY, 'text-anchor': 'middle', 'dominant-baseline': 'central', fill: STATUS_COLORS[attrs.status], 'font-size': '9', 'font-weight': '600', class: 'tokui-chart-gauge-label' });
@@ -2073,6 +2151,9 @@ function registerChartComponents(renderer) {
         }
       }
       wrapper.appendChild(svg);
+      // 记录渲染所用数据/标签/属性，供挂载后字号保底（pie 闭环重渲染）取用
+      wrapper._tokuiChartSpec = { type: type, data: data, labels: labels, colors: colors, attrs: attrs };
+      scheduleAdjust(wrapper);
     } else {
       var fb = document.createElement('div');
       fb.className = 'tokui-chart__fallback';
@@ -2116,6 +2197,102 @@ function registerChartComponents(renderer) {
       wrapper._rafScheduled = false;
       chartRebuild(wrapper);
     });
+  }
+
+  // ===== 挂载后字号保底：信息文字渲染 px ≥ MIN_CHART_PX =====
+  // SVG viewBox 等比缩放，窄容器下小号字不可读。挂载后测容器宽反推字号。
+  //   pie：标签宽度反馈进 viewBox → 朴素逐次重算会发散，用 solvePieFs 闭式解 fs*，
+  //        fs*>7 时带 _pieFs 重渲染（标签/图例同步用 fs*），_tokuiFsApplied 防循环；
+  //   其余：text font-size 直接 bumpFsUnits 抬到 ≥12px（跳过 tooltip 层与 hero 大标题）。
+  // 无 ResizeObserver / 容器未布局（clientWidth=0，如 dom-mock / SSR）→ 全程早退，零副作用。
+  function adjustChartFs(wrapper) {
+    if (typeof document === 'undefined') return;
+    var svg = wrapper.querySelector('svg.tokui-chart__svg');
+    if (!svg) return;
+    var vb = svg.viewBox && svg.viewBox.baseVal;
+    var vbW = (vb && vb.width) || parseFloat(svg.getAttribute('viewBox').split(/\s+/)[2]);
+    if (!(vbW > 0)) return;
+    // C 必须取 svg 实际渲染宽（决定文字 px 的真值）——CSS 可能给 svg 设 max-width，使其窄于 wrapper。
+    // 不能用 wrapper.clientWidth 兜底：宽容器下它远大于 svg 实际宽，会误判缩放、漏抬字号。
+    // 未布局（rect=0）时直接 return，交给 ResizeObserver 在布局后触发。
+    var C = 0;
+    if (typeof svg.getBoundingClientRect === 'function') {
+      try { C = svg.getBoundingClientRect().width; } catch (e) { C = 0; }
+    }
+    if (!(C > 0)) return; // 未布局，等 ResizeObserver
+    var type = svg.getAttribute('data-chart-type');
+
+    if (type === 'pie') {
+      var spec = wrapper._tokuiChartSpec;
+      if (!spec || !spec.data || !spec.data.length) return;
+      if (!spec.labels || !spec.labels.some(function (l) { return !!l; })) return; // 无标签无需抬
+      var total = spec.data.reduce(function (a, b) { return a + b; }, 0) || 1;
+      var L0 = pieSizing(spec.data, spec.labels, spec.attrs, 7, total); // fixedA/coefB 与 fs 无关
+      var R0 = L0.r + L0.fs; // r(fs)=R0−fs 的截距（L0.fs=7）
+      var fsSolver = solvePieFs(C, R0, L0.fixedA, L0.coefB, MIN_CHART_PX);
+      // 可见性封顶：极窄容器下 solver 会把 fs 推大 → r(fs)=R0−fs 缩 → 饼图被挤到看不见。
+      // 约束「渲染后饼图半径 ≥ PIE_R_MIN_PX」反推 fs 上限（r(fs)·C/W(fs) ≥ R_MIN 展开），
+      // 保证饼图始终宏观可见；此时标签可能 <12px（容器物理放不下），属合理降级，
+      // 优于「12px 标签 + 看不见的饼」。
+      var PIE_R_MIN_PX = 14; // 渲染饼图最小半径（≈直径 28px）：仍可辨识扇区
+      var fsCap = Infinity;
+      if (L0.coefB > 1) {
+        var capNum = C * R0 - 2 * PIE_R_MIN_PX * (R0 + L0.fixedA);
+        var capDen = C + 2 * PIE_R_MIN_PX * (L0.coefB - 1);
+        fsCap = (capNum > 0 && capDen > 0) ? capNum / capDen : 7;
+      }
+      var fsStar = Math.min(fsSolver, fsCap);
+      var prev = wrapper._tokuiFsApplied || 7;
+      if (fsStar > 7 + 0.05 && fsStar > prev + 0.05) {
+        wrapper._tokuiFsApplied = fsStar;
+        var newAttrs = Object.assign({}, spec.attrs, { _pieFs: fsStar });
+        redrawChart(wrapper, newAttrs); // 重渲染会再次 scheduleAdjust → 复算同值 → 跳过，收敛
+      }
+      return;
+    }
+
+    // 非 pie：直接抬信息文字 font-size
+    var scale = C / vbW;
+    if (!(scale > 0)) return;
+    var texts = svg.querySelectorAll('text[font-size]');
+    for (var i = 0; i < texts.length; i++) {
+      var t = texts[i];
+      // 跳过 tooltip 层内文字（仅 hover 显，rect 尺寸按原字号算，抬会错位）
+      var p = t.parentNode;
+      while (p && p !== svg) {
+        var pcls = (p.getAttribute && p.getAttribute('class')) || ''; // SVG className 是 SVGAnimatedString，不可当字符串
+        if (pcls.indexOf('tokui-chart-tips-layer') >= 0) { t = null; break; }
+        p = p.parentNode;
+      }
+      if (!t) continue;
+      // 跳过 hero 大标题（仪表盘中心值/环形中心值，用户明确不动）
+      if (t.classList.contains('tokui-chart-gauge-value') || t.classList.contains('tokui-chart-donut-value')) continue;
+      var base = parseFloat(t.getAttribute('font-size'));
+      if (!(base > 0) || base >= 13) continue;          // 已 ≥13 单位视为标题/已够大，不动
+      var fs2 = bumpFsUnits(base, scale, MIN_CHART_PX);
+      if (fs2 !== base) t.setAttribute('font-size', String(Math.round(fs2 * 100) / 100));
+    }
+  }
+
+  // scheduleAdjust：rAF 即时跑一次 + ResizeObserver 兜底（容器晚布局 / resize）。
+  // 无 RO/rAF 环境（dom-mock、SSR）→ 什么都不挂，adjustChartFs 在 clientWidth=0 时本就早退。
+  function scheduleAdjust(wrapper) {
+    var hasWin = typeof window !== 'undefined';
+    var run = (hasWin && window.requestAnimationFrame)
+      ? function (fn) { window.requestAnimationFrame(fn); }
+      : function (fn) { fn(); };
+    run(function () { adjustChartFs(wrapper); });
+    if (typeof window === 'undefined' || typeof window.ResizeObserver === 'undefined') return;
+    if (wrapper._tokuiRO) try { wrapper._tokuiRO.disconnect(); } catch (e) {}
+    var ro = new window.ResizeObserver(function () {
+      if (wrapper._tokuiAdjRaf) return;
+      wrapper._tokuiAdjRaf = true;
+      var r = (window.requestAnimationFrame) ? window.requestAnimationFrame : function (f) { f(); };
+      r(function () { wrapper._tokuiAdjRaf = false; adjustChartFs(wrapper); });
+    });
+    wrapper._tokuiRO = ro;
+    var target = wrapper.querySelector('svg.tokui-chart__svg') || wrapper;
+    try { ro.observe(target); } catch (e) {}
   }
 
   // ===== 图表悬浮工具条：hover 出"复制/下载"按钮，导出高清 PNG =====
@@ -2191,6 +2368,66 @@ function registerChartComponents(renderer) {
   }
   var ICON_COPY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
   var ICON_DOWNLOAD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+  var ICON_FULLSCREEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg>';
+  // ===== 图表全屏弹层：克隆 svg 独立放大查看（Esc / 点遮罩 / 关闭钮退出）=====
+  function openChartModal(srcSvg, title) {
+    if (!srcSvg || typeof document === 'undefined') return;
+    var existing = document.querySelector('.tokui-chart__modal');
+    if (existing) existing.remove();
+    var overlay = document.createElement('div');
+    overlay.className = 'tokui-chart__modal';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    if (title) overlay.setAttribute('aria-label', title);
+
+    var card = document.createElement('div');
+    card.className = 'tokui-chart__modal-card';
+
+    var closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'tokui-chart__modal-close';
+    closeBtn.setAttribute('aria-label', '关闭');
+    closeBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
+
+    if (title) {
+      var tt = document.createElement('div');
+      tt.className = 'tokui-chart__modal-title';
+      tt.textContent = title;
+      card.appendChild(tt);
+    }
+
+    var body = document.createElement('div');
+    body.className = 'tokui-chart__modal-body';
+    var clone = srcSvg.cloneNode(true);
+    if (clone.id) clone.removeAttribute('id');
+    // 移除 tooltip 浮层：弹层内为静态放大预览，无 hover 交互
+    var tl = clone.querySelectorAll('.tokui-chart-tips-layer');
+    for (var i = tl.length - 1; i >= 0; i--) if (tl[i].parentNode) tl[i].parentNode.removeChild(tl[i]);
+    body.appendChild(clone);
+
+    card.appendChild(body);
+    card.appendChild(closeBtn);
+    overlay.appendChild(card);
+
+    var prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    var onKey = function (e) { if (e.key === 'Escape') close(); };
+    var closed = false;
+    function close() {
+      if (closed) return; closed = true;
+      overlay.classList.remove('tokui-chart__modal--open');
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+      setTimeout(function () { if (overlay.parentNode) overlay.remove(); }, 180);
+    }
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+    closeBtn.addEventListener('click', close);
+    document.addEventListener('keydown', onKey);
+
+    document.body.appendChild(overlay);
+    void overlay.offsetWidth; // 强制 reflow 触发 open transition
+    overlay.classList.add('tokui-chart__modal--open');
+  }
   function createChartToolbar(wrapper) {
     var bar = document.createElement('div');
     bar.className = 'tokui-chart__toolbar';
@@ -2204,6 +2441,7 @@ function registerChartComponents(renderer) {
     };
     bar.appendChild(mk('copy', '复制图片', ICON_COPY));
     bar.appendChild(mk('download', '下载图片', ICON_DOWNLOAD));
+    bar.appendChild(mk('fullscreen', '放大查看', ICON_FULLSCREEN));
     bar.addEventListener('click', function (e) {
       var btn = e.target.closest('[data-act]');
       if (!btn) return;
@@ -2211,6 +2449,12 @@ function registerChartComponents(renderer) {
       var svg = wrapper.querySelector('svg.tokui-chart__svg');
       if (!svg || btn.disabled) return;
       var act = btn.getAttribute('data-act');
+      // 放大查看：克隆 svg 进弹层独立展示，不走图片导出
+      if (act === 'fullscreen') {
+        var ttlEl = wrapper.querySelector('.tokui-chart__title');
+        openChartModal(svg, ttlEl ? ttlEl.textContent : '');
+        return;
+      }
       btn.disabled = true;
       exportChartImage(svg, act === 'copy' ? 2 : 3, function (blob) {
         btn.disabled = false;
@@ -2275,7 +2519,14 @@ if (typeof window !== 'undefined') {
   window.TokUI._internal = window.TokUI._internal || {};
   window.TokUI._internal.registerChartComponents = registerChartComponents;
   window.TokUI._internal.registerChartRenderer = registerChartRenderer;
+  window.TokUI._internal.bumpFsUnits = bumpFsUnits;
+  window.TokUI._internal.solvePieFs = solvePieFs;
+  window.TokUI._internal.pieSizing = pieSizing;
+  window.TokUI._internal.MIN_CHART_PX = MIN_CHART_PX;
 }
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { registerChartComponents, registerChartRenderer };
+  module.exports = {
+    registerChartComponents, registerChartRenderer,
+    bumpFsUnits, solvePieFs, pieSizing, MIN_CHART_PX
+  };
 }

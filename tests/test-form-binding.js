@@ -11,6 +11,8 @@ const { setupDOM, teardownDOM } = require('./helpers/dom-mock');
 setupDOM();
 
 const { TokUIRenderer, resolveButtonAction, resolveTargetForm } = require('../src/core/renderer');
+const { TokUIParser } = require('../src/core/parser');
+const TokUIEventBus = require('../src/core/event-bus');
 const { registerFormComponents } = require('../src/components/form');
 const { registerBasicComponents } = require('../src/components/basic');
 const { registerLayoutComponents } = require('../src/components/layout');
@@ -205,6 +207,72 @@ test('print-area 无 tt 时不渲染标题', () => {
   const rc = makeRenderer();
   const dom = rc.render({ type: 'print-area', attrs: { id: 'pa2' }, children: [] });
   assert.strictEqual(dom.querySelector('.tokui-print-area__title'), null);
+});
+
+// === checkbox 多选取值：数组聚合 + btn 在 form 内/外两种绑定方式 ===
+// 场景：[checkbox multi] + 多个 [opt]，部分 chk；提交应按 name 收集为数组。
+function makeRendererWithBus() {
+  const rc = new TokUIRenderer(TokUIEventBus);
+  registerFormComponents(rc);
+  registerBasicComponents(rc);
+  registerLayoutComponents(rc);
+  return rc;
+}
+const CB_MULTI = '[checkbox n:hobby l:爱好 multi][opt v:read tx:阅读 chk][opt v:music tx:音乐][opt v:sport tx:运动 chk][opt v:travel tx:旅行][/checkbox]';
+
+test('_collectFormData: checkbox 多选按 name 聚合为数组', () => {
+  const rc = makeRendererWithBus();
+  const p = new TokUIParser(); const n = []; p.onNode = x => n.push(x);
+  p.parse('[form id:f]' + CB_MULTI + '[/form]');
+  const form = rc.render(n[0]);
+  assert.deepStrictEqual(rc._collectFormData(form), { hobby: ['read', 'sport'] });
+});
+
+test('clk btn 在 form 内 → 收集 checkbox 数组', () => {
+  const rc = makeRendererWithBus();
+  let captured = null;
+  TokUIEventBus.registerHandler('getVal', d => { captured = d; });
+  const p = new TokUIParser(); const n = []; p.onNode = x => n.push(x);
+  p.parse('[card][form id:f sub:getVal]' + CB_MULTI + '[btn tx:获取所选 clk:getVal v:primary][/form][/card]');
+  const dom = rc.render(n[0]);
+  global.document.getElementById = () => null;
+  rc.bindEvents(dom);
+  const btn = dom.querySelector('button');
+  btn._events.click[btn._events.click.length - 1]({ preventDefault() {} });
+  assert.deepStrictEqual(captured, { hobby: ['read', 'sport'] });
+  TokUIEventBus.clearAll();
+});
+
+test('clk btn 在 form 外 + form:ID → 收集 checkbox 数组（clk 路径回退 data-tokui-form）', () => {
+  const rc = makeRendererWithBus();
+  let captured = null;
+  TokUIEventBus.registerHandler('getVal', d => { captured = d; });
+  const p = new TokUIParser(); const n = []; p.onNode = x => n.push(x);
+  p.parse('[card][form id:f sub:getVal]' + CB_MULTI + '[/form][btn tx:获取所选 form:f clk:getVal v:primary][/card]');
+  const dom = rc.render(n[0]);
+  const form = dom.querySelector('form');
+  global.document.getElementById = id => (id === 'f' ? form : null);
+  rc.bindEvents(dom);
+  const btn = dom.querySelector('button');
+  btn._events.click[btn._events.click.length - 1]({ preventDefault() {} });
+  assert.deepStrictEqual(captured, { hobby: ['read', 'sport'] });
+  TokUIEventBus.clearAll();
+});
+
+test('sub btn 在 form 外 + form:ID → 收集 checkbox 数组（submit 动作路径）', () => {
+  const rc = makeRendererWithBus();
+  let captured = null;
+  TokUIEventBus.registerHandler('getVal', d => { captured = d; });
+  const p = new TokUIParser(); const n = []; p.onNode = x => n.push(x);
+  p.parse('[card][form id:f sub:getVal]' + CB_MULTI + '[/form][btn tx:获取所选 form:f sub:getVal v:primary][/card]');
+  const dom = rc.render(n[0]);
+  const form = dom.querySelector('form');
+  global.document.getElementById = id => (id === 'f' ? form : null);
+  rc.bindEvents(dom);
+  const btn = dom.querySelector('button');
+  btn._events.click[btn._events.click.length - 1]({ preventDefault() {} });
+  assert.deepStrictEqual(captured, { hobby: ['read', 'sport'] });
+  TokUIEventBus.clearAll();
 });
 
 run();

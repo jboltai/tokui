@@ -327,6 +327,13 @@ class TokUIRenderer {
    * @returns {HTMLElement|null} 挂载的 DOM 元素
    */
   mountStreaming(node, rootContainer) {
+    // 纯自闭合大块骨架占位：开标签到达挂骨架，] 到达 swap 为真节点（须最先拦截）
+    if (node._stream === 'skeleton-pending') {
+      return this._streamSkeletonPending(node, rootContainer);
+    }
+    if (node._stream === 'skeleton-finalize') {
+      return this._streamSkeletonFinalize(node, rootContainer);
+    }
     // chart 自闭合流式预览：半成品 attrs 到达即更新 pending wrapper（渐增重绘）
     if (node._streamPreview) {
       return this._streamChartPreview(node, rootContainer);
@@ -420,6 +427,45 @@ class TokUIRenderer {
       return dom;
     }
     return this._streamChild(node, rootContainer);
+  }
+
+  // 纯自闭合大块（stat/img/avatar/...）骨架占位：开标签到达即挂骨架到当前 slot，登记待 swap。
+  _streamSkeletonPending(node, rootContainer) {
+    this._pendingSkeletons = this._pendingSkeletons || {};
+    var parentEntry = this.slotStack.length > 0 ? this.slotStack[this.slotStack.length - 1] : null;
+    var target = parentEntry ? parentEntry.slot : rootContainer;
+    var skel = this._buildSkeleton(node.type);
+    if (skel && skel.nodeType === 1) skel.style.animation = 'tokuiFadeIn 0.3s ease';
+    if (target) target.appendChild(skel);
+    this._pendingSkeletons[node._skelKey] = skel;
+    return skel;
+  }
+
+  // 骨架 finalize：] 到达渲染真节点，原地替换骨架（保序）；无 pending（one-shot/未触发）→ 正常挂载。
+  _streamSkeletonFinalize(node, rootContainer) {
+    this._pendingSkeletons = this._pendingSkeletons || {};
+    var skel = this._pendingSkeletons[node._skelKey];
+    var parentEntry = this.slotStack.length > 0 ? this.slotStack[this.slotStack.length - 1] : null;
+    var parentType = parentEntry ? parentEntry.containerType : undefined;
+    node._stream = undefined; // 清标记，走正常 render
+    var real = this.render(node, parentType);
+    if (skel && skel.parentNode) {
+      // 用 insertBefore + removeChild 替代 replaceChild（兼容 dom-mock 与真实 DOM）
+      skel.parentNode.insertBefore(real, skel);
+      skel.parentNode.removeChild(skel);
+    } else if (real) {
+      var slot = parentEntry ? parentEntry.slot : rootContainer;
+      if (slot) slot.appendChild(real);
+    }
+    delete this._pendingSkeletons[node._skelKey];
+    return real;
+  }
+
+  // 构造骨架占位 DOM：通用 shimmer 框 + 类型修饰类（CSS 按类型定尺寸/形状）。
+  // 用独立 .tokui-stream-skeleton 类，与用户向 <skeleton> 组件的 .tokui-skeleton 区分。
+  _buildSkeleton(type) {
+    return el('div', { class: 'tokui-stream-skeleton tokui-stream-skeleton--' + type,
+      'aria-label': '加载中', role: 'status' });
   }
 
   /**
@@ -563,6 +609,19 @@ class TokUIRenderer {
       return radioLabel;
     }
 
+    // 特殊处理：opt 在 checkbox 多选组内 → 渲染为 checkbox 选项并注入共享 name
+    if (node.type === 'opt' && parentEntry && parentEntry.el._slot && parentEntry.el._slot._checkboxName) {
+      var cbName = parentEntry.el._slot._checkboxName;
+      var cbLabel = this.render(node, 'checkbox');
+      if (cbName && cbLabel.querySelector) {
+        var cbInput = cbLabel.querySelector('input[type=checkbox]');
+        if (cbInput) cbInput.name = cbName;
+      }
+      if (cbLabel.nodeType === 1) cbLabel.style.animation = 'tokuiFadeIn 0.3s ease';
+      target.appendChild(cbLabel);
+      return cbLabel;
+    }
+
     // 特殊处理：opt 在 picker 内 → 渲染为 li 并追加到 dropdown
     if (node.type === 'opt' && parentEntry && parentEntry.containerType === 'picker') {
       var pickerDropdown = parentEntry.slot;
@@ -703,8 +762,12 @@ class TokUIRenderer {
         }
         const handler = self.eventBus.getHandler(handlerName);
         if (handler) {
-          // 如果在表单内，自动收集表单数据
-          const form = element.closest('form');
+          // 收集表单数据：优先 DOM 祖先 form；btn 在 form 外时回退 data-tokui-form（form:ID 显式绑定）
+          let form = element.closest('form');
+          if (!form) {
+            const formId = element.getAttribute('data-tokui-form');
+            if (formId) form = resolveTargetForm(element, formId);
+          }
           const data = form ? self._collectFormData(form) : null;
           handler(data, e, element);
         }

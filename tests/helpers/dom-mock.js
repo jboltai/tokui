@@ -50,6 +50,8 @@ function createElement(tag) {
     childNodes: [],
     children: [],
     attributes: {},
+    // 表单控件 IDL 默认值（与浏览器一致）：input/textarea/select 的 .checked 默认 false。
+    checked: false,
     style: {
       _prio: {},
       setProperty(key, value, prio) { this[key] = value; if (prio) { this._prio[key] = prio; } else { delete this._prio[key]; } },
@@ -68,6 +70,14 @@ function createElement(tag) {
       this.attributes[key] = String(value);
       if (key === 'class') this.className = String(value);
       if (key === 'id') this.id = String(value);
+      // 表单控件 IDL 属性反射（真实浏览器行为）：setAttribute 同步到 .value/.name/.type/.checked
+      // 供 form 组件测试直接读 input.checked / input.name / input.value（与浏览器一致）。
+      if (key === 'name' || key === 'value' || key === 'type') {
+        this[key] = String(value);
+      }
+      if (key === 'checked') {
+        this.checked = true;
+      }
     },
     getAttribute(key) {
       return this.attributes.hasOwnProperty(key) ? this.attributes[key] : null;
@@ -260,10 +270,69 @@ function setupDOM() {
     removeEventListener: function() {},
     querySelectorAll: function() { return []; }
   };
+  global.FormData = MockFormData;
 }
 
 function teardownDOM() {
   delete global.document;
+  delete global.FormData;
+}
+
+/**
+ * 收集表单内「成功控件」的 [name, value] 对，模拟浏览器 form 提交语义：
+ * - input[type=checkbox|radio]：仅 checked 才提交（值缺省为 'on'）
+ * - input[type=submit|button|reset|image|file]：不提交
+ * - 其余 input（text/hidden/password 等）/ textarea / select：提交其值
+ * - 无 name 或 disabled 的控件跳过
+ * 供 _collectFormData 在 Node 测试环境跑通（mock 无原生 FormData）。
+ */
+function collectFormControls(form) {
+  var out = [];
+  function walk(node) {
+    if (!node || node.nodeType !== 1) return;
+    var tag = (node.tagName || '').toLowerCase();
+    var disabled = node.attributes && node.attributes.disabled !== undefined;
+    if (tag === 'input') {
+      var type = (node.type || node.getAttribute('type') || 'text').toLowerCase();
+      var name = node.name || node.getAttribute('name');
+      if (!name || disabled) { return; }
+      if (type === 'checkbox' || type === 'radio') {
+        if (node.checked) out.push([name, node.value != null ? String(node.value) : 'on']);
+      } else if (type === 'submit' || type === 'button' || type === 'reset' || type === 'image' || type === 'file') {
+        // 浏览器不提交这些（mock 简化）
+      } else {
+        out.push([name, node.value != null ? String(node.value) : '']);
+      }
+      return; // input 无元素子节点
+    }
+    if (tag === 'textarea') {
+      var tn = node.name || node.getAttribute('name');
+      if (tn && !disabled) out.push([tn, node.value != null ? String(node.value) : (node.textContent || '')]);
+      return;
+    }
+    if (tag === 'select') {
+      var sn = node.name || node.getAttribute('name');
+      if (sn && !disabled) {
+        var selVal = '';
+        (node.childNodes || []).forEach(function (c) {
+          if (c && c.tagName === 'OPTION' && c.selected) selVal = c.value != null ? String(c.value) : (c.textContent || '');
+        });
+        out.push([sn, selVal]);
+      }
+      return;
+    }
+    (node.childNodes || []).forEach(walk);
+  }
+  walk(form);
+  return out;
+}
+
+class MockFormData {
+  constructor(form) { this._pairs = form ? collectFormControls(form) : []; }
+  entries() { return this._pairs.slice(); }
+  [Symbol.iterator]() { return this._pairs[Symbol.iterator](); }
+  get(name) { var p = this._pairs.find(function (x) { return x[0] === name; }); return p ? p[1] : null; }
+  getAll(name) { return this._pairs.filter(function (x) { return x[0] === name; }).map(function (x) { return x[1]; }); }
 }
 
 module.exports = { setupDOM, teardownDOM, createElement, createTextNode };

@@ -13,6 +13,39 @@
 'use strict';
 
 /**
+ * 解析 opt 简写串：";" 分隔选项，每项首个 ":" 分隔 value:label；
+ * 缺冒号则 v = tx = 该 token。trim 后过滤空项。
+ * @param {string} str - 如 "1:男;2:女" 或 "篮球;足球"
+ * @returns {Array<{v: string, tx: string}>}
+ */
+function _parseOptShorthand(str) {
+  if (!str || typeof str !== 'string') return [];
+  return str.split(';')
+    .map(function (s) { return s.trim(); })
+    .filter(function (s) { return s.length > 0; })
+    .map(function (item) {
+      var idx = item.indexOf(':');
+      if (idx === -1) return { v: item, tx: item };
+      return { v: item.substring(0, idx).trim(), tx: item.substring(idx + 1).trim() };
+    });
+}
+
+/**
+ * opt:"..." 简写展开：若 node 带 opt 属性，把 _parseOptShorthand 结果合成 opt 子节点
+ * 追加到 children 末尾（返回新 node，不 mutate 原 node）；否则原样返回。
+ * select/radio/checkbox 三处共用，避免展开逻辑重复。
+ * @param {Object} node - 组件节点
+ * @returns {Object} 可能含合成 opt 子节点的新 node
+ */
+function _expandOptChildren(node) {
+  if (!node || !node.attrs || !node.attrs.opt) return node;
+  var expanded = _parseOptShorthand(node.attrs.opt).map(function (o) {
+    return { type: 'opt', attrs: { v: o.v, tx: o.tx } };
+  });
+  return Object.assign({}, node, { children: (node.children || []).concat(expanded) });
+}
+
+/**
  * 注册表单组件到渲染器
  * @param {TokUIRenderer} renderer - 渲染器实例
  */
@@ -23,6 +56,9 @@ function registerFormComponents(renderer) {
   const resolveColor = (typeof require === 'function')
     ? require('./basic').resolveColor
     : window.TokUI._internal.resolveColor;
+  const iconSvg = (typeof require === 'function')
+    ? require('./icons').iconSvg
+    : window.TokUI._internal.iconSvg;
 
   /**
    * 解析 pre/app 属性值：文本 或 文本|variant
@@ -752,6 +788,8 @@ function registerFormComponents(renderer) {
   // === 下拉选择组件 ===
   // 子节点为 opt 选项，multi 属性启用多选
   renderer.register('select', (node, rc) => {
+    // opt:"..." 简写 → 合成 opt 子节点（一次性渲染路径）
+    node = _expandOptChildren(node);
     const isMulti = node.attrs.multi !== undefined;
     const vList = node.attrs.v ? node.attrs.v.split(',').map(s => s.trim()) : [];
     const isInline = vList.indexOf('inline') !== -1;
@@ -791,6 +829,8 @@ function registerFormComponents(renderer) {
   // === 单选按钮组组件 ===
   // 子节点为 opt 选项，同一组 radio 共享 name 属性
   renderer.register('radio', (node, rc) => {
+    // opt:"..." 简写 → 合成 opt 子节点
+    node = _expandOptChildren(node);
     const vList = node.attrs.v ? node.attrs.v.split(',').map(s => s.trim()) : [];
     const isInline = vList.indexOf('inline') !== -1;
     const wrapperClass = isInline ? 'tokui-field tokui-field--inline' : 'tokui-field';
@@ -798,7 +838,8 @@ function registerFormComponents(renderer) {
     if (node.attrs.l) {
       wrapper.appendChild(el('div', { class: 'tokui-label' }, node.attrs.l));
     }
-    const group = el('div', { class: 'tokui-radio-group', role: 'radiogroup' });
+    const isVertical = vList.indexOf('vertical') !== -1;
+    const group = el('div', { class: 'tokui-radio-group' + (isVertical ? ' tokui-radio-group--vertical' : ''), role: 'radiogroup' });
     if (node.attrs.id) group.id = node.attrs.id;
     const radioName = node.attrs.n || node.attrs.id || 'radio';
     group._radioName = radioName; // 存储共享 name，供子 opt 渲染时读取
@@ -831,6 +872,24 @@ function registerFormComponents(renderer) {
     return label;
   }
 
+  /**
+   * 渲染单个 checkbox 选项（多选组用）
+   * @param {Object} optNode - opt 节点 { attrs: { v, tx, chk } }
+   * @param {string} cbName - 共享 name
+   * @returns {HTMLElement} label 元素
+   */
+  function _renderCheckboxOpt(optNode, cbName) {
+    const label = el('label', { class: 'tokui-checkbox-item' });
+    label.setAttribute('data-tokui-tag', 'opt');
+    const inputAttrs = { type: 'checkbox', name: cbName, class: 'tokui-checkbox-input' };
+    if (optNode.attrs && optNode.attrs.v !== undefined) inputAttrs.value = optNode.attrs.v;
+    if (optNode.attrs && optNode.attrs.chk !== undefined) inputAttrs.checked = 'checked';
+    label.appendChild(el('input', inputAttrs));
+    const displayText = (optNode.attrs && optNode.attrs.tx) || (optNode.attrs && optNode.attrs.v) || optNode.content || '';
+    label.appendChild(el('span', { class: 'tokui-checkbox-text' }, displayText));
+    return label;
+  }
+
   // === 选项组件 ===
   // 根据父级类型自动适配：
   // - 在 radio 内 → 渲染为 radio 选项
@@ -840,6 +899,9 @@ function registerFormComponents(renderer) {
     if (parentType === 'radio') {
       return _renderRadioOpt(node, '');
     }
+    if (parentType === 'checkbox') {
+      return _renderCheckboxOpt(node, '');
+    }
     if (parentType === 'picker') {
       return _renderPickerOpt(node);
     }
@@ -848,29 +910,62 @@ function registerFormComponents(renderer) {
     return el('option', { value: value }, text);
   });
 
-  // === 复选框组件 ===
-  // attrs.l = 标签文本, attrs.chk = 默认选中
-  renderer.register('checkbox', (node) => {
+  // === 复选框组件（三态）===
+  // 1) 无 opt 属性且无子节点 → 单布尔复选框（legacy）
+  // 2) opt:"v:label;..." 属性 → 简写多选（原子展开）
+  // 3) 有子节点（容器模式，multi 标记触发）→ 多选组
+  renderer.register('checkbox', (node, rc) => {
+    // opt:"..." 简写 → 合成 opt 子节点（与 radio/select 共用 _expandOptChildren）
+    node = _expandOptChildren(node);
+    // 多选组判定：有子节点 / 显式 multi 标记（multi 无子节点也渲染空组，见 spec §9）
+    var isGroup = (node.children && node.children.length > 0) || node.attrs.multi !== undefined;
+
+    if (!isGroup) {
+      // —— 单布尔（legacy，保持原逻辑）——
+      const vList = node.attrs.v ? node.attrs.v.split(',').map(s => s.trim()) : [];
+      const isInline = vList.indexOf('inline') !== -1;
+      var cb = el('label', { class: 'tokui-checkbox' + (isInline ? ' tokui-checkbox--inline' : ''), role: 'checkbox', 'aria-checked': String(node.attrs.chk !== undefined) });
+      const inputAttrs = { type: 'checkbox', class: 'tokui-checkbox-input' };
+      if (node.attrs.id) inputAttrs.id = node.attrs.id;
+      if (node.attrs.n) inputAttrs.name = node.attrs.n;
+      else if (node.attrs.id) inputAttrs.name = node.attrs.id;
+      if (node.attrs.chk !== undefined) inputAttrs.checked = 'checked';
+      const input = el('input', inputAttrs);
+      cb.appendChild(input);
+      cb.appendChild(el('span', { class: 'tokui-checkbox-text' }, node.attrs.l || ''));
+      input.addEventListener('change', function() { cb.setAttribute('aria-checked', String(input.checked)); });
+      if (!isInline) {
+        var field = el('div', { class: 'tokui-field' });
+        field.appendChild(cb);
+        return field;
+      }
+      return cb;
+    }
+
+    // —— 多选组 ——
     const vList = node.attrs.v ? node.attrs.v.split(',').map(s => s.trim()) : [];
     const isInline = vList.indexOf('inline') !== -1;
-    var cb = el('label', { class: 'tokui-checkbox' + (isInline ? ' tokui-checkbox--inline' : ''), role: 'checkbox', 'aria-checked': String(node.attrs.chk !== undefined) });
-    const inputAttrs = { type: 'checkbox', class: 'tokui-checkbox-input' };
-    if (node.attrs.id) inputAttrs.id = node.attrs.id;
-    if (node.attrs.n) inputAttrs.name = node.attrs.n;
-    else if (node.attrs.id) inputAttrs.name = node.attrs.id;
-    if (node.attrs.chk !== undefined) inputAttrs.checked = 'checked';
-    const input = el('input', inputAttrs);
-    cb.appendChild(input);
-    cb.appendChild(el('span', { class: 'tokui-checkbox-text' }, node.attrs.l || ''));
-    input.addEventListener('change', function() {
-      cb.setAttribute('aria-checked', String(input.checked));
-    });
-    if (!isInline) {
-      var field = el('div', { class: 'tokui-field' });
-      field.appendChild(cb);
-      return field;
+    const wrapperClass = isInline ? 'tokui-field tokui-field--inline' : 'tokui-field';
+    const wrapper = el('div', { class: wrapperClass });
+    if (node.attrs.l) {
+      wrapper.appendChild(el('div', { class: 'tokui-label' }, node.attrs.l));
     }
-    return cb;
+    const cbName = node.attrs.n || node.attrs.id || 'checkbox';
+    const isVertical = vList.indexOf('vertical') !== -1;
+    const group = el('div', { class: 'tokui-checkbox-group' + (isVertical ? ' tokui-checkbox-group--vertical' : ''), role: 'group' });
+    group._checkboxName = cbName; // 供流式 opt 注入共享 name（见 renderer.js）
+    if (node.attrs.id) group.id = node.attrs.id;
+    // 统一遍历 opt 子节点（简写合成的 + 容器真实的；流式路径由 renderer.js 特判挂载）
+    // 与 radio 对称：直接遍历并注入共享 cbName（不走 rc()，否则 opt 分发只能拿到空 name）
+    if (node.children && node.children.length) {
+      node.children.forEach(function (optNode) {
+        group.appendChild(_renderCheckboxOpt(optNode, cbName));
+      });
+    }
+    wrapper.appendChild(group);
+    wrapper._slot = group;
+    wrapper._tokuiType = 'checkbox';
+    return wrapper;
   });
 
   // === 开关组件 ===
@@ -1076,7 +1171,10 @@ function registerFormComponents(renderer) {
     rate.appendChild(textSpan);
     rate.appendChild(hidden);
 
-    if (node.attrs.dis === undefined) {
+    if (node.attrs.ro !== undefined) {
+      // 只读模式：报告/结果展示用，不可操作（不加 opacity 暗化，配色由 --readonly 规则保证可读）
+      rate.classList.add('tokui-rate--readonly');
+    } else if (node.attrs.dis === undefined) {
       rate.addEventListener('mouseover', function(e) {
         var t = e.target;
         if (!t.classList.contains('tokui-rate__star')) return;
@@ -1553,13 +1651,50 @@ function registerFormComponents(renderer) {
     if (textColor) style += 'color:' + textColor + ';';
     if (node.attrs.radius) style += 'border-radius:' + node.attrs.radius + ';';
     if (style) attrs.style = style;
-    const text = node.attrs.tx || node.content || '按钮';
-    const btn = el('button', attrs, text);
+    const text = node.attrs.tx || node.content || '';
+    const iconName = node.attrs.icon;
+    const emoji = node.attrs.i;
+    const iconHtml = iconName ? iconSvg(iconName, 16) : '';
+    const hasIcon = !!(iconName || emoji);
+
+    const btn = el('button', attrs);
     btn._tokuiType = 'btn';
+
+    // icon-only 模式：无文字但有图标 → 紧凑钮 + aria-label + CSS tooltip
+    const iconOnly = !text && hasIcon;
+    if (iconOnly) {
+      btn.classList.add('tokui-btn--icon-only');
+      const label = node.attrs.l || node.attrs.tt || iconName || '';
+      if (label) {
+        btn.setAttribute('aria-label', label);
+        btn.setAttribute('data-tokui-tip', label);
+      }
+    }
+
+    // 注图标 span（SVG 优先，否则 emoji；icon 属性存在即建 span，未知名留空不崩）
+    if (iconName) {
+      const iconSpan = el('span', { class: 'tokui-btn__icon' });
+      iconSpan.innerHTML = iconHtml;
+      btn.appendChild(iconSpan);
+      btn.classList.add('tokui-btn--has-icon');
+    } else if (emoji) {
+      const iconSpan = el('span', { class: 'tokui-btn__icon tokui-btn__icon--emoji' }, emoji);
+      btn.appendChild(iconSpan);
+      btn.classList.add('tokui-btn--has-icon');
+    }
+
+    // 注文字 span（引用存档，供 _update 精准更新）
+    let textSpan = null;
+    if (text) {
+      textSpan = el('span', { class: 'tokui-btn__text' }, text);
+      btn.appendChild(textSpan);
+    }
+    btn._tokuiTextSpan = textSpan;
+
     btn._update = function (uAttrs) {
       if (uAttrs.dis === true || uAttrs.dis === 'true') btn.disabled = true;
       else if (uAttrs.dis === false || uAttrs.dis === 'false') btn.disabled = false;
-      if (uAttrs.tx !== undefined) btn.textContent = uAttrs.tx;
+      if (uAttrs.tx !== undefined && textSpan) textSpan.textContent = uAttrs.tx;
     };
     return btn;
   });
@@ -2784,7 +2919,9 @@ if (typeof window !== 'undefined') {
   window.TokUI = window.TokUI || {};
   window.TokUI._internal = window.TokUI._internal || {};
   window.TokUI._internal.registerFormComponents = registerFormComponents;
+  window.TokUI._internal._parseOptShorthand = _parseOptShorthand;
+  window.TokUI._internal._expandOptChildren = _expandOptChildren;
 }
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { registerFormComponents };
+  module.exports = { registerFormComponents, _parseOptShorthand, _expandOptChildren };
 }

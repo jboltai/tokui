@@ -45,6 +45,7 @@ v:"primary,sm"                               ; 多变体用逗号分隔，渲染
 | `req` | required | 必填 |
 | `chk` | checked | 选中 |
 | `multi` | multiple | 多选 |
+| `opt` | options | 多选项简写串 `v:label;…`，radio/checkbox/select 共用，**必须双引号** |
 | `w` | width | 宽度 |
 | `h` | height | 高度 |
 | `bg` | background | 背景色 |
@@ -118,12 +119,14 @@ v:avatar                         ; 图片头像样式
 | Tag | 类型 | 常用属性 | 说明 |
 |-----|------|----------|------|
 | `tag` | 自闭合 | `tx` `t` `s` `round` `closable` `bordered` | 标签 |
-| `callout` | 自闭合 | `t` `tt` `tx` | 提示框 |
+| `callout` | 自闭合/容器 | `t` `tt` `tx` | 提示框（流式优先容器模式 `[callout t:info]文[/callout]` 真流式；自闭合 `tx:` 一次性） |
 | `spin` | 自闭合 | `t` `s` `tx` | 加载指示器 |
 | `skeleton` | 自闭合 | `t` `rows` `w` `h` | 骨架屏 |
 | `shimmer` | 自闭合 | `t` `rows` | 闪光骨架 |
 | `empty` | 自闭合 | `tx` `icon` `s` | 空状态 |
 | `result` | 自闭合 | `t` `tt` `tx` | 结果页 |
+| `barcode` | 自闭合 | `tx` `l` `s` | Code128 条形码（`s`:sm/md/lg），运单号/订单号/序列号 |
+| `qrcode` | 自闭合 | `tx` `l` `s` `ec` | QR 二维码（`s`:sm/md/lg，`ec`:L/M/Q/H），URL/文本/UTF-8 |
 | `dot` | 自闭合 | `t` `tx` `s` `pulse` | 状态点 |
 | `badge` | 自闭合 | `count` `dot` `t` `tx` `pill` `size` | 徽标 |
 | `badge-box` | 容器 | `t` `dot` `count` `overflow` `label` | 包裹子元素 + 角标（点/数字/文字），`t`：primary/success/warning/info/error |
@@ -251,15 +254,15 @@ v:avatar                         ; 图片头像样式
 | `input` | 自闭合 | `t` `l` `ph` `id` `n` `val` `v` `w` `hint` `search` | 输入框 |
 | `pwd` | 自闭合 | 同 `input` + `toggle` | 密码框 |
 | `textarea` | 容器 | `l` `ph` `rows` `maxrows` `maxlen` `auto` `tx` `dis` `ro` `req` | 多行文本 |
-| `select` | 容器 | `l` `ph` `multi` `id` `n` `req` `v` | 下拉选择，子：`opt` |
-| `radio` | 容器 | `l` `id` `n` `v` | 单选组，子：`opt` |
+| `select` | 容器 | `l` `ph` `multi` `id` `n` `req` `v` `opt` | 下拉选择，子：`opt`；`opt:"v:标签;…"` 简写自闭合展开 |
+| `radio` | 容器 | `l` `id` `n` `v` `opt` | 单选组，子：`opt`；`opt:"v:标签;…"` 简写自闭合展开 |
 | `opt` | 自闭合 | `v` `tx` `chk` | 选项 |
-| `checkbox` | 自闭合 | `l` `chk` `id` `n` `v` | 复选框 |
+| `checkbox` | 自闭合/容器 | `l` `chk` `id` `n` `v` `opt` `multi` | 复选框（**三态**：单布尔 / `opt:"…"` 简写多选 / `multi` 容器多选，详见下文） |
 | `switch` | 自闭合 | `l` `chk` `dis` `clk` `id` `n` `v` | 开关 |
 | `slider` | 自闭合 | `l` `min` `max` `step` `v` `dis` `clk` `id` `n` | 滑块 |
 | `rate` | 自闭合 | `l` `v` `max` `clk` `dis` `tx` | 评分 |
 | `numinput` | 自闭合 | `v` `min` `max` `step` `dis` `id` `n` `l` | 数字输入 |
-| `btn` | 自闭合 | `tx` `clk` `sub` `id` `dis` `w` `bg` `fc` `radius` `t` `v` | 按钮 |
+| `btn` | 自闭合 | `tx` `clk` `sub` `id` `dis` `w` `bg` `fc` `radius` `t` `v` `icon` `i` `l` | 按钮（`icon:NAME` SVG 图标 / `i:GLYPH` emoji / `l:` icon-only 标签+tooltip） |
 | `btngroup` | 容器 | `id` `v` | 按钮组 |
 | `picker` | 容器 | `l` `ph` `multi` `dis` `id` `n` `v` | 选择器 |
 | `cascader` | 容器 | `l` `ph` `dis` `clk` `v` `id` `n` | 级联选择 |
@@ -268,6 +271,46 @@ v:avatar                         ; 图片头像样式
 | `timepicker` | 自闭合 | `l` `ph` `fmt` `v` `clk` `dis` `id` `n` | 时间选择 |
 | `datetimepicker` | 自闭合 | `l` `ph` `fmt` `v` `clk` `dis` `id` `n` | 日期时间选择 |
 | `transfer` | 容器 | `l` `tt` `tt2` `clk` `id` `dis` `n` | 穿梭框 |
+
+**`opt:"..."` 选项简写（radio / checkbox / select 通用）**：用 `;` 分隔项、`:` 分隔 value:label（`:` 与 label 可缺，则等于 value），整串**必须双引号包裹**（含 `;`/`:` 会被属性切分吞掉）。等价于在容器内手写多个 `opt`。
+
+```tokui
+[radio n:gender l:性别 opt:"1:男;2:女"]              ;; 等价 [radio n:gender l:性别][opt v:1 tx:男][opt v:2 tx:女][/radio]
+[select n:city l:城市 opt:"bj:北京;sh:上海"]
+[checkbox n:agree l:品牌 opt:"1:篮球;2:足球;3:羽毛球"]
+```
+
+**checkbox 三态（按是否带 `opt` / `multi` 自动判定）**：
+
+| 形态 | 判定 | 写法 | 提交值 |
+|------|------|------|--------|
+| 单布尔（legacy） | 无 `opt` 无 `multi` | `[checkbox l:同意协议 n:agree]` | 布尔（勾选=该 name 出现在表单） |
+| 简写多选 | 有 `opt` | `[checkbox n:brand l:品牌 opt:"1:篮球;2:足球"]` | `data[brand]` = 数组（如 `["1","2"]`） |
+| 容器多选 | 有 `multi` | `[checkbox n:brand l:品牌 multi][opt v:1 tx:篮球]…[/checkbox]` | `data[brand]` = 数组 |
+
+```tokui
+[checkbox l:同意协议 n:agree]                                          ;; 单布尔
+[checkbox n:brand l:品牌 opt:"1:篮球;2:足球;3:羽毛球"]                 ;; 简写多选（自闭合）
+[checkbox n:brand l:品牌 multi]                                       ;; 容器多选（multi 标记，需 [/checkbox] 闭合）
+  [opt v:1 tx:篮球]
+  [opt v:2 tx:足球]
+[/checkbox]
+```
+
+**radio/checkbox 选项排列（`v:` 手动标记，不在变体白名单）**：
+
+| 标记 | 排列 | 说明 |
+|------|------|------|
+| 默认 | 横排 | `flex` 横向，自动换行；移动端（≤640px）自动转竖排 |
+| `v:inline` | 标签与控件同行 | label 不再独占一行，组仍横排 |
+| `v:vertical` | 竖排左对齐 | 选项列向堆叠、左对齐；与 `inline` 互斥 |
+
+```tokui
+[radio n:ch l:渠道 v:vertical opt:"1:官方网站;2:手机APP;3:小程序"]      ;; radio 竖排
+[checkbox n:f l:功能 v:vertical opt:"1:即时通讯;2:会议;3:日历;4:云盘"]  ;; checkbox 竖排多选
+```
+
+多选提交走原生 FormData → `data[name]` 为**数组**（renderer 的 `_collectFormData` 收集同 name 的多个勾选项）。radio 始终单值；select 多值由其原生 `multiple` 决定。
 
 ### 5.7 数据与图表
 
@@ -310,6 +353,12 @@ v:avatar                         ; 图片头像样式
 
 [btn tx:"点击我" v:primary clk:handleClick]
 
+;; 图标按钮：icon:NAME 出内置 SVG（自动继承钮色），i:GLYPH 出 emoji，l: 提供 icon-only 的 tooltip+无障碍
+[btn icon:view tx:详情 t:primary clk:handleView]
+[btn icon:delete l:删除 t:danger clk:handleDelete]   ;; icon-only，悬停显"删除"
+[btn i:🔍 tx:搜索 clk:handleSearch]
+;; 图标名：view edit delete add copy download upload refresh check close search setting warn info lock unlock more save export filter sort star link menu
+
 [card tt:"用户信息"]
   [row]
     [col span:6]
@@ -333,6 +382,14 @@ v:avatar                         ; 图片头像样式
   [tbody]
     [tr 张三,25,北京]
     [tr 李四,30,上海]
+  [/tbody]
+[/table]
+
+;; 操作列：单元格以 btn: 开头，| 分隔多钮；支持 icon(SVG)/i(emoji)/l(标签+tooltip)/v(配色)
+[table stripe]
+  [thead cols:"姓名,操作"]
+  [tbody]
+    [tr 张三,btn: icon:view l:详情 v:primary clk:handleView|btn: icon:edit l:编辑 v:warning clk:handleEdit|btn: icon:delete l:删除 v:danger clk:handleDelete]
   [/tbody]
 [/table]
 

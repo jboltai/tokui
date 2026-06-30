@@ -111,6 +111,25 @@ test('one-shot accordion: 无 open 属性时全部收起（control）', () => {
   assert.strictEqual(items[1].hasAttribute('open'), false, '第二项应收起');
 });
 
+// === checkbox 容器多选流式 ===
+test('streaming checkbox multi: opt 边到边挂入组并注入共享 name', () => {
+  const container = document.createElement('div');
+  const t = new TokUI({ container, streaming: true });
+  t.startStream(container);
+  t.feed('[checkbox n:brand l:品牌 multi][opt v:1 tx:篮球][opt v:2 tx:足球]');
+  const group = findByClass(container, 'tokui-checkbox-group');
+  assert.ok(group, 'checkbox-group 存在');
+  const inputs = group.querySelectorAll('input[type=checkbox][name=brand]');
+  assert.ok(inputs.length >= 2, '至少挂入 2 个 checkbox');
+  assert.strictEqual(inputs[0].value, '1');
+  assert.strictEqual(inputs[1].value, '2');
+  // 共享 name 必须真实注入（DOM mock 的 querySelectorAll 不严格解析无引号属性选择器，
+  // 故直接读 .name IDL 以确保流式 opt 注入了共享 name，而非空字符串）
+  assert.strictEqual(inputs[0].name, 'brand', 'opt #1 共享 name=brand');
+  assert.strictEqual(inputs[1].name, 'brand', 'opt #2 共享 name=brand');
+  t.endStream();
+});
+
 function run() {
   console.log('');
   tests.forEach(t => {

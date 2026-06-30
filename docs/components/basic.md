@@ -93,6 +93,9 @@
 | `w` | 宽度 | `w:200` |
 | `bg` / `fc` | 背景色 / 文字色 | `bg:4f46e5` |
 | `v` | 变体（类型/尺寸/形状） | `v:"primary,pill"` |
+| `icon` | SVG 图标名（自动继承钮色） | `icon:view` |
+| `i` | emoji / 字符图标 | `i:🔍` |
+| `l` | icon-only 标签（无障碍 + 悬停 tooltip） | `l:删除` |
 
 > **内置动作**：`sub` / `reset` / `print` 由 renderer 自动解析，无需 `registerHandler`（仅 `sub` 的业务回调仍需注册）。优先级 `print > reset > submit > clk`。详见[表单组件 · 表单动作](/components/form#表单动作-提交-重置-数据收集)与[打印区](/components/form#打印区-print-area)。
 
@@ -100,6 +103,19 @@
 **尺寸/形状变体**：`sm` / `lg` / `pill`（圆角）/ `square`（直角）/ `block`（块级宽）。
 
 <Playground dsl='[btngroup][btn tx:主要 v:primary][btn tx:成功 v:success][btn tx:警告 v:warning][btn tx:危险 v:danger][btn tx:幽灵 v:ghost][/btngroup][p v:muted][btn tx:小 v:"primary,sm"] [btn tx:默认 v:primary] [btn tx:大 v:"primary,lg"][btn tx:块级 v:"primary,block" tx:占满整行][/p][p v:muted][btn tx:圆角 v:"primary,pill"] [btn tx:直角 v:"primary,square"] [btn tx:禁用 v:primary dis][/p]' />
+
+### 图标按钮
+
+两种图标来源，`[btn]` 与[表格操作列](/components/data#操作列)通用：
+
+- `icon:NAME` — 内置 SVG（Lucide 风格 stroke，`stroke=currentColor` 自动继承钮色）
+- `i:GLYPH` — emoji / 字符（字面渲染）
+
+无 `tx` 时为 **icon-only**：自动紧凑钮，`l:` 提供无障碍 `aria-label` + 悬停 tooltip。
+
+**图标名表**：`view edit delete add copy download upload refresh check close search setting warn info lock unlock more save export filter sort star link menu`
+
+<Playground dsl='[btngroup][btn icon:view tx:详情 t:primary clk:toast][btn icon:edit tx:编辑 t:warning clk:toast][btn icon:delete l:删除 t:danger clk:toast][btn i:🔍 tx:搜索 clk:toast][/btngroup][p v:muted]前三个为 icon+文字（彩色），第三个为 icon-only（悬停显"删除"），末个 emoji。[/p]' />
 
 > `clk:` / `sub:` 指向的处理器需通过 `TokUI.registerHandler(name, fn)` 预先注册，DSL 本身不含可执行代码。
 
@@ -120,17 +136,48 @@
 
 ## 提示框 `callout`
 
-带图标的信息提示，自闭合。
+带图标的信息提示。**双模**：自闭合 `[callout t:info tx:文本]` 与容器 `[callout t:info]文本[/callout]` 均可。
 
 | 属性 | 含义 | 示例 |
 |------|------|------|
 | `t` | 类型 | `t:success` |
 | `tt` | 标题 | `tt:操作成功` |
-| `tx` | 正文 | `tx:已保存` |
+| `tx` | 正文（自闭合用） | `tx:已保存` |
 
 **类型**：`info` / `success` / `warning` / `error` / `tip`。
 
+> **流式**：长文本用容器模式 `[callout t:info]...[/callout]`，正文逐字流式（自闭合 `tx:` 在 `]` 处一次性出）。详见[流式渲染优先级](/guide/streaming#流式渲染优先级-组件如何流)。
+
 <Playground dsl='[callout t:info tt:信息提示]这是一条普通信息提示。[/callout][callout t:success tt:操作成功]数据已成功保存。[/callout][callout t:warning tt:请注意]该操作不可撤销。[/callout][callout t:error tt:发生错误]请求失败，请稍后重试。[/callout]' />
+
+## 条形码 `barcode`
+
+Code128 Set B 纯 SVG 条码（零依赖），适用运单号/订单号/序列号等字母数字变长数据。扫描器自动识别。
+
+| 属性 | 含义 | 示例 |
+|------|------|------|
+| `tx` | 编码数据（同时作条码下方可读文本） | `tx:"SF1026883749"` |
+| `l` / `tt` | 顶部标签 | `l:"运单号"` |
+| `s` | 尺寸 `sm`/`md`/`lg`（默认 `md`，兼容 `small`/`medium`/`large`） | `s:medium` |
+
+> 支持可见 ASCII（32~126）。条码保持模块比例（`preserveAspectRatio meet`），缩放不变形、可扫描。
+
+<Playground dsl='[barcode tx:"SF1026883749" l:"运单号" s:medium][row][col span:6][barcode tx:"PO-2026-0042" l:"采购单" s:sm][/col][col span:6][barcode tx:"SN88001122334455" l:"序列号" s:lg][/col][/row]' />
+
+## 二维码 `qrcode`
+
+纯 SVG QR 码（矩阵生成 vendored 自 `qrcode-generator` Arase, MIT；本仓库零 npm 依赖）。支持 URL/文本/UTF-8 中文。
+
+| 属性 | 含义 | 示例 |
+|------|------|------|
+| `tx` | 编码数据（URL/文本，UTF-8） | `tx:"https://tokui.jboltai.com"` |
+| `l` / `tt` | 下方标签 | `l:"扫码访问"` |
+| `s` | 尺寸 `sm`/`md`/`lg`（默认 `md`） | `s:md` |
+| `ec` | 纠错级 `L`(7%)/`M`(15%)/`Q`(25%)/`H`(30%)，默认 `M` | `ec:H` |
+
+> 含 4 模块静默区（quiet zone）+ 白底，`shape-rendering=crispEdges`、`preserveAspectRatio meet` 保持模块比例，缩放可扫描。纠错级越高越抗污损但模块越密。
+
+<Playground dsl='[qrcode tx:"https://tokui.jboltai.com" l:"TokUI 官网" s:md ec:M][row][col span:6][qrcode tx:"https://github.com/jboltai/tokui" l:"GitHub" s:sm][/col][col span:6][qrcode tx:"WIFI:S:TokUI-Guest;T:WPA;P:welcome;;" l:"Wi-Fi" s:lg ec:H][/col][/row]' />
 
 ## 状态点 `dot`
 

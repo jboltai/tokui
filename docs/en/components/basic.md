@@ -91,11 +91,27 @@ Hyperlink, self-closing. `u` is the URL, `tx` is the text, and `target` controls
 | `bg` / `fc` | Background / text color | `bg:4f46e5` |
 | `t` | Native type | `t:reset` |
 | `v` | Variant (type / size / shape) | `v:"primary,pill"` |
+| `icon` | SVG icon name (inherits button color) | `icon:view` |
+| `i` | emoji / character icon | `i:🔍` |
+| `l` | icon-only label (a11y + hover tooltip) | `l:删除` |
 
 **Type variants**: `primary` / `danger` / `success` / `warning` / `ghost`.
 **Size / shape variants**: `sm` / `lg` / `pill` (rounded) / `square` (sharp corners) / `block` (full-width).
 
 <Playground dsl='[btngroup][btn tx:主要 v:primary][btn tx:成功 v:success][btn tx:警告 v:warning][btn tx:危险 v:danger][btn tx:幽灵 v:ghost][/btngroup][p v:muted][btn tx:小 v:"primary,sm"] [btn tx:默认 v:primary] [btn tx:大 v:"primary,lg"][btn tx:块级 v:"primary,block" tx:占满整行][/p][p v:muted][btn tx:圆角 v:"primary,pill"] [btn tx:直角 v:"primary,square"] [btn tx:禁用 v:primary dis][/p]' />
+
+### Icon Buttons
+
+Two icon sources, shared by `[btn]` and the [table action column](/en/components/data#action-column):
+
+- `icon:NAME` — built-in SVG (Lucide-style stroke, `stroke=currentColor` inherits button color)
+- `i:GLYPH` — emoji / character (rendered verbatim)
+
+Without `tx` it becomes an **icon-only** button: auto-compacted, `l:` provides the `aria-label` + hover tooltip.
+
+**Icon names**: `view edit delete add copy download upload refresh check close search setting warn info lock unlock more save export filter sort star link menu`
+
+<Playground dsl='[btngroup][btn icon:view tx:详情 t:primary clk:toast][btn icon:edit tx:编辑 t:warning clk:toast][btn icon:delete l:删除 t:danger clk:toast][btn i:🔍 tx:搜索 clk:toast][/btngroup][p v:muted]First three are icon+text (colored), third is icon-only (hover shows "删除"), last is emoji.[/p]' />
 
 > Handlers referenced by `clk:` / `sub:` must be pre-registered via `TokUI.registerHandler(name, fn)`; the DSL itself never carries executable code.
 
@@ -127,6 +143,35 @@ Informational prompt with an icon, self-closing.
 **Types**: `info` / `success` / `warning` / `error` / `tip`.
 
 <Playground dsl='[callout t:info tt:信息提示]这是一条普通信息提示。[/callout][callout t:success tt:操作成功]数据已成功保存。[/callout][callout t:warning tt:请注意]该操作不可撤销。[/callout][callout t:error tt:发生错误]请求失败，请稍后重试。[/callout]' />
+
+## Barcode `barcode`
+
+Code128 Set B pure-SVG barcode (zero-dependency). Suited for tracking/order/serial numbers — any variable-length alphanumeric data. Scanners auto-detect.
+
+| Prop | Meaning | Example |
+|------|---------|---------|
+| `tx` | data to encode (also shown as human-readable text below) | `tx:"SF1026883749"` |
+| `l` / `tt` | top label | `l:"运单号"` |
+| `s` | size `sm`/`md`/`lg` (default `md`; accepts `small`/`medium`/`large`) | `s:medium` |
+
+> Visible ASCII only (32–126). Module ratio is preserved (`preserveAspectRatio meet`) so scaling stays scannable.
+
+<Playground dsl='[barcode tx:"SF1026883749" l:"运单号" s:medium][row][col span:6][barcode tx:"PO-2026-0042" l:"采购单" s:sm][/col][col span:6][barcode tx:"SN88001122334455" l:"序列号" s:lg][/col][/row]' />
+
+## QR Code `qrcode`
+
+Pure-SVG QR code (matrix generation vendored from `qrcode-generator` by Arase, MIT; this repo stays zero-npm-dependency). Supports URL / text / UTF-8.
+
+| Prop | Meaning | Example |
+|------|---------|---------|
+| `tx` | data to encode (URL/text, UTF-8) | `tx:"https://tokui.jboltai.com"` |
+| `l` / `tt` | label below | `l:"Scan to visit"` |
+| `s` | size `sm`/`md`/`lg` (default `md`) | `s:md` |
+| `ec` | error correction `L`(7%)/`M`(15%)/`Q`(25%)/`H`(30%), default `M` | `ec:H` |
+
+> Includes a 4-module quiet zone + white background, `shape-rendering=crispEdges` and `preserveAspectRatio=meet` to keep modules proportional and scannable when scaled. Higher EC tolerates more damage but is denser.
+
+<Playground dsl='[qrcode tx:"https://tokui.jboltai.com" l:"TokUI 官网" s:md ec:M][row][col span:6][qrcode tx:"https://github.com/jboltai/tokui" l:"GitHub" s:sm][/col][col span:6][qrcode tx:"WIFI:S:TokUI-Guest;T:WPA;P:welcome;;" l:"Wi-Fi" s:lg ec:H][/col][/row]' />
 
 ## Status Dot `dot`
 

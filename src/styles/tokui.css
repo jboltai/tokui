@@ -371,6 +371,14 @@ a + .tokui-btn, .tokui-link + .tokui-btn, .tokui-tag + .tokui-btn { margin-left:
 .tokui-radio-item:has(.tokui-radio-input:checked)::after { transform: translateY(-50%) scale(1); }
 .tokui-radio-item:has(.tokui-radio-input:focus-visible)::before { box-shadow: 0 0 0 2px var(--tokui-primary-focus); }
 
+/* === 多选按钮组 === */
+.tokui-checkbox-group { display: flex; gap: 16px; flex-wrap: wrap; }
+.tokui-checkbox-item { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.tokui-checkbox-item .tokui-checkbox-input { cursor: pointer; margin: 0; }
+.tokui-checkbox-item .tokui-checkbox-text { user-select: none; }
+/* 竖排左对齐（v:vertical）：列向 flex，align-items:flex-start 即左对齐 */
+.tokui-radio-group--vertical, .tokui-checkbox-group--vertical { flex-direction: column; align-items: flex-start; gap: 8px; flex-wrap: nowrap; }
+
 /* === 复选框 === */
 .tokui-checkbox { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 0.9rem; }
 .tokui-checkbox--inline { display: inline-flex; margin-right: 16px; }
@@ -675,6 +683,12 @@ a + .tokui-btn, .tokui-link + .tokui-btn, .tokui-tag + .tokui-btn { margin-left:
 .tokui-rate--sm { font-size: 18px; }
 .tokui-rate--lg { font-size: 36px; }
 .tokui-rate--disabled { opacity: 0.5; pointer-events: none; }
+/* 只读模式：报告/结果展示用——实心星满色金、空心星可见灰（非淡 border），无暗化、不可操作 */
+.tokui-rate--readonly { pointer-events: none; }
+.tokui-rate--readonly .tokui-rate__star { color: var(--tokui-text-disabled, rgba(0, 0, 0, 0.25)); }
+.tokui-rate--readonly .tokui-rate__star--active { color: #f5a623; }
+.tokui-rate--readonly .tokui-rate__text { color: var(--tokui-text-secondary, rgba(0, 0, 0, 0.65)); font-weight: 500; }
+[data-tokui-theme="dark"] .tokui-rate--readonly .tokui-rate__star { color: rgba(255, 255, 255, 0.3); }
 [data-tokui-theme="dark"] .tokui-rate__star { color: rgba(255,255,255,0.25); }
 [data-tokui-theme="dark"] .tokui-rate__star--active { color: #f5a623; }
 [data-tokui-theme="dark"] .tokui-rate__star--hover { color: #f5c34b; }
@@ -926,6 +940,43 @@ textarea.tokui-textarea--auto { resize: none !important; }
 .tokui-tbtn--primary:hover { background: var(--tokui-primary); color: #fff; }
 .tokui-tbtn--danger { color: var(--tokui-danger); border-color: var(--tokui-danger); }
 .tokui-tbtn--danger:hover { background: var(--tokui-danger); color: #fff; }
+/* 操作列补色（既有仅 primary/danger） */
+.tokui-tbtn--warning { color: var(--tokui-warning); border-color: var(--tokui-warning); }
+.tokui-tbtn--warning:hover { background: var(--tokui-warning); color: var(--tokui-btn-warning-text); }
+.tokui-tbtn--success { color: var(--tokui-success); border-color: var(--tokui-success); }
+.tokui-tbtn--success:hover { background: var(--tokui-success); color: var(--tokui-btn-text-inverse); }
+.tokui-tbtn--info { color: var(--tokui-info, var(--tokui-primary)); border-color: var(--tokui-info, var(--tokui-primary)); }
+.tokui-tbtn--info:hover { background: var(--tokui-info, var(--tokui-primary)); color: var(--tokui-btn-text-inverse); }
+
+/* === 图标基础（[btn] 与操作列 tbtn 共用） === */
+.tokui-icon { display: inline-block; vertical-align: middle; flex-shrink: 0; }
+.tokui-btn__icon, .tokui-tbtn__icon { display: inline-flex; align-items: center; justify-content: center; }
+.tokui-btn__icon--emoji, .tokui-tbtn__icon--emoji { font-size: 1.1em; line-height: 1; }
+
+/* [btn] icon 对齐（btn 已 inline-flex） */
+.tokui-btn--has-icon { gap: 6px; }
+.tokui-btn--icon-only { padding: 8px; width: 36px; height: 36px; margin: 0 4px 0 0; }
+
+/* 操作列 tbtn icon */
+.tokui-tbtn--has-icon { gap: 4px; }
+.tokui-tbtn--icon-only { padding: 3px 6px; }
+
+/* === 自建 CSS tooltip（icon-only 按钮，复用既有 --tokui-tooltip-bg/text） === */
+.tokui-btn--icon-only[data-tokui-tip],
+.tokui-tbtn--icon-only[data-tokui-tip] { position: relative; }
+.tokui-btn--icon-only[data-tokui-tip]::after,
+.tokui-tbtn--icon-only[data-tokui-tip]::after {
+  content: attr(data-tokui-tip);
+  position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+  background: var(--tokui-tooltip-bg); color: var(--tokui-tooltip-text);
+  padding: 4px 8px; border-radius: 4px; font-size: 0.72rem; font-weight: 500;
+  white-space: nowrap; opacity: 0; pointer-events: none;
+  transition: opacity 0.15s; z-index: 100;
+}
+.tokui-btn--icon-only[data-tokui-tip]:hover::after,
+.tokui-btn--icon-only[data-tokui-tip]:focus-visible::after,
+.tokui-tbtn--icon-only[data-tokui-tip]:hover::after,
+.tokui-tbtn--icon-only[data-tokui-tip]:focus-visible::after { opacity: 1; }
 
 /* input/select 变体 */
 .tokui-input--error, .tokui-select--error { border-color: var(--tokui-danger); }
@@ -2080,12 +2131,12 @@ textarea.tokui-textarea--auto { resize: none !important; }
 .tokui-chart__svg[data-chart-type="histogram"],
 .tokui-chart__svg[data-chart-type="waterfall"],
 .tokui-chart__svg[data-chart-type="boxplot"] { max-width: 1400px; max-height: 600px; min-height: 200px; }
-/* 横向柱（orient:h）类别在 y 轴、高度随类别数线性增长，580 太挤 → 放宽到 800 */
-.tokui-chart__svg[data-chart-type="bar"][data-orient="h"] { max-height: 800px; }
+/* 横向柱（orient:h）类别在 y 轴、高度随类别数线性增长，viewBox 逻辑高最多 1200 → CSS 同步放到 1200 */
+.tokui-chart__svg[data-chart-type="bar"][data-orient="h"] { max-height: 1200px; }
 .tokui-chart__svg[data-chart-type="candlestick"] { max-width: 1400px; max-height: 600px; min-height: 220px; }
 .tokui-chart__svg[data-chart-type="gantt"] { max-width: 1400px; max-height: 640px; min-height: 200px; }
 .tokui-chart__svg[data-chart-type="pie"],
-.tokui-chart__svg[data-chart-type="donut"],
+.tokui-chart__svg[data-chart-type="donut"] { max-width: 600px; max-height: 600px; min-width: 320px; min-height: 320px; }
 .tokui-chart__svg[data-chart-type="radar"] { max-width: 600px; max-height: 600px; }
 .tokui-chart__svg[data-chart-type="gauge"] { max-width: 600px; max-height: 400px; }
 .tokui-chart__svg[data-chart-type="funnel"] { max-width: 1000px; max-height: 600px; }
@@ -2121,6 +2172,53 @@ textarea.tokui-textarea--auto { resize: none !important; }
   background: var(--tokui-text, #333); color: var(--tokui-bg, #fff);
   border-radius: 4px; pointer-events: none;
 }
+/* 图表全屏弹层：克隆 svg 独立放大查看（Esc / 点遮罩 / 关闭钮退出）*/
+.tokui-chart__modal {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px; box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.55);
+  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+  opacity: 0; transition: opacity 0.18s ease;
+}
+.tokui-chart__modal--open { opacity: 1; }
+.tokui-chart__modal-card {
+  position: relative;
+  width: 95vw; height: 95vh; max-width: 95vw; max-height: 95vh;
+  box-sizing: border-box;
+  background: var(--tokui-card-bg, var(--tokui-bg, #fff));
+  border: 1px solid var(--tokui-border, #eee);
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  padding: 20px;
+  display: flex; flex-direction: column;
+  transform: scale(0.96); transition: transform 0.18s ease;
+}
+.tokui-chart__modal--open .tokui-chart__modal-card { transform: scale(1); }
+.tokui-chart__modal-title {
+  font-size: 15px; font-weight: 600; color: var(--tokui-text, #333);
+  margin-bottom: 12px; padding-right: 32px;
+  flex: 0 0 auto;
+}
+.tokui-chart__modal-body {
+  flex: 1; min-height: 0; width: 100%;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+/* svg 撑满 body，preserveAspectRatio="meet" 自身等比缩放 → 宽高均不超视口 95% */
+.tokui-chart__modal-body > svg.tokui-chart__svg {
+  width: 100%; height: 100%; max-width: 100%; max-height: 100%;
+}
+.tokui-chart__modal-close {
+  position: absolute; top: 10px; right: 10px;
+  width: 30px; height: 30px; padding: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: none; border-radius: 6px; cursor: pointer;
+  background: transparent; color: var(--tokui-text-muted, #999);
+  transition: background 0.15s, color 0.15s;
+}
+.tokui-chart__modal-close:hover { background: var(--tokui-fill, #f5f5f5); color: var(--tokui-text, #333); }
+.tokui-chart__modal-close svg { width: 18px; height: 18px; display: block; }
 .tokui-chart__fallback {
   padding: 20px; color: var(--tokui-text-muted); font-size: 0.9rem;
   text-align: center; background: var(--tokui-stripe); border-radius: var(--tokui-radius);
@@ -2265,6 +2363,43 @@ textarea.tokui-textarea--auto { resize: none !important; }
   0% { background-position: -400px 0; }
   100% { background-position: 400px 0; }
 }
+
+/* === 条形码 barcode（Code128，纯 SVG） === */
+.tokui-barcode {
+  display: inline-flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 12px 16px; border: 1px solid var(--tokui-border); border-radius: var(--tokui-radius);
+  background: var(--tokui-component-bg, var(--tokui-bg)); color: var(--tokui-text);
+  max-width: 100%;
+}
+.tokui-barcode__label { font-size: 0.78rem; color: var(--tokui-text-secondary); letter-spacing: 0.02em; }
+.tokui-barcode__svg { width: 100%; display: flex; justify-content: center; }
+.tokui-barcode__svg svg { display: block; max-width: 100%; height: auto; }
+.tokui-barcode__text {
+  font-family: var(--tokui-font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 0.82rem; letter-spacing: 0.12em; color: var(--tokui-text);
+  word-break: break-all; text-align: center;
+}
+.tokui-barcode__empty { color: var(--tokui-text-secondary); font-size: 0.82rem; padding: 8px 0; }
+.tokui-barcode--sm { padding: 8px 12px; gap: 4px; }
+.tokui-barcode--sm .tokui-barcode__text { font-size: 0.74rem; }
+.tokui-barcode--lg { padding: 16px 22px; gap: 8px; }
+.tokui-barcode--lg .tokui-barcode__text { font-size: 0.9rem; }
+
+/* === 二维码 qrcode（QR Code，纯 SVG） === */
+.tokui-qrcode {
+  display: inline-flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 12px; border: 1px solid var(--tokui-border); border-radius: var(--tokui-radius);
+  background: var(--tokui-component-bg, var(--tokui-bg)); color: var(--tokui-text);
+}
+.tokui-qrcode__box { display: block; }
+.tokui-qrcode--sm .tokui-qrcode__box { width: 96px; }
+.tokui-qrcode--md .tokui-qrcode__box { width: 148px; }
+.tokui-qrcode--lg .tokui-qrcode__box { width: 208px; }
+.tokui-qrcode__svg { display: block; width: 100%; height: auto; }
+.tokui-qrcode__label { font-size: 0.78rem; color: var(--tokui-text-secondary); text-align: center; }
+.tokui-qrcode__empty { color: var(--tokui-text-secondary); font-size: 0.82rem; padding: 24px 16px; }
+.tokui-qrcode--sm { padding: 8px; }
+.tokui-qrcode--lg { padding: 16px; }
 
 /* === Toast 进出动画 === */
 @keyframes tokuiToastIn {
@@ -2443,13 +2578,13 @@ textarea.tokui-textarea--auto { resize: none !important; }
 .tokui-skeleton {
   display: flex; flex-direction: column; gap: 8px;
   animation: tokuiShimmer 1.5s infinite linear;
-  background: linear-gradient(90deg, var(--tokui-stripe, #f0f0f0) 25%, var(--tokui-border, #e0e0e0) 50%, var(--tokui-stripe, #f0f0f0) 75%);
+  background: linear-gradient(90deg, var(--tokui-skeleton-base, rgba(0,0,0,0.04)) 25%, var(--tokui-skeleton-shine, rgba(0,0,0,0.07)) 50%, var(--tokui-skeleton-base, rgba(0,0,0,0.04)) 75%);
   background-size: 800px 100%;
   border-radius: var(--tokui-radius, 6px); padding: 12px;
 }
 .tokui-skeleton__row {
   height: 14px; border-radius: 3px;
-  background: var(--tokui-border, #e0e0e0);
+  background: var(--tokui-skeleton-base, rgba(0, 0, 0, 0.04));
 }
 .tokui-skeleton__row:last-child { width: 60%; }
 .tokui-skeleton--card {
@@ -2457,10 +2592,10 @@ textarea.tokui-textarea--auto { resize: none !important; }
 }
 .tokui-skeleton__circle {
   width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
-  background: var(--tokui-border, #e0e0e0);
+  background: var(--tokui-skeleton-base, rgba(0, 0, 0, 0.04));
 }
 .tokui-skeleton__rect {
-  border-radius: 3px; background: var(--tokui-border, #e0e0e0);
+  border-radius: 3px; background: var(--tokui-skeleton-base, rgba(0, 0, 0, 0.04));
 }
 .tokui-skeleton--avatar .tokui-skeleton__circle {
   width: 64px; height: 64px;
@@ -2475,6 +2610,22 @@ textarea.tokui-textarea--auto { resize: none !important; }
   height: 14px; width: 70%; min-width: 28px;
   padding: 0; gap: 0; border-radius: 3px;
 }
+
+/* === 流式骨架占位（纯自闭合大块：stat/img/avatar/result/... 待 ] 到达 swap 为真节点） === */
+.tokui-stream-skeleton {
+  display: block;
+  background: linear-gradient(90deg, var(--tokui-skeleton-base, rgba(0,0,0,0.04)) 25%, var(--tokui-skeleton-shine, rgba(0,0,0,0.07)) 50%, var(--tokui-skeleton-base, rgba(0,0,0,0.04)) 75%);
+  background-size: 800px 100%;
+  animation: tokuiShimmer 1.5s infinite linear;
+  border-radius: var(--tokui-radius, 6px);
+  min-height: 40px;
+}
+.tokui-stream-skeleton--stat, .tokui-stream-skeleton--file, .tokui-stream-skeleton--attach, .tokui-stream-skeleton--commit { min-height: 72px; }
+.tokui-stream-skeleton--result, .tokui-stream-skeleton--empty { min-height: 140px; }
+.tokui-stream-skeleton--video { aspect-ratio: 16 / 9; min-height: 0; }
+.tokui-stream-skeleton--audio { min-height: 56px; }
+.tokui-stream-skeleton--img { min-height: 120px; }
+.tokui-stream-skeleton--avatar { width: 40px; height: 40px; min-height: 0; border-radius: 50%; }
 
 /* === Toast 轻提示 === */
 .tokui-toast-container {
@@ -2678,6 +2829,7 @@ textarea.tokui-textarea--auto { resize: none !important; }
   .tokui-row { grid-template-columns: 1fr; gap: 8px; }
   .tokui-col { grid-column: span 1 !important; }
   .tokui-radio-group { flex-direction: column; gap: 8px; }
+  .tokui-checkbox-group { flex-direction: column; gap: 8px; }
   .tokui-table { font-size: 0.8em; }
   .tokui-table th, .tokui-table td { padding: 6px 8px; }
   .tokui-img--avatar { width: 64px; height: 64px; }

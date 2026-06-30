@@ -83,6 +83,24 @@
 
 > **`tr` 含空格的解析器约束**：解析器按空格切 token，若某行带内联属性（`tag:`、`btn:`、`progress`；注意 `=cN`/`=rN` 是单元格尾缀、`v:total` 是行变体，**均不触发此约束**）或单元格内容含空格，**整行内容必须用双引号包裹**——例如 `[tr "任务 A,进度 80%,<...>"]`，否则空格后的部分会被误判为属性。详见 [DSL 语法](/guide/dsl-syntax)。
 
+### 操作列（内联按钮简写）
+
+单元格以 `btn:` 开头即识别为操作列，`|` 分隔多个按钮（无需 `registerHandler` 之外的额外注册，`clk:` 仍指向已注册处理器）：
+
+| 写法 | 说明 |
+|------|------|
+| `btn:文本 clk:H` | 文本按钮 |
+| `btn:文本 v:danger clk:H` | 带配色（`primary`/`danger`/`warning`/`success`/`info`） |
+| `btn:文本 icon:view clk:H` | SVG 图标 + 文字 |
+| `btn: i:🔍 clk:H` | emoji 图标 |
+| `btn: icon:delete l:删除 v:danger clk:H` | **icon-only**：`l:` 提供 tooltip + 无障碍标签 |
+
+图标名同 [按钮 · 图标按钮](/components/basic#图标按钮)。`icon:NAME` 出内置 SVG（自动继承钮色），`i:GLYPH` 出 emoji。
+
+<Playground dsl='[table stripe bordered][thead cols:"姓名,操作/c"][tbody][tr 张三,btn: icon:view l:详情 v:primary clk:toast|btn: icon:edit l:编辑 v:warning clk:toast|btn: icon:delete l:删除 v:danger clk:toast][tr 李四,btn:详情 clk:toast|btn:删除 v:danger clk:toast][/tbody][/table]' />
+
+> **流式**：操作列恒为末格，流式期显骨架、整格数据到齐（finalize）才渲染按钮——天然无半截 SVG / 无 emoji 代理对断裂。
+
 ### 列占位 `tcol`
 
 `thead` 不写 `cols` 时可改用 `tcol` 子节点逐列声明（`n` 列标题），适合动态生成列的场景。

@@ -137,33 +137,46 @@
 
 ## 单选组 `radio`
 
-`radio` 容器，子节点 `opt` 选项；同组互斥。
+`radio` 容器，子节点 `opt` 选项；同组同 `n` 互斥。两种写法：容器（`[opt]` 子项）或 `opt:"..."` 简写（自闭合，无需 `[/radio]`）。
 
 | 属性 | 含义 | 适用 |
 |------|------|------|
 | `l` | 组标签 | `radio` |
-| `n` | 字段名 | `radio` |
-| `v` | 变体 | `radio` |
+| `n` | 字段名（同组共享，提交键） | `radio` |
+| `id` | 组 ID | `radio` |
+| `v` | `inline`（标签与控件同行）/ `vertical`（选项竖排左对齐） | `radio` |
+| `opt` | 简写选项串 `opt:"v:文;v:文"`（自闭合写法，与 `[opt]` 子项二选一） | `radio` |
 | `tx` | 选项文本 | `opt` |
 | `v` | 选项值 | `opt` |
 | `chk` | 默认选中 | `opt` |
 
-<Playground dsl='[radio l:性别][opt 男][opt 女 chk][/radio][radio l:配送方式][opt 快递 chk][opt 自提][opt 同城配送][/radio]' />
+<Playground dsl='[radio l:性别 n:gender][opt v:1 tx:男][opt v:2 tx:女 chk][/radio][radio l:配送方式（简写） n:deliver opt:"1:快递;2:自提;3:同城配送"][radio l:渠道（竖排） n:ch v:vertical opt:"1:官方网站;2:手机APP;3:门店"]' />
 
 ## 复选框 `checkbox`
 
-自闭合。`l` 标签、`chk` 默认勾选。
+**三态**（按是否带 `opt` / `multi` 自动判定）：
 
-| 属性 | 含义 | 示例 |
+| 形态 | 判定 | 写法 | 提交值 |
+|------|------|------|--------|
+| 单布尔 | 无 `opt` 无 `multi`（自闭合） | `[checkbox l:同意协议 n:agree chk]` | 布尔（勾选=agree 出现） |
+| 简写多选 | 有 `opt`（自闭合） | `[checkbox n:tag l:标签 opt:"1:A;2:B;3:C"]` | `data.tag` = 数组 |
+| 容器多选 | 有 `multi`（容器） | `[checkbox n:tag l:标签 multi][opt v:1 tx:A chk][/checkbox]` | `data.tag` = 数组 |
+
+| 属性 | 含义 | 适用 |
 |------|------|------|
-| `l` | 标签 | `l:同意条款` |
-| `chk` | 默认勾选 | `chk` |
-| `n` | 字段名 | `n:agree` |
-| `v` | 选项值 | `v:1` |
-| `id` | 元素 ID | `id:agree` |
-| `dis` | 禁用 | `dis` |
+| `l` | 标签 | `checkbox` |
+| `n` | 字段名（多选提交键） | `checkbox` |
+| `opt` | 简写选项串（自闭合多选） | `checkbox` |
+| `multi` | 标记容器多选模式（需 `[/checkbox]`） | `checkbox` |
+| `v` | `inline`/`vertical` | `checkbox` |
+| `chk` | 默认勾选 / 选中 | `checkbox` / `opt` |
+| `dis` | 禁用 | `checkbox` |
 
-<Playground dsl='[checkbox l:我已阅读并同意服务条款 chk][checkbox l:订阅每周精选][checkbox l:禁用且勾选 chk dis]' />
+多选提交走原生 FormData，同 `n` 多值自动聚合为数组（如勾选 A、C → `data.tag = ["1","3"]`）。**单布尔 / 简写多选是自闭合，不写 `[/checkbox]`**；只有 `multi` 容器多选需要 `[/checkbox]`。
+
+> **取值按钮位置**（写错就拿不到数据）：放 form **内** `[form id:F sub:H]...[btn tx:提交 clk:H][/form]`（clk 自动收集所在 form）；或放 form **外**但必须加 `form:表单ID` 显式绑定 `[btn tx:提交 form:F clk:H]`。按钮在 form 外、又不写 `form:ID` → handler 收到 `null`。
+
+<Playground dsl='[checkbox l:我已阅读并同意服务条款 n:agree chk][checkbox l:订阅每周精选 n:weekly][checkbox l:禁用且勾选 n:x chk dis][checkbox n:tag l:标签（简写多选） opt:"1:篮球;2:足球;3:羽毛球"][checkbox n:f l:功能（竖排） v:vertical opt:"1:即时通讯;2:会议;3:日历;4:云盘"]' />
 
 ## 开关 `switch`
 

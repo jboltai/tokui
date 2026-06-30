@@ -101,6 +101,8 @@
   --tokui-border: rgba(255, 255, 255, 0.12);
   --tokui-bg: #141414;
   --tokui-stripe: rgba(255, 255, 255, 0.06);
+  --tokui-skeleton-base: rgba(255, 255, 255, 0.05);
+  --tokui-skeleton-shine: rgba(255, 255, 255, 0.09);
 
   /* 辅助色 */
   --tokui-dark: rgba(255, 255, 255, 0.85);

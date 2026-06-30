@@ -899,4 +899,42 @@ test('builder 表单+按钮+打印区组合（端到端 DSL 形态）', () => {
   assert.ok(out.indexOf('form:login reset') >= 0);
 });
 
+// === opt 简写：强制引号 + 双行为 ===
+test('checkbox opt 简写：强制双引号包裹', () => {
+  const b = new TokUIBuilder();
+  b.checkbox({ n: 'brand', opt: '1:篮球;2:足球;3:羽毛球' });
+  const out = b.toString();
+  assert.ok(out.indexOf('opt:"1:篮球;2:足球;3:羽毛球"') >= 0, 'opt 值须强制双引号: ' + out);
+  assert.ok(out.indexOf('[checkbox') >= 0 && out.indexOf('[/checkbox]') === -1, '简写为自闭合，无闭标签');
+});
+test('checkbox multi → 容器开标签', () => {
+  const b = new TokUIBuilder();
+  b.checkbox({ n: 'brand', multi: true }).opt({ v: '1', tx: '篮球' }).end();
+  const out = b.toString();
+  assert.ok(out.indexOf('[checkbox') >= 0, '开出 checkbox 开标签');
+  assert.ok(out.indexOf('[opt v:1 tx:篮球]') >= 0, 'opt 子节点');
+  assert.ok(out.indexOf('[/checkbox]') >= 0, '容器闭标签');
+});
+test('radio opt 简写：自闭合', () => {
+  const b = new TokUIBuilder();
+  b.radio({ n: 'gender', opt: '1:男;2:女' });
+  const out = b.toString();
+  assert.ok(out.indexOf('opt:"1:男;2:女"') >= 0);
+  assert.ok(out.indexOf('[/radio]') === -1, '简写自闭合无闭标签');
+});
+test('select opt 简写：自闭合', () => {
+  const b = new TokUIBuilder();
+  b.select({ n: 'city', opt: 'bj:北京;sh:上海' });
+  const out = b.toString();
+  assert.ok(out.indexOf('opt:"bj:北京;sh:上海"') >= 0);
+  assert.ok(out.indexOf('[/select]') === -1);
+});
+test('checkbox 单布尔：维持自闭合', () => {
+  const b = new TokUIBuilder();
+  b.checkbox({ l: '同意协议' });
+  const out = b.toString();
+  assert.ok(out.indexOf('[checkbox l:同意协议]') >= 0);
+  assert.ok(out.indexOf('[/checkbox]') === -1);
+});
+
 run();

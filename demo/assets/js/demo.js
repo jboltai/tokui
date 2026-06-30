@@ -51,8 +51,11 @@ const NAV_DATA = [
     items: [
       { trigger: 'demo-heading', name: { zh: '标题组件', en: 'Heading' }, desc: { zh: 'h1-h6 各级标题', en: 'h1-h6 headings' }, icon: 'H' },
       { trigger: 'demo-button', name: { zh: '按钮组件', en: 'Button' }, desc: { zh: '多类型多色彩按钮', en: 'Button types & colors' }, icon: '▶' },
+      { trigger: 'demo-icon', name: { zh: '图标按钮', en: 'Icon' }, desc: { zh: 'SVG icon + emoji 全场景', en: 'SVG icon + emoji all scenarios' }, icon: '★' },
       { trigger: 'demo-input', name: { zh: '输入框', en: 'Input' }, desc: { zh: '文本/数字/密码/邮箱', en: 'Text/number/password/email' }, icon: '✎' },
-      { trigger: 'demo-select-radio-check', name: { zh: '选择/单选/复选', en: 'Select/Radio/Check' }, desc: { zh: '下拉/单选组/复选框', en: 'Dropdowns & checkboxes' }, icon: '☑' },
+      { trigger: 'demo-select', name: { zh: '选择 Select', en: 'Select' }, desc: { zh: '下拉单选/多选/简写/inline/取值', en: 'Single/multi/shorthand/inline' }, icon: '☑' },
+      { trigger: 'demo-radio', name: { zh: '单选 Radio', en: 'Radio' }, desc: { zh: '单选组/简写/inline/取值', en: 'Group/shorthand/inline' }, icon: '◉' },
+      { trigger: 'demo-checkbox', name: { zh: '多选 Checkbox', en: 'Checkbox' }, desc: { zh: '单布尔/简写/容器多选/取值', en: 'Boolean/shorthand/multi' }, icon: '☒' },
       { trigger: 'show-picker', name: { zh: 'Picker选择器', en: 'Picker' }, desc: { zh: '自定义选择器/搜索/多选', en: 'Custom select/search/multi' }, icon: '⬇' },
       { trigger: 'show-basic', name: { zh: '段落与链接', en: 'Text & Link' }, desc: { zh: '文本段落、超链接、分割线', en: 'Paragraphs, links, hr' }, icon: '↗' },
       { trigger: 'demo-img', name: { zh: '图片组件', en: 'Image' }, desc: { zh: '单图/头像/圆角/边框', en: 'Single image variants' }, icon: '▣' },
@@ -187,6 +190,8 @@ const NAV_DATA = [
       { trigger: 'demo-chart-gantt', name: { zh: '甘特图', en: 'Gantt' }, desc: { zh: '项目排期/MES排程', en: 'Project/MES scheduling' }, icon: '📅' },
       { trigger: 'demo-chart-funnel', name: { zh: '漏斗图', en: 'Funnel' }, desc: { zh: '销售/转化漏斗', en: 'Sales/conversion funnel' }, icon: '🔻' },
       { trigger: 'demo-stat', name: { zh: '统计数值', en: 'Statistic' }, desc: { zh: '数据展示/趋势指示', en: 'Data display/trend' }, icon: '#' },
+      { trigger: 'demo-barcode', name: { zh: '条形码', en: 'Barcode' }, desc: { zh: 'Code128 运单/订单号', en: 'Code128 tracking/order' }, icon: '▮' },
+      { trigger: 'demo-qrcode', name: { zh: '二维码', en: 'QR Code' }, desc: { zh: 'QR 码 URL/文本/WiFi', en: 'QR URL/text/WiFi' }, icon: '▦' },
       { trigger: 'demo-badge', name: { zh: 'Badge 徽标数', en: 'Badge' }, desc: { zh: '数字徽标/小红点/状态标签/尺寸', en: 'Count/Dot/Status/Size' }, icon: '🏷' },
       { trigger: 'demo-dot', name: { zh: 'Dot 状态指示器', en: 'Dot' }, desc: { zh: '状态点/脉冲/尺寸', en: 'Status dot/pulse/size' }, icon: '🟢' },
       { trigger: 'demo-avatar', name: { zh: 'Avatar 头像', en: 'Avatar' }, desc: { zh: '文字/图片/自动配色', en: 'Text/image/auto-color' }, icon: '👤' },
@@ -282,7 +287,7 @@ const I18N = {
   action:         { zh: '操作', en: 'Action' },
   editClicked:    { zh: '编辑按钮被点击', en: 'Edit button clicked' },
   deleteClicked:  { zh: '删除按钮被点击', en: 'Delete button clicked' },
-  footerVer:      { zh: '当前版本:v0.1.2', en: 'Version: v0.1.2' },
+  footerVer:      { zh: '当前版本:v0.1.3', en: 'Version: v0.1.3' },
   footerCopy:     { zh: '零依赖 · 流式UI描述与渲染框架', en: 'Zero Deps · Streaming UI Framework' },
   dslRef:         { zh: 'DSL 语法速查', en: 'DSL Syntax Ref' },
   clearBtn:       { zh: '清空', en: 'Clear' },
@@ -521,6 +526,9 @@ TokUI.registerHandler('collectCardInputs', (data, event, element) => {
   addSystemMessage('输入数据', JSON.stringify(result, null, 2));
 });
 TokUI.registerHandler('handleMultiSelect', (data) => addSystemMessage('多选', JSON.stringify(data, null, 2)));
+TokUI.registerHandler('getSelectVal', (data) => addSystemMessage('Select 已选', JSON.stringify(data, null, 2)));
+TokUI.registerHandler('getRadioVal', (data) => addSystemMessage('Radio 已选', JSON.stringify(data, null, 2)));
+TokUI.registerHandler('getCheckboxVal', (data) => addSystemMessage('Checkbox 已选', JSON.stringify(data, null, 2)));
 TokUI.registerHandler('handleCrudSearch', (data) => addSystemMessage('查询', JSON.stringify(data, null, 2)));
 TokUI.registerHandler('handleCrudAdd', (data, _e, el) => { el.closest('dialog').close(); addSystemMessage('新增成功', JSON.stringify(data, null, 2)); });
 TokUI.registerHandler('handleCrudEdit', (data, _e, el) => { el.closest('dialog').close(); addSystemMessage('编辑成功', JSON.stringify(data, null, 2)); });

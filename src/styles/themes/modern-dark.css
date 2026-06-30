@@ -21,6 +21,9 @@
   --tokui-text-disabled: #52525B;
   --tokui-stripe: #1F1F22;
   --tokui-radius: 8px;
+  /* 骨架屏：半透明白轻量叠加，替代实色 stripe/border，避免过亮刺眼 */
+  --tokui-skeleton-base: rgba(255, 255, 255, 0.05);
+  --tokui-skeleton-shine: rgba(255, 255, 255, 0.09);
 
   /* ========== accent（base 蓝不变，hover/填充 dark 化） ========== */
   --tokui-primary-1: #1A2540;      /* dark 浅填充 = 深蓝 */
@@ -554,17 +557,17 @@
 [data-tokui-theme='modern-dark'] .tokui-spin__dot,
 [data-tokui-theme='modern-dark'] .tokui-spin__pulse { background: var(--tokui-primary-7); }
 
-/* Skeleton / Shimmer：dark 提对比 */
+/* Skeleton / Shimmer：半透明白轻量叠加（base/shine token），替代实色 bg-muted/border-strong，避免过亮刺眼 */
 [data-tokui-theme='modern-dark'] .tokui-skeleton {
-  background: linear-gradient(90deg, var(--tokui-bg-muted) 25%, var(--tokui-border-strong) 50%, var(--tokui-bg-muted) 75%);
+  background: linear-gradient(90deg, var(--tokui-skeleton-base) 25%, var(--tokui-skeleton-shine) 50%, var(--tokui-skeleton-base) 75%);
   background-size: 800px 100%; border-radius: var(--tokui-control-radius);
 }
 [data-tokui-theme='modern-dark'] .tokui-skeleton__row,
 [data-tokui-theme='modern-dark'] .tokui-skeleton__rect,
-[data-tokui-theme='modern-dark'] .tokui-skeleton__circle { background: var(--tokui-border-strong); }
+[data-tokui-theme='modern-dark'] .tokui-skeleton__circle { background: var(--tokui-skeleton-base); }
 [data-tokui-theme='modern-dark'] .tokui-shimmer__row,
 [data-tokui-theme='modern-dark'] .tokui-shimmer__circle {
-  background: linear-gradient(90deg, var(--tokui-bg-muted) 25%, var(--tokui-border-strong) 37%, var(--tokui-bg-muted) 63%);
+  background: linear-gradient(90deg, var(--tokui-skeleton-base) 25%, var(--tokui-skeleton-shine) 37%, var(--tokui-skeleton-base) 63%);
   background-size: 400% 100%;
 }
 
