@@ -93,6 +93,13 @@ function broadcastTokuiReset(form) {
  */
 'use strict';
 
+// i18n 取串（骨架加载态 aria / 渲染失败兜底文案）。
+// 浏览器经 window.TokUI._internal.t，Node 经 require('./i18n')。
+var _t = (typeof require === 'function')
+  ? require('./i18n').t
+  : (typeof window !== 'undefined' && window.TokUI && window.TokUI._internal && window.TokUI._internal.t)
+    || function (key) { return key; };
+
 /**
  * 创建 DOM 元素的快捷方法
  *
@@ -259,7 +266,7 @@ class TokUIRenderer {
       }
       var details = el('details', { class: 'tokui-error', 'data-tokui-type': node.type });
       var summary = el('summary', { class: 'tokui-error__summary' });
-      summary.textContent = '[' + node.type + '] 渲染失败';
+      summary.textContent = '[' + node.type + '] ' + _t('common.renderFailed');
       details.appendChild(summary);
       var errMsg = el('div', { class: 'tokui-error__detail' });
       errMsg.textContent = String(err.message || err);
@@ -465,7 +472,7 @@ class TokUIRenderer {
   // 用独立 .tokui-stream-skeleton 类，与用户向 <skeleton> 组件的 .tokui-skeleton 区分。
   _buildSkeleton(type) {
     return el('div', { class: 'tokui-stream-skeleton tokui-stream-skeleton--' + type,
-      'aria-label': '加载中', role: 'status' });
+      'aria-label': _t('common.loading'), role: 'status' });
   }
 
   /**

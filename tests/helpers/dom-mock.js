@@ -4,6 +4,10 @@
  */
 'use strict';
 
+// id → 元素 注册表：setAttribute('id') 登记，document.getElementById 查。
+// 供 upd 指令等依赖 getElementById 的派发路径测试。setupDOM 清空。
+var __idRegistry = {};
+
 // 从 innerHTML 字符串剥离标签，得到纯文本（粗略模拟浏览器 textContent 对 innerHTML 的解读）。
 // 不解码实体（&amp; 等）—— 测试场景的回退文本不含实体，保持简单。
 function stripTags(html) {
@@ -69,7 +73,9 @@ function createElement(tag) {
     setAttribute(key, value) {
       this.attributes[key] = String(value);
       if (key === 'class') this.className = String(value);
-      if (key === 'id') this.id = String(value);
+      if (key === 'id') {
+        __idRegistry[String(value)] = this; // 登记，供 document.getElementById 查
+      }
       // 表单控件 IDL 属性反射（真实浏览器行为）：setAttribute 同步到 .value/.name/.type/.checked
       // 供 form 组件测试直接读 input.checked / input.name / input.value（与浏览器一致）。
       if (key === 'name' || key === 'value' || key === 'type') {
@@ -227,7 +233,29 @@ function createElement(tag) {
   Object.defineProperty(el, 'innerHTML', {
     configurable: true,
     get() { return _innerHTML; },
-    set(v) { _innerHTML = String(v == null ? '' : v); },
+    // 浏览器语义：innerHTML setter 用（解析后的）新子节点替换全部旧子节点。
+    // mock 不解析 HTML，但必须清空 childNodes/children——否则 innerHTML='' 后旧节点残留，
+    // 与浏览器不一致（rerender() 等依赖 innerHTML='' 清容器的场景会节点翻倍）。
+    set(v) {
+      _innerHTML = String(v == null ? '' : v);
+      _textContent = '';
+      el.childNodes = [];
+      el.children = [];
+    },
+  });
+  // id 访问器：直接 el.id = x 与 setAttribute('id', x) 都走 setAttribute → 登记 idRegistry。
+  // 真实浏览器两者等价；slider/rate/numinput 等用 hidden.id = ... 直接赋值，需此访问器捕获。
+  Object.defineProperty(el, 'id', {
+    configurable: true,
+    enumerable: true,
+    get() { return this.attributes.id || ''; },
+    set(v) { this.setAttribute('id', v); },
+  });
+  // parentElement：父为元素节点时返 parentNode，否则 null（与真实 DOM 一致）。
+  // upd 派发等需向上 walk 元素链的逻辑用它。
+  Object.defineProperty(el, 'parentElement', {
+    configurable: true,
+    get() { return (this.parentNode && this.parentNode.nodeType === 1) ? this.parentNode : null; },
   });
 
   return el;
@@ -261,6 +289,7 @@ function createDocumentFragment() {
 }
 
 function setupDOM() {
+  __idRegistry = {}; // 每次装载体清空，隔离用例
   global.document = {
     createElement: createElement,
     createElementNS: createElementNS,
@@ -268,7 +297,8 @@ function setupDOM() {
     createDocumentFragment: createDocumentFragment,
     addEventListener: function() {},
     removeEventListener: function() {},
-    querySelectorAll: function() { return []; }
+    querySelectorAll: function() { return []; },
+    getElementById: function(id) { return __idRegistry[id] || null; }
   };
   global.FormData = MockFormData;
 }
@@ -276,6 +306,7 @@ function setupDOM() {
 function teardownDOM() {
   delete global.document;
   delete global.FormData;
+  __idRegistry = {};
 }
 
 /**

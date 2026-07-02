@@ -4,10 +4,10 @@
 
 ## Docs
 
-- [TokUI 演示主页](https://tokui_demo.jboltai.com): 组件画廊 + AI 对话式 SSE 流式渲染。左侧分类导航与搜索，触发关键词实时流式推送 DSL，前端增量渲染为 DOM，支持 default/dark/modern/modern-dark 四主题与中英双语切换。
-- [DSL 语法参考](https://tokui_demo.jboltai.com/TOKUI_DSL_REFERENCE.md): TokUI DSL 完整语法手册。自闭合与容器标签、属性简写（t/l/tx/ph/v 等）、布尔属性、变体 v:primary、表格流式 cell 级渲染、colspan/rowspan 合并、列对齐/列配色、按钮内置动作（submit/reset/print）与动态更新。
-- [演示包说明（中文）](https://tokui_demo.jboltai.com/README.md): demo 目录中文文档。特性概览、demo.sh 管理脚本（start/stop/restart/status）、目录结构、SSE 接口表、与主项目 TokUI 的快照关系及 demo:sync 刷新方式。
-- [演示包说明（英文）](https://tokui_demo.jboltai.com/README_EN.md): demo 目录英文文档。面向英文读者，覆盖同等特性、启动方式、目录结构、SSE 接口与主项目关系。
+- [TokUI 演示主页](https://tokui-demo.jboltai.com): 组件画廊 + AI 对话式 SSE 流式渲染。左侧分类导航与搜索，触发关键词实时流式推送 DSL，前端增量渲染为 DOM，支持 default/dark/modern/modern-dark 四主题与中英双语切换。
+- [DSL 语法参考](https://tokui-demo.jboltai.com/TOKUI_DSL_REFERENCE.md): TokUI DSL 完整语法手册。自闭合与容器标签、属性简写（t/l/tx/ph/v 等）、布尔属性、变体 v:primary、表格流式 cell 级渲染、colspan/rowspan 合并、列对齐/列配色、按钮内置动作（submit/reset/print）与动态更新。
+- [演示包说明（中文）](https://tokui-demo.jboltai.com/README.md): demo 目录中文文档。特性概览、demo.sh 管理脚本（start/stop/restart/status）、目录结构、SSE 接口表、与主项目 TokUI 的快照关系及 demo:sync 刷新方式。
+- [演示包说明（英文）](https://tokui-demo.jboltai.com/README_EN.md): demo 目录英文文档。面向英文读者，覆盖同等特性、启动方式、目录结构、SSE 接口与主项目关系。
 
 ## Source & Docs (off-site)
 
@@ -18,7 +18,7 @@
 
 ## Key Facts
 
-- 项目: TokUI（当前演示版本 v0.1.3）
+- 项目: TokUI（当前演示版本 v0.1.4）
 - 定位: 零依赖的流式 UI 描述与渲染框架，核心场景为 AI 对话中的流式 UI 生成
 - 架构: 后端 TokUIBuilder 生成 DSL → SSE 流式推送 → 前端 TokUIParser 增量解析 → TokUIRenderer 渲染真实 DOM
 - 组件数: 80+，含表格、表单、图表（柱状/折线/饼图/雷达/散点/甘特/漏斗/仪表盘）、卡片、栅格、列表、AI 对话气泡、流式 Markdown、代码高亮、时间线、步骤条等

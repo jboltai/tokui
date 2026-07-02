@@ -776,4 +776,54 @@ test('radio 默认横排无 --vertical 类', () => {
   assert.strictEqual(group.className.indexOf('tokui-radio-group--vertical'), -1, '默认无竖排类');
 });
 
+// === upd 指令派发：getElementById(id) → 向上找 _update 的组件根 ===
+// 回归：slider/rate/numinput/input 把 id 挂在内层 input、_update 挂在外层 wrapper，
+// upd handler 必须向上 walk 到 wrapper 才能命中 _update（旧实现直接取内层元素 → 静默失败）。
+test('upd 派发 slider v 更新（id 在 hidden、_update 在 field）', () => {
+  const rc = makeRenderer();
+  rc.render({ type: 'slider', attrs: { id: 'upd-s1', min: 0, max: 100, v: 0 }, children: [] });
+  rc.render({ type: 'upd', attrs: { id: 'upd-s1', v: '73' }, children: [] });
+  const val = document.getElementById('upd-s1').parentElement.querySelector('.tokui-slider__value').textContent;
+  assert.strictEqual(val, '73', 'slider 数值应随 upd 更新');
+});
+
+test('upd 派发 rate v 更新（id 在 hidden、_update 在 field）', () => {
+  const rc = makeRenderer();
+  rc.render({ type: 'rate', attrs: { id: 'upd-r1', max: 5 }, children: [] });
+  rc.render({ type: 'upd', attrs: { id: 'upd-r1', v: '4' }, children: [] });
+  const text = document.getElementById('upd-r1').parentElement.querySelector('.tokui-rate__text').textContent;
+  assert.strictEqual(text, '4/5', 'rate 评分应随 upd 更新');
+});
+
+test('upd 派发 numinput v 更新（id 在 input、_update 在 field）', () => {
+  const rc = makeRenderer();
+  rc.render({ type: 'numinput', attrs: { id: 'upd-n1', min: 0, max: 100, v: 0 }, children: [] });
+  rc.render({ type: 'upd', attrs: { id: 'upd-n1', v: '42' }, children: [] });
+  const input = document.getElementById('upd-n1');
+  assert.strictEqual(input.value, '42', 'numinput 值应随 upd 更新');
+});
+
+test('upd 派发 input ph 更新（id 在 input、_update 在 wrapper）', () => {
+  const rc = makeRenderer();
+  rc.render({ type: 'input', attrs: { id: 'upd-i1', ph: '旧占位' }, children: [] });
+  rc.render({ type: 'upd', attrs: { id: 'upd-i1', ph: '新占位' }, children: [] });
+  assert.strictEqual(document.getElementById('upd-i1').placeholder, '新占位', 'input placeholder 应随 upd 更新');
+});
+
+// 真实管道：builder upd({dis:false}) → [upd id:x dis:false] → parser 解析成字符串 'false'。
+// 旧 builder 把 false 整个跳过 → DSL 无 dis:false → 禁用态清不掉。此测试锁字符串路径。
+test('upd dis:"false" 字符串路径清除 disabled（builder→parser 管道）', () => {
+  const rc = makeRenderer();
+  rc.render({ type: 'input', attrs: { id: 'upd-i2', dis: true }, children: [] });
+  rc.render({ type: 'upd', attrs: { id: 'upd-i2', dis: 'false' }, children: [] });
+  assert.strictEqual(document.getElementById('upd-i2').disabled, false, 'dis:"false" 应清除禁用态');
+});
+
+test('upd ro:"false" 字符串路径清除 readonly', () => {
+  const rc = makeRenderer();
+  rc.render({ type: 'input', attrs: { id: 'upd-i3', ro: true }, children: [] });
+  rc.render({ type: 'upd', attrs: { id: 'upd-i3', ro: 'false' }, children: [] });
+  assert.strictEqual(document.getElementById('upd-i3').readOnly, false, 'ro:"false" 应清除只读态');
+});
+
 run();

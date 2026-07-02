@@ -20,6 +20,10 @@ global.window.innerWidth = 1024;
 var TokUIRenderer = require('../src/core/renderer').TokUIRenderer || require('../src/core/renderer');
 var registerBasicComponents = require('../src/components/basic').registerBasicComponents || require('../src/components/basic');
 
+// 本桩先设 global.window 再 require 组件，使 i18n 走浏览器分支按 navigator.language 自动探测；
+// Node 全局 navigator.language 非确定，故固定 zh-CN 匹配下文对「确定/取消/确认」默认文案的断言。
+require('../src/core/i18n').setLocale('zh-CN');
+
 function makeRenderer() {
   var rc = new TokUIRenderer();
   registerBasicComponents(rc);

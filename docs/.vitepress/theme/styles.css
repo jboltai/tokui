@@ -663,6 +663,31 @@ a, a:hover { text-decoration: none !important; }
   filter: brightness(0.95);
 }
 
+/* 首页 hero h1（.name = "TokUI"）右侧版本胶囊：真 <a>（enhanceApp 注入），跳 npm 包页。
+   跟随名字 em 缩放；版本号读 package.json，改版本无需手动。*/
+.VPHero .name .vp-version-link {
+  margin-left: 14px;
+  padding: 2px 10px;
+  font-family: var(--vp-font-family-mono);
+  font-size: 0.22em; /* 相对 .name（≈64px）→ ≈14px，响应式自动随缩 */
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0;
+  color: var(--vp-c-brand);
+  background: var(--vp-c-brand-soft);
+  border: 1px solid color-mix(in srgb, var(--vp-c-brand) 30%, transparent);
+  border-radius: 999px;
+  vertical-align: middle;
+  white-space: nowrap;
+  text-decoration: none !important;
+  transition: background 0.15s, border-color 0.15s;
+}
+.VPHero .name .vp-version-link:hover {
+  background: var(--vp-c-brand);
+  color: #fff;
+  border-color: var(--vp-c-brand);
+}
+
 /* 全站全宽：左导航钉 240px、废除 ≥1440 居中 gutter、内容列取消 688 硬卡 → Playground 画布最大化。
    病根：VitePress ≥1440 走「居中布局」——sidebar 宽 = calc((100%-(layout-max-64))/2 + sidebar - 32)，
    VPContent padding = calc((100vw-layout-max)/2 + sidebar)。一旦 layout-max > 视口（或想加宽 content）

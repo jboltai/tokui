@@ -425,8 +425,21 @@ class TokUIBuilder {
 
   // ========== 动态更新 ==========
 
-  /** Upd 异步更新指令（自闭合），推送状态更新到已有组件 */
-  upd(attrs) { return this._selfClosing('upd', null, attrs); }
+  /** Upd 异步更新指令（自闭合），推送状态更新到已有组件
+   *  注意：serializeAttrs 默认跳过 false 值（初始渲染 [input dis:false] 会被 parser
+   *  读成字符串 'false' 误判为 truthy → 反而禁用，故 false 必须省略）。
+   *  但 upd 的 dis:false / ro:false / chk:false 是「主动关闭」语义，渲染端 _update
+   *  专门判 === 'false'。故此处把 false 预规范成 'false' 字符串再序列化，让 toggle-off 生效。*/
+  upd(attrs) {
+    if (attrs && typeof attrs === 'object') {
+      const norm = {};
+      for (const [k, v] of Object.entries(attrs)) {
+        norm[k] = v === false ? 'false' : v;
+      }
+      return this._selfClosing('upd', null, norm);
+    }
+    return this._selfClosing('upd', null, attrs);
+  }
 
   // ========== 交互组件 ==========
 

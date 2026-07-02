@@ -5,6 +5,13 @@
  */
 'use strict';
 
+// i18n 取串（图例/tooltip 默认名、空态、工具栏按钮等）。
+// 注：本文件大量用 t 作局部变量（svgEl('text') 等），故 i18n 访问器用 _t 避免遮蔽冲突。
+var _t = (typeof require === 'function')
+  ? require('../core/i18n').t
+  : (window.TokUI && window.TokUI._internal && window.TokUI._internal.t)
+    || function (key) { return key; };
+
 var chartRenderers = {};
 var SVG_NS = 'http://www.w3.org/2000/svg';
 var DEFAULT_COLORS = [
@@ -232,7 +239,7 @@ function appendLegend(svg, entries, w, y, fs, spread) {
 function emptyChartSvg(w, h, msg) {
   var svg = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + h, class: 'tokui-chart__svg tokui-chart__svg--empty', preserveAspectRatio: 'xMidYMid meet' });
   var t = svgEl('text', { x: w / 2, y: h / 2, 'text-anchor': 'middle', 'dominant-baseline': 'central', fill: 'var(--tokui-chart-text, #bbb)', 'font-size': '11' });
-  t.textContent = msg || '暂无数据';
+  t.textContent = msg || _t('chart.empty');
   svg.appendChild(t);
   return svg;
 }
@@ -454,7 +461,7 @@ function renderBar(data, labels, colors, attrs) {
         var by = padTh + i * groupH + groupH * 0.2 + (stack ? 0 : si * barH);
         var grp = svgEl('g', { class: 'tokui-chart-tip-group' });
         grp.appendChild(svgEl('rect', { x: bx, y: by, width: bw, height: barH - 1, fill: colors[si % colors.length], rx: 2, class: 'tokui-chart-bar' }));
-        tips.add(grp, (labels[i] || '') + ': ' + val + (series.length > 1 ? ' (系列' + (si + 1) + ')' : ''), bx + bw / 2, by);
+        tips.add(grp, (labels[i] || '') + ': ' + val + (series.length > 1 ? ' (' + _t('chart.seriesDefault', { n: si + 1 }) + ')' : ''), bx + bw / 2, by);
         svg.appendChild(grp);
         if (attrs.vals !== undefined) {
           var vt = svgEl('text', { x: bx + bw + 3, y: by + barH / 2 + 2, 'text-anchor': 'start', fill: 'var(--tokui-chart-text, #666)', 'font-size': '8' });
@@ -499,7 +506,7 @@ function renderBar(data, labels, colors, attrs) {
         var bx = padL + i * groupW + groupW * 0.2 + (stack ? 0 : si * barW);
         var grp = svgEl('g', { class: 'tokui-chart-tip-group' });
         grp.appendChild(svgEl('rect', { x: bx, y: by, width: barW - 1, height: bh, fill: colors[si % colors.length], rx: 2, class: 'tokui-chart-bar' }));
-        tips.add(grp, (labels[i] || '') + ': ' + val + (series.length > 1 ? ' (系列' + (si + 1) + ')' : ''), bx + (barW - 1) / 2, by);
+        tips.add(grp, (labels[i] || '') + ': ' + val + (series.length > 1 ? ' (' + _t('chart.seriesDefault', { n: si + 1 }) + ')' : ''), bx + (barW - 1) / 2, by);
         svg.appendChild(grp);
         if (attrs.vals !== undefined) {
           var vt2 = svgEl('text', { x: bx + (barW - 1) / 2, y: by - 3, 'text-anchor': 'middle', fill: 'var(--tokui-chart-text, #666)', 'font-size': '8' });
@@ -517,7 +524,7 @@ function renderBar(data, labels, colors, attrs) {
   }
   // legend
   if (hasLegend) {
-    var legendEntries = series.map(function (s, i) { return { color: colors[i % colors.length], text: '系列' + (i + 1) }; });
+    var legendEntries = series.map(function (s, i) { return { color: colors[i % colors.length], text: _t('chart.seriesDefault', { n: i + 1 }) }; });
     appendLegend(svg, legendEntries, w, h + 6);
   }
   svg.appendChild(tips.layer);
@@ -623,7 +630,7 @@ function renderLine(data, labels, colors, attrs) {
       var og = svgEl('g', { class: 'tokui-chart-tip-group' });
       og.appendChild(svgEl('circle', { cx: p.x, cy: p.y, r: 8, fill: 'transparent' }));
       og.appendChild(svgEl('circle', { cx: p.x, cy: p.y, r: 3, fill: '#fff', stroke: colors[si % colors.length], 'stroke-width': 2, class: 'tokui-chart-dot' }));
-      tips.add(og, (labels[p.idx] || '') + ': ' + (orig[p.idx] !== undefined ? orig[p.idx] : s[p.idx]) + (series.length > 1 ? ' (系列' + (si + 1) + ')' : ''), p.x, p.y);
+      tips.add(og, (labels[p.idx] || '') + ': ' + (orig[p.idx] !== undefined ? orig[p.idx] : s[p.idx]) + (series.length > 1 ? ' (' + _t('chart.seriesDefault', { n: si + 1 }) + ')' : ''), p.x, p.y);
       svg.appendChild(og);
       if (attrs.vals !== undefined) {
         svg.appendChild(svgEl('text', { x: p.x, y: p.y - 6, 'text-anchor': 'middle', fill: colors[si % colors.length], 'font-size': '8' })).textContent = (orig[p.idx] !== undefined ? orig[p.idx] : s[p.idx]);
@@ -639,7 +646,7 @@ function renderLine(data, labels, colors, attrs) {
   if (attrs.xl) appendAxisUnit(svg, attrs.xl, padL + cw / 2, h - 8 + (estTextW(String(labels[0] || '')) > slotW * 0.9 ? 26 : 12), false);
   if (attrs.yl) appendAxisUnit(svg, attrs.yl, 12, padT + ch / 2, true);
   if (hasLegend) {
-    appendLegend(svg, series.map(function (s, i) { return { color: colors[i % colors.length], text: '系列' + (i + 1) }; }), w, h + 6);
+    appendLegend(svg, series.map(function (s, i) { return { color: colors[i % colors.length], text: _t('chart.seriesDefault', { n: i + 1 }) }; }), w, h + 6);
   }
   svg.appendChild(tips.layer);
   bindTooltips(svg);
@@ -713,7 +720,7 @@ function renderPie(data, labels, colors, attrs) {
     g.appendChild(svgEl('path', { d: d, fill: colors[i % colors.length], stroke: 'var(--tokui-chart-slice-stroke, #fff)', 'stroke-width': 2, class: 'tokui-chart-slice' }));
     var tipX = cx + r * 0.6 * Math.cos(s.mid);
     var tipY = cy + r * 0.6 * Math.sin(s.mid);
-    tips.add(g, (labels[i] || '项目' + (i + 1)) + ': ' + s.val + ' (' + pct + '%)', tipX, tipY);
+    tips.add(g, (labels[i] || _t('chart.itemDefault', { n: i + 1 })) + ': ' + s.val + ' (' + pct + '%)', tipX, tipY);
     svg.appendChild(g);
   });
 
@@ -741,7 +748,7 @@ function renderPie(data, labels, colors, attrs) {
   // legend：与 donut 一致——默认紧凑 itemGap 居中（无 spread）；字号用 L.fs（=bump 后 _pieFs，
   // 渲染 ≥12px，等价 donut 经非 pie 分支 text-bump 的可读尺寸）
   var legendEntries = data.map(function (val, i) {
-    return { color: colors[i % colors.length], text: labels[i] || ('项目' + (i + 1)) };
+    return { color: colors[i % colors.length], text: labels[i] || (_t('chart.itemDefault', { n: i + 1 })) };
   });
   appendLegend(svg, legendEntries, L.W, L.H + 6, L.fs);
   svg.appendChild(tips.layer);
@@ -784,7 +791,7 @@ function renderDonut(data, labels, colors, attrs) {
       var g = svgEl('g', { class: 'tokui-chart-tip-group' });
       g.appendChild(svgEl('path', { d: d, fill: colors[i % colors.length], stroke: 'var(--tokui-chart-slice-stroke, #fff)', 'stroke-width': 2, class: 'tokui-chart-slice' }));
       var midR = (outerR + innerR) / 2;
-      tips.add(g, (labels[i] || ('项目' + (i + 1))) + ': ' + val + (multi ? ' (环' + (ri + 1) + ')' : ''), cx + midR * Math.cos(midA), cy + midR * Math.sin(midA));
+      tips.add(g, (labels[i] || (_t('chart.itemDefault', { n: i + 1 }))) + ': ' + val + (multi ? ' (' + _t('chart.ringDefault', { n: ri + 1 }) + ')' : ''), cx + midR * Math.cos(midA), cy + midR * Math.sin(midA));
       svg.appendChild(g);
       angle += sliceAngle;
     });
@@ -795,7 +802,7 @@ function renderDonut(data, labels, colors, attrs) {
   }
   // legend（多环时标签一致，取一组）
   var legendEntries = series[0].map(function (val, i) {
-    return { color: colors[i % colors.length], text: (labels[i] || ('项目' + (i + 1))) + ' ' + val };
+    return { color: colors[i % colors.length], text: (labels[i] || (_t('chart.itemDefault', { n: i + 1 }))) + ' ' + val };
   });
   appendLegend(svg, legendEntries, w, h + 6);
   svg.appendChild(tips.layer);
@@ -834,7 +841,7 @@ function renderFunnel(data, labels, colors, attrs) {
               (cx + bHalf) + ',' + yBot + ' ' + (cx - bHalf) + ',' + yBot;
     var midY = (yTop + yBot) / 2;
     var pct = firstVal ? Math.round(val / firstVal * 100) : 0; // 相对首层的转化率
-    var name = labels[i] || ('阶段' + (i + 1));
+    var name = labels[i] || (_t('chart.stageDefault', { n: i + 1 }));
     var color = colors[i % colors.length];
     var edgeX = cx + (tHalf + bHalf) / 2; // 梯形右沿
     var g = svgEl('g', { class: 'tokui-chart-tip-group' });
@@ -860,7 +867,7 @@ function renderFunnel(data, labels, colors, attrs) {
       altTxt.textContent = val + ' (' + pct + '%)';
       g.appendChild(altTxt);
     }
-    tips.add(g, name + ': ' + val + ' (转化 ' + pct + '%)', cx, midY);
+    tips.add(g, name + ': ' + val + ' (' + _t('chart.conversion', { pct: pct }) + ')', cx, midY);
     svg.appendChild(g);
   });
   svg.appendChild(tips.layer);
@@ -905,7 +912,7 @@ function renderGauge(data, labels, colors, attrs) {
     info: 'var(--tokui-info, #1677ff)',
     primary: 'var(--tokui-primary, #1677ff)'
   };
-  var STATUS_LABEL = { success: '良好', warning: '注意', danger: '告警', info: '正常' };
+  var STATUS_LABEL = { success: _t('gauge.statusGood'), warning: _t('gauge.statusWarn'), danger: _t('gauge.statusDanger'), info: _t('gauge.statusInfo') };
 
   // zones 阶段分布：阈值 "60,85" → 升序边界 [min,60,85,max] → 多色带；zc 覆盖段色（low→high）
   var zones = parseNumList(attrs.zones).filter(function (t) { return t > min && t < max; })
@@ -968,7 +975,7 @@ function renderGauge(data, labels, colors, attrs) {
   var valG = svgEl('g', { class: 'tokui-chart-tip-group' });
   var arc = svgEl('path', { fill: 'none', stroke: arcColor, 'stroke-width': BAND, 'stroke-linecap': 'round', class: 'tokui-chart-gauge-arc' });
   valG.appendChild(arc);
-  tips.add(valG, (attrs.l || '当前值') + ': ' + fmtNum(val) + unit + '  (' + Math.round(clamp((val - min) / span, 0, 1) * 100) + '%)', cx, baseY - r);
+  tips.add(valG, (attrs.l || _t('gauge.currentValue')) + ': ' + fmtNum(val) + unit + '  (' + Math.round(clamp((val - min) / span, 0, 1) * 100) + '%)', cx, baseY - r);
   svg.appendChild(valG);
 
   // 指针 + 轴心
@@ -1069,12 +1076,12 @@ function renderRadar(data, labels, colors, attrs) {
       var g = svgEl('g', { class: 'tokui-chart-tip-group' });
       g.appendChild(svgEl('circle', { cx: p.x, cy: p.y, r: 8, fill: 'transparent' }));
       g.appendChild(svgEl('circle', { cx: p.x, cy: p.y, r: 3, fill: color, class: 'tokui-chart-point' }));
-      tips.add(g, (labels[p.idx] || ('维度' + (p.idx + 1))) + ': ' + sdata[p.idx] + (series.length > 1 ? ' (系列' + (si + 1) + ')' : ''), p.x, p.y);
+      tips.add(g, (labels[p.idx] || (_t('chart.dimensionDefault', { n: p.idx + 1 }))) + ': ' + sdata[p.idx] + (series.length > 1 ? ' (' + _t('chart.seriesDefault', { n: si + 1 }) + ')' : ''), p.x, p.y);
       svg.appendChild(g);
     });
   });
   if (hasLegend) {
-    appendLegend(svg, series.map(function (s, i) { return { color: colors[i % colors.length], text: '系列' + (i + 1) }; }), w, h + 6);
+    appendLegend(svg, series.map(function (s, i) { return { color: colors[i % colors.length], text: _t('chart.seriesDefault', { n: i + 1 }) }; }), w, h + 6);
   }
   svg.appendChild(tips.layer);
   bindTooltips(svg);
@@ -1185,7 +1192,7 @@ function buildGanttCtx(attrs) {
     if (isNaN(start) || isNaN(end)) { skipped++; return; }
     if (end < start) { var tmp = start; start = end; end = tmp; }
     tasks.push({
-      name: rt[0] || ('任务' + (tasks.length + 1)),
+      name: rt[0] || (_t('chart.taskDefault', { n: tasks.length + 1 })),
       start: start, end: end,
       progress: clamp(parseFloat(rt[3]) || 0, 0, 100),
       group: parseInt(rt[4], 10) || 0
@@ -1255,7 +1262,7 @@ function ganttTicks(ctx) {
       }
     } else {
       for (var dm = new Date(start.getFullYear(), start.getMonth(), 1); dm <= end; dm.setMonth(dm.getMonth() + 1)) {
-        ticks.push({ label: (dm.getMonth() + 1) + '月', t: dm.getTime() });
+        ticks.push({ label: _t('chart.monthLabel', { m: dm.getMonth() + 1 }), t: dm.getTime() });
       }
     }
   }
@@ -1351,13 +1358,13 @@ function appendGanttToday(svg, ctx) {
   svg.appendChild(svgEl('line', { x1: x, y1: ctx.PAD_T, x2: x, y2: bottomY, stroke: 'var(--tokui-chart-today-line, #fa541c)', 'stroke-width': '1.5', 'stroke-dasharray': '4,3', class: 'tokui-chart-today' }));
   // 「今天」标签上移，避开与同列日期刻度的横向重叠
   var lb = svgEl('text', { x: x, y: ctx.PAD_T - 14, 'text-anchor': 'middle', fill: 'var(--tokui-chart-today-line, #fa541c)', 'font-size': '8' });
-  lb.textContent = '今天';
+  lb.textContent = _t('time.today');
   svg.appendChild(lb);
 }
 
 function appendGanttSkipWarn(svg, ctx) {
   var t = svgEl('text', { x: ctx.w - 6, y: 12, 'text-anchor': 'end', fill: '#faad14', 'font-size': '8' });
-  t.textContent = '⚠ 跳过 ' + ctx.skipped + ' 条无效任务';
+  t.textContent = _t('gantt.skipped', { n: ctx.skipped });
   svg.appendChild(t);
 }
 
@@ -1423,7 +1430,7 @@ function appendGanttTasks(svg, ctx, colors, tips) {
     if (task.progress > 0) {
       g.appendChild(svgEl('rect', { x: x, y: y, width: Math.max(0, barW * task.progress / 100), height: ctx.BAR_H, rx: 3, fill: color, class: 'tokui-chart-task-prog' }));
     }
-    tips.add(g, task.name + '  ' + fmtT(task.start, ctx.mode) + '→' + fmtT(task.end, ctx.mode) + '  进度:' + task.progress + '%', x + barW / 2, y);
+    tips.add(g, task.name + '  ' + fmtT(task.start, ctx.mode) + '→' + fmtT(task.end, ctx.mode) + '  ' + _t('gantt.progress') + ':' + task.progress + '%', x + barW / 2, y);
     svg.appendChild(g);
     var nm = svgEl('text', { x: ctx.LABEL_W - 6, y: ctx.rowY(i) + 3, 'text-anchor': 'end', fill: 'var(--tokui-text, #333)', 'font-size': '9', class: 'tokui-chart-task-name' });
     nm.textContent = task.name;
@@ -1437,7 +1444,7 @@ function renderGantt(data, labels, colors, attrs) {
   var svg = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + ctx.totalH, class: 'tokui-chart__svg', preserveAspectRatio: 'xMidYMid meet' });
   if (ctx.empty) {
     var fb = svgEl('text', { x: w / 2, y: 20, 'text-anchor': 'middle', fill: 'var(--tokui-chart-text, #999)', 'font-size': '10' });
-    fb.textContent = '无任务数据';
+    fb.textContent = _t('gantt.noTasks');
     svg.appendChild(fb);
     return svg;
   }
@@ -1454,7 +1461,7 @@ function renderGantt(data, labels, colors, attrs) {
   if (ctx.hasLeg) {
     var gs = Object.keys(ctx.tasks.reduce(function (a, t) { a[t.group] = 1; return a; }, {})).map(function (g) { return parseInt(g, 10); });
     gs.sort(function (a, b) { return a - b; });
-    var legendEntries = gs.map(function (g) { return { color: colors[g % colors.length], text: ctx.gnames[g] || ('组' + (g + 1)) }; });
+    var legendEntries = gs.map(function (g) { return { color: colors[g % colors.length], text: ctx.gnames[g] || (_t('chart.groupDefault', { n: g + 1 })) }; });
     appendLegend(svg, legendEntries, w, ctx.totalH - LEGEND_H + 6);
   }
   return svg;
@@ -1653,12 +1660,12 @@ function renderRose(data, labels, colors, attrs) {
     var grp = svgEl('g', { class: 'tokui-chart-tip-group' });
     grp.appendChild(svgEl('path', { d: d, fill: colors[i % colors.length], stroke: 'var(--tokui-chart-slice-stroke, #fff)', 'stroke-width': 2, class: 'tokui-chart-slice' }));
     var midA = angle + sliceAngle / 2;
-    tips.add(grp, (labels[i] || ('项' + (i + 1))) + ': ' + val + ' (' + pct + '%)', cx + rr * 0.6 * Math.cos(midA), cy + rr * 0.6 * Math.sin(midA));
+    tips.add(grp, (labels[i] || (_t('chart.sliceDefault', { n: i + 1 }))) + ': ' + val + ' (' + pct + '%)', cx + rr * 0.6 * Math.cos(midA), cy + rr * 0.6 * Math.sin(midA));
     svg.appendChild(grp);
     svg.appendChild(svgEl('text', { x: cx + (r + 12) * Math.cos(midA), y: cy + (r + 12) * Math.sin(midA), 'text-anchor': 'middle', 'dominant-baseline': 'central', fill: 'var(--tokui-chart-text, #999)', 'font-size': '8' })).textContent = labels[i] || '';
     angle += sliceAngle;
   });
-  appendLegend(svg, data.map(function (v, i) { return { color: colors[i % colors.length], text: labels[i] || ('项' + (i + 1)) }; }), w, h + 6);
+  appendLegend(svg, data.map(function (v, i) { return { color: colors[i % colors.length], text: labels[i] || (_t('chart.sliceDefault', { n: i + 1 })) }; }), w, h + 6);
   svg.appendChild(tips.layer);
   bindTooltips(svg);
   return svg;
@@ -1714,7 +1721,7 @@ function renderWaterfall(data, labels, colors, attrs) {
     var col = b.isPos ? posColor : negColor;
     var grp = svgEl('g', { class: 'tokui-chart-tip-group' });
     grp.appendChild(svgEl('rect', { x: bx, y: by, width: barW - 1, height: bh, fill: col, rx: 2, class: 'tokui-chart-bar' }));
-    tips.add(grp, (labels[i] || ('项' + (i + 1))) + ': ' + b.val + ' (累计 ' + Math.round(b.top) + ')', bx + barW / 2, by);
+    tips.add(grp, (labels[i] || _t('chart.sliceDefault', { n: i + 1 })) + ': ' + b.val + ' (' + _t('chart.cumulative', { n: Math.round(b.top) }) + ')', bx + barW / 2, by);
     svg.appendChild(grp);
     if (i < bars.length - 1) {
       svg.appendChild(svgEl('line', { x1: bx + barW - 1, y1: by, x2: bx + groupW, y2: by, stroke: col, 'stroke-width': 1, 'stroke-dasharray': '3,2', opacity: '0.45' }));
@@ -1768,7 +1775,7 @@ function renderBoxplot(data, labels, colors, attrs) {
     var boxY = yOf(b.q3), boxH = Math.max(0, yOf(b.q1) - yOf(b.q3));
     grp.appendChild(svgEl('rect', { x: cx - boxW / 2, y: boxY, width: boxW, height: boxH, fill: color, opacity: '0.4', stroke: color, 'stroke-width': 1.5, class: 'tokui-chart-box' }));
     grp.appendChild(svgEl('line', { x1: cx - boxW / 2, y1: yOf(b.med), x2: cx + boxW / 2, y2: yOf(b.med), stroke: color, 'stroke-width': 2 }));
-    tips.add(grp, (labels[i] || ('组' + (i + 1))) + '  min:' + b.min + ' Q1:' + b.q1 + ' 中位:' + b.med + ' Q3:' + b.q3 + ' max:' + b.max, cx, yOf(b.med));
+    tips.add(grp, (labels[i] || _t('chart.groupDefault', { n: i + 1 })) + '  min:' + b.min + ' Q1:' + b.q1 + ' ' + _t('chart.median') + ':' + b.med + ' Q3:' + b.q3 + ' max:' + b.max, cx, yOf(b.med));
     svg.appendChild(grp);
   });
   var positions = [];
@@ -2157,7 +2164,7 @@ function registerChartComponents(renderer) {
     } else {
       var fb = document.createElement('div');
       fb.className = 'tokui-chart__fallback';
-      fb.textContent = '不支持的图表类型: ' + type;
+      fb.textContent = _t('chart.unsupportedType', { type: type });
       wrapper.appendChild(fb);
     }
   }
@@ -2355,9 +2362,9 @@ function registerChartComponents(renderer) {
     var ok = navigator.clipboard && navigator.clipboard.write && window.ClipboardItem;
     if (ok) {
       navigator.clipboard.write([new window.ClipboardItem({ 'image/png': blob })])
-        .then(function () { flashChartAct(btn, '已复制'); })
-        .catch(function () { flashChartAct(btn, '复制失败'); });
-    } else { flashChartAct(btn, '不支持'); }
+        .then(function () { flashChartAct(btn, _t('common.copied')); })
+        .catch(function () { flashChartAct(btn, _t('chart.copyFailed')); });
+    } else { flashChartAct(btn, _t('chart.unsupported')); }
   }
   function flashChartAct(btn, text) {
     if (!btn) return;
@@ -2386,7 +2393,7 @@ function registerChartComponents(renderer) {
     var closeBtn = document.createElement('button');
     closeBtn.type = 'button';
     closeBtn.className = 'tokui-chart__modal-close';
-    closeBtn.setAttribute('aria-label', '关闭');
+    closeBtn.setAttribute('aria-label', _t('common.close'));
     closeBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>';
 
     if (title) {
@@ -2439,9 +2446,9 @@ function registerChartComponents(renderer) {
       b.innerHTML = icon;
       return b;
     };
-    bar.appendChild(mk('copy', '复制图片', ICON_COPY));
-    bar.appendChild(mk('download', '下载图片', ICON_DOWNLOAD));
-    bar.appendChild(mk('fullscreen', '放大查看', ICON_FULLSCREEN));
+    bar.appendChild(mk('copy', _t('chart.copyImage'), ICON_COPY));
+    bar.appendChild(mk('download', _t('chart.downloadImage'), ICON_DOWNLOAD));
+    bar.appendChild(mk('fullscreen', _t('chart.fullscreen'), ICON_FULLSCREEN));
     bar.addEventListener('click', function (e) {
       var btn = e.target.closest('[data-act]');
       if (!btn) return;

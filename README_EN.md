@@ -10,7 +10,7 @@ English | **[简体中文](./README.md)**
 [![zero runtime deps](https://img.shields.io/badge/runtime%20deps-0-brightgreen.svg)](#)
 [![bundle size](https://img.shields.io/bundlephobia/minzip/@jboltai/tokui.svg)](https://bundlephobia.com/package/@jboltai/tokui)
 
-[Official Docs site](https://tokui.jboltai.com/) · [Component gallery demo](https://tokui_demo.jboltai.com/) · [DSL reference](./demo/TOKUI_DSL_REFERENCE.md) · [Try on StackBlitz](https://stackblitz.com/github/jboltai/tokui)
+[Official Docs site](https://tokui.jboltai.com/) · [Component gallery demo](https://tokui-demo.jboltai.com/) · [DSL reference](./demo/TOKUI_DSL_REFERENCE.md) · [Try on StackBlitz](https://stackblitz.com/github/jboltai/tokui)
 
 ---
 

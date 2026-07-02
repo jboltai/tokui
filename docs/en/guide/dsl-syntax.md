@@ -30,9 +30,14 @@ v:"primary,sm"                                ; comma-separated variants
 | `mtd` | method | `clk` | onclick handler |
 | `sub` | onsubmit handler | `dis` | disabled |
 | `ro`/`req`/`chk` | readonly/required/checked | `w/h/bg/fc` | width/height/bg/color |
+| `form` | button → bind a form id | `reset` | reset action (`reset` or `reset:H`) |
+| `print` | print action (`print:ID` / `print:self`) | `target` | `a` open target |
 | `icon` | SVG icon name (btn / action col) | `i` | emoji icon (btn / action col / menu-item) |
 
 > `clk:` / `sub:` handlers must be pre-registered via `TokUI.registerHandler(name, fn)` — the server ships no executable code.
+> `sub` / `reset` / `print` are button **built-in actions**, resolved automatically by the renderer; `reset` / `print` need no registered handler. See [Form components](/en/components/form#form-actions-submit-reset-data-collection).
+
+> **Where text goes — bare content vs `tx:`**: text-**block** components `p` / `h1~h6` / `item` take text as **bare content** inside the tag: `[p body text]`, `[h1 Title]`; `tx:` is the text prop of **self-closing display** components (`btn` / `tag` / `callout` / `stat` / `badge` / `dot`…): `[btn tx:Click]`. Mixing loses content. Combine variants with commas `v:"muted,center"` — never write two `v:` (the second overwrites the first).
 
 ## Boolean attributes
 
@@ -40,7 +45,7 @@ Just the key, no value:
 
 ```
 stripe dis ro req chk multi auto plain round closable bordered open
-pill dot leaf inline rounded container
+pill dot leaf inline rounded container reset print
 ```
 
 ## Variants
@@ -49,10 +54,12 @@ pill dot leaf inline rounded container
 
 | Component | Allowed variants |
 |-----------|------------------|
-| `btn` | `primary` `danger` `success` `warning` `ghost` `sm` `lg` `pill` `block` (icons use the `icon:` / `i:` props, not variants; see [Button · Icon Buttons](/en/components/basic#icon-buttons)) |
+| `btn` | `primary` `danger` `success` `warning` `ghost` `sm` `lg` `pill` `square` `block` (icons use the `icon:` / `i:` props, not variants; see [Button · Icon Buttons](/en/components/basic#icon-buttons)) |
 | `card` | `highlight` `flat` `bordered` `center` `right` |
-| `h1~h6` | `left` `center` `right` `ribbon` `underline` `badge` |
+| `h1~h6` | `left` `center` `right` `ribbon` `underline` `badge` `pill` |
 | `p` | `left` `center` `right` `muted` `bold` `sm` `lg` |
+| `img` | `avatar` `rounded` `bordered` |
+| `dv` | `dashed` `dotted` `sm` `md` `lg` `vert` `plain` |
 
 <Playground dsl='[h1 v:underline Decorated title][p v:muted Muted text][p v:bold Bold text][dv v:dashed Divider with text]' />
 
@@ -82,7 +89,7 @@ The 150+ components are organized into seven categories, each with full prop tab
 | Form | input, select, radio, checkbox, switch, slider, rate, date, cascader, transfer, upload | [form](/en/components/form) |
 | Layout | card, grid, tabs, collapse, drawer, dialog, timeline, tree | [layout](/en/components/layout) |
 | Data Display | table, descriptions, pagination, badge, avatar, skeleton, result, empty | [data](/en/components/data) |
-| Chart | bar, line, pie, radar, scatter, gantt, funnel (pure SVG, zero deps) | [chart](/en/components/chart) |
+| Chart | bar, line, area, pie, donut, rose, funnel, radar, scatter, bubble, heatmap, histogram, waterfall, boxplot, treemap, sankey, candlestick, progress, gauge, gantt (20 types, pure SVG, zero deps) | [chart](/en/components/chart) |
 | AI Chat | bubble, tool-call, thought chain, diff, plan, terminal, sandbox, artifact | [ai-chat](/en/components/ai-chat) |
 | Showcase | signup form, CRUD, form+table linkage, report-style cards | [showcase](/en/components/showcase) |
 
@@ -157,6 +164,31 @@ For Q&A scenarios prefer the full-width `：` or no prefix at all — don't writ
 > Note: text inside double quotes is treated as a **literal string in full** — any `[tag]` within is also no longer parsed as a child. If you need both a literal bracket and a real nested child, quote only the bracketed literal and keep the child tag outside the quotes.
 
 Body text without `[` `]` needs no quoting.
+
+## Don't embed component tags in attribute values (`tx`/`l` quoted vs real child)
+
+Writing a whole component tag inside an attribute value (`tx`, `l`, `tt`…) triggers tag parsing on `[` — the nested tag's own `]` is read as the outer tag's closing bracket. The result: the attribute value goes empty, the embedded `[tag]` leaks out as a **real** child component (wrong place/semantics), and trailing body text becomes orphan nodes:
+
+```dsl
+[item l:Table tx:[table]a,b[/table] is used]   ❌ tx goes empty, [table] leaks as a real child, body becomes orphan
+```
+
+Two ways out, depending on intent:
+
+- **Want `[table]` shown as literal text** (docs, examples) → wrap the whole attribute value in **double quotes** — brackets inside become literal, no tag parsing:
+
+```dsl
+[item l:Table tx:"[table]a,b[/table] is used"]   ✅ tx keeps the literal value "[table]a,b[/table] is used"
+```
+
+- **Want a real table rendered** → **don't** stuff it into `tx`/`l`; pull `[table]...[/table]` out as a real child of a container:
+
+```dsl
+[item l:Table][table]a,b[/table][/item]   ✅ table is a real child of item
+[card tt:Table][table]a,b[/table][/card]  ✅ table as a card child
+```
+
+> **Rule**: double-quoting an attribute value makes **every** `[tag]` inside it a literal character. So when you want a real component, **never** quote it — pull the tag out of the attribute value and write it as a real child; quote only when you want literal text.
 
 ## Full reference
 

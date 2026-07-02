@@ -392,4 +392,4 @@ Project schedule gantt, self-closing. Task bars laid out by row, with progress f
 
 <Playground dsl='[chart t:gantt tt:2026 Q3 排期 deps:"0->1,1->2,2->3" mode:dates gnames:"调研|设计|开发|测试" tasks:"调研,2026-07-01,2026-07-10,100,0|设计,2026-07-08,2026-07-20,80,1|开发,2026-07-15,2026-08-25,40,2|测试,2026-08-20,2026-09-05,0,3"]' />
 
-> Full props and gantt fields are in the [DSL syntax reference](/en/guide/dsl-syntax) section 5.7; if that page isn't generated, see `demo/TOKUI_DSL_REFERENCE.md` in the repo.
+> Full props and gantt fields are in [`demo/TOKUI_DSL_REFERENCE.md`](https://github.com/jboltai/tokui/blob/master/demo/TOKUI_DSL_REFERENCE.md#68-chart-pure-svg-zero-deps-20-types) in the repo.

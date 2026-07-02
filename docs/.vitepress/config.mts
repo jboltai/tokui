@@ -17,8 +17,9 @@ export default defineConfig({
   lastUpdated: true,
   cleanUrls: true,
 
-  // 排除非文档内容：superpowers 工具的 plan/spec + 项目审查报告
-  srcExclude: ['superpowers/**', 'superpowers', 'TokUI 项目全面审查报告.md'],
+  // 排除非文档内容：superpowers 工具的 plan/spec + plans/ 与 specs/ 实现规划与设计 + 项目审查报告
+  // plans/specs 含 localhost 链接与内部任务跟踪，不进路由/侧栏（否则触发 dead link 校验）
+  srcExclude: ['superpowers/**', 'superpowers', 'plans/**', 'plans', 'specs/**', 'specs'],
 
   head: [
     ['link', { rel: 'icon', type: 'image/png', href: 'https://assets.vdata.chat/jboltai/aiimg/logo_60.png' }],
@@ -93,6 +94,13 @@ export default defineConfig({
         link: 'https://gitee.com/jboltai_main/tokui',
         ariaLabel: 'Gitee',
       },
+      {
+        icon: {
+          svg: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M1.763 0C.786 0 0 .786 0 1.763v20.474C0 23.214.786 24 1.763 24h20.474c.977 0 1.763-.786 1.763-1.763V1.763C24 .786 23.214 0 22.237 0zM5.13 5.323l13.837.019-.009 13.836h-3.464l.01-10.382h-3.456L12.04 19.17H5.113z"/></svg>',
+        },
+        link: 'https://www.npmjs.com/package/@jboltai/tokui',
+        ariaLabel: 'npm',
+      },
     ],
     search: { provider: 'local' },
     footer: {
@@ -107,7 +115,7 @@ function zhNav() {
   return [
     { text: '指南', link: '/guide/introduction', activeMatch: '/guide/' },
     { text: '组件', link: '/components/basic', activeMatch: '/components/' },
-    { text: '演示平台', link: 'https://tokui_demo.jboltai.com' },
+    { text: '演示平台', link: 'https://tokui-demo.jboltai.com' },
     { text: 'API', link: '/api/builder', activeMatch: '/api/' },
     { text: 'JBoltAI', link: 'https://jboltai.com' },
     { text: '关于我们', link: 'https://vecspc.com/about.html' },
@@ -132,6 +140,7 @@ function zhSidebar() {
           { text: 'DSL 语法', link: '/guide/dsl-syntax' },
           { text: '流式渲染', link: '/guide/streaming' },
           { text: '主题系统', link: '/guide/theming' },
+          { text: '多语言', link: '/guide/i18n' },
         ],
       },
     ],
@@ -174,7 +183,7 @@ function enNav() {
   return [
     { text: 'Guide', link: '/en/guide/introduction', activeMatch: '/en/guide/' },
     { text: 'Components', link: '/en/components/basic', activeMatch: '/en/components/' },
-    { text: 'Demo', link: 'https://tokui_demo.jboltai.com' },
+    { text: 'Demo', link: 'https://tokui-demo.jboltai.com' },
     { text: 'API', link: '/en/api/builder', activeMatch: '/en/api/' },
     { text: 'JBoltAI', link: 'https://jboltai.com' },
     { text: 'About', link: 'https://vecspc.com/about.html' },
@@ -199,6 +208,7 @@ function enSidebar() {
           { text: 'DSL Syntax', link: '/en/guide/dsl-syntax' },
           { text: 'Streaming', link: '/en/guide/streaming' },
           { text: 'Theming', link: '/en/guide/theming' },
+          { text: 'i18n', link: '/en/guide/i18n' },
         ],
       },
     ],

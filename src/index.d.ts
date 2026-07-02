@@ -25,6 +25,13 @@ export interface TokUIOptions {
   container?: string | HTMLElement | null;
   /** 主题名称，如 'default' / 'dark'，默认 'default' */
   theme?: string;
+  /**
+   * 界面语言（组件骨架级文案：aria-label / placeholder / 空态 / 默认按钮字等）。
+   * 接受 'zh-CN' / 'en-US' / 'en' / 'zh' 等，自动规整；缺省按
+   * documentElement.lang → navigator.language → 'zh-CN' 自动探测。
+   * 注：业务 DSL 文案（tt:/l:/tx:/opt: 等）不归此管，需后端按 locale 发不同 DSL。
+   */
+  locale?: string;
   /** 是否启用流式渲染模式，默认 true */
   streaming?: boolean;
   /** 事件回调，如接收到 ('streamEnd', {}) */
@@ -57,6 +64,12 @@ export class TokUI {
 
   /** 一次性渲染完整 DSL 文本到容器 */
   render(tokuiString: string, targetContainer?: HTMLElement): void;
+
+  /**
+   * 用当前 locale / theme 就地重画最近一次渲染的内容（清容器 + 重新 render 缓存的 DSL）。
+   * 典型用途：setLocale() 后刷新已渲染 DOM 的 chrome 文案。无缓存内容或无容器返回 false。
+   */
+  rerender(targetContainer?: HTMLElement): boolean;
 
   /** 开始流式渲染（初始化流式解析器） */
   startStream(targetContainer?: HTMLElement): void;
@@ -91,6 +104,23 @@ export declare function setTheme(themeName: string): void;
 export declare function getTheme(): string;
 
 /**
+ * 设置当前界面语言（组件骨架级文案）。已渲染的 DOM 不会自动更新，
+ * 需重新渲染或应用层自行刷新。接受 'zh-CN' / 'en-US' / 'en' / 'zh' 等，自动规整。
+ * @returns 规整后实际生效的 locale（如传 'en' 返回 'en-US'）
+ */
+export declare function setLocale(locale: string): string;
+
+/** 获取当前界面语言（规整后的 locale，如 'zh-CN' / 'en-US'） */
+export declare function getLocale(): string;
+
+/**
+ * 注册/合并新语种字典（内置仅 zh-CN + en-US，其余语种由此注入）。
+ * @param locale - 语种 key，如 'ja-JP'
+ * @param dict   - key→译文 映射，可仅传部分 key（增量合并）
+ */
+export declare function registerLocale(locale: string, dict: Record<string, string>): void;
+
+/**
  * DOM 创建快捷方法
  * @param tag         - 标签名
  * @param attrs       - 属性键值表（on* / formaction 会被过滤防 XSS）
@@ -109,6 +139,9 @@ export interface TokUINamespace {
   removeHandler: typeof removeHandler;
   setTheme: typeof setTheme;
   getTheme: typeof getTheme;
+  setLocale: typeof setLocale;
+  getLocale: typeof getLocale;
+  registerLocale: typeof registerLocale;
   el: typeof el;
 }
 

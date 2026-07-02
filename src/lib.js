@@ -22,6 +22,9 @@
 import './styles/index.css';
 
 // —— 叶子模块（无 src 依赖，仅写 window.TokUI._internal）——
+// i18n 必须最先求值：renderer/lightbox/chart/basic/form/layout 渲染期都经 _internal.t 取串，
+// 其 window 分支在此填充 _internal.t / setLocale / registerLocale。
+import TokUII18n from './core/i18n.js';                 // CJS 裸对象 → default
 import TokUIEventBus from './core/event-bus.js';        // CJS 裸对象 → default
 import TokUITheme from './core/theme.js';               // CJS 裸对象 → default
 import './core/color-generator.js';
@@ -48,6 +51,9 @@ const registerHandler = TokUIEventBus.registerHandler.bind(TokUIEventBus);
 const removeHandler = TokUIEventBus.removeHandler.bind(TokUIEventBus);
 const setTheme = TokUITheme.setTheme.bind(TokUITheme);
 const getTheme = TokUITheme.getTheme.bind(TokUITheme);
+const setLocale = TokUII18n.setLocale.bind(TokUII18n);
+const getLocale = TokUII18n.getLocale.bind(TokUII18n);
+const registerLocale = TokUII18n.registerLocale.bind(TokUII18n);
 
 // 公共命名空间对象（ESM default）。window.TokUI._internal / showNotification /
 // showToast 由 src 文件与 new TokUI() 构造时挂到 window.TokUI，不在此重复。
@@ -57,6 +63,9 @@ const TokUI = {
   removeHandler,
   setTheme,
   getTheme,
+  setLocale,
+  getLocale,
+  registerLocale,
   el,
 };
 
@@ -66,6 +75,9 @@ export {
   removeHandler,
   setTheme,
   getTheme,
+  setLocale,
+  getLocale,
+  registerLocale,
   el,
 };
 export default TokUI;

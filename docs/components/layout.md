@@ -323,6 +323,7 @@
 | `ph` | 搜索框占位 | `command` | `ph:搜索命令...` |
 | `clk` | 选中回调 | `command` | `clk:onCommand` |
 | `id` | 标识（触发按钮 `data-target` 指向它） | `command` | `id:cmdMain` |
+| `hotkey` | 启用 `Cmd/Ctrl+K` 全局快捷键（页面只应一个实例） | `command` | `hotkey` |
 | `tt` | 分组标题 | `command-group` | `tt:常用` |
 | `tx` | 显示文本 | `item` / `command-item` | `tx:新建文件` |
 | `v` | 搜索值（默认同 `tx`） | `item` / `command-item` | `v:new file` |

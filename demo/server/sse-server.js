@@ -1015,6 +1015,50 @@ const DEMOS = [
     }
   },
   {
+    // i18n 演示：此处 DSL 文案（卡片标题/选项）固定中文，但组件 chrome 文案
+    // （pagination「共N条」「分页」aria、select「请选择」ph、rate「评分」aria、空图表「暂无数据」）
+    // 会跟随右上角语言开关（EN/中文）切换 —— TokUI.setLocale('en-US'/'zh-CN') 即时生效。
+    trigger: 'demo-i18n',
+    title: '多语言 i18n',
+    desc: '组件 chrome 文案随语言切换（点右上角 EN/中文）',
+    build() {
+      const b = new TokUIBuilder();
+      b.row_layout()
+        .col_layout({ span: 4 })
+          .card({ tt: '分页 Pagination' })
+            .pagination({ total: 5, count: 42, 'show-total': true, clk: 'noop' })
+          .end()
+        .end()
+        .col_layout({ span: 4 })
+          .card({ tt: '选择器 Select' })
+            .select({ l: '城市', id: 'i18nCity' })
+              .opt({ v: 'bj', tx: '北京' })
+              .opt({ v: 'sh', tx: '上海' })
+            .end()
+          .end()
+        .end()
+      .end()
+      .card({ tt: '空图表 / 评分 / 上传' })
+        .row_layout()
+          .col_layout({ span: 6 })
+            .chart({ t: 'bar' })
+          .end()
+          .col_layout({ span: 6 })
+            .rate({ l: '评分' })
+          .end()
+          .col_layout({ span: 6 })
+            .upload()
+          .end()
+          .col_layout({ span: 7 })
+            .pagination({ total: 3, count: 18, 'show-total': true, s: 'sm', clk: 'noop' })
+          .end()
+        .end()
+      .end()
+      .callout({ t: 'info', tx: '切换右上角「EN / 中文」按钮，上方组件的 aria-label、placeholder、空态、分页总数等 chrome 文案会即时跟随。卡片标题等业务文案由 DSL 控制，需后端按 locale 分发。' });
+      return b;
+    }
+  },
+  {
     trigger: 'demo-radio',
     title: '单选 Radio',
     desc: '单选组 / 简写 / inline / 取值',
@@ -1288,7 +1332,7 @@ const DEMOS = [
             .cardTx('快捷操作', '点击左侧导航选择更多组件示例。')
           .end()
           .col_layout({ span: 6 })
-            .cardTx('版本更新', 'TokUI v0.1.3 已发布，支持卡片自闭合模式。')
+            .cardTx('版本更新', 'TokUI v0.1.4 已发布，支持卡片自闭合模式。')
           .end()
         .end()
         .hr()
@@ -1478,7 +1522,7 @@ const DEMOS = [
                 .a({ tx: '帮助文档', u: '/docs' })
                 .p(' | ')
                 .a({ tx: '联系我们', u: '/contact' })
-                .p('版本 v0.1.3')
+                .p('版本 v0.1.4')
               .end()
             .end()
           .end()
@@ -3802,6 +3846,7 @@ const DEMOS = [
         numinput: 'ufn-' + uid,
         sw: 'ufw-' + uid,
         inp: 'ufi-' + uid,
+        inpRo: 'ufro-' + uid,
         rate: 'ufr-' + uid,
         c1: 'ufc-' + uid,
       };
@@ -3820,6 +3865,8 @@ const DEMOS = [
         .switcher({ id: this._ids.sw, l: '启用备注', tx: '关闭' })
         .dv()
         .input({ id: this._ids.inp, l: '备注', ph: '请先启用备注...', dis: true })
+        .dv()
+        .input({ id: this._ids.inpRo, l: '只读备注', ph: '只读中，等待启用...', ro: true })
         .dv()
         .rate({ id: this._ids.rate, l: '评分' })
       .end();
@@ -3840,14 +3887,15 @@ const DEMOS = [
         chunks.push(...b.toChunks());
         chunks.push({ _wait: 600 });
       });
-      // 联动演示 2：switch 联动 input
+      // 联动演示 2：switch 联动 input（dis 禁用 + ro 只读 双解禁）
       b = new TokUIBuilder();
-      b.upd({ id: ids.c1, tt: '联动 2：开关控制', tx: '开启备注输入框...' });
+      b.upd({ id: ids.c1, tt: '联动 2：开关控制', tx: '开启两个备注输入框（清 dis / 清 ro）...' });
       chunks.push(...b.toChunks());
       chunks.push({ _wait: 800 });
       b = new TokUIBuilder();
       b.upd({ id: ids.sw, chk: true });
       b.upd({ id: ids.inp, dis: false, ph: '请输入备注内容...' });
+      b.upd({ id: ids.inpRo, ro: false, ph: '现在可编辑了...' });
       chunks.push(...b.toChunks());
       chunks.push({ _wait: 1500 });
       // 联动演示 3：评分
@@ -8166,16 +8214,66 @@ const DEMOS = [
   {
     trigger: 'demo-video',
     title: 'Video 视频播放',
-    desc: 'AI 生成的视频内容内嵌播放',
+    desc: '比例 / 封面 / 尺寸(w h) / fit / 多列网格 全场景',
     build() {
+      const V = 'https://assets.vdata.chat/jboltai/mov_bbb.mp4';
+      const P = 'https://assets.vdata.chat/jboltai/pic_trulli.webp';
       const b = new TokUIBuilder();
-      b.card({ tt: '基础视频播放器' })
-        .p('AI 生成的视频内容可直接在对话中播放：')
-        ._selfClosing('video', null, { s: 'https://www.w3schools.com/html/mov_bbb.mp4' })
+      // 1. 基础（无尺寸，默认 contain 留边）
+      b.card({ tt: '基础播放器' })
+        .p('s 指定视频源，默认 contain（不裁切）。')
+        ._selfClosing('video', null, { s: V })
       .end();
-
-      b.card({ tt: '带封面图' })
-        ._selfClosing('video', null, { s: 'https://www.w3schools.com/html/mov_bbb.mp4', poster: 'https://www.w3schools.com/html/pic_trulli.jpg' })
+      // 2. ratio + poster：封面与画面同盒同比例（cover 铺满）
+      b.card({ tt: '16:9 比例 + 封面（ratio + poster）' })
+        .p('ratio:"16:9" 设比例，poster 跟播放器共用同一比例盒，封面铺满不变形：')
+        ._selfClosing('video', null, { s: V, poster: P, ratio: '16:9' })
+      .end();
+      // 3. 多比例对比
+      b.card({ tt: '比例横评（4:3 / 1:1 / 21:9）' })
+        .p('同一视频不同比例（fit 默认 cover 裁切填充）：')
+        ._selfClosing('video', null, { s: V, poster: P, ratio: '4:3' })
+        .dv()
+        ._selfClosing('video', null, { s: V, poster: P, ratio: '1:1' })
+        .dv()
+        ._selfClosing('video', null, { s: V, poster: P, ratio: '21:9' })
+      .end();
+      // 4. 显式宽高 w + h
+      b.card({ tt: '显式宽高（w + h）' })
+        .p('w:"320" 限宽 320px，h:"180" 定高，object-fit 默认 cover：')
+        ._selfClosing('video', null, { s: V, poster: P, w: '320', h: '180' })
+      .end();
+      // 5. fit 对比（cover vs contain）
+      b.card({ tt: 'fit 对比（cover 裁切 vs contain 留边）' })
+        .p('同 1:1 比例下，左 cover 铺满裁切、右 contain 完整留边：')
+        .row_layout()
+          .col_layout({ span: 6 })
+            .p('fit:cover（默认）')
+            ._selfClosing('video', null, { s: V, poster: P, ratio: '1:1', fit: 'cover' })
+          .end()
+          .col_layout({ span: 6 })
+            .p('fit:contain')
+            ._selfClosing('video', null, { s: V, poster: P, ratio: '1:1', fit: 'contain' })
+          .end()
+        .end()
+      .end();
+      // 6. 一行两列布局（row + col span:6，各 16:9）
+      b.card({ tt: '一行两列（row + col span:6）' })
+        .row_layout()
+          .col_layout({ span: 6 })
+            ._selfClosing('video', null, { s: V, poster: P, ratio: '16:9' })
+          .end()
+          .col_layout({ span: 6 })
+            ._selfClosing('video', null, { s: V, poster: P, ratio: '16:9' })
+          .end()
+        .end()
+      .end();
+      // 7. AI 交付视频（对话气泡内，带比例）
+      b.card({ tt: 'AI 交付视频（气泡内）' })
+        ._open('bubble', { role: 'ai', time: '15:02' })
+          .p('已生成产品演示视频（16:9），可直接播放：')
+          ._selfClosing('video', null, { s: V, poster: P, ratio: '16:9' })
+        .end()
       .end();
       return b;
     }
@@ -8184,22 +8282,52 @@ const DEMOS = [
   {
     trigger: 'demo-audio',
     title: 'Audio 音频播放',
-    desc: 'TTS 语音回复播放',
+    desc: '标题 / 时长 / 宽度 w / TTS 对话 / 播报系列 / 一行两列',
     build() {
+      const A = 'https://assets.vdata.chat/jboltai/horse.mp3';
       const b = new TokUIBuilder();
-      b.card({ tt: '带标题的音频' })
-        .p('AI 语音回复：')
-        ._selfClosing('audio', null, { s: '', tt: 'AI 语音回复', duration: '0:35' })
+      // 1. 带标题 + 时长
+      b.card({ tt: '带标题与时长' })
+        .p('tt 显示标题，duration 显示时长（右对齐）：')
+        ._selfClosing('audio', null, { s: A, tt: 'AI 语音回复', duration: '0:35' })
       .end();
-
-      b.card({ tt: '对话场景' })
+      // 2. 纯播放器（无标题）
+      b.card({ tt: '纯播放器（无标题）' })
+        ._selfClosing('audio', null, { s: A })
+      .end();
+      // 3. 限宽 w
+      b.card({ tt: '限宽（w）' })
+        .p('w:"280" 把音频卡限到 280px：')
+        ._selfClosing('audio', null, { s: A, tt: '限宽示例', duration: '0:20', w: '280' })
+      .end();
+      // 4. 一行两列
+      b.card({ tt: '一行两列（row + col span:6）' })
+        .row_layout()
+          .col_layout({ span: 6 })
+            ._selfClosing('audio', null, { s: A, tt: '左声道', duration: '0:30' })
+          .end()
+          .col_layout({ span: 6 })
+            ._selfClosing('audio', null, { s: A, tt: '右声道', duration: '0:30' })
+          .end()
+        .end()
+      .end();
+      // 5. TTS 对话场景
+      b.card({ tt: 'TTS 对话交付' })
         ._open('bubble', { role: 'user', time: '15:00' })
-          .p('这段文字帮我转成语音')
+          .p('帮我把这段文字转成语音')
         .end()
         ._open('bubble', { role: 'ai', time: '15:00' })
-          .p('已为你生成语音回复：')
-          ._selfClosing('audio', null, { s: '', tt: '朗读结果', duration: '1:20' })
+          .p('已为你生成语音，可直接播放：')
+          ._selfClosing('audio', null, { s: A, tt: '朗读结果', duration: '0:48' })
         .end()
+      .end();
+      // 6. 语音播报系列（多条音频）
+      b.card({ tt: '语音播报系列' })
+        ._selfClosing('audio', null, { s: A, tt: '第 1 条 · 欢迎介绍', duration: '0:12' })
+        .dv()
+        ._selfClosing('audio', null, { s: A, tt: '第 2 条 · 功能说明', duration: '0:24' })
+        .dv()
+        ._selfClosing('audio', null, { s: A, tt: '第 3 条 · 结束致谢', duration: '0:08' })
       .end();
       return b;
     }
@@ -8424,7 +8552,7 @@ const DEMOS = [
 
       b.card({ tt: '🎬 Video 视频播放器' })
         .p('AI 生成的视频内容内嵌播放：')
-        ._selfClosing('video', null, { s: 'https://www.w3schools.com/html/mov_bbb.mp4', poster: '' })
+        ._selfClosing('video', null, { s: 'https://assets.vdata.chat/jboltai/mov_bbb.mp4', poster: '' })
       .end();
 
       b.card({ tt: '🔊 Audio 音频播放器' })

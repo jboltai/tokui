@@ -157,7 +157,8 @@ const BOOLEAN_ATTRS = new Set([
   'search',
   'thumb',
   'reset',
-  'print'
+  'print',
+  'show-total'
 ]);
 
 // 变体提示（Variant hints）

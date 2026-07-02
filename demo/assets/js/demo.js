@@ -49,6 +49,7 @@ const NAV_DATA = [
     name: { zh: '基础组件', en: 'Basic' },
     icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
     items: [
+      { trigger: 'demo-i18n', name: { zh: '多语言 i18n', en: 'i18n' }, desc: { zh: '组件 chrome 文案随语言切换', en: 'Chrome text follows locale toggle' }, icon: '🌐' },
       { trigger: 'demo-heading', name: { zh: '标题组件', en: 'Heading' }, desc: { zh: 'h1-h6 各级标题', en: 'h1-h6 headings' }, icon: 'H' },
       { trigger: 'demo-button', name: { zh: '按钮组件', en: 'Button' }, desc: { zh: '多类型多色彩按钮', en: 'Button types & colors' }, icon: '▶' },
       { trigger: 'demo-icon', name: { zh: '图标按钮', en: 'Icon' }, desc: { zh: 'SVG icon + emoji 全场景', en: 'SVG icon + emoji all scenarios' }, icon: '★' },
@@ -106,6 +107,15 @@ const NAV_DATA = [
     ]
   },
   {
+    id: 'media',
+    name: { zh: '媒体组件', en: 'Media' },
+    icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
+    items: [
+      { trigger: 'demo-video', name: { zh: 'Video 视频', en: 'Video' }, desc: { zh: '基础/封面/卡片/AI交付/多视频网格', en: 'Basic/poster/card/AI/grid' }, icon: '🎬' },
+      { trigger: 'demo-audio', name: { zh: 'Audio 音频', en: 'Audio' }, desc: { zh: '标题/时长/TTS对话/播报系列', en: 'Title/duration/TTS/series' }, icon: '🔊' },
+    ]
+  },
+  {
     id: 'ai-chat',
     name: { zh: 'AI 对话', en: 'AI Chat' },
     icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>',
@@ -134,8 +144,6 @@ const NAV_DATA = [
       { trigger: 'demo-notification', name: { zh: '通知组件', en: 'Notification' }, desc: { zh: '全局堆叠通知', en: 'Global stacked notifications' }, icon: '🔔' },
       { trigger: 'demo-error-boundary', name: { zh: '错误边界', en: 'Error Boundary' }, desc: { zh: '渲染容错降级', en: 'Render error tolerance' }, icon: '⚠' },
       { trigger: 'demo-file', name: { zh: '文件卡片', en: 'File' }, desc: { zh: '多类型文件预览', en: 'Multi-type file preview' }, icon: '📎' },
-      { trigger: 'demo-video', name: { zh: 'Video 视频', en: 'Video' }, desc: { zh: 'AI视频内嵌播放/封面图', en: 'Inline video with poster' }, icon: '🎬' },
-      { trigger: 'demo-audio', name: { zh: 'Audio 音频', en: 'Audio' }, desc: { zh: 'TTS语音回复播放', en: 'TTS voice reply player' }, icon: '🔊' },
       { trigger: 'demo-quote', name: { zh: 'Quote 消息引用', en: 'Quote' }, desc: { zh: '引用消息回复/角色标记', en: 'Quote reply with role badge' }, icon: '💬' },
       { trigger: 'demo-attachments', name: { zh: 'Attachments 附件', en: 'Attachments' }, desc: { zh: '聊天文件附件区域/类型图标', en: 'Chat file attachments/type icons' }, icon: '📎' },
       { trigger: 'demo-sandbox', name: { zh: 'Sandbox 代码沙盒', en: 'Sandbox' }, desc: { zh: 'HTML实时预览/安全沙盒', en: 'Live HTML preview/sandboxed' }, icon: '🖼' },
@@ -257,7 +265,14 @@ const NAV_DATA = [
 // i18n
 // ========================================
 
+// 语言状态（localStorage 持久化，与主题同构）：首次访问读取上次选择
+const LANG_KEY = 'tokui-demo-lang';
 let lang = 'zh';
+try { const stored = localStorage.getItem(LANG_KEY); if (stored === 'en' || stored === 'zh') lang = stored; } catch (e) {}
+function persistLang() { try { localStorage.setItem(LANG_KEY, lang); } catch (e) { /* localStorage 不可用时静默 */ } }
+
+// 已渲染的 AI 消息记录（语言切换时本地就地重画，不发请求、不清聊天）
+let renders = [];
 
 const I18N = {
   tagline:        { zh: '流式UI描述与渲染框架', en: 'Streaming UI Description and Rendering Framework' },
@@ -287,7 +302,7 @@ const I18N = {
   action:         { zh: '操作', en: 'Action' },
   editClicked:    { zh: '编辑按钮被点击', en: 'Edit button clicked' },
   deleteClicked:  { zh: '删除按钮被点击', en: 'Delete button clicked' },
-  footerVer:      { zh: '当前版本:v0.1.3', en: 'Version: v0.1.3' },
+  footerVer:      { zh: '当前版本:v0.1.4', en: 'Version: v0.1.4' },
   footerCopy:     { zh: '零依赖 · 流式UI描述与渲染框架', en: 'Zero Deps · Streaming UI Framework' },
   dslRef:         { zh: 'DSL 语法速查', en: 'DSL Syntax Ref' },
   clearBtn:       { zh: '清空', en: 'Clear' },
@@ -895,6 +910,8 @@ function sendPrompt(trigger, displayText) {
 
     const { container: aiContainer, sourceText, thinkingEl, updateStats, showSourceView, setRenderUICallback } = addAIMessage();
     const tokui = new TokUI.TokUI({ container: aiContainer, theme: computeTokuiTheme() });
+    // 记录本条消息的 TokUI 实例，供语言切换时调 instance.rerender() 就地重画（无网络）
+    renders.push({ instance: tokui, container: aiContainer, sourceText: sourceText });
 
     if (renderMode === 'stream') {
       tokui.startStream(aiContainer);
@@ -1501,10 +1518,29 @@ applyTokuiTheme();
 
 document.getElementById('langToggle').onclick = () => {
   lang = lang === 'zh' ? 'en' : 'zh';
+  persistLang();
   applyLang();
+  // 已渲染的 DOM 不会自动随 locale 刷新：调每个实例的 rerender() 就地重画（库内置，
+  // 实例自缓存 DSL，无网络、不清聊天），chrome 文案（aria/placeholder/分页总数/空态）即时切换。
+  if (sending) return;
+  if (renders.length) {
+    renders.forEach(function (rec) {
+      try { rec.instance.rerender(); } catch (e) { /* 单条重画失败不影响其余 */ }
+    });
+    scrollToBottom();
+  } else {
+    // 欢迎页：其 DSL 按 lang 取段，重画即得新语言版本
+    stopWelcomeAnim();
+    initWelcomeAnim();
+  }
 };
 
 function applyLang() {
+  // 同步 TokUI 库 chrome locale（pagination aria / lightbox 工具栏 / select placeholder /
+  // 日期星期 / 空态等组件骨架文案）。已渲染的 DOM 需重渲染才刷新——下次点演示即新 locale。
+  if (typeof TokUI !== 'undefined' && TokUI.setLocale) {
+    try { TokUI.setLocale(lang === 'zh' ? 'zh-CN' : 'en-US'); } catch (e) {}
+  }
   document.getElementById('tagline').textContent = t('tagline');
   document.getElementById('welcomeSubtitle').textContent = '// ' + t('welcomeTitle');
   document.getElementById('langToggle').textContent = t('langToggle');
@@ -1572,6 +1608,7 @@ function applyLang() {
 
 function handleClear() {
   if (sending) { showToast(sendingName + ' 案例正在执行中，请稍后'); return; }
+  renders = [];   // 清屏后无已渲染消息，语言切换不再尝试重画
   const messages = document.getElementById('messages');
   messages.querySelectorAll('.msg').forEach(el => el.remove());
   const welcome = document.getElementById('welcome');
@@ -2130,7 +2167,8 @@ function showToast(msg) {
 // Init
 // ========================================
 
-renderNav();
+// 应用持久化的语言（demo 外壳文案 + TokUI 库 chrome locale），含 renderNav
+applyLang();
 
 // 从 hash 恢复上次选中的导航
 (function restoreFromHash() {

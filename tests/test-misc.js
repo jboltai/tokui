@@ -50,6 +50,10 @@ if (typeof global.window === 'undefined') global.window = global;
 var TokUIRenderer = require('../src/core/renderer').TokUIRenderer || require('../src/core/renderer');
 var registerBasicComponents = require('../src/components/basic').registerBasicComponents || require('../src/components/basic');
 
+// 本测试桩设 global.window=global，使 i18n 走浏览器分支并按 navigator.language 自动探测；
+// Node 20+ 的全局 navigator.language 非确定，故固定 zh-CN 以匹配下文对中文默认文案的断言。
+require('../src/core/i18n').setLocale('zh-CN');
+
 function makeRenderer() {
   var rc = new TokUIRenderer();
   registerBasicComponents(rc);

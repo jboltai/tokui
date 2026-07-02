@@ -4523,8 +4523,8 @@ a.tokui-source__title:hover { text-decoration: underline; }
 .tokui-video__player {
   display: block;
   width: 100%;
-  max-height: 400px;
-  object-fit: contain;
+  max-height: 400px; /* 默认上限；设 ratio 时 renderer 内联 maxHeight:none 解除 */
+  object-fit: contain; /* 默认留边；renderer 按 fit / ratio 切 cover */
 }
 
 /* --- audio 音频播放器 --- */

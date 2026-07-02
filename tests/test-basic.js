@@ -199,4 +199,49 @@ test('item 内嵌 [b 关键词] 渲染为 li 内联 strong', () => {
   assert.strictEqual(strong.textContent, '关键词');
 });
 
+// === video 尺寸 / 比例 / 封面同盒 ===
+test('video ratio 设 aspect-ratio + cover + 解除 max-height', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'video', attrs: { s: 'x.mp4', ratio: '16:9' }, children: [] });
+  const v = dom.querySelector('.tokui-video__player');
+  assert.strictEqual(v.style.aspectRatio, '16 / 9', 'ratio 16:9 → aspect-ratio 16 / 9');
+  assert.strictEqual(v.style.objectFit, 'cover', '有尺寸时默认 cover');
+  assert.strictEqual(v.style.maxHeight, 'none', 'ratio 设了解除 max-height');
+});
+
+test('video h 显式高度 + cover', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'video', attrs: { s: 'x.mp4', h: '240' }, children: [] });
+  const v = dom.querySelector('.tokui-video__player');
+  assert.strictEqual(v.style.height, '240px', '纯数字 h → px');
+  assert.strictEqual(v.style.objectFit, 'cover');
+});
+
+test('video w 设容器宽度', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'video', attrs: { s: 'x.mp4', w: '50%' }, children: [] });
+  assert.strictEqual(dom.style.width, '50%', 'w 落到 wrapper');
+});
+
+test('video fit 覆盖默认', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'video', attrs: { s: 'x.mp4', ratio: '1:1', fit: 'contain' }, children: [] });
+  const v = dom.querySelector('.tokui-video__player');
+  assert.strictEqual(v.style.objectFit, 'contain', 'fit:contain 覆盖默认 cover');
+});
+
+test('video 无尺寸默认 contain（兼容旧行为）', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'video', attrs: { s: 'x.mp4' }, children: [] });
+  const v = dom.querySelector('.tokui-video__player');
+  assert.strictEqual(v.style.objectFit, 'contain');
+  assert.ok(!v.style.aspectRatio, '无 ratio 不设 aspect-ratio');
+});
+
+test('audio w 设容器宽度', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'audio', attrs: { s: 'x.mp3', w: '300' }, children: [] });
+  assert.strictEqual(dom.style.width, '300px', 'audio w 纯数字 → px');
+});
+
 run();

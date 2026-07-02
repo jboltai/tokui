@@ -6,6 +6,13 @@
  */
 'use strict';
 
+// i18n 取串：浏览器走 window.TokUI._internal.t（lib.js 拓扑序保证 i18n 先于本模块求值），
+// Node 走 require。t 内部缓存当前 locale 字典，setLocale 仅换引用。
+var _t = (typeof require === 'function')
+  ? require('../core/i18n').t
+  : (window.TokUI && window.TokUI._internal && window.TokUI._internal.t)
+    || function (key) { return key; };
+
 /**
  * 从图片 URL 中提取文件名
  * @param {string} src - 图片 URL
@@ -73,7 +80,7 @@ function createLightbox(doc) {
     overlay.className = 'tokui-lightbox';
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
-    overlay.setAttribute('aria-label', '图片预览');
+    overlay.setAttribute('aria-label', _t('lightbox.preview'));
 
     var img = doc.createElement('img');
     img.className = 'tokui-lightbox__img';
@@ -85,7 +92,7 @@ function createLightbox(doc) {
 
     var btnZoomIn = doc.createElement('button');
     btnZoomIn.className = 'tokui-lightbox__tool';
-    btnZoomIn.setAttribute('aria-label', '放大');
+    btnZoomIn.setAttribute('aria-label', _t('lightbox.zoomIn'));
     btnZoomIn.innerHTML = '&#43;';
     btnZoomIn.addEventListener('click', function (e) { e.stopPropagation(); zoomIn(); });
 
@@ -95,37 +102,37 @@ function createLightbox(doc) {
 
     var btnZoomOut = doc.createElement('button');
     btnZoomOut.className = 'tokui-lightbox__tool';
-    btnZoomOut.setAttribute('aria-label', '缩小');
+    btnZoomOut.setAttribute('aria-label', _t('lightbox.zoomOut'));
     btnZoomOut.innerHTML = '&#8722;';
     btnZoomOut.addEventListener('click', function (e) { e.stopPropagation(); zoomOut(); });
 
     var btnReset = doc.createElement('button');
     btnReset.className = 'tokui-lightbox__tool';
-    btnReset.setAttribute('aria-label', '重置');
+    btnReset.setAttribute('aria-label', _t('lightbox.reset'));
     btnReset.innerHTML = '&#8634;';
     btnReset.addEventListener('click', function (e) { e.stopPropagation(); resetAll(); });
 
     var btnRotateL = doc.createElement('button');
     btnRotateL.className = 'tokui-lightbox__tool';
-    btnRotateL.setAttribute('aria-label', '左旋90°');
+    btnRotateL.setAttribute('aria-label', _t('lightbox.rotateLeft'));
     btnRotateL.innerHTML = '&#8634;L';
     btnRotateL.addEventListener('click', function (e) { e.stopPropagation(); rotate(-90); });
 
     var btnRotateR = doc.createElement('button');
     btnRotateR.className = 'tokui-lightbox__tool';
-    btnRotateR.setAttribute('aria-label', '右旋90°');
+    btnRotateR.setAttribute('aria-label', _t('lightbox.rotateRight'));
     btnRotateR.innerHTML = '&#8635;R';
     btnRotateR.addEventListener('click', function (e) { e.stopPropagation(); rotate(90); });
 
     var btnFlipH = doc.createElement('button');
     btnFlipH.className = 'tokui-lightbox__tool';
-    btnFlipH.setAttribute('aria-label', '水平翻转');
+    btnFlipH.setAttribute('aria-label', _t('lightbox.flipH'));
     btnFlipH.innerHTML = '&#8596;';
     btnFlipH.addEventListener('click', function (e) { e.stopPropagation(); flip('h'); });
 
     var btnFlipV = doc.createElement('button');
     btnFlipV.className = 'tokui-lightbox__tool';
-    btnFlipV.setAttribute('aria-label', '垂直翻转');
+    btnFlipV.setAttribute('aria-label', _t('lightbox.flipV'));
     btnFlipV.innerHTML = '&#8597;';
     btnFlipV.addEventListener('click', function (e) { e.stopPropagation(); flip('v'); });
 
@@ -171,7 +178,7 @@ function createLightbox(doc) {
     var closeBtn = doc.createElement('button');
     closeBtn.className = 'tokui-lightbox__close';
     closeBtn.innerHTML = '&times;';
-    closeBtn.setAttribute('aria-label', '关闭');
+    closeBtn.setAttribute('aria-label', _t('common.close'));
     closeBtn.addEventListener('click', function (e) { e.stopPropagation(); close(); });
     overlay.appendChild(closeBtn);
 

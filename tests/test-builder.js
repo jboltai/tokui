@@ -135,6 +135,20 @@ test('dv with variant', () => {
   assert.strictEqual(b.toString(), '[dv v:dashed]');
 });
 
+// upd 的 false 值必须序列化为 'false' 字符串（toggle-off 语义），
+// 不能像初始渲染那样跳过 —— 否则 [upd id:x dis:false] 发不出 dis:false，禁用态清不掉。
+test('upd serializes false as "false" string (toggle-off)', () => {
+  const b = new TokUIBuilder();
+  b.upd({ id: 'inp', dis: false, ro: false, ph: '可输入了' });
+  assert.strictEqual(b.toString(), '[upd id:inp dis:false ro:false ph:可输入了]');
+});
+
+test('upd serializes true as bare boolean key', () => {
+  const b = new TokUIBuilder();
+  b.upd({ id: 'sw', chk: true });
+  assert.strictEqual(b.toString(), '[upd id:sw chk]');
+});
+
 test('dv with text and align', () => {
   const b = new TokUIBuilder();
   b.dv({ tx: '标题', align: 'left' });

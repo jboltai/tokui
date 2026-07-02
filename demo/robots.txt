@@ -5,4 +5,4 @@ Allow: /
 Disallow: /api/
 Disallow: /assets/js/demo.js
 
-Sitemap: https://tokui_demo.jboltai.com/sitemap.xml
+Sitemap: https://tokui-demo.jboltai.com/sitemap.xml

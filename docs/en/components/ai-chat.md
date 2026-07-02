@@ -250,14 +250,27 @@ A model-response latency / throughput indicator, self-closing. `v` is the value;
 
 Media players; both are self-closing.
 
-| Prop | Meaning | Applies to |
-|------|---------|------------|
-| `s` | Media URL | both |
-| `poster` | Cover image | `video` |
-| `tt` | Title | `audio` |
-| `duration` | Duration | `audio` |
+| Prop | Meaning | Applies to | Example |
+|------|---------|------------|---------|
+| `s` | Media URL | both | `s:https://.../mov.mp4` |
+| `poster` | Cover image (shares the player's ratio box — same size & ratio) | `video` | `poster:https://.../pic.jpg` |
+| `ratio` | Aspect ratio; fills the box when set | `video` | `ratio:"16:9"` / `"4:3"` / `"1:1"` / `"21:9"` |
+| `w` | Width (plain number → px, otherwise literal `%`/`rem`) | both | `w:"320"` / `w:"50%"` |
+| `h` | Height (overrides ratio) | `video` | `h:"180"` |
+| `fit` | Fill: `cover` (crop, default when sized) / `contain` (letterbox, default when unsized) / `fill` | `video` | `fit:contain` |
+| `tt` | Title (left-aligned) | `audio` | `tt:Demo audio` |
+| `duration` | Duration (right-aligned) | `audio` | `duration:0:48` |
 
-<Playground dsl='[video s:https://www.w3schools.com/html/mov_bbb.mp4 poster:https://picsum.photos/seed/poster/640/360][audio s:https://www.w3schools.com/html/horse.mp3 tt:演示音频 duration:0:48]' />
+> **Cover & ratio**: `poster` is the `<video>`'s first frame. Setting `ratio` + `fit` makes the cover and the playback share one ratio box — same size, same ratio, no distortion. For a side-by-side row, wrap with `row` + `col span:6`.
+
+```dsl
+[video s:https://assets.vdata.chat/jboltai/mov_bbb.mp4 poster:https://picsum.photos/seed/p/640/360 ratio:"16:9"]
+[video s:https://assets.vdata.chat/jboltai/mov_bbb.mp4 ratio:"1:1" w:"320" h:"320" fit:cover]
+[audio s:https://assets.vdata.chat/jboltai/horse.mp3 tt:Demo duration:0:48]
+[row][col span:6][video s:https://assets.vdata.chat/jboltai/mov_bbb.mp4 ratio:"16:9"][/col][col span:6][video s:https://assets.vdata.chat/jboltai/mov_bbb.mp4 ratio:"16:9"][/col][/row]
+```
+
+<Playground dsl='[video s:https://assets.vdata.chat/jboltai/mov_bbb.mp4 poster:https://picsum.photos/seed/poster/640/360 ratio:"16:9"][row][col span:6][video s:https://assets.vdata.chat/jboltai/mov_bbb.mp4 ratio:"1:1" fit:cover][/col][col span:6][video s:https://assets.vdata.chat/jboltai/mov_bbb.mp4 ratio:"1:1" fit:contain][/col][/row][audio s:https://assets.vdata.chat/jboltai/horse.mp3 tt:演示音频 duration:0:48]' />
 
 ## Conversation List `conversations` / `conv`
 

@@ -392,4 +392,4 @@ OHLC 蜡烛图，自闭合。`d` 用 `;` 分隔多根 K 线，每根 `开盘,最
 
 <Playground dsl='[chart t:gantt tt:2026 Q3 排期 deps:"0->1,1->2,2->3" mode:dates gnames:"调研|设计|开发|测试" tasks:"调研,2026-07-01,2026-07-10,100,0|设计,2026-07-08,2026-07-20,80,1|开发,2026-07-15,2026-08-25,40,2|测试,2026-08-20,2026-09-05,0,3"]' />
 
-> 完整属性与甘特图字段说明见 [DSL 语法参考](/guide/dsl-syntax) 第 5.7 节；如该页未生成，可直接查阅仓库 `demo/TOKUI_DSL_REFERENCE.md`。
+> 完整属性与甘特图字段说明见仓库 [`demo/TOKUI_DSL_REFERENCE.md`](https://github.com/jboltai/tokui/blob/master/demo/TOKUI_DSL_REFERENCE.md#68-图表chart纯-svg-零依赖20-种)。

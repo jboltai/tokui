@@ -5,6 +5,13 @@
  */
 'use strict';
 
+// i18n 取串（aria-label / placeholder / 空态 / 状态文本 / 默认按钮文案等）。
+// 浏览器经 window.TokUI._internal.t（lib.js 拓扑序保证 i18n 先于本模块求值），Node 经 require。
+var _t = (typeof require === 'function')
+  ? require('../core/i18n').t
+  : (window.TokUI && window.TokUI._internal && window.TokUI._internal.t)
+    || function (key) { return key; };
+
 /**
  * 颜色解析函数
  * 支持语义命名（primary/success/warning/danger/info/dark/light）
@@ -696,6 +703,13 @@ function registerBasicComponents(renderer) {
     var id = attrs.id;
     if (id && typeof document !== 'undefined') {
       var target = document.getElementById(id);
+      // id 常挂在内层 input（hidden / 可聚焦输入），而 _update 挂在外层 wrapper（组件根）：
+      // slider/rate 的 id 在 hidden、numinput/input 的 id 在 input，_update 都在 field/wrapper。
+      // getElementById 取到内层无 _update → 静默失败。故向上找最近的 _update 节点（组件根）。
+      // switch/card 的 id 与 _update 同元素，循环立即退出，行为不变。
+      while (target && typeof target._update !== 'function') {
+        target = target.parentElement;
+      }
       if (target && typeof target._update === 'function') {
         target._update(attrs);
       }
@@ -777,15 +791,15 @@ function registerBasicComponents(renderer) {
     pre._tokuiType = 'code';  // 标记组件类型
     // 复制按钮：复制原始累积文本（含换行），不用 textContent（已被 wrapLines 去换行）
     var copyBtn = el('button', { class: 'tokui-code__copy', type: 'button' });
-    copyBtn.textContent = '复制';
+    copyBtn.textContent = _t('common.copy');
     copyBtn.addEventListener('click', function () {
       if (rawAcc && navigator.clipboard) {
         navigator.clipboard.writeText(rawAcc);
       }
-      copyBtn.textContent = '已复制';
+      copyBtn.textContent = _t('common.copied');
       copyBtn.classList.add('tokui-code__copy--done');
       setTimeout(function () {
-        copyBtn.textContent = '复制';
+        copyBtn.textContent = _t('common.copy');
         copyBtn.classList.remove('tokui-code__copy--done');
       }, 2000);
     });
@@ -842,7 +856,7 @@ function registerBasicComponents(renderer) {
   // 子节点递归渲染
   renderer.register('think', (node, rc) => {
     var attrs = node.attrs || {};
-    var title = attrs.tt || '思考过程';
+    var title = attrs.tt || _t('think.title');
     var details = el('details', { class: 'tokui-think' });
     if (attrs.open !== undefined) details.setAttribute('open', '');
     var summary = el('summary', { class: 'tokui-think__summary' });
@@ -869,7 +883,7 @@ function registerBasicComponents(renderer) {
   // 子节点为 think-step
   renderer.register('think-chain', (node, rc) => {
     var attrs = node.attrs || {};
-    var title = attrs.tt || '推理过程';
+    var title = attrs.tt || _t('thinkChain.title');
     var status = attrs.status || '';
     var classes = ['tokui-think-chain'];
     if (status) classes.push('tokui-think-chain--' + status);
@@ -958,8 +972,8 @@ function registerBasicComponents(renderer) {
   // attrs.id = 目标元素 id, attrs.tx = 按钮文字, attrs.tt = 成功提示
   renderer.register('copy', (node) => {
     var attrs = node.attrs || {};
-    var btnText = attrs.tx || '复制';
-    var successText = attrs.tt || '已复制！';
+    var btnText = attrs.tx || _t('common.copy');
+    var successText = attrs.tt || _t('common.copied');
     var btn = el('button', { class: 'tokui-copy', type: 'button' });
     btn.textContent = btnText;
     btn.addEventListener('click', function () {
@@ -1026,7 +1040,7 @@ function registerBasicComponents(renderer) {
     var btn = el('button', {
       class: 'tokui-thumb tokui-thumb--' + direction + (isActive ? ' tokui-thumb--active' : '') + sizeClass,
       type: 'button',
-      'aria-label': direction === 'up' ? '点赞' : '点踩'
+      'aria-label': direction === 'up' ? _t('like.up') : _t('like.down')
     });
     var svgSize = size === 'lg' || size === 'large' ? 22 : size === 'sm' || size === 'small' ? 14 : 18;
     var svg = direction === 'up'
@@ -1055,7 +1069,7 @@ function registerBasicComponents(renderer) {
   // attrs.u = 下载链接, attrs.tt = 描述
   renderer.register('file', (node) => {
     var attrs = node.attrs || {};
-    var fileName = attrs.n || '未知文件';
+    var fileName = attrs.n || _t('file.unnamed');
     var fileSize = attrs.s || '';
     var fileType = attrs.t || 'default';
     var url = attrs.u || '';
@@ -1556,12 +1570,12 @@ function registerBasicComponents(renderer) {
     var classes = ['tokui-pagination'];
     if (size === 'sm') classes.push('tokui-pagination--sm');
     else if (size === 'lg') classes.push('tokui-pagination--lg');
-    var nav = el('nav', { class: classes.join(' '), role: 'navigation', 'aria-label': '分页' });
+    var nav = el('nav', { class: classes.join(' '), role: 'navigation', 'aria-label': _t('pagination.aria') });
 
     // 总数显示（固定不刷新）
     if (showTotal) {
       var totalEl = el('span', { class: 'tokui-pagination__total' });
-      totalEl.textContent = count ? ('共 ' + count + ' 条') : ('共 ' + total + ' 页');
+      totalEl.textContent = count ? _t('pagination.totalCount', { count: count }) : _t('pagination.totalPages', { total: total });
       nav.appendChild(totalEl);
     }
 
@@ -1673,7 +1687,7 @@ function registerBasicComponents(renderer) {
   // attrs.tx = 触发按钮文字, attrs.v = 按钮变体(primary/danger/success/warning/ghost)
   renderer.register('dropdown', (node, rc) => {
     var attrs = node.attrs || {};
-    var triggerText = attrs.tt || attrs.tx || '菜单';
+    var triggerText = attrs.tt || attrs.tx || _t('menu.defaultTrigger');
     var variant = attrs.v || '';
 
     var wrapper = el('div', { class: 'tokui-dropdown' });
@@ -1959,7 +1973,7 @@ function registerBasicComponents(renderer) {
   // 子节点作为气泡内容
   renderer.register('popover', (node, rc) => {
     var attrs = node.attrs || {};
-    var triggerText = attrs.tx || '点击';
+    var triggerText = attrs.tx || _t('trigger.default');
     var pos = attrs.pos || 'top';
     var title = attrs.tt || '';
     var width = attrs.w || '';
@@ -2285,7 +2299,7 @@ function registerBasicComponents(renderer) {
   // attrs.clk = 事件回调
   renderer.register('input-tag', (node, rc) => {
     var attrs = node.attrs || {};
-    var placeholder = attrs.ph || '输入后按回车添加';
+    var placeholder = attrs.ph || _t('inputTag.placeholder');
     var name = attrs.n || 'tags';
     var id = attrs.id || '';
     var maxTags = parseInt(attrs.max) || 0;
@@ -2398,7 +2412,7 @@ function registerBasicComponents(renderer) {
     var duration = parseInt(attrs.dur) || 0;
     var label = attrs.l || '';
     var size = attrs.s || '';
-    var endText = attrs.tx || '已结束';
+    var endText = attrs.tx || _t('countdown.ended');
     var id = attrs.id || '';
     var fmt = attrs.fmt || 'dhms';
     var handlerName = attrs.clk || '';
@@ -2423,10 +2437,10 @@ function registerBasicComponents(renderer) {
 
     // 根据 fmt 决定显示哪些单位
     var allUnits = [
-      { key: 'd', label: '天' },
-      { key: 'h', label: '时' },
-      { key: 'm', label: '分' },
-      { key: 's', label: '秒' }
+      { key: 'd', label: _t('duration.day') },
+      { key: 'h', label: _t('duration.hour') },
+      { key: 'm', label: _t('duration.minute') },
+      { key: 's', label: _t('duration.second') }
     ];
     var fmtKeys = fmt.split('');
     var items = allUnits.filter(function(u) { return fmtKeys.indexOf(u.key) !== -1; });
@@ -2514,11 +2528,11 @@ function registerBasicComponents(renderer) {
     var handlerName = attrs.clk || '';
     var btnType = attrs.t || 'primary';
     var pos = attrs.pos || 'top';
-    var okText = attrs['ok-text'] || '确定';
-    var cancelText = attrs['cancel-text'] || '取消';
+    var okText = attrs['ok-text'] || _t('common.ok');
+    var cancelText = attrs['cancel-text'] || _t('common.cancel');
 
     // 触发按钮文字：优先用节点内容（builder 传入的 text），其次用 tx 属性
-    var triggerText = node.content || attrs.tx || '确认';
+    var triggerText = node.content || attrs.tx || _t('popconfirm.trigger');
 
     var wrapper = el('span', { class: 'tokui-popconfirm' });
 
@@ -2553,7 +2567,7 @@ function registerBasicComponents(renderer) {
       var popup = el('div', {
         class: 'tokui-popconfirm__popup tokui-popconfirm__popup--' + pos,
         role: 'dialog',
-        'aria-label': title || '确认操作'
+        'aria-label': title || _t('popconfirm.aria')
       });
 
       // 箭头
@@ -2770,7 +2784,7 @@ function registerBasicComponents(renderer) {
     else if (size === 'lg') classes.push('tokui-backtop--lg');
     if (isContainer) classes.push('tokui-backtop--container');
 
-    var btn = el('div', { class: classes.join(' '), role: 'button', 'aria-label': '回到顶部', tabindex: '0' });
+    var btn = el('div', { class: classes.join(' '), role: 'button', 'aria-label': _t('backToTop.aria'), tabindex: '0' });
     if (isContainer) {
       btn.style.bottom = bottom + 'px';
     } else {
@@ -2873,7 +2887,7 @@ function registerBasicComponents(renderer) {
     });
 
     var today = now.getFullYear() === year && now.getMonth() === month ? now.getDate() : -1;
-    var title = attrs.tt || year + '年' + (month + 1) + '月';
+    var title = attrs.tt || _t('datepicker.title', { y: year, m: month + 1 });
 
     var classes = ['tokui-calendar'];
     if (variant === 'card') classes.push('tokui-calendar--card');
@@ -2888,7 +2902,7 @@ function registerBasicComponents(renderer) {
 
     // 日期网格（星期头 + 日期统一在 grid 内，固定 6 行）
     var grid = el('div', { class: 'tokui-calendar__grid' });
-    var weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+    var weekdays = [_t('datepicker.weekday.0'), _t('datepicker.weekday.1'), _t('datepicker.weekday.2'), _t('datepicker.weekday.3'), _t('datepicker.weekday.4'), _t('datepicker.weekday.5'), _t('datepicker.weekday.6')];
     weekdays.forEach(function(d) {
       var cell = el('div', { class: 'tokui-calendar__weekday' });
       cell.textContent = d;
@@ -2995,7 +3009,7 @@ function registerBasicComponents(renderer) {
     var closeBtn = el('button', {
       class: 'tokui-notification__close',
       type: 'button',
-      'aria-label': '关闭'
+      'aria-label': _t('common.close')
     });
     closeBtn.textContent = '×';
     closeBtn.addEventListener('click', function() {
@@ -3013,7 +3027,7 @@ function registerBasicComponents(renderer) {
         type: 'button',
         'data-tokui-clk': handlerName
       });
-      actionBtn.textContent = '查看';
+      actionBtn.textContent = _t('common.view');
       content.appendChild(actionBtn);
     }
 
@@ -3139,7 +3153,7 @@ function registerBasicComponents(renderer) {
     var sendBtn = el('button', {
       class: 'tokui-chat-input__send',
       type: 'button',
-      'aria-label': '发送'
+      'aria-label': _t('common.send')
     });
     sendBtn.innerHTML = '<svg viewBox="0 0 20 20" width="18" height="18" fill="currentColor"><path d="M10 3a1 1 0 0 1 .7.3l5 5a1 1 0 0 1-1.4 1.4L11 6.4V16a1 1 0 1 1-2 0V6.4l-3.3 3.3a1 1 0 0 1-1.4-1.4l5-5A1 1 0 0 1 10 3z"/></svg>';
     if (disabled) {
@@ -3252,17 +3266,17 @@ function registerBasicComponents(renderer) {
     // 生成默认按钮
     var defaultActions = [];
     if (attrs.copy !== undefined) {
-      defaultActions.push({ act: 'copy', icon: ICONS.copy, label: '复制' });
+      defaultActions.push({ act: 'copy', icon: ICONS.copy, label: _t('actions.copy') });
     }
     if (attrs.regenerate !== undefined) {
-      defaultActions.push({ act: 'regenerate', icon: ICONS.regenerate, label: '重新生成' });
+      defaultActions.push({ act: 'regenerate', icon: ICONS.regenerate, label: _t('actions.regenerate') });
     }
     if (attrs.like !== undefined) {
-      defaultActions.push({ act: 'like', icon: ICONS.like, label: '赞' });
-      defaultActions.push({ act: 'dislike', icon: ICONS.dislike, label: '踩' });
+      defaultActions.push({ act: 'like', icon: ICONS.like, label: _t('actions.like') });
+      defaultActions.push({ act: 'dislike', icon: ICONS.dislike, label: _t('actions.dislike') });
     }
     if (attrs.delete !== undefined) {
-      defaultActions.push({ act: 'delete', icon: ICONS.delete, label: '删除' });
+      defaultActions.push({ act: 'delete', icon: ICONS.delete, label: _t('actions.delete') });
     }
 
     // 渲染默认按钮
@@ -3325,7 +3339,7 @@ function registerBasicComponents(renderer) {
     nameEl.textContent = name;
     header.appendChild(nameEl);
     var statusBadge = el('span', { class: 'tokui-tool-call__status' });
-    var STATUS_TEXT = { pending: '等待中', running: '运行中', done: '完成', error: '出错', denied: '已拒绝' };
+    var STATUS_TEXT = { pending: _t('status.pending'), running: _t('status.running'), done: _t('status.done'), error: _t('status.error'), denied: _t('status.denied') };
     statusBadge.textContent = STATUS_TEXT[status] || status;
     header.appendChild(statusBadge);
     if (duration) {
@@ -3662,7 +3676,7 @@ function registerBasicComponents(renderer) {
     nameEl.textContent = name;
     header.appendChild(nameEl);
     var statusBadge = el('span', { class: 'tokui-agent__status' });
-    var STATUS_TEXT = { idle: '空闲', running: '运行中', paused: '已暂停', done: '完成', error: '出错' };
+    var STATUS_TEXT = { idle: _t('status.idle'), running: _t('status.running'), paused: _t('status.paused'), done: _t('status.done'), error: _t('status.error') };
     statusBadge.textContent = STATUS_TEXT[status] || status;
     header.appendChild(statusBadge);
     if (duration) {
@@ -3821,7 +3835,7 @@ function registerBasicComponents(renderer) {
     wrapper.appendChild(valEl);
     if (type) {
       var labelEl = el('span', { class: 'tokui-latency__label' });
-      var LABELS = { thinking: '思考', generating: '生成', total: '总计' };
+      var LABELS = { thinking: _t('agent.thinking'), generating: _t('agent.generating'), total: _t('agent.total') };
       labelEl.textContent = LABELS[type] || type;
       wrapper.appendChild(labelEl);
     }
@@ -3835,10 +3849,25 @@ function registerBasicComponents(renderer) {
     var src = attrs.s || '';
     var poster = attrs.poster || '';
     var wrapper = el('div', { class: 'tokui-video' });
+    // w：容器宽度（纯数字 → px，余按字面：100% / 320px / 20rem）
+    if (attrs.w) wrapper.style.width = /^\d+$/.test(attrs.w) ? attrs.w + 'px' : attrs.w;
     var video = el('video', { class: 'tokui-video__player', preload: 'metadata' });
     if (src) video.setAttribute('src', src);
     if (poster) video.setAttribute('poster', poster);
     video.setAttribute('controls', '');
+    // object-fit：有 ratio/h 时默认 cover（铺满裁切，封面与画面同盒同比例），否则 contain（兼容旧行为）
+    var hasSize = attrs.h || attrs.ratio;
+    video.style.objectFit = attrs.fit || (hasSize ? 'cover' : 'contain');
+    // 尺寸优先级：h（显式高度）> ratio（aspect-ratio）。ratio 设了同时解除 max-height 限制
+    if (attrs.h) {
+      video.style.height = /^\d+$/.test(attrs.h) ? attrs.h + 'px' : attrs.h;
+    } else if (attrs.ratio) {
+      var parts = String(attrs.ratio).split(':');
+      if (parts.length === 2 && parseFloat(parts[0]) && parseFloat(parts[1])) {
+        video.style.aspectRatio = parts[0].trim() + ' / ' + parts[1].trim();
+        video.style.maxHeight = 'none';
+      }
+    }
     wrapper.appendChild(video);
     return wrapper;
   });
@@ -3849,6 +3878,7 @@ function registerBasicComponents(renderer) {
     var title = attrs.tt || '';
     var duration = attrs.duration || '';
     var wrapper = el('div', { class: 'tokui-audio' });
+    if (attrs.w) wrapper.style.width = /^\d+$/.test(attrs.w) ? attrs.w + 'px' : attrs.w;
     var info = el('div', { class: 'tokui-audio__info' });
     var icon = el('span', { class: 'tokui-audio__icon' });
     icon.textContent = '🔊';
@@ -4103,7 +4133,7 @@ function registerBasicComponents(renderer) {
     var emptyEl = null;
     if (convNodes.length === 0) {
       emptyEl = el('div', { class: 'tokui-conversations__empty' });
-      emptyEl.textContent = '暂无会话';
+      emptyEl.textContent = _t('chat.emptySessions');
       wrapper.appendChild(emptyEl);
       wrapper._slot = wrapper;
       wrapper._tokuiType = 'conversations';
@@ -4176,11 +4206,11 @@ function registerBasicComponents(renderer) {
     });
 
     var groups = [];
-    if (today.length) groups.push({ label: '今天', items: today });
-    if (yesterday.length) groups.push({ label: '昨天', items: yesterday });
-    if (earlier.length) groups.push({ label: '更早', items: earlier });
+    if (today.length) groups.push({ label: _t('time.today'), items: today });
+    if (yesterday.length) groups.push({ label: _t('time.yesterday'), items: yesterday });
+    if (earlier.length) groups.push({ label: _t('time.earlier'), items: earlier });
 
-    return groups.length ? groups : [{ label: '今天', items: convNodes }];
+    return groups.length ? groups : [{ label: _t('time.today'), items: convNodes }];
   }
 
   /**
@@ -4223,7 +4253,7 @@ function registerBasicComponents(renderer) {
     var deleteBtn = el('button', {
       class: 'tokui-conv__delete',
       type: 'button',
-      'aria-label': '删除'
+      'aria-label': _t('common.delete')
     });
     deleteBtn.textContent = '×';
     actionsEl.appendChild(deleteBtn);
@@ -4433,7 +4463,7 @@ function registerBasicComponents(renderer) {
   renderer.register('attach', (node) => {
     var attrs = node.attrs || {};
     var fileType = attrs.t || 'default';
-    var fileName = attrs.s || '未知文件';
+    var fileName = attrs.s || _t('file.unnamed');
     var url = attrs.u || '';
     var fileSize = attrs.size || '';
     var handlerName = attrs.clk || '';
@@ -4500,13 +4530,13 @@ function registerBasicComponents(renderer) {
         download: ''
       });
       dlBtn.innerHTML = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v9M4.5 7.5L8 11l3.5-3.5M2 13h12"/></svg>';
-      dlBtn.title = '下载';
+      dlBtn.title = _t('common.download');
       actions.appendChild(dlBtn);
     }
     // 删除按钮
     var delBtn = el('button', { class: 'tokui-attach__action tokui-attach__action--del', type: 'button' });
     delBtn.innerHTML = '<svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>';
-    delBtn.title = '删除';
+    delBtn.title = _t('common.delete');
     delBtn.addEventListener('click', function(e) {
       e.stopPropagation();
       if (handlerName) {
@@ -4815,7 +4845,7 @@ function registerBasicComponents(renderer) {
   // 渲染为固定浮层，含搜索输入、分组列表、键盘导航
   renderer.register('command', (node, rc) => {
     var attrs = node.attrs || {};
-    var placeholder = attrs.ph || '输入关键词搜索...';
+    var placeholder = attrs.ph || _t('command.placeholder');
 
     // 外层容器（fixed overlay）
     var wrapper = el('div', { class: 'tokui-command' });
@@ -4827,7 +4857,7 @@ function registerBasicComponents(renderer) {
     wrapper.appendChild(overlay);
 
     // 面板
-    var panel = el('div', { class: 'tokui-command__panel', role: 'dialog', 'aria-label': '命令面板' });
+    var panel = el('div', { class: 'tokui-command__panel', role: 'dialog', 'aria-label': _t('command.aria') });
 
     // 搜索输入框容器
     var inputWrap = el('div', { class: 'tokui-command__input-wrap' });
@@ -4854,7 +4884,7 @@ function registerBasicComponents(renderer) {
 
     // 空状态
     var empty = el('div', { class: 'tokui-command__empty' });
-    empty.textContent = '没有找到匹配结果';
+    empty.textContent = _t('command.noResult');
     empty.style.display = 'none';
     list.appendChild(empty);
 

@@ -13,6 +13,12 @@
  */
 'use strict';
 
+// i18n 取串（aria-label / carousel 索引 / collapse 默认标题等）。
+var _t = (typeof require === 'function')
+  ? require('../core/i18n').t
+  : (window.TokUI && window.TokUI._internal && window.TokUI._internal.t)
+    || function (key) { return key; };
+
 /**
  * 注册布局组件到渲染器
  * @param {TokUIRenderer} renderer - 渲染器实例
@@ -344,7 +350,7 @@ function registerLayoutComponents(renderer) {
     var cAttrs = { class: 'tokui-collapse', 'aria-expanded': node.attrs.open !== undefined ? 'true' : 'false' };
     if (node.attrs.id) cAttrs.id = node.attrs.id;
     var details = el('details', cAttrs);
-    var summary = el('summary', { class: 'tokui-collapse-title' }, node.attrs.tt || '展开');
+    var summary = el('summary', { class: 'tokui-collapse-title' }, node.attrs.tt || _t('layout.collapseDefault'));
     details.appendChild(summary);
     var body = el('div', { class: 'tokui-collapse-body' });
     rc(node.children || []).forEach(child => {
@@ -385,7 +391,7 @@ function registerLayoutComponents(renderer) {
       var header = el('div', { class: 'tokui-dialog-header' });
       var titleSpan = el('span', {}, node.attrs.tt);
       header.appendChild(titleSpan);
-      var closeBtn = el('button', { class: 'tokui-dialog-close', 'aria-label': '关闭' }, '✕');
+      var closeBtn = el('button', { class: 'tokui-dialog-close', 'aria-label': _t('common.close') }, '✕');
       closeBtn.addEventListener('click', function () { dialog.close(); });
       header.appendChild(closeBtn);
       dialog.appendChild(header);
@@ -467,7 +473,7 @@ function registerLayoutComponents(renderer) {
     if (node.attrs.tt) {
       var header = el('div', { class: 'tokui-drawer__header' });
       header.appendChild(el('span', {}, node.attrs.tt));
-      var closeBtn = el('button', { class: 'tokui-drawer__close', 'aria-label': '关闭' }, '✕');
+      var closeBtn = el('button', { class: 'tokui-drawer__close', 'aria-label': _t('common.close') }, '✕');
       closeBtn.addEventListener('click', function () {
         wrapper.classList.remove('tokui-drawer--open');
       });
@@ -515,7 +521,7 @@ function registerLayoutComponents(renderer) {
   // 2. 完整版：子节点为 img 标签（一次性渲染或流式追加）
   // 根据子图片数量动态设置 CSS 类实现九宫格布局
   renderer.register('imgs', (node, rc) => {
-    const container = el('div', { class: 'tokui-imgs', role: 'group', 'aria-label': '图片画廊' });
+    const container = el('div', { class: 'tokui-imgs', role: 'group', 'aria-label': _t('layout.gallery') });
     let childNodes = node.children || [];
 
     // 简写版：从 s: 属性拆分生成虚拟 img 子节点
@@ -976,7 +982,7 @@ function registerLayoutComponents(renderer) {
     // 左右箭头
     var prevBtn = el('button', {
       class: 'tokui-carousel__arrow tokui-carousel__arrow--prev',
-      'aria-label': '上一张',
+      'aria-label': _t('layout.carouselPrev'),
       'data-dir': 'prev'
     });
     prevBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>';
@@ -984,7 +990,7 @@ function registerLayoutComponents(renderer) {
 
     var nextBtn = el('button', {
       class: 'tokui-carousel__arrow tokui-carousel__arrow--next',
-      'aria-label': '下一张',
+      'aria-label': _t('layout.carouselNext'),
       'data-dir': 'next'
     });
     nextBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 6 15 12 9 18"/></svg>';
@@ -1018,7 +1024,7 @@ function registerLayoutComponents(renderer) {
           var alt = titleEl ? (titleEl.textContent || '').trim() : '';
           var thumb = el('button', {
             class: 'tokui-carousel__thumb' + (ti === 0 ? ' tokui-carousel__thumb--active' : ''),
-            'aria-label': '第' + (ti + 1) + '张',
+            'aria-label': _t('layout.carouselIndex', { n: ti + 1 }),
             'data-index': String(ti)
           });
           if (src) {
@@ -1038,7 +1044,7 @@ function registerLayoutComponents(renderer) {
         slideEls.forEach(function(slide, di) {
           var dot = el('button', {
             class: 'tokui-carousel__dot' + (di === 0 ? ' tokui-carousel__dot--active' : ''),
-            'aria-label': '第' + (di + 1) + '张',
+            'aria-label': _t('layout.carouselIndex', { n: di + 1 }),
             'data-index': String(di)
           });
           dots.appendChild(dot);

@@ -59,6 +59,9 @@ function registerFormComponents(renderer) {
   const iconSvg = (typeof require === 'function')
     ? require('./icons').iconSvg
     : window.TokUI._internal.iconSvg;
+  const _t = (typeof require === 'function')
+    ? require('../core/i18n').t
+    : window.TokUI._internal.t;
 
   /**
    * 解析 pre/app 属性值：文本 或 文本|variant
@@ -469,7 +472,7 @@ function registerFormComponents(renderer) {
     node.children.forEach(optNode => {
       dropdown.appendChild(_renderPickerOpt(optNode));
     });
-    var pickerEmpty = el('li', { class: 'tokui-picker-empty' }, '无匹配项');
+    var pickerEmpty = el('li', { class: 'tokui-picker-empty' }, _t('picker.noMatch'));
     pickerEmpty.style.display = 'none';
     dropdown.appendChild(pickerEmpty);
     pickerEl.appendChild(dropdown);
@@ -1151,7 +1154,7 @@ function registerFormComponents(renderer) {
       field.appendChild(el('label', { class: 'tokui-label', for: node.attrs.id || '' }, node.attrs.l));
     }
 
-    var rate = el('div', { class: 'tokui-rate', role: 'radiogroup', 'aria-label': node.attrs.l || '评分', tabindex: '0' });
+    var rate = el('div', { class: 'tokui-rate', role: 'radiogroup', 'aria-label': node.attrs.l || _t('rate.defaultLabel'), tabindex: '0' });
     var hidden = el('input', { type: 'hidden' });
     if (node.attrs.id) hidden.id = node.attrs.id;
     if (node.attrs.n) hidden.name = node.attrs.n;
@@ -1737,7 +1740,7 @@ function registerFormComponents(renderer) {
   // attrs: id, l(标签), ph(placeholder), dis(禁用), clk(事件), v(预选路径), n(name)
   renderer.register('cascader', (node, rc) => {
     var isDisabled = node.attrs.dis !== undefined;
-    var placeholder = node.attrs.ph || '请选择';
+    var placeholder = node.attrs.ph || _t('select.placeholder');
 
     var field = el('div', { class: 'tokui-field' });
     if (node.attrs.l) {
@@ -2001,7 +2004,7 @@ function registerFormComponents(renderer) {
     var isDisabled = node.attrs.dis !== undefined;
     var isMulti = node.attrs.multi !== undefined;
     var maxFiles = parseInt(node.attrs.max) || 0;
-    var placeholder = node.attrs.ph || '点击或拖拽文件至此处上传';
+    var placeholder = node.attrs.ph || _t('upload.hint');
     var accept = node.attrs.accept || '';
 
     var field = el('div', { class: 'tokui-field' });
@@ -2021,7 +2024,7 @@ function registerFormComponents(renderer) {
     text.textContent = placeholder;
     dropzone.appendChild(text);
     var browseBtn = el('button', { class: 'tokui-upload-btn', type: 'button' });
-    browseBtn.textContent = '浏览文件';
+    browseBtn.textContent = _t('upload.browse');
     dropzone.appendChild(browseBtn);
     upload.appendChild(dropzone);
 
@@ -2364,14 +2367,14 @@ function registerFormComponents(renderer) {
     prevBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>';
     var nextBtn = el('button', { class: 'tokui-datepicker-nav tokui-datepicker-nav--next', type: 'button' });
     nextBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>';
-    var titleEl = el('span', { class: 'tokui-datepicker-title' }, year + '年' + (month + 1) + '月');
+    var titleEl = el('span', { class: 'tokui-datepicker-title' }, _t('datepicker.title', { y: year, m: month + 1 }));
     header.appendChild(prevBtn);
     header.appendChild(titleEl);
     header.appendChild(nextBtn);
     container.appendChild(header);
 
     // 星期头
-    var weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+    var weekdays = [_t('datepicker.weekday.0'), _t('datepicker.weekday.1'), _t('datepicker.weekday.2'), _t('datepicker.weekday.3'), _t('datepicker.weekday.4'), _t('datepicker.weekday.5'), _t('datepicker.weekday.6')];
     var weekdayRow = el('div', { class: 'tokui-datepicker-weekdays' });
     weekdays.forEach(function(d) {
       weekdayRow.appendChild(el('span', { class: 'tokui-datepicker-weekday' }, d));
@@ -2621,20 +2624,20 @@ function registerFormComponents(renderer) {
     var showSeconds = fmt.indexOf('ss') !== -1 || fmt.indexOf('s') !== -1;
     var columns = el('div', { class: 'tokui-timepicker-columns' });
 
-    var hourCol = buildTimeColumn('时', 24, currentHour);
-    var minuteCol = buildTimeColumn('分', 60, currentMinute);
+    var hourCol = buildTimeColumn(_t('duration.hour'), 24, currentHour);
+    var minuteCol = buildTimeColumn(_t('duration.minute'), 60, currentMinute);
     columns.appendChild(hourCol);
     columns.appendChild(minuteCol);
     var secondCol = null;
     if (showSeconds) {
-      secondCol = buildTimeColumn('秒', 60, currentSecond);
+      secondCol = buildTimeColumn(_t('duration.second'), 60, currentSecond);
       columns.appendChild(secondCol);
     }
     dropdown.appendChild(columns);
 
     // 确认按钮
     var footer = el('div', { class: 'tokui-timepicker-footer' });
-    var confirmBtn = el('button', { class: 'tokui-timepicker-confirm', type: 'button' }, '确定');
+    var confirmBtn = el('button', { class: 'tokui-timepicker-confirm', type: 'button' }, _t('common.ok'));
     footer.appendChild(confirmBtn);
     dropdown.appendChild(footer);
 
@@ -2790,13 +2793,13 @@ function registerFormComponents(renderer) {
     var showSeconds = fmt.indexOf('ss') !== -1 || fmt.indexOf('s') !== -1;
     var timeSection = el('div', { class: 'tokui-datetimepicker-time' });
     var timeColumns = el('div', { class: 'tokui-timepicker-columns' });
-    var hourCol = buildTimeColumn('时', 24, currentHour);
-    var minuteCol = buildTimeColumn('分', 60, currentMinute);
+    var hourCol = buildTimeColumn(_t('duration.hour'), 24, currentHour);
+    var minuteCol = buildTimeColumn(_t('duration.minute'), 60, currentMinute);
     timeColumns.appendChild(hourCol);
     timeColumns.appendChild(minuteCol);
     var secondCol = null;
     if (showSeconds) {
-      secondCol = buildTimeColumn('秒', 60, currentSecond);
+      secondCol = buildTimeColumn(_t('duration.second'), 60, currentSecond);
       timeColumns.appendChild(secondCol);
     }
     timeSection.appendChild(timeColumns);
@@ -2821,7 +2824,7 @@ function registerFormComponents(renderer) {
 
     // 确认按钮
     var footer = el('div', { class: 'tokui-datetimepicker-footer' });
-    var confirmBtn = el('button', { class: 'tokui-timepicker-confirm', type: 'button' }, '确定');
+    var confirmBtn = el('button', { class: 'tokui-timepicker-confirm', type: 'button' }, _t('common.ok'));
     footer.appendChild(confirmBtn);
 
     // 日期面板 + 时间面板横向并排（主流布局：日期为主，时间滚轮列居右侧栏）

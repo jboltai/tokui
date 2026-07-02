@@ -252,14 +252,27 @@ Git 提交信息卡片，自闭合。
 
 媒体播放器，均自闭合。
 
-| 属性 | 含义 | 适用 |
-|------|------|------|
-| `s` | 媒体地址 | 两者 |
-| `poster` | 封面图 | `video` |
-| `tt` | 标题 | `audio` |
-| `duration` | 时长 | `audio` |
+| 属性 | 含义 | 适用 | 示例 |
+|------|------|------|------|
+| `s` | 媒体地址 | 两者 | `s:https://.../mov.mp4` |
+| `poster` | 封面图（与播放器共用比例盒，同大小同比例） | `video` | `poster:https://.../pic.jpg` |
+| `ratio` | 画面比例（aspect-ratio），设了自动铺满 | `video` | `ratio:"16:9"` / `"4:3"` / `"1:1"` / `"21:9"` |
+| `w` | 宽（纯数字→px，余按字面 `%`/`rem`） | 两者 | `w:"320"` / `w:"50%"` |
+| `h` | 高（优先于 ratio） | `video` | `h:"180"` |
+| `fit` | 填充：有尺寸默认 `cover`（裁切铺满）、无尺寸默认 `contain`（留边） | `video` | `fit:contain` / `fit:cover` / `fit:fill` |
+| `tt` | 标题（左对齐） | `audio` | `tt:演示音频` |
+| `duration` | 时长（右对齐） | `audio` | `duration:0:48` |
 
-<Playground dsl='[video s:https://www.w3schools.com/html/mov_bbb.mp4 poster:https://picsum.photos/seed/poster/640/360][audio s:https://www.w3schools.com/html/horse.mp3 tt:演示音频 duration:0:48]' />
+> **封面与比例**：`poster` 是 `<video>` 自身首帧，给它设 `ratio` + `fit` 后，封面与正片共用同一比例盒，自然同大小、同比例、不变形。一行多列用 `row` + `col span:6` 包裹。
+
+```dsl
+[video s:https://assets.vdata.chat/jboltai/mov_bbb.mp4 poster:https://picsum.photos/seed/p/640/360 ratio:"16:9"]
+[video s:https://assets.vdata.chat/jboltai/mov_bbb.mp4 ratio:"1:1" w:"320" h:"320" fit:cover]
+[audio s:https://assets.vdata.chat/jboltai/horse.mp3 tt:演示音频 duration:0:48]
+[row][col span:6][video s:https://assets.vdata.chat/jboltai/mov_bbb.mp4 ratio:"16:9"][/col][col span:6][video s:https://assets.vdata.chat/jboltai/mov_bbb.mp4 ratio:"16:9"][/col][/row]
+```
+
+<Playground dsl='[video s:https://assets.vdata.chat/jboltai/mov_bbb.mp4 poster:https://picsum.photos/seed/poster/640/360 ratio:"16:9"][row][col span:6][video s:https://assets.vdata.chat/jboltai/mov_bbb.mp4 ratio:"1:1" fit:cover][/col][col span:6][video s:https://assets.vdata.chat/jboltai/mov_bbb.mp4 ratio:"1:1" fit:contain][/col][/row][audio s:https://assets.vdata.chat/jboltai/horse.mp3 tt:演示音频 duration:0:48]' />
 
 ## 会话列表 `conversations` / `conv`
 
@@ -286,9 +299,12 @@ Git 提交信息卡片，自闭合。
 |------|------|------|------|
 | `tt` | 标题 | `welcome` | `tt:"你好，我是助手"` |
 | `st` | 副标题 | `welcome` | `st:"有什么可以帮你？"` |
+| `bd` | 能力徽标（逗号分隔） | `welcome` | `bd:"GPT-4,联网,代码"` |
+| `hd` | 起步卡分区标题 | `welcome` | `hd:"你可以试试"` |
+| `ft` | 页脚引导语 | `welcome` | `ft:"输入 / 查看更多"` |
 | `tt` | 卡片标题 | `welcome-feature` / `feature` | `tt:写代码` |
 | `tx` | 卡片描述 | `welcome-feature` / `feature` | `tx:"生成与调试代码"` |
-| `i` | 图标（`code` / `chart` / `doc`） | `welcome-feature` / `feature` | `i:chart` |
+| `i` | 图标（`code` / `chart` / `doc` / `dashboard` / `print` / `chat` / `table` / `form`） | `welcome-feature` / `feature` | `i:chart` |
 | `clk` | 点击处理器 | `welcome-feature` / `feature` | `clk:onPick` |
 
 > `[feature tt:x tx:y i:code]` 自闭合（推荐）；`[welcome-feature ...][/welcome-feature]` 为容器写法，效果相同。卡片由属性驱动，每个标签到达即渲染（真流式）。

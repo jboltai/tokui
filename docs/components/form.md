@@ -75,12 +75,16 @@
 | `n` | 字段名 | `n:username` |
 | `val` | 默认值 | `val:Tom` |
 | `id` | 元素 ID | `id:username` |
+| `ml` | 最大字符数（maxlength） | `ml:20` |
+| `min` / `max` / `step` | 数字边界 / 步长（`t:number`） | `min:0 max:99` |
 | `w` | 宽度 | `w:240` |
 | `hint` | 提示文字 | `hint:6~16 个字符` |
-| `search` | 搜索样式 | `search` |
+| `search` | 搜索样式（`search right` 图标加右侧） | `search` |
+| `pre` / `app` | 前置 / 后置文本（可带变体 `文本\|变体`） | `pre:¥` |
+| `prebtn` / `appbtn` | 前置 / 后置按钮（`文本:处理器\|变体`） | `prebtn:"搜索:doSearch\|primary"` |
 | `req` / `dis` / `ro` | 必填 / 禁用 / 只读 | `req` |
 
-**变体**：`error` / `success`（校验状态），`sm` / `lg`（尺寸），`underline`（下划线风格），`pill`（圆角）。
+**变体**：`error` / `success`（校验状态），`sm` / `lg`（尺寸），`underline`（下划线风格），`pill`（圆角），`inline`（标签与控件同行）。
 
 <Playground dsl='[input l:姓名 ph:"请输入姓名" req][input l:邮箱 t:email ph:name@example.com][input l:带默认值 val:张三][input l:搜索框 ph:"输入关键词搜索" search][input l:禁用态 ph:不可编辑 dis][input l:错误状态 v:error ph:校验失败]' />
 
