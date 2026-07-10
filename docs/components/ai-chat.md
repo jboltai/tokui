@@ -107,7 +107,7 @@
 | `n` | 序号 | `n:1` |
 | `tt` | 标题（含空格须双引号） | `tt:"TokUI 官方文档"` |
 | `sn` | 摘要片段（含空格须双引号） | `sn:"零依赖流式 UI…"` |
-| `u` / `url` | 链接 | `u:https://example.com` |
+| `u` / `url` | 链接 | `u:https://tokui.jboltai.com` |
 
 > `tt`/`sn` 含空格必须用双引号包裹，否则会被空格截断。
 

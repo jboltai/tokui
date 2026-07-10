@@ -34,7 +34,7 @@ Hyperlink, self-closing. `u` is the URL, `tx` is the text, and `target` controls
 
 | Prop | Meaning | Example |
 |------|---------|---------|
-| `u` | URL | `u:https://example.com` |
+| `u` | URL | `u:https://tokui.jboltai.com` |
 | `tx` | Text | `tx:官网` |
 | `target` | Open behavior | `target:_blank` |
 | `v` | Variant | `v:underline` |

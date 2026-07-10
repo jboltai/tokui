@@ -61,9 +61,26 @@ Each `thead cols` entry may append `/align` and `/color` after the column name:
 | `/align` | `c` center / `r` right / `l` left | `单价/r`, `数量/c` |
 | `/color` | `primary` / `success` / `warning` / `danger` / `info` | `金额/r/danger` |
 
-Alignment / color **propagate by column position to the body** (the renderer tracks rowspan offsets, so shifted rows and component cells align correctly). Full col-spec order: `name[=cN[rM]][/align][/color]`, e.g. `金额/r/danger` (right + red).
+Alignment / color **propagate by column position to the body** (the renderer tracks rowspan offsets, so shifted rows and component cells align correctly). Full col-spec order: `name[=cN[rM]][/align][/color]`, e.g. `金额/r/danger` (right + red). Single-segment suffix is also valid — `金额/danger` (color only, no align) and `金额/r` (align only): the lone segment is matched against the align table first, then the color table.
 
 <Playground dsl='[table stripe bordered][thead cols:"商品,数量/c/primary,单价/r/warning,金额/r/danger"][tbody][tr 键盘,5,¥128,¥640][tr 鼠标,8,¥45,¥360][tr 显示器,3,¥999,¥2997][/tbody][/table]' />
+
+### Per-cell Alignment / Color (overrides column)
+
+thead cols sets **whole-column** alignment/color. When a **single cell in a single row** needs its own style (e.g. a refund row's amount red while other rows in the same column are not), append the same `/align` `/color` to the **cell value** — it overrides only that cell and leaves other rows untouched:
+
+| Form | Meaning |
+|------|---------|
+| `"-¥58.00/danger"` | this cell only: danger color (no align) |
+| `"x/r"` | this cell only: right-aligned |
+| `"-¥58.00/r/danger"` | this cell: right + red |
+| `"合计=c4/r/danger"` | combined with span: span 4 cols + right + red |
+
+The cell-level suffix overrides the column-level: where a cell specifies a value, the column-level align/color gives way.
+
+<Playground dsl='[table stripe bordered][thead cols:"菜品,数量,金额/r"][tbody][tr 酸汤肥牛,1,¥58.00][tr 牛肉面,2,¥36.00][tr 酸汤肥牛（已退）,-1,"-¥58.00/danger"][tr 合计=c2,"¥36.00" v:total][/tbody][/table]' />
+
+> ⚠️ Slashed values (`api/v2`, `2026/07/04`, `v1.2.3`) are **not** mis-stripped because their trailing segment isn't in the align/color vocabulary; but if a value happens to end with `/c` `/r` `/l` `/danger` etc. (e.g. `path/r`), it will be treated as a suffix — add a trailing space or reorder columns to avoid.
 
 ### Total Row `v:total`
 

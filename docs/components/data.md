@@ -61,9 +61,26 @@
 | `/align` | `c` 居中 / `r` 居右 / `l` 居左 | `单价/r`、`数量/c` |
 | `/color` | `primary` / `success` / `warning` / `danger` / `info` | `金额/r/danger` |
 
-列对齐 / 配色**按列位传导到表体**（renderer 用列位追踪器自动修正 rowspan 偏移，偏移行与组件格也对齐）。col spec 完整顺序：`列名[=cN[rM]][/对齐][/配色]`，如 `金额/r/danger`（右对齐 + 红）。
+列对齐 / 配色**按列位传导到表体**（renderer 用列位追踪器自动修正 rowspan 偏移，偏移行与组件格也对齐）。col spec 完整顺序：`列名[=cN[rM]][/对齐][/配色]`，如 `金额/r/danger`（右对齐 + 红）。单段也合法——`金额/danger`（仅配色无对齐）、`金额/r`（仅对齐无配色）：单段先查对齐词表，未中再查配色词表。
 
 <Playground dsl='[table stripe bordered][thead cols:"商品,数量/c/primary,单价/r/warning,金额/r/danger"][tbody][tr 键盘,5,¥128,¥640][tr 鼠标,8,¥45,¥360][tr 显示器,3,¥999,¥2997][/tbody][/table]' />
+
+### 单元格级对齐 / 配色（覆盖列级）
+
+thead cols 设的是**整列一致性**对齐/配色。若**某一行某一格**需独立样式（如退款行金额仅此格红、其他行同列不红），在该 cell 值尾缀追加同样的 `/对齐` `/配色`——**仅覆盖该格**，不影响他行：
+
+| 写法 | 含义 |
+|------|------|
+| `"-¥58.00/danger"` | 仅此格染 danger（无对齐） |
+| `"x/r"` | 仅此格右对齐 |
+| `"-¥58.00/r/danger"` | 此格右对齐 + 红 |
+| `"合计=c4/r/danger"` | 与 span 组合：跨 4 列 + 右对齐 + 红 |
+
+cell 尾缀覆盖列级：同格 cell 级生效，列级 align/color 让位。
+
+<Playground dsl='[table stripe bordered][thead cols:"菜品,数量,金额/r"][tbody][tr 酸汤肥牛,1,¥58.00][tr 牛肉面,2,¥36.00][tr 酸汤肥牛（已退）,-1,"-¥58.00/danger"][tr 合计=c2,"¥36.00" v:total][/tbody][/table]' />
+
+> ⚠️ 含斜杠的值（路径 `api/v2`、日期 `2026/07/04`、版本 `v1.2.3`）末段不在对齐/配色词表，**不会被误剥**；但若值末尾恰为 `/c` `/r` `/l` `/danger` 等词（如 `path/r`），会被当尾缀——加尾空格或调列序规避。
 
 ### 汇总行 `v:total`
 

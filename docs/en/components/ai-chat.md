@@ -107,7 +107,7 @@ A cited retrieval source / reference, self-closing. Typically listed as numbered
 | `n` | Index | `n:1` |
 | `tt` | Title (quote if it has spaces) | `tt:"TokUI 官方文档"` |
 | `sn` | Snippet excerpt (quote if it has spaces) | `sn:"零依赖流式 UI…"` |
-| `u` / `url` | Link | `u:https://example.com` |
+| `u` / `url` | Link | `u:https://tokui.jboltai.com` |
 
 > `tt`/`sn` values containing spaces must be double-quoted, otherwise they get truncated at the first space.
 

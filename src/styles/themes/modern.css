@@ -322,11 +322,14 @@
 /* 卡片：12px 圆角 + 柔光 elevation + hover 加深 */
 [data-tokui-theme='modern'] .tokui-card {
   border-radius: 12px;
-  box-shadow: var(--tokui-surface-shadow);
   border-color: transparent;
+  /* 柔光描边：前置 0 偏移 2px 软环（四边等量、含上边）补 surface-shadow 顶部盲区——
+     其偏下阴影（正 Y）只画下边，顶部仅靠 0.06 alpha 1px 环不可见。软环四边均匀可见，
+     不用 border 保 modern 无硬边风格。 */
+  box-shadow: 0 0 2px 0 rgba(9, 9, 11, 0.10), var(--tokui-surface-shadow);
   transition: box-shadow 0.25s;
 }
-[data-tokui-theme='modern'] .tokui-card:hover { box-shadow: var(--tokui-surface-shadow-hover); }
+[data-tokui-theme='modern'] .tokui-card:hover { box-shadow: 0 0 2px 0 rgba(9, 9, 11, 0.12), var(--tokui-surface-shadow-hover); }
 [data-tokui-theme='modern'] .tokui-card-header { padding: 14px 20px; }
 [data-tokui-theme='modern'] .tokui-card-body { padding: 20px; }
 [data-tokui-theme='modern'] .tokui-card-footer { background: transparent; border-top: 1px solid var(--tokui-border); padding: 12px 20px; }

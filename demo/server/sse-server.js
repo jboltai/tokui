@@ -77,7 +77,7 @@ const DEMOS = [
         .col_layout({ span: 3 })
           .card({ tt: '链接颜色变体' })
             .p('默认链接：')
-            .a({ tx: '访问文档', u: 'https://example.com' })
+            .a({ tx: '访问文档', u: 'https://tokui.jboltai.com' })
             .p('Muted 次要链接：')
             .a({ tx: '查看详情', u: '#', v: 'muted' })
             .p('Danger 危险链接：')
@@ -193,7 +193,7 @@ const DEMOS = [
     build() {
       const b = new TokUIBuilder();
       b.card({ tt: 'Markdown 渲染' })
-        .md('# 标题演示\n\n这是 **粗体**、*斜体*、~~删除线~~ 和 `行内代码`。\n\n## 列表\n\n- 无序列表项 1\n- 无序列表项 2\n\n1. 有序列表项 1\n2. 有序列表项 2\n\n### 链接\n\n访问 [TokUI 文档](https://example.com) 了解更多。')
+        .md('# 标题演示\n\n这是 **粗体**、*斜体*、~~删除线~~ 和 `行内代码`。\n\n## 列表\n\n- 无序列表项 1\n- 无序列表项 2\n\n1. 有序列表项 1\n2. 有序列表项 2\n\n### 链接\n\n访问 [TokUI 文档](https://tokui.jboltai.com) 了解更多。')
       .end();
       return b;
     }
@@ -1332,7 +1332,7 @@ const DEMOS = [
             .cardTx('快捷操作', '点击左侧导航选择更多组件示例。')
           .end()
           .col_layout({ span: 6 })
-            .cardTx('版本更新', 'TokUI v0.1.4 已发布，支持卡片自闭合模式。')
+            .cardTx('版本更新', 'TokUI v0.1.5 已发布，支持卡片自闭合模式。')
           .end()
         .end()
         .hr()
@@ -1522,7 +1522,7 @@ const DEMOS = [
                 .a({ tx: '帮助文档', u: '/docs' })
                 .p(' | ')
                 .a({ tx: '联系我们', u: '/contact' })
-                .p('版本 v0.1.4')
+                .p('版本 v0.1.5')
               .end()
             .end()
           .end()
@@ -2017,7 +2017,7 @@ const DEMOS = [
         .row_layout()
           .col_layout({ span: 6 })
             .card({ tt: '基础排版' })
-              .md('# 一级标题\n## 二级标题\n### 三级标题\n\n这是普通段落。**粗体文字**、*斜体文字*、~~删除线~~ 和 `行内代码` 都可以混排使用。\n\n访问 [TokUI 文档](https://example.com/docs) 了解更多详情，或查看 [GitHub](https://github.com) 源码。')
+              .md('# 一级标题\n## 二级标题\n### 三级标题\n\n这是普通段落。**粗体文字**、*斜体文字*、~~删除线~~ 和 `行内代码` 都可以混排使用。\n\n访问 [TokUI 文档](https://tokui.jboltai.com/docs) 了解更多详情，或查看 [GitHub](https://github.com/jboltai/tokui) 源码。')
             .end()
           .end()
           .col_layout({ span: 6 })
@@ -9499,6 +9499,124 @@ const DEMOS = [
         i++;
         // 大表流式稍慢，便于看清逐行逐 cell 填充（12~52ms/chunk）
         setTimeout(sendNext, 12 + Math.floor(Math.random() * 40));
+      }
+      sendNext();
+    }
+  },
+  {
+    trigger: 'test-pie',
+    title: '饼图独立碎片渲染',
+    desc: '饼图专属碎片化推送：少数据/多数据、1/2/3/4 列布局、流式 pt 子节点与 d 属性混排',
+    build() { return new TokUIBuilder(); },
+    stream(res) {
+      var dsl = ''
+        // 标题区
+        + '[card tt:"饼图独立碎片渲染测试"]'
+        + '[p v:bold 随机碎片推送 — 覆盖单列/双列/三列/四列布局，数据量从 2 切片到 12 切片，测试饼图流式解析与渲染。]'
+        + '[tag t:primary tx:饼图]'
+        + '[tag t:success tx:碎片化]'
+        + '[tag t:info tx:多列布局]'
+
+        // 1 列整行：12 切片大数据（pt 子节点流式）
+        + '[row]'
+        + '[col span:12]'
+        + '[card tt:"单列整行 · 12 切片大数据"]'
+        + '[chart t:pie tt:年度销售占比 w:320 h:320 l:1月,2月,3月,4月,5月,6月,7月,8月,9月,10月,11月,12月]'
+        + '[pt v:8][pt v:7][pt v:9][pt v:11][pt v:13][pt v:15][pt v:17][pt v:16][pt v:14][pt v:12][pt v:10][pt v:8]'
+        + '[/chart]'
+        + '[/card]'
+        + '[/col]'
+        + '[/row]'
+
+        // 2 列：少数据 + 中等数据（d 属性）
+        + '[row]'
+        + '[col span:6]'
+        + '[card tt:"双列 · 2 切片"]'
+        + '[chart t:pie tt:通过/未通过 w:240 h:240 l:通过,未通过 d:75,25]'
+        + '[/card]'
+        + '[/col]'
+        + '[col span:6]'
+        + '[card tt:"双列 · 5 切片"]'
+        + '[chart t:pie tt:渠道来源 w:240 h:240 l:微信,抖音,淘宝,京东,其他 d:35,25,20,12,8]'
+        + '[/card]'
+        + '[/col]'
+        + '[/row]'
+
+        // 3 列：3 / 6 / 7 切片
+        + '[row]'
+        + '[col span:4]'
+        + '[card tt:"三列 · 3 切片"]'
+        + '[chart t:pie tt:设备分布 w:200 h:200 l:桌面,移动,平板 d:55,35,10]'
+        + '[/card]'
+        + '[/col]'
+        + '[col span:4]'
+        + '[card tt:"三列 · 6 切片"]'
+        + '[chart t:pie tt:支出分类 w:200 h:200 l:房租,餐饮,交通,娱乐,购物,其他 d:30,20,15,12,15,8]'
+        + '[/card]'
+        + '[/col]'
+        + '[col span:4]'
+        + '[card tt:"三列 · 7 切片"]'
+        + '[chart t:pie tt:用户年龄段 w:200 h:200 l:18-24,25-34,35-44,45-54,55-64,65+,未知 d:22,28,20,15,8,4,3]'
+        + '[/card]'
+        + '[/col]'
+        + '[/row]'
+
+        // 4 列：2 / 4 / 8 / 10 切片
+        + '[row]'
+        + '[col span:3]'
+        + '[card tt:"四列 · 2 切片"]'
+        + '[chart t:pie tt:性别 w:160 h:160 l:男,女 d:58,42]'
+        + '[/card]'
+        + '[/col]'
+        + '[col span:3]'
+        + '[card tt:"四列 · 4 切片"]'
+        + '[chart t:pie tt:季度 w:160 h:160 l:Q1,Q2,Q3,Q4 d:18,22,30,30]'
+        + '[/card]'
+        + '[/col]'
+        + '[col span:3]'
+        + '[card tt:"四列 · 8 切片"]'
+        + '[chart t:pie tt:产品线 w:160 h:160 l:A,B,C,D,E,F,G,H d:18,15,14,12,11,10,10,10]'
+        + '[/card]'
+        + '[/col]'
+        + '[col span:3]'
+        + '[card tt:"四列 · 10 切片"]'
+        + '[chart t:pie tt:区域销售 w:160 h:160 l:华东,华南,华北,华中,西南,西北,东北,港澳台,海外,其他 d:25,18,14,11,9,8,7,4,3,1]'
+        + '[/card]'
+        + '[/col]'
+        + '[/row]'
+
+        // 边界：单一切片 + 等分四份
+        + '[row]'
+        + '[col span:6]'
+        + '[card tt:"边界 · 单一切片"]'
+        + '[chart t:pie tt:全量 w:200 h:200 l:全部 d:100]'
+        + '[/card]'
+        + '[/col]'
+        + '[col span:6]'
+        + '[card tt:"边界 · 四等分"]'
+        + '[chart t:pie tt:四等分 w:200 h:200 l:A,B,C,D d:25,25,25,25]'
+        + '[/card]'
+        + '[/col]'
+        + '[/row]'
+
+        + '[callout t:info]全部饼图均通过随机碎片推送；标签与 pt 节点可能被截断在任意位置，用于验证解析器与渲染器鲁棒性。[/callout]'
+        + '[/card]';
+
+      var chunks = _fragmentDsl(dsl);
+      var i = 0;
+      var cleaned = false;
+      res.on('close', function () { cleaned = true; });
+      function sendNext() {
+        if (cleaned || i >= chunks.length) {
+          if (!cleaned) {
+            res.write('data: [DONE]\n\n');
+            res.end();
+          }
+          return;
+        }
+        res.write('data: ' + JSON.stringify({ tokui: chunks[i] }) + '\n\n');
+        i++;
+        setTimeout(sendNext, 8 + Math.floor(Math.random() * 20));
       }
       sendNext();
     }

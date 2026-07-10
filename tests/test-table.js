@@ -539,4 +539,138 @@ test('tr action column - warning/success/info color variants', () => {
   assert.ok(btns[2].classList.contains('tokui-tbtn--info'));
 });
 
+// ===== cell 级 /align /color 尾缀（覆盖列级） =====
+// 场景：退款行金额仅此格红、其他行金额色不变；cell 尾缀覆盖列级 colAligns/colColors。
+
+test('cell suffix: 单段 /danger（仅 color）→ tokui-text--danger，值原样无 /danger', () => {
+  const rc = new TokUIRenderer();
+  registerTableComponents(rc);
+  const node = {
+    type: 'table', attrs: {},
+    children: [
+      { type: 'thead', attrs: { cols: '菜品,数量,金额' }, children: [] },
+      { type: 'tbody', children: [
+        { type: 'tr', content: '酸汤肥牛,1,"-¥58.00/danger"', children: [] }
+      ] }
+    ]
+  };
+  const dom = rc.render(node);
+  const td = dom.querySelectorAll('td')[2];
+  assert.ok(td.className.indexOf('tokui-text--danger') >= 0, '末格应染 danger');
+  assert.strictEqual(td.textContent, '-¥58.00', '/danger 应被剥、不进文本');
+});
+
+test('cell suffix: 单段 /r（仅 align）→ tokui-col-right', () => {
+  const rc = new TokUIRenderer();
+  registerTableComponents(rc);
+  const node = {
+    type: 'table', attrs: {},
+    children: [
+      { type: 'thead', attrs: { cols: 'a,b' }, children: [] },
+      { type: 'tbody', children: [ { type: 'tr', content: '1,"x/r"', children: [] } ] }
+    ]
+  };
+  const dom = rc.render(node);
+  const td = dom.querySelectorAll('td')[1];
+  assert.ok(td.className.indexOf('tokui-col-right') >= 0, '/r → 右对齐');
+  assert.strictEqual(td.textContent, 'x');
+});
+
+test('cell suffix: 双段 /r/danger → align+color 同时', () => {
+  const rc = new TokUIRenderer();
+  registerTableComponents(rc);
+  const node = {
+    type: 'table', attrs: {},
+    children: [
+      { type: 'thead', attrs: { cols: 'a,b' }, children: [] },
+      { type: 'tbody', children: [ { type: 'tr', content: '1,"-¥58.00/r/danger"', children: [] } ] }
+    ]
+  };
+  const dom = rc.render(node);
+  const td = dom.querySelectorAll('td')[1];
+  assert.ok(td.className.indexOf('tokui-col-right') >= 0 && td.className.indexOf('tokui-text--danger') >= 0,
+    '/r/danger → 右对齐+红');
+  assert.strictEqual(td.textContent, '-¥58.00');
+});
+
+test('cell suffix: cell 级覆盖列级（列 warning/right，cell success/c）', () => {
+  const rc = new TokUIRenderer();
+  registerTableComponents(rc);
+  const node = {
+    type: 'table', attrs: {},
+    children: [
+      { type: 'thead', attrs: { cols: '商品,金额/r/warning' }, children: [] },
+      { type: 'tbody', children: [
+        { type: 'tr', content: '键盘,¥120', children: [] },
+        { type: 'tr', content: '退款,"-¥58.00/c/success"', children: [] }
+      ] }
+    ]
+  };
+  const dom = rc.render(node);
+  // td 顺序：行1[商品, 金额(warn)] 行2[退款, -¥58(succ)]；thead 无 td
+  const tds = dom.querySelectorAll('td');
+  const r1td = tds[1];
+  assert.ok(r1td.className.indexOf('tokui-col-right') >= 0, '行1 列级右');
+  assert.ok(r1td.className.indexOf('tokui-text--warning') >= 0, '行1 列级 warning');
+  const r2td = tds[3];
+  assert.ok(r2td.className.indexOf('tokui-col-center') >= 0, '行2 cell 级居中覆盖列级右');
+  assert.ok(r2td.className.indexOf('tokui-text--success') >= 0, '行2 cell 级 success 覆盖列级 warning');
+  assert.ok(r2td.className.indexOf('tokui-col-right') === -1, '行2 不应残留列级 right');
+  assert.ok(r2td.className.indexOf('tokui-text--warning') === -1, '行2 不应残留列级 warning');
+  assert.strictEqual(r2td.textContent, '-¥58.00');
+});
+
+test('cell suffix: 防误切——日期/路径/版本号末段不在词表则不剥', () => {
+  const rc = new TokUIRenderer();
+  registerTableComponents(rc);
+  const node = {
+    type: 'table', attrs: {},
+    children: [
+      { type: 'thead', attrs: { cols: '日期,路径,版本,金额' }, children: [] },
+      { type: 'tbody', children: [
+        { type: 'tr', content: '2026/07/04,api/v2,v1.2.3,¥58', children: [] }
+      ] }
+    ]
+  };
+  const dom = rc.render(node);
+  const tds = dom.querySelectorAll('td');
+  assert.strictEqual(tds[0].textContent, '2026/07/04', '日期原样');
+  assert.strictEqual(tds[1].textContent, 'api/v2', '路径原样');
+  assert.strictEqual(tds[2].textContent, 'v1.2.3', '版本原样');
+  assert.ok(tds[0].className.indexOf('tokui-col-') === -1, '日期不应被当 /04 对齐');
+});
+
+test('cell suffix: 组合 span + suffix（合计=c4/r/danger）', () => {
+  const rc = new TokUIRenderer();
+  registerTableComponents(rc);
+  const node = {
+    type: 'table', attrs: {},
+    children: [
+      { type: 'thead', attrs: { cols: 'a,b,c,d,e' }, children: [] },
+      { type: 'tbody', children: [
+        { type: 'tr', content: '"合计=c4/r/danger",,,,,', children: [] }
+      ] }
+    ]
+  };
+  const dom = rc.render(node);
+  const td = dom.querySelectorAll('td')[0];
+  assert.strictEqual(td.getAttribute('colspan'), '4', '=c4 横跨 4 列');
+  assert.ok(td.className.indexOf('tokui-col-right') >= 0, '同时 /r 右对齐');
+  assert.ok(td.className.indexOf('tokui-text--danger') >= 0, '同时 /danger 红');
+  assert.strictEqual(td.textContent, '合计');
+});
+
+test('col spec: 单段 /danger（仅 color，无 align）→ th 染 danger', () => {
+  const rc = new TokUIRenderer();
+  registerTableComponents(rc);
+  const node = {
+    type: 'table', attrs: {},
+    children: [ { type: 'thead', attrs: { cols: '商品,金额/danger' }, children: [] } ]
+  };
+  const dom = rc.render(node);
+  const ths = dom.querySelectorAll('th');
+  assert.ok(ths[1].className.indexOf('tokui-text--danger') >= 0, 'col spec 单段 /danger 应染 danger');
+  assert.strictEqual(ths[1].textContent, '金额');
+});
+
 run();

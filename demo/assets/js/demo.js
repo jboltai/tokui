@@ -257,6 +257,7 @@ const NAV_DATA = [
     items: [
       { trigger: 'test-fragment', name: { zh: '碎片推送渲染', en: 'Fragment Push' }, desc: { zh: '标签拆碎推送/解析鲁棒性', en: 'Fragmented tag push/parser robustness' }, icon: '🧩' },
       { trigger: 'test-big-table', name: { zh: '超大型表格流式', en: 'Huge Table Stream' }, desc: { zh: '合并表头+单元格多组件·逐 cell 流式', en: 'Merged header + cell components · cell stream' }, icon: '📋' },
+      { trigger: 'test-pie', name: { zh: '饼图独立碎片', en: 'Pie Fragment' }, desc: { zh: '饼图 1/2/3/4 列布局与少/多数据碎片渲染', en: 'Pie chart 1/2/3/4-col layouts, sparse/dense data fragments' }, icon: '🥧' },
     ]
   }
 ];
@@ -302,7 +303,7 @@ const I18N = {
   action:         { zh: '操作', en: 'Action' },
   editClicked:    { zh: '编辑按钮被点击', en: 'Edit button clicked' },
   deleteClicked:  { zh: '删除按钮被点击', en: 'Delete button clicked' },
-  footerVer:      { zh: '当前版本:v0.1.4', en: 'Version: v0.1.4' },
+  footerVer:      { zh: '当前版本:v0.1.5', en: 'Version: v0.1.5' },
   footerCopy:     { zh: '零依赖 · 流式UI描述与渲染框架', en: 'Zero Deps · Streaming UI Framework' },
   dslRef:         { zh: 'DSL 语法速查', en: 'DSL Syntax Ref' },
   clearBtn:       { zh: '清空', en: 'Clear' },

@@ -137,7 +137,7 @@ test('source renders with numbered badge', () => {
 
 test('source renders title as link when url provided', () => {
   const rc = makeRenderer();
-  const dom = rc.render({ type: 'source', attrs: { n: '2', u: 'https://example.com', tt: 'Link Title' }, children: [] });
+  const dom = rc.render({ type: 'source', attrs: { n: '2', u: 'https://tokui.jboltai.com', tt: 'Link Title' }, children: [] });
   var titleEl = dom.querySelector('.tokui-source__title');
   assert.notStrictEqual(titleEl, null);
   // In DOM mock, the element is created with el() which sets attributes
@@ -364,7 +364,7 @@ test('latency renders type-specific class', () => {
 // --- video ---
 test('video renders with player', () => {
   const rc = makeRenderer();
-  var dom = rc.render({ type: 'video', attrs: { s: 'https://example.com/v.mp4' }, children: [] });
+  var dom = rc.render({ type: 'video', attrs: { s: 'https://tokui.jboltai.com/v.mp4' }, children: [] });
   assert.ok(dom.className.indexOf('tokui-video') !== -1);
   assert.ok(dom.querySelector('.tokui-video__player'));
 });
@@ -372,7 +372,7 @@ test('video renders with player', () => {
 // --- audio ---
 test('audio renders with title and player', () => {
   const rc = makeRenderer();
-  var dom = rc.render({ type: 'audio', attrs: { s: 'https://example.com/a.mp3', tt: 'Voice Reply', duration: '0:35' }, children: [] });
+  var dom = rc.render({ type: 'audio', attrs: { s: 'https://tokui.jboltai.com/a.mp3', tt: 'Voice Reply', duration: '0:35' }, children: [] });
   assert.ok(dom.className.indexOf('tokui-audio') !== -1);
   assert.strictEqual(dom.querySelector('.tokui-audio__title').textContent, 'Voice Reply');
   assert.strictEqual(dom.querySelector('.tokui-audio__duration').textContent, '0:35');

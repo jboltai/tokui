@@ -244,4 +244,19 @@ test('streaming: 末格 btn 文字钮也逐钮流式（text 字符级渐显）',
   assert.strictEqual(tds[0].querySelectorAll('button')[0].textContent, '详情', '详情 文本');
 });
 
+test('streaming: 末格 cell 级 /danger 尾缀流式渐显后染红', () => {
+  const { container, t } = stream();
+  t.feed('[table][thead cols:菜品,金额][tbody][tr 酸汤肥牛,-¥5');
+  let tds = bodyRows(container)[0].querySelectorAll('td');
+  assert.strictEqual(tds[1].textContent, '-¥5', '末格字符级渐显');
+  t.feed('8.00');
+  tds = bodyRows(container)[0].querySelectorAll('td');
+  assert.strictEqual(tds[1].textContent, '-¥58.00', '末格补全');
+  assert.ok(tds[1].className.indexOf('tokui-text--danger') === -1, '/danger 未到 → 未染色');
+  t.feed('/danger]');
+  tds = bodyRows(container)[0].querySelectorAll('td');
+  assert.ok(tds[1].className.indexOf('tokui-text--danger') >= 0, '/danger 到达 → 染红');
+  assert.strictEqual(tds[1].textContent, '-¥58.00', '/danger 被剥');
+});
+
 run();

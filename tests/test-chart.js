@@ -4,7 +4,7 @@ const { setupDOM, teardownDOM } = require('./helpers/dom-mock');
 setupDOM();
 
 const { TokUIRenderer } = require('../src/core/renderer');
-const { registerChartComponents, registerChartRenderer, bumpFsUnits, solvePieFs, pieSizing, MIN_CHART_PX } = require('../src/components/chart');
+const { registerChartComponents, registerChartRenderer, bumpFsUnits, solvePieFs, pieSizing, MIN_CHART_PX, MAX_CHART_PX, applyTipScale, axisXLayout } = require('../src/components/chart');
 
 // 递归收集元素及其后代的 textContent（dom-mock 不自动汇总）
 function collectText(el) {
@@ -80,6 +80,17 @@ test('chart pie renders slices', () => {
   const svg = dom.querySelector('.tokui-chart__svg');
   const paths = svg.querySelectorAll('path');
   assert.strictEqual(paths.length, 4);
+});
+
+test('chart pie single slice renders full circle', () => {
+  const renderer = new TokUIRenderer();
+  registerChartComponents(renderer);
+  const node = { type: 'chart', attrs: { t: 'pie', d: '100', l: '全部', w: 200, h: 200 }, content: '', children: [] };
+  const dom = renderer.render(node);
+  const svg = dom.querySelector('.tokui-chart__svg');
+  const circles = svg.querySelectorAll('circle.tokui-chart-slice');
+  assert.strictEqual(circles.length, 1);
+  assert.ok(parseFloat(circles[0].getAttribute('r')) > 0);
 });
 
 test('chart donut renders with center text', () => {
@@ -779,26 +790,33 @@ test('chart pie 拓宽画布：长标签时 viewBox 宽 > 用户 w', () => {
   assert.ok(sz.w > 240, '长 CJK 标签应触发画布拓宽，实际 ' + sz.w);
 });
 
-// === 字号保底纯函数 ===
-test('bumpFsUnits：窄缩放抬到 minPx，已达标不动', () => {
-  assert.strictEqual(bumpFsUnits(7, 1, 12), 12);      // 7px → 抬到 12
-  assert.strictEqual(bumpFsUnits(7, 2, 12), 7);       // 14px 已 ≥12
-  assert.strictEqual(bumpFsUnits(7, 0.5, 12), 24);    // 3.5px → 抬到 24
-  assert.strictEqual(bumpFsUnits(9, 1, 12), 12);      // 9px → 12
-  assert.strictEqual(bumpFsUnits(10, 1.3, 12), 10);   // 13px ≥12
-  assert.strictEqual(bumpFsUnits(10, 1.2, 12), 10);   // 12px 边界（≥）不动
-  assert.strictEqual(bumpFsUnits(7, 0, 12), 7);       // 非法 scale 原样
+// === 字号钳制纯函数（双向：窄抬 / 宽压）===
+test('bumpFsUnits：窄缩放抬到 minPx，宽缩放压到 maxPx，区间内不动', () => {
+  assert.strictEqual(bumpFsUnits(7, 1, 12), 12);       // 7px → 抬到 12（无 maxPx）
+  assert.strictEqual(bumpFsUnits(7, 2, 12), 7);        // 14px 已 ≥12
+  assert.strictEqual(bumpFsUnits(7, 0.5, 12), 24);     // 3.5px → 抬到 24
+  assert.strictEqual(bumpFsUnits(9, 1, 12), 12);       // 9px → 12
+  assert.strictEqual(bumpFsUnits(10, 1.3, 12), 10);    // 13px ≥12
+  assert.strictEqual(bumpFsUnits(10, 1.2, 12), 10);    // 12px 边界（≥）不动
+  assert.strictEqual(bumpFsUnits(7, 0, 12), 7);        // 非法 scale 原样
+  // 双向钳制：[14,16]
+  assert.strictEqual(bumpFsUnits(9, 2, 14, 16), 8);         // 18px → 压到 8（=16/2，渲染=16px）
+  assert.strictEqual(bumpFsUnits(9, 2.2, 14, 16), 16 / 2.2); // 19.8px → 压，渲染=16px
+  assert.strictEqual(bumpFsUnits(9, 1.5, 14, 16), 14 / 1.5); // 13.5px → 抬，渲染=14px
+  assert.strictEqual(bumpFsUnits(8, 0.5, 14, 16), 28);       // 4px → 抬到 28（=14/0.5）
+  assert.strictEqual(bumpFsUnits(9, 1.6, 14, 16), 9);        // 14.4px ∈[14,16] 原样
+  assert.strictEqual(bumpFsUnits(10, 1.6, 14, 16), 10);      // 16px 边界（≤max）原样
 });
 
-test('solvePieFs：C440 / R0106 / fixedA30 / coefB≈7.43 → ≈11.4 且闭环渲染=12px', () => {
+test('solvePieFs：C440 / R0106 / fixedA30 / coefB≈7.43 → ≈14.6 且闭环渲染=14px', () => {
   var C = 440, R0 = 106, fixedA = 30, coefB = 52 / 7; // 52≈长 CJK 标签 estTextW
   var fs = solvePieFs(C, R0, fixedA, coefB, MIN_CHART_PX);
-  assert.ok(fs > 11.2 && fs < 11.6, 'fs 应 ≈11.4，实际 ' + fs);
-  // 闭环验证：r(fs)=R0−fs，W(fs)=2(r+fixedA+coefB·fs)，渲染 px = fs·C/W 应 ≈12
+  assert.ok(fs > 14.4 && fs < 14.8, 'fs 应 ≈14.6，实际 ' + fs);
+  // 闭环验证：r(fs)=R0−fs，W(fs)=2(r+fixedA+coefB·fs)，渲染 px = fs·C/W 应 ≈14
   var r = R0 - fs;
   var W = 2 * (r + fixedA + coefB * fs);
   var px = fs * C / W;
-  assert.ok(px > 11.8 && px < 12.2, '闭环渲染 px 应 ≈12，实际 ' + px);
+  assert.ok(px > 13.8 && px < 14.2, '闭环渲染 px 应 ≈14，实际 ' + px);
 });
 
 test('solvePieFs：超大容器（自然已 ≥12）→ fs<7（无需抬）', () => {
@@ -810,6 +828,63 @@ test('solvePieFs：极窄容器 denom≤0 → 0（回退）', () => {
   // denom = C − 2·12·(coefB−1)；coefB=10 → 2·12·9=216 > C=100
   assert.strictEqual(solvePieFs(100, 106, 30, 10, MIN_CHART_PX), 0);
   assert.strictEqual(solvePieFs(0, 106, 30, 7, MIN_CHART_PX), 0); // C=0
+});
+
+// === tooltip 整组缩放（rect+text 同步，围绕数据点锚）===
+test('applyTipScale：宽容器整组缩小 / 窄容器放大 / scale≈1 不变换', () => {
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  function mkSvg() {
+    var svg = document.createElementNS(SVGNS, 'svg');
+    var layer = document.createElementNS(SVGNS, 'g');
+    layer.setAttribute('class', 'tokui-chart-tips-layer');
+    var g = document.createElementNS(SVGNS, 'g');
+    g.setAttribute('class', 'tokui-chart-tip');
+    g.setAttribute('data-tx', '100');
+    g.setAttribute('data-ty', '50');
+    var rect = document.createElementNS(SVGNS, 'rect');
+    rect.setAttribute('x', '80'); rect.setAttribute('y', '20'); rect.setAttribute('width', '40'); rect.setAttribute('height', '20');
+    var text = document.createElementNS(SVGNS, 'text');
+    text.setAttribute('font-size', '10');
+    g.appendChild(rect); g.appendChild(text);
+    layer.appendChild(g); svg.appendChild(layer);
+    // dom-mock matches() 不支持后代选择器（.a .b），覆写返回构造的 tip group
+    svg.querySelectorAll = function () { return [g]; };
+    return { svg: svg, g: g };
+  }
+  // scale=2.5 → tooltip 渲染 25px → 压到 MAX=16 → s=16/2.5/10=0.64，锚点 (100,50)
+  var c1 = mkSvg();
+  applyTipScale(c1.svg, 2.5);
+  var tr1 = c1.g.getAttribute('transform') || '';
+  assert.ok(/scale\(0\.64\)/.test(tr1), '宽容器应整组缩到 scale(0.64)，实际 ' + tr1);
+  assert.ok(/translate\(100 50\)/.test(tr1), 'transform 应用锚点 translate(100 50)，实际 ' + tr1);
+
+  // scale=0.5 → tooltip 渲染 5px → 抬到 MIN=14 → s=14/0.5/10=2.8
+  var c2 = mkSvg();
+  applyTipScale(c2.svg, 0.5);
+  var tr2 = c2.g.getAttribute('transform') || '';
+  assert.ok(/scale\(2\.8\)/.test(tr2), '窄容器应整组放到 scale(2.8)，实际 ' + tr2);
+
+  // scale=1.5 → 10*1.5=15 ∈[14,16] → s=1 → 早退无 transform
+  var c3 = mkSvg();
+  applyTipScale(c3.svg, 1.5);
+  assert.ok(!c3.g.getAttribute('transform'), 'scale=1.5（渲染 15px 在区间内）不应设 transform');
+});
+
+// === X 轴标签整体旋转决策（任一超阈值 → 全部统一旋转）===
+test('axisXLayout：全部短→不转；任一长→全转；旋转时 padB 抬到 ≥52', () => {
+  // 全短：ascii estTextW 4.5/char，threshold=40*0.9=36，'abc'=13.5 < 36
+  var a = axisXLayout(['abc', 'de', 'f'], 40, 30);
+  assert.strictEqual(a.rotate, false, '全短标签不旋转');
+  assert.strictEqual(a.padB, 30, '不旋转 padB=base');
+
+  // 任一长：4 CJK estTextW=32 > 30*0.9=27 → 触发【全部】旋转
+  var b = axisXLayout(['短', '营业收入', 'x'], 30, 30);
+  assert.strictEqual(b.rotate, true, '存在长标签 → 全部统一旋转');
+  assert.strictEqual(b.padB, 52, '旋转时 padB 抬到 52');
+
+  // padB floor：base 已 >52 时取 base（不压小）
+  var c = axisXLayout(['营业收入'], 20, 60);
+  assert.strictEqual(c.padB, 60, 'base 60 > 52 时保留 60');
 });
 
 test('pieSizing：fs=7 时 labelSpace = fixedA + maxLabelW（与历史布局等价）', () => {

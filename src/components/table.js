@@ -130,24 +130,16 @@ function registerTableComponents(renderer) {
 
   // 解析列定义：name | name/align | chk | #/align | name:旧语法
   // align 支持 c/center、r/right、l/left
-  // 解析列定义：name | name/align | name/align/color
+  // 解析列定义：name | name/align | name/align/color | name/color（单段也认，先对齐表后配色表）
   //   align: c/center r/right l/left   color: primary/success/warning/danger/info
+  // 复用 parseCellSuffix（与 body cell 级尾缀同解析），保证 col spec 与 body cell 覆盖语法一致。
   // 注：head 可能含 =cN[rM] span 修饰符（由调用方 parseSpanModifier 剥），故此处 name 不剥 span
   function parseColSpec(col) {
-    var slashIdx = col.indexOf('/');
-    var head = slashIdx > 0 ? col.slice(0, slashIdx) : col;
-    var rest = slashIdx > 0 ? col.slice(slashIdx + 1) : '';
-    var alignRaw = '', colorRaw = '';
-    if (rest) {
-      var parts = rest.split('/');
-      alignRaw = parts[0].trim().toLowerCase();
-      colorRaw = parts[1] ? parts[1].trim().toLowerCase() : '';
-    }
+    var suffix = parseCellSuffix(col);
+    var head = suffix.text;
     var colonIdx = head.indexOf(':');
     var name = colonIdx > 0 ? head.slice(0, colonIdx) : head;
-    var ALIGNS = { c: 'center', center: 'center', r: 'right', right: 'right', l: 'left', left: 'left' };
-    var COLORS = { primary: 'primary', success: 'success', warning: 'warning', danger: 'danger', info: 'info' };
-    return { name: name, align: ALIGNS[alignRaw] || '', color: COLORS[colorRaw] || '' };
+    return { name: name, align: suffix.align, color: suffix.color };
   }
 
   // 当前表格的列类型 / 对齐 / 颜色（流式渲染时通过模块变量传递）
@@ -451,20 +443,45 @@ function registerTableComponents(renderer) {
     return { text: text, colspan: colspan, rowspan: rowspan };
   }
 
+  // cell 尾缀对齐/配色修饰符：从右逐段剥最多 2 个 /word（对齐词表 + 配色词表），返回 {text, align, color}。
+  // 与 col spec 顺序 `列名[=cN[rM]][/对齐][/配色]` 一致；单段也支持（先查对齐表，未中查配色表），
+  // 即 `金额/danger`（仅红）、`金额/r`（仅右）均合法。词不在两表即停、不切 str——
+  // 防误切日期 `2026/07/04`（末段 04 非词）、路径 `api/v2`、版本 `v1.2.3`、组件格 `tag:x t:success`。
+  // col spec 与 body cell 共用此解析；body cell 级结果在 buildCell 覆盖列级 colAligns/colColors。
+  function parseCellSuffix(str) {
+    var ALIGNS = { c: 'center', center: 'center', r: 'right', right: 'right', l: 'left', left: 'left' };
+    var COLORS = { primary: 'primary', success: 'success', warning: 'warning', danger: 'danger', info: 'info' };
+    var align = '', color = '';
+    for (var i = 0; i < 2; i++) {
+      var m = String(str).match(/\/([A-Za-z]+)$/);
+      if (!m) break;
+      var w = m[1].toLowerCase();
+      if (ALIGNS[w] && !align) align = ALIGNS[w];
+      else if (COLORS[w] && !color) color = COLORS[w];
+      else break;                 // 词不在表 / 该位已填 → 停，保留 str 不切
+      str = String(str).slice(0, m.index);
+    }
+    return { text: str, align: align, color: color };
+  }
+
   // 渲染单个 cell → td。合并：旧 tr cs:N 首格 colspan（,,,占位写法）+ 新 =cN[rM] 任意格 span。
   function buildCell(val, idx, ctx) {
     var colTypes = ctx.colTypes, colAligns = ctx.colAligns, seqNum = ctx.seqNum, colspanVal = ctx.colspanVal;
     var colIdx = (ctx.cellCols && ctx.cellCols[idx] != null) ? ctx.cellCols[idx] : idx;  // rowspan 偏移修正
     var tdAttrs = { class: 'tokui-td' };
-    var align = colAligns[colIdx];
+    // 先剥 cell 级 /align/color 尾缀（在末尾），再剥 =cN[rM] span（新末尾）——
+    // col spec 顺序 `值[=cN[rM]][/对齐][/配色]`，剥须从右向左：suffix 先、span 后。
+    // cell 级 align/color 覆盖列级 colAligns/colColors
+    var suffix = parseCellSuffix(val);
+    var sp = parseSpanModifier(suffix.text);
+    var trimmed = sp.text.trim();
+    var align = suffix.align || colAligns[colIdx];
     if (align) tdAttrs.class += ' tokui-col-' + align;
-    var color = ctx.colColors && ctx.colColors[colIdx];
+    var color = suffix.color || (ctx.colColors && ctx.colColors[colIdx]);
     if (color) tdAttrs.class += ' tokui-text--' + color;
     if (idx === 0 && colspanVal >= 2) tdAttrs.colspan = String(colspanVal);   // 旧 cs: 首格
     if (idx > 0 && idx < colspanVal) return null;   // 旧 cs: 覆盖格跳过
 
-    var sp = parseSpanModifier(val);                 // 新：=cN[rM] 修饰符（更具体，覆盖 cs:）
-    var trimmed = sp.text.trim();
     if (sp.colspan >= 2) tdAttrs.colspan = String(sp.colspan);
     if (sp.rowspan >= 2) tdAttrs.rowspan = String(sp.rowspan);
 

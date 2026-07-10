@@ -34,7 +34,7 @@
 
 | 属性 | 含义 | 示例 |
 |------|------|------|
-| `u` | 链接地址 | `u:https://example.com` |
+| `u` | 链接地址 | `u:https://tokui.jboltai.com` |
 | `tx` | 文本 | `tx:官网` |
 | `target` | 打开方式 | `target:_blank` |
 | `v` | 变体 | `v:underline` |
