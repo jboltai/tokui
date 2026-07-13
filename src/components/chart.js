@@ -226,11 +226,132 @@ function bindTipsScoped(container, svg) {
 function clearNode(g) { while (g && g.firstChild) g.removeChild(g.firstChild); }
 
 // 鼠标 clientX → svg viewBox 内 x 坐标（dataZoom 拖拽用）。
+// 用 getScreenCTM 精确映射（含 CSS padding/border/meet 缩放）；dom-mock 无 CTM 时退化为 border-box 估算。
 function svgClientX(svg, clientX) {
+  if (svg.createSVGPoint && svg.getScreenCTM) {
+    try {
+      var pt = svg.createSVGPoint();
+      pt.x = clientX; pt.y = 0;
+      var ctm = svg.getScreenCTM();
+      if (ctm) return pt.matrixTransform(ctm.inverse()).x;
+    } catch (e) { /* fall through */ }
+  }
   var r = svg.getBoundingClientRect();
   var vb = svg.viewBox && svg.viewBox.baseVal;
   if (!r || !r.width || !vb) return clientX - (r ? r.left : 0);
   return (clientX - r.left) / r.width * vb.width + vb.x;
+}
+
+// 鼠标 clientY → svg viewBox 内 y（与 svgClientX 对称，十字线横线用）。
+function svgClientY(svg, clientY) {
+  if (svg.createSVGPoint && svg.getScreenCTM) {
+    try {
+      var pt = svg.createSVGPoint(); pt.x = 0; pt.y = clientY;
+      var ctm = svg.getScreenCTM();
+      if (ctm) return pt.matrixTransform(ctm.inverse()).y;
+    } catch (e) { /* fall through */ }
+  }
+  var r = svg.getBoundingClientRect();
+  var vb = svg.viewBox && svg.viewBox.baseVal;
+  if (!r || !r.height || !vb) return clientY - (r ? r.top : 0);
+  return (clientY - r.top) / r.height * vb.height + vb.y;
+}
+
+// ECharts 风格 axis 触发十字线 tooltip：鼠标在绘图区移动 → 竖虚线锚最近数据点 x、横虚线贴鼠标 y、
+// 数据点高亮放大、tooltip 列该 x 下所有系列「颜色块 + 系列名 + 值」。line/area 用（bar 留 item 触发）。
+// o: { svg, padL, padT, cw, ch, w, h, n, labels, series:[{color,name,vals}], valMin, range, yOf(val),
+//      toViewX(idx), toIdx(viewX), inWindow(idx), tipLayer, bfs }
+function attachAxisTooltip(o) {
+  if (typeof document === 'undefined') return;
+  var svg = o.svg, padL = o.padL, padT = o.padT, cw = o.cw, ch = o.ch;
+  var n = o.n, series = o.series, labels = o.labels;
+  var crossG = svgEl('g', { class: 'tokui-chart-axis-pointer' });
+  o.tipLayer.appendChild(crossG);
+  // 竖虚线（锚最近点 x，跨绘图区上下）+ 横虚线（贴鼠标 y，跨左右）
+  var vLine = svgEl('line', { y1: padT, y2: padT + ch, stroke: 'var(--tokui-chart-axis, #bbb)', 'stroke-width': 1, 'stroke-dasharray': '4,3', opacity: '0', 'pointer-events': 'none' });
+  var hLine = svgEl('line', { x1: padL, x2: padL + cw, stroke: 'var(--tokui-chart-axis, #bbb)', 'stroke-width': 1, 'stroke-dasharray': '4,3', opacity: '0', 'pointer-events': 'none' });
+  crossG.appendChild(vLine); crossG.appendChild(hLine);
+  // 数据点高亮（每系列一个放大圆，hover 时移到锚点）
+  var markers = series.map(function (s) {
+    var c = svgEl('circle', { r: 5, fill: 'var(--tokui-card-bg, #fff)', stroke: s.color, 'stroke-width': 2.5, opacity: '0', 'pointer-events': 'none' });
+    crossG.appendChild(c);
+    return c;
+  });
+  // 轴 tooltip：rect 背景 + 多行 text（标题 = x 标签，每行 = 颜色块 + 系列名 + 值）
+  var tipG = svgEl('g', { class: 'tokui-chart-tip tokui-chart-tip--axis', opacity: '0', 'pointer-events': 'none', style: 'transition:opacity .12s ease;' });
+  var tipRect = svgEl('rect', { rx: 4, fill: 'rgba(0,0,0,0.82)' });
+  tipG.appendChild(tipRect);
+  var tipTitle = svgEl('text', { 'text-anchor': 'start', fill: '#fff', 'font-weight': '600' });
+  tipG.appendChild(tipTitle);
+  var tipRows = series.map(function () {
+    var g = svgEl('g', {});
+    g.appendChild(svgEl('rect', { width: 8, height: 8, rx: 1 }));
+    g.appendChild(svgEl('text', { 'text-anchor': 'start', fill: '#fff' }));
+    tipG.appendChild(g);
+    return g;
+  });
+  crossG.appendChild(tipG);
+
+  function hide() {
+    vLine.setAttribute('opacity', '0'); hLine.setAttribute('opacity', '0');
+    markers.forEach(function (m) { m.setAttribute('opacity', '0'); });
+    tipG.style.opacity = '0';
+  }
+  function show(viewX, viewY) {
+    var idx = o.toIdx(viewX);
+    if (idx < 0 || idx >= n || !o.inWindow(idx)) { hide(); return; }
+    var px = o.toViewX(idx);
+    vLine.setAttribute('x1', px); vLine.setAttribute('x2', px); vLine.setAttribute('opacity', '0.9');
+    hLine.setAttribute('y1', viewY); hLine.setAttribute('y2', viewY); hLine.setAttribute('opacity', '0.9');
+    // 数据点高亮 + tooltip 内容（字号用 bump 后值，客户端 adjustChartFs 注入 svg._tokuiBumpedFs）
+    var fs = svg._tokuiBumpedFs || o.bfs || 10;
+    var rowH = fs + 4, pad = 7;
+    var title = String(labels[idx] != null ? labels[idx] : (idx + 1));
+    tipTitle.textContent = title;
+    tipTitle.setAttribute('font-size', fs);
+    var maxRowW = estTextW(title) * fs / 7;
+    tipRows.forEach(function (g, si) {
+      var v = series[si].vals[idx];
+      var mv = series[si].markerVals ? series[si].markerVals[idx] : v; // 堆叠：marker 用 y 域累计值，文本用原始值
+      var rowTxt = (series[si].name ? series[si].name + ': ' : '') + (v != null ? v : '—');
+      g.querySelector('text').textContent = rowTxt;
+      g.querySelector('text').setAttribute('font-size', fs);
+      g.querySelector('rect').setAttribute('fill', series[si].color);
+      var rw = estTextW(rowTxt) * fs / 7;
+      if (rw > maxRowW) maxRowW = rw;
+      markers[si].setAttribute('cx', px);
+      markers[si].setAttribute('cy', mv != null ? o.yOf(mv) : 0);
+      markers[si].setAttribute('opacity', (mv == null || v == null) ? '0' : '1');
+    });
+    // tooltip 布局（ECharts 风格：跟随鼠标，鼠标右下偏移，超界翻转 → 鼠标始终在框外不挡视线）
+    var tw = maxRowW + 8 + 8 + pad * 2;  // 色块 8 + 间距 8 + 左右 pad
+    var th = rowH * (1 + series.length) + pad * 2;
+    var off = 12;
+    var bx = viewX + off, by = viewY + off;            // 默认鼠标右下
+    if (bx + tw > o.w - 2) bx = viewX - tw - off;       // 右溢 → 翻左
+    if (bx < 2) bx = 2;                                  // 仍溢左 → 贴边
+    if (by + th > o.h - 2) by = viewY - th - off;       // 下溢 → 翻上
+    if (by < 2) by = 2;                                  // 仍溢顶 → 贴边
+    tipRect.setAttribute('x', bx); tipRect.setAttribute('y', by);
+    tipRect.setAttribute('width', tw); tipRect.setAttribute('height', th);
+    tipTitle.setAttribute('x', bx + pad); tipTitle.setAttribute('y', by + pad + fs * 0.85);
+    tipRows.forEach(function (g, ri) {
+      var ry = by + pad + rowH * (ri + 1) + fs * 0.85;
+      g.querySelector('rect').setAttribute('x', bx + pad);
+      g.querySelector('rect').setAttribute('y', ry - fs * 0.7);
+      g.querySelector('text').setAttribute('x', bx + pad + 8 + 8);
+      g.querySelector('text').setAttribute('y', ry);
+    });
+    tipG.style.opacity = '1';
+  }
+  // 透明 overlay 捕获绘图区 mousemove（pointer events）
+  var overlay = svgEl('rect', { x: padL, y: padT, width: cw, height: ch, fill: 'transparent', style: 'cursor:crosshair;' });
+  svg.appendChild(overlay);
+  overlay.addEventListener('mousemove', function (ev) {
+    show(svgClientX(svg, ev.clientX), svgClientY(svg, ev.clientY));
+  });
+  overlay.addEventListener('mouseleave', hide);
+  return { show: show, hide: hide, overlay: overlay };
 }
 
 // 通用 dataZoom：包裹「静态 plotG（图表已建好全量几何在原始全宽位）」→
@@ -265,8 +386,10 @@ function attachZoomPlot(svg, o) {
   o.tipLayer.appendChild(sharedTip);
   var winState = { s: 0, e: n - 1, sx: 1, tx: 0 };
   function showTip(txt, x, y) {
+    var tipFs = svg._tokuiBumpedFs || 10; // bump 后字号（relayout 算），tooltip 渲染 ≥ MIN_CHART_PX、不随 zoom 变
+    var fsScale = tipFs / 10;
     var lineW = 0; for (var i = 0; i < txt.length; i++) lineW += (txt.charCodeAt(i) > 127) ? 10 : 5.5;
-    var tw = lineW + 16, th = 18;
+    var tw = lineW * fsScale + 16, th = 18 * fsScale;
     var rx = x - tw / 2, ry = y - th - 6;
     if (rx < 2) rx = 2;
     if (rx + tw > o.w - 2) rx = o.w - tw - 2;
@@ -274,6 +397,7 @@ function attachZoomPlot(svg, o) {
     sharedTipRect.setAttribute('x', rx); sharedTipRect.setAttribute('y', ry);
     sharedTipRect.setAttribute('width', tw); sharedTipRect.setAttribute('height', th);
     sharedTipTxt.setAttribute('x', rx + tw / 2); sharedTipTxt.setAttribute('y', ry + th / 2 + 1);
+    sharedTipTxt.setAttribute('font-size', tipFs);
     sharedTipTxt.textContent = txt;
     sharedTip.style.opacity = '1';
   }
@@ -285,24 +409,58 @@ function attachZoomPlot(svg, o) {
     plotG.setAttribute('transform', 'matrix(' + sx + ' 0 0 1 ' + tx + ' 0)');
     winState.s = s; winState.e = e; winState.sx = sx; winState.tx = tx;
     clearNode(labelG);
-    if (withTips) o.renderLabels(labelG, s, e);
+    if (withTips) {
+      o.renderLabels(labelG, s, e);
+      // zoom 重画的标签用 bump 后字号（否则停 SSR fs9 → 缩放后 x 标签变小看不清）
+      var _bfsLab = svg._tokuiBumpedFs;
+      if (_bfsLab) {
+        var _labs = labelG.querySelectorAll('text');
+        for (var _li2 = 0; _li2 < _labs.length; _li2++) _labs[_li2].setAttribute('font-size', _bfsLab);
+      }
+    }
+    if (o.onZoom) o.onZoom(s, e, sx, tx); // 图表自定义：如 line 圆点重定位（不随 X 缩放变椭圆）
   }
 
-  // slider：overview mini 条 + 窗口 rect + 双手柄
+  // slider：overview mini 条 + 窗口 rect + 双手柄。尺寸先按基础 sh=16 建，挂载后 relayout(scale)
+  // 按 render scale 放大（窄列 scale 小→viewBox 几何缩成几 px 抓不住→客户端 bump 到 ≥ 目标 px）。
   var zG = svgEl('g', { class: 'tokui-chart-zoom' });
   parent.appendChild(zG);
   var sy = o.h + 6, sh = 16, mgh = sh - 2;
-  zG.appendChild(svgEl('rect', { x: padL, y: sy, width: cw, height: sh, fill: 'var(--tokui-chart-grid, #e8e8e8)', rx: 3, class: 'tokui-chart-zoom-track' }));
+  var track = svgEl('rect', { x: padL, y: sy, width: cw, height: sh, fill: 'var(--tokui-chart-grid, #e8e8e8)', rx: 3, class: 'tokui-chart-zoom-track' });
+  zG.appendChild(track);
   var slot = cw / n;
+  var ovBars = [];
   for (var i = 0; i < n; i++) {
     var ov = o.overview[i] || 0;
     var bh = Math.max(1, ((ov - o.valMin) / o.range) * mgh);
-    zG.appendChild(svgEl('rect', { x: padL + i * slot + 0.5, y: sy + sh - 1 - bh, width: Math.max(1, slot - 1), height: bh, fill: 'var(--tokui-chart-text, #bbb)', opacity: '0.55', class: 'tokui-chart-zoom-overview' }));
+    var ob = svgEl('rect', { x: padL + i * slot + 0.5, y: sy + sh - 1 - bh, width: Math.max(1, slot - 1), height: bh, fill: 'var(--tokui-chart-text, #bbb)', opacity: '0.55', class: 'tokui-chart-zoom-overview' });
+    zG.appendChild(ob);
+    ovBars.push({ el: ob, val: ov });
   }
   var win = svgEl('rect', { y: sy - 1, height: sh + 2, fill: 'rgba(0,120,212,0.12)', stroke: 'var(--tokui-primary-6, #1a73e8)', 'stroke-width': 1, rx: 2, class: 'tokui-chart-zoom-window', style: 'cursor:grab;' });
   var h1 = svgEl('rect', { width: 6, height: sh + 6, y: sy - 3, fill: 'var(--tokui-primary-6, #1a73e8)', rx: 2, class: 'tokui-chart-zoom-handle tokui-chart-zoom-handle--l', style: 'cursor:ew-resize;' });
   var h2 = svgEl('rect', { width: 6, height: sh + 6, y: sy - 3, fill: 'var(--tokui-primary-6, #1a73e8)', rx: 2, class: 'tokui-chart-zoom-handle tokui-chart-zoom-handle--r', style: 'cursor:ew-resize;' });
   zG.appendChild(win); zG.appendChild(h1); zG.appendChild(h2);
+  // 客户端按 render scale 放大滑块/手柄（render ≥14px 滑块、≥10px 手柄宽，钳在 ZOOM_H=28 内）
+  function relayout(scale) {
+    if (!(scale > 0)) return;
+    // bump 后字号（仅依赖 chart scale，与 zoom 无关）：tooltip + zoom 重画标签用它，保持稳定不随 zoom 变小
+    var bfs = bumpFsUnits(9, scale, MIN_CHART_PX, MAX_CHART_PX);
+    svg._tokuiBumpedFs = bfs;
+    if (sharedTipTxt) sharedTipTxt.setAttribute('font-size', bfs); // tooltip 用 bump 字号（≥ MIN_PX 渲染）
+    var sh2 = Math.min(26, Math.max(16, 14 / scale)); // 滑块高 ≥14px 渲染，上限 26（ZOOM_H-2）
+    var hw2 = Math.min(24, Math.max(6, 10 / scale));  // 手柄宽 ≥10px 渲染，上限 24
+    sh = sh2; mgh = sh - 2;
+    track.setAttribute('height', sh);
+    win.setAttribute('height', sh + 2);
+    h1.setAttribute('width', hw2); h1.setAttribute('height', sh + 6);
+    h2.setAttribute('width', hw2); h2.setAttribute('height', sh + 6);
+    for (var j = 0; j < ovBars.length; j++) {
+      var bh2 = Math.max(1, ((ovBars[j].val - o.valMin) / o.range) * mgh);
+      ovBars[j].el.setAttribute('y', sy + sh - 1 - bh2);
+      ovBars[j].el.setAttribute('height', bh2);
+    }
+  }
 
   var sFrac = 0, eFrac = 1;
   var minWinFrac = Math.max(2, Math.floor(n * 0.1)) / (n - 1);
@@ -358,7 +516,10 @@ function attachZoomPlot(svg, o) {
   }
   bindDrag(h1, 'l'); bindDrag(h2, 'r'); bindDrag(win, 'pan');
   drawWindow(0, n - 1, true);
-  return { showTip: showTip, winState: winState, sharedTip: sharedTip };
+  // 存 relayout 到 svg 自身（render 期 svg 尚未入 DOM、parentNode 为空，不能存 wrapper），
+  // adjustChartFs 用 wrapper.querySelector('svg') 拿到 svg 后调 relayout(scale) 放大滑块/手柄。
+  svg._tokuiZoomRelayout = relayout;
+  return { showTip: showTip, winState: winState, sharedTip: sharedTip, clipG: clipG };
 }
 
 /**
@@ -444,7 +605,8 @@ function applyTipScale(svg, scale) {
   var s = tipFs / 10;
   if (Math.abs(s - 1) < 0.005) return; // scale≈1 无需变换
   // 排除 dataZoom 共享 tip（hover 动态定位、自管几何，不参与整组缩放）
-  var groups = svg.querySelectorAll('.tokui-chart-tips-layer .tokui-chart-tip:not(.tokui-chart-tip--shared)');
+  // 排除共享 tip(--shared，dataZoom hover) + 轴 tip(--axis，attachAxisTooltip 自管几何/字号)
+  var groups = svg.querySelectorAll('.tokui-chart-tips-layer .tokui-chart-tip:not(.tokui-chart-tip--shared):not(.tokui-chart-tip--axis)');
   for (var i = 0; i < groups.length; i++) {
     var g = groups[i];
     var ax = parseFloat(g.getAttribute('data-tx'));
@@ -764,7 +926,7 @@ function renderBar(data, labels, colors, attrs) {
     if (attrs.yl) appendAxisUnit(svg, attrs.yl, 12, padTh + chh / 2, true);
   } else {
     // 纵向（默认）
-    var padL = attrs.yl ? 46 : 40, padR = 12, padT = 18;
+    var padL = attrs._padL ? +attrs._padL : (attrs.yl ? 46 : 40), padR = 12, padT = 18;
     var cw = w - padL - padR;
     var groupW = cw / n;
     var xl = axisXLayout(labels.slice(0, n), groupW, attrs.xl ? 38 : 28, cw, attrs.interval);
@@ -891,8 +1053,10 @@ function renderBar(data, labels, colors, attrs) {
     // 池化柱 hover 绑定（一次）：按 winState 动态映射算 tooltip 文本 + 定位
     if (pooledZoom) {
       function showSharedTip(txt, x, y) {
+        var tipFs = svg._tokuiBumpedFs || 10; // bump 后字号（adjustChartFs 算），≥ MIN_CHART_PX 渲染、不随 zoom 变
+        var fsScale = tipFs / 10;
         var lineW = 0; for (var i = 0; i < txt.length; i++) lineW += (txt.charCodeAt(i) > 127) ? 10 : 5.5;
-        var tw = lineW + 16, th = 18;
+        var tw = lineW * fsScale + 16, th = 18 * fsScale;
         var rx = x - tw / 2, ry = y - th - 6;
         if (rx < 2) rx = 2;
         if (rx + tw > w - 2) rx = w - tw - 2;
@@ -900,6 +1064,7 @@ function renderBar(data, labels, colors, attrs) {
         sharedTipRect.setAttribute('x', rx); sharedTipRect.setAttribute('y', ry);
         sharedTipRect.setAttribute('width', tw); sharedTipRect.setAttribute('height', th);
         sharedTipTxt.setAttribute('x', rx + tw / 2); sharedTipTxt.setAttribute('y', ry + th / 2 + 1);
+        sharedTipTxt.setAttribute('font-size', tipFs);
         sharedTipTxt.textContent = txt;
         sharedTip.style.opacity = '1';
       }
@@ -1044,7 +1209,10 @@ function renderLine(data, labels, colors, attrs) {
   if (flatMin > 0 && !stack) flatMin = 0;
   var range = flatMax - flatMin || 1;
 
-  var padL = attrs.yl ? 46 : 40, padR = 12, padT = 18;
+  var padR = 12, padT = 18;
+  // padL：客户端 adjustChartFs 测真实缩放后会注入 _padL（窄列 bump 字号→标签变宽→padL 自动涨）；
+  // SSR 首帧用基础值，避免宽容器过度留白。
+  var padL = attrs._padL ? +attrs._padL : (attrs.yl ? 46 : 40);
   var cw = w - padL - padR;
   var slotW = n > 1 ? cw / (n - 1) : cw;
   var xl = axisXLayout(labels.slice(0, n), slotW, attrs.xl ? 38 : 28, cw, attrs.interval);
@@ -1079,8 +1247,11 @@ function renderLine(data, labels, colors, attrs) {
   // dataZoom：几何入 plotG（transform 缩放）；非 zoom 直接入 svg
   var plotG = zoomOn ? svgEl('g', { class: 'tokui-chart-plot' }) : null;
   if (plotG) svg.appendChild(plotG);
+  // dotG 独立、不随 plotG 的 X 缩放（否则圆点被拉成椭圆）；zoom 时按窗口重定位 cx
+  var dotG = zoomOn ? svgEl('g', { class: 'tokui-chart-plot-dots' }) : null;
+  if (dotG) svg.appendChild(dotG);
   var geoTarget = plotG || svg;
-  var hoverHits = []; // zoom 模式收集 dot 命中圆，待 attachZoomPlot 后绑共享 tip
+  var zoomDots = []; // {circle, hit, idx, si, orig, s}  zoom 模式收集，待 onZoom 重定位 + 绑 tip
 
   stacked.forEach(function (s, si) {
     var pts = [];
@@ -1117,22 +1288,13 @@ function renderLine(data, labels, colors, attrs) {
     } else {
       geoTarget.appendChild(svgEl('polyline', { points: pts.map(function (p) { return p.x + ',' + p.y; }).join(' '), fill: 'none', stroke: colors[si % colors.length], 'stroke-width': 2, 'stroke-linejoin': 'round' }));
     }
-    // dots
+    // dots：纯视觉圆点（axis 触发由 attachAxisTooltip 统一处理，不再逐点 item tip）
     var orig = series[si];
     pts.forEach(function (p) {
-      if (zoomOn) {
-        // dot 入 plotG（随 transform），命中圆绑共享 tip（待 zh 就绪后绑）
-        plotG.appendChild(svgEl('circle', { cx: p.x, cy: p.y, r: 3, fill: '#fff', stroke: colors[si % colors.length], 'stroke-width': 2, class: 'tokui-chart-dot' }));
-        var hit = svgEl('circle', { cx: p.x, cy: p.y, r: 9, fill: 'transparent', style: 'cursor:pointer;' });
-        plotG.appendChild(hit);
-        hoverHits.push({ hit: hit, si: si, idx: p.idx, x: p.x, y: p.y, orig: orig, s: s });
-      } else {
-        var og = svgEl('g', { class: 'tokui-chart-tip-group' });
-        og.appendChild(svgEl('circle', { cx: p.x, cy: p.y, r: 8, fill: 'transparent' }));
-        og.appendChild(svgEl('circle', { cx: p.x, cy: p.y, r: 3, fill: '#fff', stroke: colors[si % colors.length], 'stroke-width': 2, class: 'tokui-chart-dot' }));
-        tips.add(og, (labels[p.idx] || '') + ': ' + (orig[p.idx] !== undefined ? orig[p.idx] : s[p.idx]) + (series.length > 1 ? ' (' + _t('chart.seriesDefault', { n: si + 1 }) + ')' : ''), p.x, p.y);
-        svg.appendChild(og);
-      }
+      var dTarget = zoomOn ? dotG : svg;
+      var dc = svgEl('circle', { cx: p.x, cy: p.y, r: 3, fill: '#fff', stroke: colors[si % colors.length], 'stroke-width': 2, class: 'tokui-chart-dot' });
+      dTarget.appendChild(dc);
+      if (zoomOn) zoomDots.push({ circle: dc, idx: p.idx, x: p.x, si: si });
       if (attrs.vals !== undefined) {
         geoTarget.appendChild(svgEl('text', { x: p.x, y: p.y - 6, 'text-anchor': 'middle', fill: colors[si % colors.length], 'font-size': '8' })).textContent = (orig[p.idx] !== undefined ? orig[p.idx] : s[p.idx]);
       }
@@ -1153,22 +1315,48 @@ function renderLine(data, labels, colors, attrs) {
         var span = e - s, pos = [];
         for (var kk = s; kk <= e; kk++) pos.push(span > 0 ? (padL + (kk - s) * cw / span) : padL + cw / 2);
         appendXLabels(labelG, labels.slice(s, e + 1), pos, h - 8, slotW, xl.rotate, xl.interval);
+      },
+      // 圆点重定位：dotG 不随 X 缩放（防椭圆），按当前窗口变换算 cx（仅 [s,e] 内点，余下 clipG 裁掉）
+      onZoom: function (s, e, sx, tx) {
+        for (var di = 0; di < zoomDots.length; di++) {
+          var d = zoomDots[di];
+          d.circle.setAttribute('cx', sx * d.x + tx);
+        }
       }
     });
-    // 绑共享 tip（zh 已就绪）：按 winState 变换后位 + 静态数据索引
-    hoverHits.forEach(function (h) {
-      h.hit.addEventListener('mouseenter', function () {
-        var v0 = h.orig[h.idx] !== undefined ? h.orig[h.idx] : h.s[h.idx];
-        if (v0 === undefined || v0 === null) return;
-        var bx = zh.winState.sx * h.x + zh.winState.tx;
-        zh.showTip((labels[h.idx] || '') + ': ' + v0 + (series.length > 1 ? ' (' + _t('chart.seriesDefault', { n: h.si + 1 }) + ')' : ''), bx, h.y);
-      });
-      h.hit.addEventListener('mouseleave', function () { zh.sharedTip.style.opacity = ''; });
+    // dotG 移入 clipG（与 plotG 同裁剪区），渲染在 plotG 之上（dots 在线之上）
+    zh.clipG.appendChild(dotG);
+    // axis 十字 tooltip（zoom 版）：toViewX/toIdx/inWindow 用 winState（窗口变换）
+    var _seriesInfo = series.map(function (sr, si) {
+      return { color: colors[si % colors.length], name: _t('chart.seriesDefault', { n: si + 1 }), vals: sr, markerVals: stacked[si] };
+    });
+    attachAxisTooltip({
+      svg: svg, padL: padL, padT: padT, cw: cw, ch: ch, w: w, h: h, n: n, labels: labels,
+      series: _seriesInfo, valMin: flatMin, range: range, yOf: yOf, tipLayer: tips.layer, bfs: 9,
+      toViewX: function (idx) { return zh.winState.sx * xOf(idx) + zh.winState.tx; },
+      toIdx: function (vx) {
+        // 反解窗口变换 toViewX(idx)=sx·xOf(idx)+tx → origX=(vx−tx)/sx → idx
+        // 直接用 (vx−padL)·(n−1)/cw 会按全量范围算，缩放后 idx 偏移致竖线不贴鼠标
+        var origX = (vx - zh.winState.tx) / zh.winState.sx;
+        return Math.round((origX - padL) * (n - 1) / cw);
+      },
+      inWindow: function (idx) { return idx >= zh.winState.s && idx <= zh.winState.e; }
     });
   } else {
     var positions = [];
     for (var k2 = 0; k2 < n; k2++) positions.push(xOf(k2));
     appendXLabels(svg, labels.slice(0, n), positions, h - 8, slotW, xl.rotate, xl.interval);
+    // axis 十字 tooltip（非 zoom）：toViewX=xOf，toIdx 反算索引，inWindow 恒真
+    var _seriesInfo2 = series.map(function (sr, si) {
+      return { color: colors[si % colors.length], name: _t('chart.seriesDefault', { n: si + 1 }), vals: sr, markerVals: stacked[si] };
+    });
+    attachAxisTooltip({
+      svg: svg, padL: padL, padT: padT, cw: cw, ch: ch, w: w, h: h, n: n, labels: labels,
+      series: _seriesInfo2, valMin: flatMin, range: range, yOf: yOf, tipLayer: tips.layer, bfs: 9,
+      toViewX: xOf,
+      toIdx: function (vx) { return Math.round((vx - padL) * (n - 1) / cw); },
+      inWindow: function () { return true; }
+    });
   }
   if (attrs.xl) appendAxisUnit(svg, attrs.xl, padL + cw / 2, h - 8 + (xl.rotate ? 26 : 12), false);
   if (attrs.yl) appendAxisUnit(svg, attrs.yl, 12, padT + ch / 2, true);
@@ -2234,7 +2422,7 @@ function renderWaterfall(data, labels, colors, attrs) {
   var minBase = minOf(bars.map(function (b) { return b.base; }));
   if (minBase > 0) minBase = 0;
   var range = (maxTop - minBase) || 1;
-  var padL = 44, padT = 18, padR = 12;
+  var padL = attrs._padL ? +attrs._padL : 44, padT = 18, padR = 12;
   var cw = w - padL - padR;
   var groupW = cw / data.length, barW = Math.max(4, groupW * 0.6);
   var xl = axisXLayout(labels.slice(0, data.length), groupW, 30, cw, attrs.interval);
@@ -2288,7 +2476,7 @@ function renderBoxplot(data, labels, colors, attrs) {
   var lo = minOf(allVals), hi = maxOf(allVals);
   if (lo === hi) { lo -= 1; hi += 1; }
   var range = hi - lo || 1;
-  var padL = 44, padT = 18, padR = 12;
+  var padL = attrs._padL ? +attrs._padL : 44, padT = 18, padR = 12;
   var cw = w - padL - padR;
   var zoomOn = zoomEnabled(attrs, boxes.length);
   var ZOOM_H = zoomOn ? 28 : 0;
@@ -2493,7 +2681,7 @@ function renderCandlestick(data, labels, colors, attrs) {
   }
   if (lo === hi) { lo -= 1; hi += 1; }
   var range = hi - lo || 1;
-  var padL = 44, padT = 18, padR = 12;
+  var padL = attrs._padL ? +attrs._padL : 44, padT = 18, padR = 12;
   var cw = w - padL - padR;
   var zoomOn = zoomEnabled(attrs, candles.length);
   var ZOOM_H = zoomOn ? 28 : 0;
@@ -2832,14 +3020,16 @@ function registerChartComponents(renderer) {
     if (!(C > 0)) return; // 未布局，等 ResizeObserver
     var scale = C / vbW;
     var type = svg.getAttribute('data-chart-type');
+    // bump 后字号（仅依赖 chart scale，与 zoom 无关）：tooltip + zoom 重画标签用它，统一存 svg
+    svg._tokuiBumpedFs = bumpFsUnits(9, scale, MIN_CHART_PX, MAX_CHART_PX);
 
     // tooltip 整组 transform 缩放（所有类型通用，pie 也走）：rect+text 同步缩，渲染 px ∈ [MIN,MAX]。
     // 单独处理而非走下方 text 循环——tooltip rect 按原字号算宽，单抬 text 会溢出 rect，故整组围绕
     // 数据点锚 (data-tx,data-ty) scale，内部布局自洽。
     applyTipScale(svg, scale);
 
+    var spec = wrapper._tokuiChartSpec; // pie / xy padL 分支共用
     if (type === 'pie') {
-      var spec = wrapper._tokuiChartSpec;
       if (!spec || !spec.data || !spec.data.length) return;
       if (!spec.labels || !spec.labels.some(function (l) { return !!l; })) return; // 无标签无需抬
       var total = spec.data.reduce(function (a, b) { return a + b; }, 0) || 1;
@@ -2867,8 +3057,42 @@ function registerChartComponents(renderer) {
       return;
     }
 
+    // xy 图 padL：一次性实测 y 标签宽，折算到目标 bump 字号 bfs，若装不下基础 padL 则注入 _padL 重渲染。
+    // 关键「一次性」：首次算完设 _tokuiPadLSet 标志，后续不再重算——否则 bump(fs9→bfs) 后 getBBox 变、
+    // _need 漂移 → redraw 重置 fs9 → bump 再跑 → 死循环（标签停 fs9、bump 跑数百次）。
+    var _xyTypes = { bar: 1, line: 1, area: 1, histogram: 1, boxplot: 1, candlestick: 1, waterfall: 1 };
+    if (_xyTypes[type] && typeof svg.createSVGPoint === 'function' && !wrapper._tokuiPadLSet) {
+      wrapper._tokuiPadLSet = true; // 一次性：不论结果如何，不再重算（防 bump 前后测值漂移致循环）
+      var _bfs = bumpFsUnits(9, scale, MIN_CHART_PX, MAX_CHART_PX);
+      var _gridLine = svg.querySelector('line');
+      var _padLNow = _gridLine ? parseFloat(_gridLine.getAttribute('x1')) : 0;
+      var _yLabs = svg.querySelectorAll('text[text-anchor="end"]');
+      var _maxLW = 0;
+      for (var _li = 0; _li < _yLabs.length; _li++) {
+        var _lt = _yLabs[_li];
+        if (parseFloat(_lt.getAttribute('x')) >= _padLNow) continue;
+        var _curFs = parseFloat(_lt.getAttribute('font-size')) || 9;
+        var _bw = 0;
+        try { _bw = _lt.getBBox().width; } catch (e2) { _bw = 0; }
+        var _bumpedW = _bw * _bfs / _curFs; // 折算到目标 bfs 宽（线性，与当前 fs 无关）
+        if (_bumpedW > _maxLW) _maxLW = _bumpedW;
+      }
+      if (_maxLW > 0) {
+        var _need = Math.ceil(_maxLW + 12);
+        var _basePadL = (spec && spec.attrs && spec.attrs.yl) ? 46 : 40;
+        if (type === 'boxplot' || type === 'candlestick' || type === 'waterfall') _basePadL = 44;
+        if (Math.abs(_need - _basePadL) > 2) { // 显著偏离基础值才 redraw（避免无谓重渲染）
+          wrapper._tokuiPadL = _need;
+          redrawChart(wrapper, Object.assign({}, spec.attrs, { _padL: _need }));
+          return;
+        }
+      }
+    }
+
     // 非 pie：直接抬信息文字 font-size（tooltip 层文字由 applyTipScale 整组处理，此处跳过）
     if (!(scale > 0)) return;
+    // dataZoom 滑块/手柄按 render scale 放大（窄列默认几何太小抓不住）
+    if (svg._tokuiZoomRelayout) { try { svg._tokuiZoomRelayout(scale); } catch (e3) {} }
     var texts = svg.querySelectorAll('text[font-size]');
     for (var i = 0; i < texts.length; i++) {
       var t = texts[i];
@@ -3013,11 +3237,32 @@ function registerChartComponents(renderer) {
 
     var body = document.createElement('div');
     body.className = 'tokui-chart__modal-body';
-    var clone = srcSvg.cloneNode(true);
+    // zoom 图：克隆体的拖拽/共享 tip 事件绑在原始元素（闭包），克隆是死的 → 重新渲染 fresh svg
+    // （attachZoomPlot 重跑、绑定全新）；非 zoom 图仍克隆 + bindTooltips。
+    var wrapperEl = (typeof srcSvg.closest === 'function') ? srcSvg.closest('.tokui-chart') : null;
+    var specEl = wrapperEl && wrapperEl._tokuiChartSpec;
+    var isZoomChart = !!srcSvg.querySelector('.tokui-chart-zoom-window');
+    var clone;
+    if (isZoomChart && specEl && chartRenderers[specEl.type]) {
+      try {
+        clone = chartRenderers[specEl.type](specEl.data, specEl.labels, specEl.colors, specEl.attrs);
+        clone.setAttribute('data-chart-type', specEl.type);
+        if (specEl.type === 'bar' && (specEl.attrs.orient === 'h' || specEl.attrs.orientation === 'h')) {
+          clone.setAttribute('data-orient', 'h');
+        }
+      } catch (e) { clone = srcSvg.cloneNode(true); bindTooltips(clone); }
+    } else {
+      clone = srcSvg.cloneNode(true);
+      bindTooltips(clone);
+    }
     if (clone.id) clone.removeAttribute('id');
-    // 保留 tooltip 浮层 + 重绑 hover：放大查看时 tooltip 仍可交互（克隆无事件监听，须重绑）
-    bindTooltips(clone);
     body.appendChild(clone);
+    // zoom fresh render：跑 adjustChartFs（字号 bump + slider relayout，复用原 spec + 跳过 padL 重算）
+    if (isZoomChart && specEl) {
+      body._tokuiChartSpec = specEl;
+      body._tokuiPadLSet = true;
+      scheduleAdjust(body);
+    }
 
     card.appendChild(body);
     card.appendChild(closeBtn);

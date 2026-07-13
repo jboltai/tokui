@@ -40,8 +40,12 @@ All chart types share these props, self-closing.
 | `xl` / `yl` | X / Y axis unit name | `xl:Input yl:Output` |
 | `range` | Gauge sweep angle: `180` (default) / `270` / `360` | `range:270` |
 | `anim` | Value animation duration (ms, progress/gauge, auto-stops under reduced-motion) | `anim:1200` |
+| `interval` | X-axis label density: `auto` (default, 3-tier fallback) / `0` (force all, rotate only if needed) / `N` (show every Nth, keep first & last) | `interval:2` |
+| `zoom` | dataZoom drag-to-zoom: `auto` (on when >30 points) / `N` (on when >N) / `on` / `off`. bar/line/area/histogram/boxplot/candlestick | `zoom:auto` |
 
-> Attribute values containing commas or pipes must be double-quoted, or the parser splits on the delimiter. When colors are omitted a built-in 10-color palette is used. Long X-axis labels auto-rotate -35° to avoid overlap; empty data shows a "No data" placeholder.
+> Attribute values containing commas or pipes must be double-quoted, or the parser splits on the delimiter. When colors are omitted a built-in 10-color palette is used. Dense X-axis labels auto-fall back through【horizontal → -45° rotate → skip by step (keep first & last)】(controlled by `interval`); empty data shows a "No data" placeholder.
+
+> **dataZoom**: for ≥30 points (long time series, large bar/line, many candles/boxes) add `zoom:auto` — a slider appears, drag to inspect a window (rect tracks cursor, bars/lines snap to data points; single-series bars are pooled for smoothness). bar/line/area/histogram/boxplot/candlestick only; not for continuous-X charts like scatter/bubble.
 
 > **Responsive sizing**: charts default to `width:100%` filling the container, capped per type (max-width × max-height): bar/line/area/scatter/bubble/histogram/waterfall/boxplot 1400×600 (**horizontal bars `orient:h` height cap 800**), candlestick 1400×600, gantt 1400×640, **pie/donut/radar/rose 600×600**, gauge 600×400, funnel 1000×600, heatmap/treemap 1000×600, sankey 1000×600, progress 780×120. Beyond the cap it scales & centers without distortion. `w`/`h` only affect the internal coord ratio, not final render size — usually leave them out; for horizontal bars with many categories you may set `h` explicitly (max 800).
 

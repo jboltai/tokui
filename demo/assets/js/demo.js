@@ -312,7 +312,7 @@ const I18N = {
   action:         { zh: '操作', en: 'Action' },
   editClicked:    { zh: '编辑按钮被点击', en: 'Edit button clicked' },
   deleteClicked:  { zh: '删除按钮被点击', en: 'Delete button clicked' },
-  footerVer:      { zh: '当前版本:v0.1.5', en: 'Version: v0.1.5' },
+  footerVer:      { zh: '当前版本:v0.1.6', en: 'Version: v0.1.6' },
   footerCopy:     { zh: '零依赖 · 流式UI描述与渲染框架', en: 'Zero Deps · Streaming UI Framework' },
   dslRef:         { zh: 'DSL 语法速查', en: 'DSL Syntax Ref' },
   clearBtn:       { zh: '清空', en: 'Clear' },

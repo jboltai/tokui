@@ -8,7 +8,7 @@
 ## 0. 铁律速记（写之前先读，违反即渲染失败）
 
 1. **属性之间必须空格分隔**——CJK/全角字符（`（）。，！？`）后接新属性也要空格。错 `[item l:服务费（10%）tx:¥48]` → 对 `[item l:服务费（10%） tx:¥48]`。
-2. **`tr` 单元格用英文逗号**，含逗号的 cell 双引号包（`[tr 1,"x,y",2]`），**tr 不要外层引号**。唯二例外：单元格是带空格的内联组件（`btn:`/`tag:`/`progress`/`[xxx]`）→ 整行外层引号 + `|` 分隔多钮。
+2. **`tr` 单元格用英文逗号**，含逗号的 cell 双引号包（`[tr 1,"x,y",2]`），**tr 不要外层引号**。唯二例外：① 单元格是带空格的内联组件（`btn:`/`tag:`/`progress`/`[xxx]`）→ 整行外层引号 + `|` 分隔多钮；② **货币符号金额（`¥/$/€/£/₩` 等）千分位自动识别、无需引号**——`¥2,688.00`、`$1,234,567` 直接裸写，parser 不切。
 3. **变体必须带 `v:` 前缀**，多变体逗号合并 `v:"primary,sm"`。裸写 `muted`/`primary` 会变正文乱码。
 4. **`card` 有子元素时禁用 `tx`**（`tx` = 自闭合叶子卡，子内容会漏到卡外）。价签用 `[h3]`/`[stat]`。
 5. **`p` 双模**：有正文=叶子自闭合（可夹内联子节点），无正文=容器 `[p]...[/p]`（放块级组件）。
@@ -412,7 +412,52 @@ resizable canvas canvas-content chart p
 - **操作按钮**：`btn:详情 clk:fillSubmit data-prompt:查看详情:<行ID>|btn:删除 v:danger clk:fillSubmit data-prompt:删除:<行ID>`（多个 `|` 分隔，属性空格分）。icon 操作钮 `btn: icon:edit l:编辑 v:warning clk:fillSubmit data-prompt:编辑:<行ID>`。
 - **任意内联组件**：`[badge count:5]`、`[dot t:success tx:运行中]`（方括号包裹组件会内联渲染）。
 
-> 带空格属性的内联组件格 / 含逗号格 / 多按钮格 → 整行外层双引号包：`[tr "ZS001,张三,progress v:90 t:span,btn:详情 clk:fillSubmit data-prompt:详情:ZS001"]`。无空格组件可不引号。
+> **🔴 带空格属性的内联组件格 / 多按钮格 → 整行外层双引号包**：凡 tr 行内有 `btn:`/`progress v:`/`tag:`/`[xxx]` 这类**带空格属性**的格，整行外层双引号包，单元格内不含逗号、多按钮用 `|` 分隔。**货币符号金额（¥/$/€/£ 等）千分位无需引号、整行包也无需内层转义**：
+>
+> ```tokui
+> [tr "ZS001,张三,¥2,688.00,progress v:90 t:span,tag:在职 t:success,btn:详情 clk:fillSubmit data-prompt:详情:ZS001"]
+> ```
+
+#### 各列类型引号速查（系统性）
+
+| 列类型 | 示例 | 含空格 | 含逗号 | 引号处理 |
+|---|---|---|---|---|
+| 纯文本 | `张三` / `技术部` | 否 | 否 | 无需 |
+| 普通数字 | `42` / `320` | 否 | 否 | 无需 |
+| **货币符号金额** | `¥2,688.00` / `$1,234,567` | 否 | 是（千分位） | **无需**（parser 自动识别千分位） |
+| 百分比/单位 | `0.8%` / `95分` | 否 | 否 | 无需 |
+| 裸数字千分位（无符号） | `12800,00` | 否 | 是 | **该格双引号包**（无符号歧义） |
+| 多值文本（逗号） | `量程0-50MPa,精度0.1%` | 否 | 是 | **该格双引号包** |
+| 标签 `tag:` | `tag:已发货 t:primary` | 是 | 否 | 整行外层引号（或该格引号） |
+| 进度 `progress` | `progress v:80 t:span` | 是 | 否 | 整行外层引号（或该格引号） |
+| 按钮 `btn:` | `btn:详情 clk:...` | 是 | 否 | 整行外层引号（或该格引号） |
+| 多按钮 | `btn:...|btn:...` | 是 | 否 | 整行外层引号（`|` 分隔） |
+
+**混搭规则**：一行里既有货币金额又有组件格 → 整行外层引号包，货币金额无需内层转义（千分位自动识别）：`[tr ",ORD-001,星辰,¥2,688.00,tag:已发货 t:primary,btn:查看 clk:x"]`。一行里有多值文本逗号格 + 组件格 → 整行外层引号 + 多值格内层 `\"` 转义。
+>
+> **不引号包的后果（实测高频翻车点）**：parser 按**空格**切 tr token，`btn:详情 clk:fillSubmit data-prompt:...` 里的 `clk:`/`data-prompt:` 会被吃成 **tr 自身属性**、content 被截断、操作列/进度列整列渲染不出来。错例：
+>
+> ```tokui
+> [tr 01,项目01,42,0.8%,progress v:42 t:span,btn:详情 clk:fillSubmit data-prompt:查看详情:项目01]
+> ```
+>
+> → `tr.attrs` 变 `{v:"42", t:"span,btn:详情", clk:"fillSubmit", data-prompt:"查看详情:项目01"}`、`tr.content` 只剩前 5 格 `"01,项目01,42,0.8%,progress"`、操作列消失。
+>
+> **改法（整行外层引号包即可）**：`[tr "01,项目01,42,0.8%,progress v:42 t:span,btn:详情 clk:fillSubmit data-prompt:查看详情:项目01"]`。无空格组件格不需引号。
+
+#### 操作列范例（多按钮 + icon-only）
+
+整行 tr 外层引号包（btn 格含空格）；多按钮 `|` 分隔；`v:danger` 删钮红；**每行 ID 烧进 `data-prompt`**（`动作:ID`）；icon-only 用 `l:` 作 tooltip+无障碍；可用 icon 名：view/edit/delete/copy/download/refresh/check/close/search 等。
+
+```tokui
+[table stripe bordered]
+[thead cols:"#,项目,数值,趋势,操作"]
+[tbody]
+[tr ",P01,42,progress v:42 t:span,btn:详情 clk:fillSubmit data-prompt:查看详情:P01|btn:编辑 clk:fillSubmit data-prompt:编辑:P01|btn:删除 v:danger clk:fillSubmit data-prompt:删除:P01"]
+[tr ",P02,88,progress v:88 t:span,btn: icon:view l:详情 v:primary clk:fillSubmit data-prompt:查看详情:P02|btn: icon:edit l:编辑 v:warning clk:fillSubmit data-prompt:编辑:P02|btn: icon:delete l:删除 v:danger clk:fillSubmit data-prompt:删除:P02"]
+[/tbody]
+[/table]
+```
 
 #### 表格合并 / 对齐 / 配色 / 汇总（cell 尾缀，表头+表体通用）
 
@@ -468,6 +513,8 @@ col spec 顺序：`列名[=cN[rM]][/对齐][/配色]`。
 | `xmin`/`xmax`/`ymin`/`ymax` | 显式锁轴（scatter/bubble，流式防已画点跳） |
 | `range` | gauge 扫掠角 180（默认）/270/360 |
 | `anim` | 数值动画 ms（progress/gauge，尊重无障碍偏好自动停） |
+| `interval` | X 轴标签密度：`auto`（默认，横排→-45°旋转→跳过三级降级）/ `0`（全显）/ `N`（每 N 个显一个，保留首末） |
+| `zoom` | dataZoom 拖拽缩放：`auto`（>30 点自动开）/ `N`（>N 开）/ `on`/`off`。bar/line/area/histogram/boxplot/candlestick |
 
 #### 数据格式 `d` 速查
 
@@ -503,6 +550,17 @@ col spec 顺序：`列名[=cN[rM]][/对齐][/配色]`。
 - **candlestick**：`d` OHLC；`l` 日期；`c` 阳/阴色（默认红涨绿跌，中国惯例）。
 - **progress**：`v` `max`/`min` `u` `l` `c` `anim`。
 - **gauge**：见下方专节。
+
+#### X 轴密度 + dataZoom 缩放（大数据点）
+
+- bar/line/area/histogram/boxplot/candlestick 的 X 轴标签自动【横排 → -45° 旋转 → 按步长跳过（保留首末）】三级降级，默认 `interval:auto`。
+- `interval:N` 锁步长（每 N 个显一个，保留首末）；`interval:0` 强制全显（仅按需旋转）。
+- 数据点 ≥30（长时间序列、大规模柱/线、多根 K 线/多组箱线）加 `zoom:auto` 开底部 dataZoom 滑块，用户拖拽看局部（单系列柱图池化、丝滑跟手）。
+
+```tokui
+[chart t:line tt:"近90天访问趋势" zoom:auto l:"D1,D2,...,D90" d:"30,45,38,60,..."]
+[chart t:bar tt:"50点柱状" interval:5 l:"D1,D2,...,D50" d:"120,200,150,80,..."]
+```
 
 #### gauge 仪表盘完整属性
 

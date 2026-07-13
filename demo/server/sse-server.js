@@ -1332,7 +1332,7 @@ const DEMOS = [
             .cardTx('快捷操作', '点击左侧导航选择更多组件示例。')
           .end()
           .col_layout({ span: 6 })
-            .cardTx('版本更新', 'TokUI v0.1.5 已发布，支持卡片自闭合模式。')
+            .cardTx('版本更新', 'TokUI v0.1.6 已发布，支持卡片自闭合模式。')
           .end()
         .end()
         .hr()
@@ -1522,7 +1522,7 @@ const DEMOS = [
                 .a({ tx: '帮助文档', u: '/docs' })
                 .p(' | ')
                 .a({ tx: '联系我们', u: '/contact' })
-                .p('版本 v0.1.5')
+                .p('版本 v0.1.6')
               .end()
             .end()
           .end()
@@ -1814,6 +1814,27 @@ const DEMOS = [
             .end()
           .end()
         .end();
+      // 操作列多按钮：tr 行内有 btn:/progress v: 等带空格属性的格 → 整行外层双引号包
+      // （否则 clk:/data-prompt: 被 parser 吃成 tr 属性、操作列消失）。多按钮用 | 分隔，ID 烧进 data-prompt。
+      b.p('操作列多按钮：行内有 btn:/progress v: 等带空格属性的格，整行 tr 必须外层双引号包（否则操作列渲染不出来）：');
+      b.card({ tt: '操作列 · 文字钮（详情/编辑/删除 + 进度 + ID）' })
+        .table({ stripe: true, v: 'bordered' })
+          .theadCols('#,项目,数值,趋势,操作')
+          .tbody()
+            .text('[tr ",P01,42,progress v:42 t:span,btn:详情 clk:fillSubmit data-prompt:查看详情:P01|btn:编辑 clk:fillSubmit data-prompt:编辑:P01|btn:删除 v:danger clk:fillSubmit data-prompt:删除:P01"]')
+            .text('[tr ",P02,88,progress v:88 t:span,btn:详情 clk:fillSubmit data-prompt:查看详情:P02|btn:编辑 clk:fillSubmit data-prompt:编辑:P02|btn:删除 v:danger clk:fillSubmit data-prompt:删除:P02"]')
+          .end()
+        .end()
+      .end();
+      b.card({ tt: '操作列 · icon-only 钮（悬停 tooltip + 配色 + ID）' })
+        .table({ stripe: true, v: 'bordered' })
+          .theadCols('#,工单,进度,状态,操作')
+          .tbody()
+            .text('[tr ",WO-001,progress v:60 t:span,tag:进行中 t:primary,btn: icon:view l:详情 v:primary clk:fillSubmit data-prompt:查看详情:WO-001|btn: icon:edit l:编辑 v:warning clk:fillSubmit data-prompt:编辑:WO-001|btn: icon:delete l:删除 v:danger clk:fillSubmit data-prompt:删除:WO-001"]')
+            .text('[tr ",WO-002,progress v:100 t:span,tag:已完工 t:success,btn: icon:view l:详情 v:primary clk:fillSubmit data-prompt:查看详情:WO-002|btn: icon:delete l:删除 v:danger clk:fillSubmit data-prompt:删除:WO-002"]')
+          .end()
+        .end()
+      .end();
       return b;
     }
   },

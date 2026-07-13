@@ -2130,10 +2130,10 @@ textarea.tokui-textarea--auto { resize: none !important; }
 .tokui-chart__svg[data-chart-type="bubble"],
 .tokui-chart__svg[data-chart-type="histogram"],
 .tokui-chart__svg[data-chart-type="waterfall"],
-.tokui-chart__svg[data-chart-type="boxplot"] { max-width: 1400px; max-height: 600px; min-height: 200px; }
+.tokui-chart__svg[data-chart-type="boxplot"] { max-width: 1400px; max-height: 600px; min-height: 200px; padding: 10px; }
 /* 横向柱（orient:h）类别在 y 轴、高度随类别数线性增长，viewBox 逻辑高最多 1200 → CSS 同步放到 1200 */
 .tokui-chart__svg[data-chart-type="bar"][data-orient="h"] { max-height: 1200px; }
-.tokui-chart__svg[data-chart-type="candlestick"] { max-width: 1400px; max-height: 600px; min-height: 220px; }
+.tokui-chart__svg[data-chart-type="candlestick"] { max-width: 1400px; max-height: 600px; min-height: 220px; padding: 10px; }
 .tokui-chart__svg[data-chart-type="gantt"] { max-width: 1400px; max-height: 640px; min-height: 200px; }
 .tokui-chart__svg[data-chart-type="pie"],
 .tokui-chart__svg[data-chart-type="donut"] { max-width: 600px; max-height: 600px; min-width: 320px; min-height: 320px; }
