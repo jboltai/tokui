@@ -4476,6 +4476,95 @@ const DEMOS = [
     }
   },
 
+  // ===== Bar 大规模柱状图 =====
+
+  {
+    trigger: 'demo-chart-bar',
+    title: 'Bar 柱状图',
+    desc: '大规模数据柱状图 · 50 / 40 数据点',
+    build() {
+      const b = new TokUIBuilder();
+      b.p('柱状图大规模数据展示。TokUI 自动处理 X 轴标签拥挤：横排 → 旋转 → 按步长跳过三级降级（保留首末）；可用 interval 精确控制步长，zoom 开启拖拽缩放查看局部。');
+
+      // 生成确定性数据（正弦波 + 线性趋势，无随机，每次渲染一致）
+      function barData(n, base, amp, trend) {
+        const arr = [];
+        for (let i = 0; i < n; i++) {
+          arr.push(Math.round(base + amp * Math.sin(i / 4) + trend * i));
+        }
+        return arr.join(',');
+      }
+      function barLabels(n, prefix) {
+        const arr = [];
+        for (let i = 0; i < n; i++) arr.push(prefix + (i + 1));
+        return arr.join(',');
+      }
+
+      b.dv({});
+      // 独占一行：50 数据点大型柱状图 + dataZoom 滑块（拖拽下方滑块缩放看局部）
+      b.card({})
+        .chart({
+          t: 'bar',
+          d: barData(50, 180, 60, 4),
+          l: barLabels(50, 'D'),
+          tt: '近 50 天日销售额（万元）· 拖拽下方滑块缩放',
+          h: 340,
+          zoom: 'auto',
+        })
+      .end();
+
+      b.dv({});
+      // 一行两列：各 40 数据点（窄列自动跳过 / 旋转）
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({
+              t: 'bar',
+              d: barData(40, 120, 50, 3),
+              l: barLabels(40, 'W'),
+              tt: '近 40 周活跃用户（万）',
+              h: 240,
+            })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({
+              t: 'bar',
+              d: barData(40, 200, 80, 2),
+              l: barLabels(40, 'M'),
+              tt: '近 40 月订单量（万单）',
+              h: 240,
+            })
+          .end()
+        .end()
+      .end();
+
+      b.dv({});
+      b.p('interval 属性对比（同 20 点数据）：interval:auto 自动降级 / interval:0 强制全显 / interval:3 每 3 个显一个（保留首末）。');
+      // 一行三列：interval 模式对比
+      b.row_layout()
+        .col_layout({ span: 4 })
+          .card({})
+            .chart({ t: 'bar', d: barData(20, 100, 40, 2), l: barLabels(20, 'P'), tt: 'interval:auto 自动', h: 200, interval: 'auto' })
+          .end()
+        .end()
+        .col_layout({ span: 4 })
+          .card({})
+            .chart({ t: 'bar', d: barData(20, 100, 40, 2), l: barLabels(20, 'P'), tt: 'interval:0 全显', h: 200, interval: '0' })
+          .end()
+        .end()
+        .col_layout({ span: 4 })
+          .card({})
+            .chart({ t: 'bar', d: barData(20, 100, 40, 2), l: barLabels(20, 'P'), tt: 'interval:3 每 3 个', h: 200, interval: '3' })
+          .end()
+        .end()
+      .end();
+
+      return b;
+    }
+  },
+
   // ===== Gantt 甘特图 =====
 
   {
@@ -4523,6 +4612,41 @@ const DEMOS = [
         })
       .end();
 
+      return b;
+    }
+  },
+
+  // ===== Zoom 多类型 dataZoom 缩放 =====
+
+  {
+    trigger: 'demo-chart-zoom',
+    title: 'Zoom 缩放',
+    desc: 'line / candlestick / boxplot dataZoom 拖拽缩放',
+    build() {
+      const b = new TokUIBuilder();
+      b.p('dataZoom 缩放：拖拽下方滑块看局部。line/area/candlestick/boxplot/histogram 均支持（zoom:auto|N|on）。');
+      function data(n, base, amp, trend) {
+        const a = []; for (let i = 0; i < n; i++) a.push(Math.round(base + amp * Math.sin(i / 4) + trend * i)); return a.join(',');
+      }
+      function labels(n, p) {
+        const a = []; for (let i = 0; i < n; i++) a.push(p + (i + 1)); return a.join(',');
+      }
+      b.dv({});
+      // 折线 + 面积 50 点
+      b.row_layout()
+        .col_layout({ span: 6 }).card({}).chart({ t: 'line', d: data(50, 180, 60, 4), l: labels(50, 'D'), tt: '折线 50 点 · 缩放', h: 240, zoom: 'auto' }).end().end()
+        .col_layout({ span: 6 }).card({}).chart({ t: 'area', d: data(50, 120, 50, 3), l: labels(50, 'D'), tt: '面积 50 点 · 缩放', h: 240, zoom: 'auto' }).end().end()
+      .end();
+      b.dv({});
+      // K 线 60 根
+      const k = [];
+      for (let i = 0; i < 60; i++) { const o = 100 + i; const c = o + (i % 5 - 2); k.push(o + ',' + Math.max(o, c) + ',' + (90 + i) + ',' + (110 + i) + ',' + c); }
+      b.card({}).chart({ t: 'candlestick', d: k.join(';'), l: labels(60, 'D'), tt: 'K 线 60 根 · 缩放', h: 280, zoom: 'auto' }).end();
+      b.dv({});
+      // 箱线 40 组
+      const bx = [];
+      for (let i = 0; i < 40; i++) bx.push(i + ',' + (i + 2) + ',' + (i + 4) + ',' + (i + 6) + ',' + (i + 8));
+      b.card({}).chart({ t: 'boxplot', d: bx.join(';'), l: labels(40, 'G'), tt: '箱线 40 组 · 缩放', h: 240, zoom: 'auto' }).end();
       return b;
     }
   },

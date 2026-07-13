@@ -203,6 +203,164 @@ function bindTooltips(svg) {
   });
 }
 
+// 局部（容器内）绑定 tooltip hover，跳过已绑节点（data-tip-bound）。
+// dataZoom redraw 后 plotG 内柱重建，需重绑 hover；guard 防与 bindTooltips 重复绑。
+function bindTipsScoped(container, svg) {
+  var gs = container.querySelectorAll('.tokui-chart-tip-group:not([data-tip-bound])');
+  gs.forEach(function (g) {
+    g.setAttribute('data-tip-bound', '1');
+    g.addEventListener('mouseenter', function () {
+      var id = g.getAttribute('data-tip-id');
+      var tip = svg.querySelector('.tokui-chart-tips-layer [data-tip-id="' + id + '"]');
+      if (tip) tip.style.opacity = '1';
+    });
+    g.addEventListener('mouseleave', function () {
+      var id = g.getAttribute('data-tip-id');
+      var tip = svg.querySelector('.tokui-chart-tips-layer [data-tip-id="' + id + '"]');
+      if (tip) tip.style.opacity = '';
+    });
+  });
+}
+
+// 清空节点的所有子节点（redraw 前清场）。
+function clearNode(g) { while (g && g.firstChild) g.removeChild(g.firstChild); }
+
+// 鼠标 clientX → svg viewBox 内 x 坐标（dataZoom 拖拽用）。
+function svgClientX(svg, clientX) {
+  var r = svg.getBoundingClientRect();
+  var vb = svg.viewBox && svg.viewBox.baseVal;
+  if (!r || !r.width || !vb) return clientX - (r ? r.left : 0);
+  return (clientX - r.left) / r.width * vb.width + vb.x;
+}
+
+// 通用 dataZoom：包裹「静态 plotG（图表已建好全量几何在原始全宽位）」→
+//   固定 clipG（clip-path 裁到绘图区，不随 transform 动）+ plotG transform 映射窗口 [s,e]→全宽。
+// 拖拽：Pointer Events + setPointerCapture + RAF + 原始分数窗口（平滑跟手，慢移不冻）。
+// 柱/线/直方/箱线/K线共用。图表提供 srcLeft/srcRight（决定 transform）、overview、renderLabels。
+// o: { svg, plotG, tipLayer, padL, cw, padT, ch, h, w, n,
+//      srcLeft(s), srcRight(e), overview[], valMin, range, renderLabels(labelG, s, e) }
+// 返回 { showTip, winState, sharedTip } —— 图表用 showTip 绑各自 hover。
+function attachZoomPlot(svg, o) {
+  var padL = o.padL, cw = o.cw, n = o.n, plotG = o.plotG;
+  // clipPath（固定，不随 transform 动）—— 必须在不动的 clipG 上，否则 clip 随 transform 偏移
+  var clipId = 'tokui-chart-clip-' + (++_chartClipSeq);
+  var defs = svgEl('defs');
+  var cp = svgEl('clipPath', { id: clipId });
+  cp.appendChild(svgEl('rect', { x: padL - 1, y: o.padT - 1, width: cw + 2, height: o.ch + 2 }));
+  defs.appendChild(cp);
+  svg.appendChild(defs);
+  var clipG = svgEl('g', { 'clip-path': 'url(#' + clipId + ')' });
+  var parent = plotG.parentNode;
+  var next = plotG.nextSibling;
+  clipG.appendChild(plotG);                                   // 原位替换：plotG 移入 clipG
+  if (next) parent.insertBefore(clipG, next); else parent.appendChild(clipG);
+  var labelG = svgEl('g', { class: 'tokui-chart-plot-labels' });
+  parent.appendChild(labelG);                                 // 标签在 clipG 之上、slider 之下
+
+  // 共享动态 tooltip（hover 由图表各自绑；不参与 applyTipScale 整组缩放）
+  var sharedTipRect = svgEl('rect', { x: 0, y: 0, width: 0, height: 0, rx: 4, fill: 'rgba(0,0,0,0.78)' });
+  var sharedTipTxt = svgEl('text', { 'text-anchor': 'middle', 'dominant-baseline': 'central', fill: '#fff', 'font-size': '10' });
+  var sharedTip = svgEl('g', { class: 'tokui-chart-tip tokui-chart-tip--shared' });
+  sharedTip.appendChild(sharedTipRect); sharedTip.appendChild(sharedTipTxt);
+  o.tipLayer.appendChild(sharedTip);
+  var winState = { s: 0, e: n - 1, sx: 1, tx: 0 };
+  function showTip(txt, x, y) {
+    var lineW = 0; for (var i = 0; i < txt.length; i++) lineW += (txt.charCodeAt(i) > 127) ? 10 : 5.5;
+    var tw = lineW + 16, th = 18;
+    var rx = x - tw / 2, ry = y - th - 6;
+    if (rx < 2) rx = 2;
+    if (rx + tw > o.w - 2) rx = o.w - tw - 2;
+    if (ry < 2) ry = y + 10;
+    sharedTipRect.setAttribute('x', rx); sharedTipRect.setAttribute('y', ry);
+    sharedTipRect.setAttribute('width', tw); sharedTipRect.setAttribute('height', th);
+    sharedTipTxt.setAttribute('x', rx + tw / 2); sharedTipTxt.setAttribute('y', ry + th / 2 + 1);
+    sharedTipTxt.textContent = txt;
+    sharedTip.style.opacity = '1';
+  }
+
+  function drawWindow(s, e, withTips) {
+    var srcL = o.srcLeft(s), srcR = o.srcRight(e);
+    var sx = cw / (srcR - srcL);
+    var tx = padL - sx * srcL;
+    plotG.setAttribute('transform', 'matrix(' + sx + ' 0 0 1 ' + tx + ' 0)');
+    winState.s = s; winState.e = e; winState.sx = sx; winState.tx = tx;
+    clearNode(labelG);
+    if (withTips) o.renderLabels(labelG, s, e);
+  }
+
+  // slider：overview mini 条 + 窗口 rect + 双手柄
+  var zG = svgEl('g', { class: 'tokui-chart-zoom' });
+  parent.appendChild(zG);
+  var sy = o.h + 6, sh = 16, mgh = sh - 2;
+  zG.appendChild(svgEl('rect', { x: padL, y: sy, width: cw, height: sh, fill: 'var(--tokui-chart-grid, #e8e8e8)', rx: 3, class: 'tokui-chart-zoom-track' }));
+  var slot = cw / n;
+  for (var i = 0; i < n; i++) {
+    var ov = o.overview[i] || 0;
+    var bh = Math.max(1, ((ov - o.valMin) / o.range) * mgh);
+    zG.appendChild(svgEl('rect', { x: padL + i * slot + 0.5, y: sy + sh - 1 - bh, width: Math.max(1, slot - 1), height: bh, fill: 'var(--tokui-chart-text, #bbb)', opacity: '0.55', class: 'tokui-chart-zoom-overview' }));
+  }
+  var win = svgEl('rect', { y: sy - 1, height: sh + 2, fill: 'rgba(0,120,212,0.12)', stroke: 'var(--tokui-primary-6, #1a73e8)', 'stroke-width': 1, rx: 2, class: 'tokui-chart-zoom-window', style: 'cursor:grab;' });
+  var h1 = svgEl('rect', { width: 6, height: sh + 6, y: sy - 3, fill: 'var(--tokui-primary-6, #1a73e8)', rx: 2, class: 'tokui-chart-zoom-handle tokui-chart-zoom-handle--l', style: 'cursor:ew-resize;' });
+  var h2 = svgEl('rect', { width: 6, height: sh + 6, y: sy - 3, fill: 'var(--tokui-primary-6, #1a73e8)', rx: 2, class: 'tokui-chart-zoom-handle tokui-chart-zoom-handle--r', style: 'cursor:ew-resize;' });
+  zG.appendChild(win); zG.appendChild(h1); zG.appendChild(h2);
+
+  var sFrac = 0, eFrac = 1;
+  var minWinFrac = Math.max(2, Math.floor(n * 0.1)) / (n - 1);
+  function placeWindow(sf, ef) {
+    var x1 = padL + sf * cw, x2 = padL + ef * cw;
+    win.setAttribute('x', x1); win.setAttribute('width', Math.max(2, x2 - x1));
+    h1.setAttribute('x', x1 - 3); h2.setAttribute('x', x2 - 3);
+  }
+  placeWindow(sFrac, eFrac);
+  var hasRAF = typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function';
+  var rafQueued = false, pendingSE = null;
+  function scheduleLightDraw(s, e) {
+    pendingSE = [s, e];
+    if (rafQueued) return;
+    rafQueued = true;
+    if (hasRAF) window.requestAnimationFrame(function () { rafQueued = false; if (pendingSE) drawWindow(pendingSE[0], pendingSE[1], false); });
+    else { rafQueued = false; drawWindow(s, e, false); }
+  }
+  function applyZoom(live) {
+    placeWindow(sFrac, eFrac);                                  // 窗口 rect 用原始分数（跟手平滑）
+    var b = zoomBounds(n, sFrac, eFrac);
+    if (live) scheduleLightDraw(b.s, b.e);                      // 拖拽中：RAF 合流 + 不重建 tooltip/label
+    else { pendingSE = null; drawWindow(b.s, b.e, true); }      // 松手：补标签
+  }
+  function bindDrag(node, mode) {
+    node.style.touchAction = 'none'; node.style.userSelect = 'none'; node.style.webkitUserDrag = 'none';
+    function start(clientX, pointerId) {
+      var moving = true, lastX = clientX;
+      function step(cx) {
+        if (!moving) return;
+        var f = clamp((cx - padL) / cw, 0, 1);
+        if (mode === 'l') sFrac = Math.min(f, eFrac - minWinFrac);
+        else if (mode === 'r') eFrac = Math.max(f, sFrac + minWinFrac);
+        else { var span = eFrac - sFrac; var d = (cx - lastX) / cw; sFrac = clamp(sFrac + d, 0, 1 - span); eFrac = sFrac + span; }
+        lastX = cx; applyZoom(true);
+      }
+      function pm(ev) { ev.preventDefault(); step(svgClientX(svg, ev.clientX)); }
+      function pu() {
+        moving = false;
+        node.removeEventListener('pointermove', pm);
+        node.removeEventListener('pointerup', pu);
+        try { node.releasePointerCapture(pointerId); } catch (e2) {}
+        applyZoom(false);
+      }
+      node.addEventListener('pointermove', pm);
+      node.addEventListener('pointerup', pu);
+    }
+    node.addEventListener('pointerdown', function (ev) {
+      ev.preventDefault(); ev.stopPropagation();
+      try { node.setPointerCapture(ev.pointerId); } catch (e2) {}
+      start(svgClientX(svg, ev.clientX), ev.pointerId);
+    });
+  }
+  bindDrag(h1, 'l'); bindDrag(h2, 'r'); bindDrag(win, 'pan');
+  drawWindow(0, n - 1, true);
+  return { showTip: showTip, winState: winState, sharedTip: sharedTip };
+}
+
 /**
  * 通用图例渲染：在 SVG 底部绘制水平居中的图例
  */
@@ -260,6 +418,7 @@ function estTextW(str) {
 // 宽容器下小 viewBox 被 width:100% 拉大（scale>1，如 waterfall 11 项 vbW=360 拉到 1000+px），
 // 9 单位字渲染 20~35px 爆大、旋转标签挤乱 → 压到 ≤ MAX_CHART_PX。大标题（hero 数）不动。
 var MIN_CHART_PX = 14;
+var _chartClipSeq = 0; // clipPath id 序号（每图唯一，避免多图引用错位）
 var MAX_CHART_PX = 16;
 // estTextW ≈ 文本 @ font-size 7 的渲染宽度（"微信 35(35%)" estTextW=52 vs fs7 实测 46.9，略宽估=安全）。
 // 据此把"标签宽 → 每单位 fs 宽"换算：width(fs) ≈ estTextW * (fs / PIE_FS_REF)。
@@ -284,7 +443,8 @@ function applyTipScale(svg, scale) {
   var tipFs = bumpFsUnits(10, scale, MIN_CHART_PX, MAX_CHART_PX);
   var s = tipFs / 10;
   if (Math.abs(s - 1) < 0.005) return; // scale≈1 无需变换
-  var groups = svg.querySelectorAll('.tokui-chart-tips-layer .tokui-chart-tip');
+  // 排除 dataZoom 共享 tip（hover 动态定位、自管几何，不参与整组缩放）
+  var groups = svg.querySelectorAll('.tokui-chart-tips-layer .tokui-chart-tip:not(.tokui-chart-tip--shared)');
   for (var i = 0; i < groups.length; i++) {
     var g = groups[i];
     var ax = parseFloat(g.getAttribute('data-tx'));
@@ -351,26 +511,100 @@ function axisBound(attrs, explicit, cachedKey, fallback) {
   return fallback;
 }
 
-// x 轴标签旋转【整体】决策：任一标签估算宽 > slotW*0.9 → 全部统一 -45° 旋转（整齐，避免同一图
-// 有的横排有的斜排）。slotW = 每标签可用 viewBox 宽（groupW）。返回 {rotate, padB}：
-// 旋转时 padB 抬到 ≥52（斜标签自 baseY 上沿斜伸 ≈宽·sin45+字高·cos45，需更大底距防被 bars 盖住）。
-function axisXLayout(labels, slotW, basePadB) {
-  var threshold = (slotW || 40) * 0.9;
-  var rotate = false;
-  for (var i = 0; i < labels.length; i++) {
-    if (labels[i] === undefined || labels[i] === null || labels[i] === '') continue;
-    if (estTextW(String(labels[i])) > threshold) { rotate = true; break; }
+// x 轴标签密度自适应：【横排 → 旋转 → 跳过】三级降级 + interval 显式控制。
+//   slotW  ：每标签槽宽（groupW / line 间距）—— 用于旧式逐标签旋转阈值（向后兼容）。
+//   availW ：轴总宽 cw（缺失则 slotW*N 估算）—— 用于密度容量计算。
+//   intervalAttr：undefined/'auto' 自动三级降级；'0' 强制全显（仅按需旋转）；N>1 锁定跳过步长。
+// 容量按「渲染目标 px」折算标签宽（MAX_CHART_PX/PIE_FS_REF），与 bumpFsUnits 上限一致——
+// 窄容器下 font-size 被 bump 抬高，按裸 fs7 估算会严重低估致拥挤（见 chart 50/40 点用例）。
+// 少量标签（n≤10）宁可旋转重叠也不隐藏（旋转仍可读）；多量则按步长跳过、保留首末。
+// 返回 {rotate, padB, interval}。
+var X_LABEL_MIN_SLOT = 38; // 短标签可读槽位下限（viewBox 单位）
+function axisXLayout(labels, slotW, basePadB, availW, intervalAttr) {
+  var n = labels.length;
+  var padB = basePadB || 30;
+  if (!n) return { rotate: false, padB: padB, interval: 1 };
+  var cw = availW || (slotW * n);
+
+  var maxW7 = 0; // 最长标签宽（estTextW @ fs7 基准）
+  for (var i = 0; i < n; i++) {
+    if (labels[i] == null || labels[i] === '') continue;
+    var w = estTextW(String(labels[i]));
+    if (w > maxW7) maxW7 = w;
   }
-  return { rotate: rotate, padB: rotate ? Math.max(basePadB || 30, 52) : (basePadB || 30) };
+  var effW = maxW7 * (MAX_CHART_PX / PIE_FS_REF);              // 折算到渲染目标 px 的标签宽
+  var slotNeeded = Math.max(X_LABEL_MIN_SLOT, effW * 1.15);    // 横排每标签需宽（+15% 间隙）
+  var rotNeeded = Math.max(X_LABEL_MIN_SLOT * 0.72, effW * 0.72); // 旋转 -45° 水平足迹
+  var fitH = Math.max(1, Math.floor(cw / slotNeeded));         // 横排最多容纳数
+  var fitR = Math.max(1, Math.floor(cw / rotNeeded));          // 旋转最多容纳数
+
+  var interval = 1, rotate = false;
+  var mode = intervalAttr === undefined ? 'auto' : String(intervalAttr);
+  if (mode === '0') {
+    // 强制全显：仅在横排放不下时旋转（不跳过）
+    interval = 1;
+    rotate = n > fitH && (n <= fitR || n <= 10);
+  } else if (mode === 'auto') {
+    if (n <= fitH) { interval = 1; rotate = false; }
+    else if (n <= 10) { interval = 1; rotate = true; }         // 少量：旋转优于隐藏
+    else if (n <= fitR) { interval = 1; rotate = true; }       // 旋转能装下：全显旋转
+    else { interval = Math.ceil(n / fitH); rotate = false; }   // 装不下：按步长跳过
+  } else {
+    var num = parseInt(mode, 10);
+    if (!isNaN(num) && num > 1) {
+      interval = num;                                          // 显式步长：横排稀疏
+      rotate = Math.ceil(n / interval) > fitH && Math.ceil(n / interval) <= fitR;
+    } else {
+      interval = 1;
+      rotate = n > fitH;
+    }
+  }
+  if (rotate) padB = Math.max(basePadB || 30, 52);
+  return { rotate: rotate, padB: padB, interval: interval };
+}
+
+// dataZoom 缩放滑块：zoom 属性开启（zoom:auto | zoom:N | zoom:on）；默认关。
+// auto/on：点数 > ZOOM_AUTO_MIN 才开；N：n>N 才开；off/false/0：关。
+var ZOOM_AUTO_MIN = 30;
+function zoomEnabled(attrs, n) {
+  var z = attrs.zoom;
+  if (z === undefined) return false;
+  var s = String(z);
+  if (s === '' || s === 'auto' || s === 'on' || s === 'true') return n > ZOOM_AUTO_MIN;
+  if (s === 'off' || s === 'false' || s === '0') return false;
+  var num = parseInt(s, 10);
+  if (!isNaN(num)) return n > num;
+  return n > ZOOM_AUTO_MIN;
+}
+
+// 缩放窗口 → 索引区间 [s,e]：startFrac/endFrac ∈ [0,1]，钳到合法范围，保最小窗口（≥10% 或 ≥2 点）。
+// s>e 自动交换。用于初始全量窗口与拖拽过程中的像素→索引换算。
+function zoomBounds(n, startFrac, endFrac) {
+  if (n <= 1) return { s: 0, e: Math.max(0, n - 1) };
+  var s = Math.round(startFrac * (n - 1));
+  var e = Math.round(endFrac * (n - 1));
+  if (s < 0) s = 0;
+  if (e > n - 1) e = n - 1;
+  if (s > e) { var tmp = s; s = e; e = tmp; }
+  var minWin = Math.min(n - 1, Math.max(2, Math.floor(n * 0.1)));
+  if (e - s < minWin) {
+    if (s + minWin <= n - 1) e = s + minWin;
+    else { e = n - 1; s = Math.max(0, e - minWin); }
+  }
+  return { s: s, e: e };
 }
 
 // x 轴标签渲染：rotate 为布尔 → 整体统一（全转 / 全横排，由 axisXLayout 预决策）；
 // rotate 省略 → 旧逐标签判定（向后兼容）。positions：每 label 的 x 坐标；slotW：单标签可用宽阈值。
-function appendXLabels(svg, labels, positions, baseY, slotW, rotate) {
+// interval>1 → 跳过渲染：仅显首/末/步长倍数索引（首末强制保留，保证边界可读）。
+function appendXLabels(svg, labels, positions, baseY, slotW, rotate, interval) {
   var threshold = (slotW || 40) * 0.9;
   var uniform = typeof rotate === 'boolean';
+  var step = (interval && interval > 1) ? interval : 1;
+  var last = labels.length - 1;
   labels.forEach(function (lb, i) {
     if (lb === undefined || lb === null || lb === '') return;
+    if (step > 1 && !(i === 0 || i === last || i % step === 0)) return; // 跳过：仅显首/末/步长倍数
     var lx = positions[i];
     var needRotate = uniform ? rotate : (estTextW(String(lb)) > threshold);
     var t = svgEl('text', {
@@ -458,7 +692,9 @@ function renderBar(data, labels, colors, attrs) {
     h = bandHeight(w, parseInt(attrs.h) || 200, 4, 560);
   }
   var hasLegend = series.length > 1;
-  var totalH = h + (hasLegend ? LEGEND_H : 0);
+  var zoomOn = !horizontal && zoomEnabled(attrs, n);
+  var ZOOM_H = zoomOn ? 28 : 0;
+  var totalH = h + (hasLegend ? LEGEND_H : 0) + ZOOM_H;
 
   // 数值范围（堆叠按列累加；分组取各值极值；支持负值）
   var valMax = 0, valMin = 0;
@@ -531,7 +767,7 @@ function renderBar(data, labels, colors, attrs) {
     var padL = attrs.yl ? 46 : 40, padR = 12, padT = 18;
     var cw = w - padL - padR;
     var groupW = cw / n;
-    var xl = axisXLayout(labels.slice(0, n), groupW, attrs.xl ? 38 : 28);
+    var xl = axisXLayout(labels.slice(0, n), groupW, attrs.xl ? 38 : 28, cw, attrs.interval);
     var padB = xl.padB;
     var ch = h - padT - padB;
     function yOf(v) { return padT + ch * (1 - (v - valMin) / range); }
@@ -545,31 +781,229 @@ function renderBar(data, labels, colors, attrs) {
       var zy = yOf(0);
       svg.appendChild(svgEl('line', { x1: padL, y1: zy, x2: w - padR, y2: zy, stroke: 'var(--tokui-chart-axis, #bbb)', 'stroke-width': 1 }));
     }
-    var barW = Math.max(4, stack ? groupW * 0.6 : groupW * 0.6 / series.length);
-    series.forEach(function (s, si) {
-      s.forEach(function (val, i) {
-        if (val === undefined || val === null) return; // 短系列缺位跳过（缺陷修复）
-        var seg = segRange(si, i, val);
-        var by = yOf(seg[1]);
-        var bh = Math.max(0, (seg[1] - seg[0]) / range * ch);
-        var bx = padL + i * groupW + groupW * 0.2 + (stack ? 0 : si * barW);
-        var grp = svgEl('g', { class: 'tokui-chart-tip-group' });
-        grp.appendChild(svgEl('rect', { x: bx, y: by, width: barW - 1, height: bh, fill: colors[si % colors.length], rx: 2, class: 'tokui-chart-bar' }));
-        tips.add(grp, (labels[i] || '') + ': ' + val + (series.length > 1 ? ' (' + _t('chart.seriesDefault', { n: si + 1 }) + ')' : ''), bx + (barW - 1) / 2, by);
-        svg.appendChild(grp);
-        if (attrs.vals !== undefined) {
-          var vt2 = svgEl('text', { x: bx + (barW - 1) / 2, y: by - 3, 'text-anchor': 'middle', fill: 'var(--tokui-chart-text, #666)', 'font-size': '8' });
-          vt2.textContent = val;
-          svg.appendChild(vt2);
+    // 绘图组（柱 + x 轴标签）。
+    // 单系列 zoom：预建 n 个柱 rect「池」+ 独立 labelG —— 拖拽时仅 setAttribute 重定位（零建/零删，
+    // 不触发 SVG 元素创建开销），是丝滑拖拽的关键。多系列/堆叠/非 zoom 走 clear+rebuild。
+    var plotG = svgEl('g', { class: 'tokui-chart-plot' });
+    svg.appendChild(plotG);
+    // 单系列 zoom 丝滑拖拽关键：柱预建在「全宽静态位」（永久不动），拖拽仅改 barPoolG 的
+    // transform 矩阵（matrix(sx 0 0 1 tx 0)：X 缩放映射窗口、Y 不动）+ clipPath 裁到绘图区。
+    // 每帧只 1 次 setAttribute(transform)，零逐柱重排 → 不堵主线程 → 慢移也跟手。
+    var pooledZoom = zoomOn && series.length === 1 && !stack; // 仅单系列非堆叠池化
+    var barPool = null, barPoolG = null, labelG = null;
+    var sharedTip = null, sharedTipRect = null, sharedTipTxt = null;
+    var fullSlot = cw / n; // 全宽静态槽宽
+    var pbarStaticW = Math.max(4, fullSlot * 0.6); // 静态柱宽（transform 缩放视觉宽度）
+    var winState = { s: 0, e: n - 1, sx: 1, tx: 0 };
+    if (pooledZoom) {
+      // clipPath：绘图区 [padL,padT,cw,ch]，柱组 transform 后越界部分裁掉（仅显当前窗口柱）
+      var clipId = 'tokui-chart-clip-' + (++_chartClipSeq);
+      var cpDefs = svgEl('defs');
+      var cp = svgEl('clipPath', { id: clipId });
+      cp.appendChild(svgEl('rect', { x: padL - 1, y: padT - 1, width: cw + 2, height: ch + 2 }));
+      cpDefs.appendChild(cp);
+      svg.appendChild(cpDefs);
+      // clip 必须在不动的父包装 barClipG 上——若直接放 barPoolG，其 transform 会带动 clip
+      // 一起偏移，缩放后柱溢出盖住左侧 y 轴文字。父包装无 transform → clip 固定在绘图区。
+      var barClipG = svgEl('g', { 'clip-path': 'url(#' + clipId + ')' });
+      plotG.appendChild(barClipG);
+      barPoolG = svgEl('g', { class: 'tokui-chart-plot-bars' });
+      barClipG.appendChild(barPoolG);
+      // 预建 n 柱在静态全宽位（一次，永不再改 attr）
+      barPool = [];
+      var srInit = series[0];
+      for (var pi = 0; pi < n; pi++) {
+        var v0 = srInit[pi];
+        var br = svgEl('rect', {
+          x: padL + pi * fullSlot + fullSlot * 0.2,
+          y: yOf(v0),
+          width: Math.max(1, pbarStaticW - 1),
+          height: Math.max(0, v0 / range * ch),
+          rx: 2, fill: colors[0], class: 'tokui-chart-bar'
+        });
+        barPoolG.appendChild(br);
+        barPool.push(br);
+      }
+      labelG = svgEl('g', { class: 'tokui-chart-plot-labels' });
+      plotG.appendChild(labelG);
+      // 共享动态 tooltip：hover 柱按池索引（= 数据索引，柱不重排）算文本，定位按当前 transform
+      sharedTipRect = svgEl('rect', { x: 0, y: 0, width: 0, height: 0, rx: 4, fill: 'rgba(0,0,0,0.78)' });
+      sharedTipTxt = svgEl('text', { 'text-anchor': 'middle', 'dominant-baseline': 'central', fill: '#fff', 'font-size': '10' });
+      sharedTip = svgEl('g', { class: 'tokui-chart-tip tokui-chart-tip--shared' });
+      sharedTip.appendChild(sharedTipRect); sharedTip.appendChild(sharedTipTxt);
+      tips.layer.appendChild(sharedTip);
+    }
+
+    // 画 [s,e] 窗口。withTips=false（拖拽中）：池化路径只重定位柱、labelG 清空（隐藏标签）；
+    // withTips=true（松手/初绘）：补标签 + 绑 hover。rebuild 路径同前（clear+建）。
+    function drawWindow(s, e, withTips) {
+      var wn = e - s + 1;
+      if (pooledZoom) {
+        // 仅设整组 transform：matrix(sx 0 0 1 tx 0) 把 slot[s..e] 缩放平移到全宽 [padL, padL+cw]。
+        // Y 不缩放（柱高不变）。clipPath 裁掉越界柱。零逐柱 attr 写入。
+        var sx = n / wn;
+        var tx = padL - sx * (padL + s * fullSlot);
+        barPoolG.setAttribute('transform', 'matrix(' + sx + ' 0 0 1 ' + tx + ' 0)');
+        winState.s = s; winState.e = e; winState.sx = sx; winState.tx = tx;
+        clearNode(labelG);
+        if (withTips) {
+          var pgw = cw / wn;
+          var ppositions = [];
+          for (var pk = 0; pk < wn; pk++) ppositions.push(padL + pk * pgw + pgw / 2);
+          appendXLabels(labelG, labels.slice(s, e + 1), ppositions, h - 8, pgw, xl.rotate, xl.interval);
+        }
+        return;
+      }
+      var gw = cw / wn;
+      // rebuild 路径（多系列/堆叠/非 zoom）
+      clearNode(plotG);
+      if (withTips) clearNode(tips.layer);
+      var barW = Math.max(4, stack ? gw * 0.6 : gw * 0.6 / series.length);
+      var accP = [], accN = [];
+      series.forEach(function (sr, si) {
+        for (var i = s; i <= e; i++) {
+          var val = sr[i];
+          if (val === undefined || val === null) continue; // 短系列缺位跳过（缺陷修复）
+          var base = stack ? (val >= 0 ? (accP[i] || 0) : (accN[i] || 0)) : 0;
+          var segMax = val >= 0 ? base + val : base;
+          var segMin = val >= 0 ? base : base + val;
+          if (stack) { if (val >= 0) accP[i] = segMax; else accN[i] = segMin; }
+          var rby = yOf(segMax);
+          var rbh = Math.max(0, (segMax - segMin) / range * ch);
+          var rbx = padL + (i - s) * gw + gw * 0.2 + (stack ? 0 : si * barW);
+          var grp = svgEl('g', { class: 'tokui-chart-tip-group' });
+          grp.appendChild(svgEl('rect', { x: rbx, y: rby, width: barW - 1, height: rbh, fill: colors[si % colors.length], rx: 2, class: 'tokui-chart-bar' }));
+          if (withTips) tips.add(grp, (labels[i] || '') + ': ' + val + (series.length > 1 ? ' (' + _t('chart.seriesDefault', { n: si + 1 }) + ')' : ''), rbx + (barW - 1) / 2, rby);
+          plotG.appendChild(grp);
+          if (attrs.vals !== undefined) {
+            var vt2 = svgEl('text', { x: rbx + (barW - 1) / 2, y: rby - 3, 'text-anchor': 'middle', fill: 'var(--tokui-chart-text, #666)', 'font-size': '8' });
+            vt2.textContent = val;
+            plotG.appendChild(vt2);
+          }
         }
       });
-    });
-    // x 轴标签（自动旋转，缺陷修复）
-    var positions = [];
-    for (var k = 0; k < n; k++) positions.push(padL + k * groupW + groupW / 2);
-    appendXLabels(svg, labels.slice(0, n), positions, h - 8, groupW, xl.rotate);
+      var positions = [];
+      for (var k = 0; k < wn; k++) positions.push(padL + k * gw + gw / 2);
+      appendXLabels(plotG, labels.slice(s, e + 1), positions, h - 8, gw, xl.rotate, xl.interval);
+      if (withTips && zoomOn) bindTipsScoped(plotG, svg); // zoom redraw 后重绑 hover；非 zoom 交 footer bindTooltips
+    }
+    drawWindow(0, n - 1, true);
+    // 池化柱 hover 绑定（一次）：按 winState 动态映射算 tooltip 文本 + 定位
+    if (pooledZoom) {
+      function showSharedTip(txt, x, y) {
+        var lineW = 0; for (var i = 0; i < txt.length; i++) lineW += (txt.charCodeAt(i) > 127) ? 10 : 5.5;
+        var tw = lineW + 16, th = 18;
+        var rx = x - tw / 2, ry = y - th - 6;
+        if (rx < 2) rx = 2;
+        if (rx + tw > w - 2) rx = w - tw - 2;
+        if (ry < 2) ry = y + 10;
+        sharedTipRect.setAttribute('x', rx); sharedTipRect.setAttribute('y', ry);
+        sharedTipRect.setAttribute('width', tw); sharedTipRect.setAttribute('height', th);
+        sharedTipTxt.setAttribute('x', rx + tw / 2); sharedTipTxt.setAttribute('y', ry + th / 2 + 1);
+        sharedTipTxt.textContent = txt;
+        sharedTip.style.opacity = '1';
+      }
+      barPool.forEach(function (br, j) {
+        br.addEventListener('mouseenter', function () {
+          var v = series[0][j]; if (v === undefined || v === null) return;
+          // 柱不重排（pool[j]=data[j]）；按当前 transform 算变换后中心 x，y 不随 transform 变（scale Y=1）
+          var srcCx = padL + j * fullSlot + fullSlot * 0.2 + (pbarStaticW - 1) / 2;
+          var bx = winState.sx * srcCx + winState.tx;
+          var by = yOf(v);
+          showSharedTip((labels[j] || '') + ': ' + v, bx, by);
+        });
+        br.addEventListener('mouseleave', function () { sharedTip.style.opacity = ''; });
+      });
+    }
     if (attrs.xl) appendAxisUnit(svg, attrs.xl, padL + cw / 2, h - 8 + (xl.rotate ? 26 : 12), false);
     if (attrs.yl) appendAxisUnit(svg, attrs.yl, 12, padT + ch / 2, true);
+
+    // dataZoom 滑块（zoom:auto|N|on）：overview 全量 mini 柱 + 窗口 rect + 双手柄；拖拽重画窗口。
+    if (zoomOn) {
+      (function buildZoom() {
+        var zG = svgEl('g', { class: 'tokui-chart-zoom' });
+        svg.appendChild(zG);
+        var sy = h + 6, sh = 16;                  // 滑块条几何
+        var mgh = sh - 2;
+        zG.appendChild(svgEl('rect', { x: padL, y: sy, width: cw, height: sh, fill: 'var(--tokui-chart-grid, #e8e8e8)', rx: 3, class: 'tokui-chart-zoom-track' }));
+        // overview：各列跨系列 max（stack 求和）
+        var acc = [];
+        series.forEach(function (sr) { for (var i = 0; i < sr.length; i++) { var v = sr[i] || 0; if (stack) acc[i] = (acc[i] || 0) + v; else acc[i] = Math.max(acc[i] || 0, v); } });
+        var slot = cw / n;
+        for (var i2 = 0; i2 < n; i2++) {
+          var bh2 = Math.max(1, ((acc[i2] - valMin) / range) * mgh);
+          zG.appendChild(svgEl('rect', { x: padL + i2 * slot + 0.5, y: sy + sh - 1 - bh2, width: Math.max(1, slot - 1), height: bh2, fill: 'var(--tokui-chart-text, #bbb)', opacity: '0.55', class: 'tokui-chart-zoom-overview' }));
+        }
+        var win = svgEl('rect', { y: sy - 1, height: sh + 2, fill: 'rgba(0,120,212,0.12)', stroke: 'var(--tokui-primary-6, #1a73e8)', 'stroke-width': 1, rx: 2, class: 'tokui-chart-zoom-window', style: 'cursor:grab;' });
+        var h1 = svgEl('rect', { width: 6, height: sh + 6, y: sy - 3, fill: 'var(--tokui-primary-6, #1a73e8)', rx: 2, class: 'tokui-chart-zoom-handle tokui-chart-zoom-handle--l', style: 'cursor:ew-resize;' });
+        var h2 = svgEl('rect', { width: 6, height: sh + 6, y: sy - 3, fill: 'var(--tokui-primary-6, #1a73e8)', rx: 2, class: 'tokui-chart-zoom-handle tokui-chart-zoom-handle--r', style: 'cursor:ew-resize;' });
+        zG.appendChild(win); zG.appendChild(h1); zG.appendChild(h2);
+
+        var sFrac = 0, eFrac = 1;
+        var minWinFrac = Math.max(2, Math.floor(n * 0.1)) / (n - 1);
+        function placeWindow(sf, ef) {
+          var x1 = padL + sf * cw, x2 = padL + ef * cw;
+          win.setAttribute('x', x1); win.setAttribute('width', Math.max(2, x2 - x1));
+          h1.setAttribute('x', x1 - 3); h2.setAttribute('x', x2 - 3);
+        }
+        placeWindow(sFrac, eFrac);
+        // RAF 节流：拖拽中 mousemove 高频触发，合并到每帧 1 次轻画（仅柱+标签，跳过 tooltip）；
+        // 无 rAF 环境退化为同步轻画。松手 applyZoom(false) 全量重建 tooltip。
+        var hasRAF = typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function';
+        var rafQueued = false, pendingSE = null;
+        function scheduleLightDraw(s, e) {
+          pendingSE = [s, e];
+          if (rafQueued) return;
+          rafQueued = true;
+          if (hasRAF) window.requestAnimationFrame(function () { rafQueued = false; if (pendingSE) drawWindow(pendingSE[0], pendingSE[1], false); });
+          else { rafQueued = false; drawWindow(s, e, false); }
+        }
+        function applyZoom(live) {
+          // 窗口 rect 用原始分数（跟手平滑，亚像素）；柱用吸附索引（对齐数据点）。
+          // 不再把 sFrac/eFrac 覆盖为吸附值——否则微移不足一个索引宽时 rect 冻住、感觉卡死。
+          placeWindow(sFrac, eFrac);
+          var b = zoomBounds(n, sFrac, eFrac);
+          if (live) scheduleLightDraw(b.s, b.e);   // 拖拽中：RAF 合流 + 不重建 tooltip
+          else { pendingSE = null; drawWindow(b.s, b.e, true); } // 松手：全量（含 tooltip）
+        }
+        // 拖拽（Pointer Events + setPointerCapture）：指针锁到柄元素 → 全程事件不丢、
+        // 不被原生 DnD / 文本选中劫持（慢移冻住、快移碎裂的根因）；统一鼠标+触屏；
+        // touch-action:none 防 touch 滚动抢占。松手 releasePointerCapture + 全量补 tooltip。
+        function bindDrag(node, mode) {
+          node.style.touchAction = 'none';
+          node.style.userSelect = 'none';
+          node.style.webkitUserDrag = 'none';
+          function start(clientX, pointerId) {
+            var moving = true, lastX = clientX;
+            function step(cx) {
+              if (!moving) return;
+              var f = clamp((cx - padL) / cw, 0, 1);
+              if (mode === 'l') sFrac = Math.min(f, eFrac - minWinFrac);
+              else if (mode === 'r') eFrac = Math.max(f, sFrac + minWinFrac);
+              else { var span = eFrac - sFrac; var d = (cx - lastX) / cw; sFrac = clamp(sFrac + d, 0, 1 - span); eFrac = sFrac + span; }
+              lastX = cx; applyZoom(true);
+            }
+            function pm(ev) { ev.preventDefault(); step(svgClientX(svg, ev.clientX)); }
+            function pu() {
+              moving = false;
+              node.removeEventListener('pointermove', pm);
+              node.removeEventListener('pointerup', pu);
+              try { node.releasePointerCapture(pointerId); } catch (e) {}
+              applyZoom(false);
+            }
+            node.addEventListener('pointermove', pm);
+            node.addEventListener('pointerup', pu);
+          }
+          node.addEventListener('pointerdown', function (ev) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            try { node.setPointerCapture(ev.pointerId); } catch (e) {}
+            start(svgClientX(svg, ev.clientX), ev.pointerId);
+          });
+        }
+        bindDrag(h1, 'l'); bindDrag(h2, 'r'); bindDrag(win, 'pan');
+      })();
+    }
   }
   // legend
   if (hasLegend) {
@@ -577,7 +1011,7 @@ function renderBar(data, labels, colors, attrs) {
     appendLegend(svg, legendEntries, w, h + 6);
   }
   svg.appendChild(tips.layer);
-  bindTooltips(svg);
+  if (!zoomOn) bindTooltips(svg); // zoom 模式 plotG 内柱由 bindTipsScoped 重绑（redraw 后）
   return svg;
 }
 
@@ -594,7 +1028,9 @@ function renderLine(data, labels, colors, attrs) {
   var w = autoSize(attrs, 'w', n, 52, 24, 360, 2400);
   var h = bandHeight(w, parseInt(attrs.h) || 200, 4, 560);
   var hasLegend = series.length > 1;
-  var totalH = h + (hasLegend ? LEGEND_H : 0);
+  var zoomOn = zoomEnabled(attrs, n);
+  var ZOOM_H = zoomOn ? 28 : 0;
+  var totalH = h + (hasLegend ? LEGEND_H : 0) + ZOOM_H;
   // 堆叠：累计值（后系列叠加前系列），用累计值画线/面，tooltip 显示原始值
   var stacked = series.map(function (s) { return s.slice(); });
   if (stack) {
@@ -611,7 +1047,7 @@ function renderLine(data, labels, colors, attrs) {
   var padL = attrs.yl ? 46 : 40, padR = 12, padT = 18;
   var cw = w - padL - padR;
   var slotW = n > 1 ? cw / (n - 1) : cw;
-  var xl = axisXLayout(labels.slice(0, n), slotW, attrs.xl ? 38 : 28);
+  var xl = axisXLayout(labels.slice(0, n), slotW, attrs.xl ? 38 : 28, cw, attrs.interval);
   var padB = xl.padB;
   var ch = h - padT - padB;
   var svg = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + totalH, class: 'tokui-chart__svg', preserveAspectRatio: 'xMidYMid meet' });
@@ -640,6 +1076,12 @@ function renderLine(data, labels, colors, attrs) {
     return d;
   }
 
+  // dataZoom：几何入 plotG（transform 缩放）；非 zoom 直接入 svg
+  var plotG = zoomOn ? svgEl('g', { class: 'tokui-chart-plot' }) : null;
+  if (plotG) svg.appendChild(plotG);
+  var geoTarget = plotG || svg;
+  var hoverHits = []; // zoom 模式收集 dot 命中圆，待 attachZoomPlot 后绑共享 tip
+
   stacked.forEach(function (s, si) {
     var pts = [];
     for (var i = 0; i < s.length; i++) {
@@ -660,46 +1102,81 @@ function renderLine(data, labels, colors, attrs) {
         pts.forEach(function (p) { ap += ' L' + p.x + ',' + p.y; });
         for (var ri = prev.length - 1; ri >= 0; ri--) ap += ' L' + prev[ri].x + ',' + prev[ri].y;
         ap += ' Z';
-        svg.appendChild(svgEl('path', { d: ap, fill: colors[si % colors.length], opacity: '0.4' }));
+        geoTarget.appendChild(svgEl('path', { d: ap, fill: colors[si % colors.length], opacity: '0.4' }));
       } else {
         var baseY = yOf(Math.max(0, flatMin));
         var ap2 = 'M' + pts[0].x + ',' + baseY;
         pts.forEach(function (p) { ap2 += ' L' + p.x + ',' + p.y; });
         ap2 += ' L' + pts[pts.length - 1].x + ',' + baseY + ' Z';
-        svg.appendChild(svgEl('path', { d: ap2, fill: colors[si % colors.length], opacity: '0.15' }));
+        geoTarget.appendChild(svgEl('path', { d: ap2, fill: colors[si % colors.length], opacity: '0.15' }));
       }
     }
     // 折线（smooth 用贝塞尔 path，否则 polyline 直线）
     if (smooth) {
-      svg.appendChild(svgEl('path', { d: smoothPath(pts), fill: 'none', stroke: colors[si % colors.length], 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+      geoTarget.appendChild(svgEl('path', { d: smoothPath(pts), fill: 'none', stroke: colors[si % colors.length], 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
     } else {
-      svg.appendChild(svgEl('polyline', { points: pts.map(function (p) { return p.x + ',' + p.y; }).join(' '), fill: 'none', stroke: colors[si % colors.length], 'stroke-width': 2, 'stroke-linejoin': 'round' }));
+      geoTarget.appendChild(svgEl('polyline', { points: pts.map(function (p) { return p.x + ',' + p.y; }).join(' '), fill: 'none', stroke: colors[si % colors.length], 'stroke-width': 2, 'stroke-linejoin': 'round' }));
     }
     // dots
     var orig = series[si];
     pts.forEach(function (p) {
-      var og = svgEl('g', { class: 'tokui-chart-tip-group' });
-      og.appendChild(svgEl('circle', { cx: p.x, cy: p.y, r: 8, fill: 'transparent' }));
-      og.appendChild(svgEl('circle', { cx: p.x, cy: p.y, r: 3, fill: '#fff', stroke: colors[si % colors.length], 'stroke-width': 2, class: 'tokui-chart-dot' }));
-      tips.add(og, (labels[p.idx] || '') + ': ' + (orig[p.idx] !== undefined ? orig[p.idx] : s[p.idx]) + (series.length > 1 ? ' (' + _t('chart.seriesDefault', { n: si + 1 }) + ')' : ''), p.x, p.y);
-      svg.appendChild(og);
+      if (zoomOn) {
+        // dot 入 plotG（随 transform），命中圆绑共享 tip（待 zh 就绪后绑）
+        plotG.appendChild(svgEl('circle', { cx: p.x, cy: p.y, r: 3, fill: '#fff', stroke: colors[si % colors.length], 'stroke-width': 2, class: 'tokui-chart-dot' }));
+        var hit = svgEl('circle', { cx: p.x, cy: p.y, r: 9, fill: 'transparent', style: 'cursor:pointer;' });
+        plotG.appendChild(hit);
+        hoverHits.push({ hit: hit, si: si, idx: p.idx, x: p.x, y: p.y, orig: orig, s: s });
+      } else {
+        var og = svgEl('g', { class: 'tokui-chart-tip-group' });
+        og.appendChild(svgEl('circle', { cx: p.x, cy: p.y, r: 8, fill: 'transparent' }));
+        og.appendChild(svgEl('circle', { cx: p.x, cy: p.y, r: 3, fill: '#fff', stroke: colors[si % colors.length], 'stroke-width': 2, class: 'tokui-chart-dot' }));
+        tips.add(og, (labels[p.idx] || '') + ': ' + (orig[p.idx] !== undefined ? orig[p.idx] : s[p.idx]) + (series.length > 1 ? ' (' + _t('chart.seriesDefault', { n: si + 1 }) + ')' : ''), p.x, p.y);
+        svg.appendChild(og);
+      }
       if (attrs.vals !== undefined) {
-        svg.appendChild(svgEl('text', { x: p.x, y: p.y - 6, 'text-anchor': 'middle', fill: colors[si % colors.length], 'font-size': '8' })).textContent = (orig[p.idx] !== undefined ? orig[p.idx] : s[p.idx]);
+        geoTarget.appendChild(svgEl('text', { x: p.x, y: p.y - 6, 'text-anchor': 'middle', fill: colors[si % colors.length], 'font-size': '8' })).textContent = (orig[p.idx] !== undefined ? orig[p.idx] : s[p.idx]);
       }
     });
   });
 
-  // x 轴标签（自动旋转，缺陷修复）
-  var positions = [];
-  for (var k2 = 0; k2 < n; k2++) positions.push(xOf(k2));
-  appendXLabels(svg, labels.slice(0, n), positions, h - 8, slotW, xl.rotate);
+  // x 轴标签 / dataZoom 收尾
+  if (zoomOn) {
+    var zh = attachZoomPlot(svg, {
+      plotG: plotG, tipLayer: tips.layer,
+      padL: padL, cw: cw, padT: padT, ch: ch, h: h, w: w, n: n,
+      // line 点在 cw/(n-1) 网格（i=0 在 padL，i=n-1 在 padL+cw）
+      srcLeft: function (s) { return padL + (n > 1 ? s * cw / (n - 1) : 0); },
+      srcRight: function (e) { return padL + (n > 1 ? e * cw / (n - 1) : cw); },
+      overview: series.reduce(function (acc, sr) { for (var i = 0; i < sr.length; i++) { var v = sr[i] || 0; acc[i] = Math.max(acc[i] || 0, v); } return acc; }, []),
+      valMin: flatMin, range: range,
+      renderLabels: function (labelG, s, e) {
+        var span = e - s, pos = [];
+        for (var kk = s; kk <= e; kk++) pos.push(span > 0 ? (padL + (kk - s) * cw / span) : padL + cw / 2);
+        appendXLabels(labelG, labels.slice(s, e + 1), pos, h - 8, slotW, xl.rotate, xl.interval);
+      }
+    });
+    // 绑共享 tip（zh 已就绪）：按 winState 变换后位 + 静态数据索引
+    hoverHits.forEach(function (h) {
+      h.hit.addEventListener('mouseenter', function () {
+        var v0 = h.orig[h.idx] !== undefined ? h.orig[h.idx] : h.s[h.idx];
+        if (v0 === undefined || v0 === null) return;
+        var bx = zh.winState.sx * h.x + zh.winState.tx;
+        zh.showTip((labels[h.idx] || '') + ': ' + v0 + (series.length > 1 ? ' (' + _t('chart.seriesDefault', { n: h.si + 1 }) + ')' : ''), bx, h.y);
+      });
+      h.hit.addEventListener('mouseleave', function () { zh.sharedTip.style.opacity = ''; });
+    });
+  } else {
+    var positions = [];
+    for (var k2 = 0; k2 < n; k2++) positions.push(xOf(k2));
+    appendXLabels(svg, labels.slice(0, n), positions, h - 8, slotW, xl.rotate, xl.interval);
+  }
   if (attrs.xl) appendAxisUnit(svg, attrs.xl, padL + cw / 2, h - 8 + (xl.rotate ? 26 : 12), false);
   if (attrs.yl) appendAxisUnit(svg, attrs.yl, 12, padT + ch / 2, true);
   if (hasLegend) {
     appendLegend(svg, series.map(function (s, i) { return { color: colors[i % colors.length], text: _t('chart.seriesDefault', { n: i + 1 }) }; }), w, h + 6);
   }
   svg.appendChild(tips.layer);
-  bindTooltips(svg);
+  if (!zoomOn) bindTooltips(svg); // zoom 模式 dot 由共享 tip 处理
   return svg;
 }
 
@@ -1760,7 +2237,7 @@ function renderWaterfall(data, labels, colors, attrs) {
   var padL = 44, padT = 18, padR = 12;
   var cw = w - padL - padR;
   var groupW = cw / data.length, barW = Math.max(4, groupW * 0.6);
-  var xl = axisXLayout(labels.slice(0, data.length), groupW, 30);
+  var xl = axisXLayout(labels.slice(0, data.length), groupW, 30, cw, attrs.interval);
   var padB = xl.padB;
   var ch = h - padT - padB;
   var posColor = colors[0] || '#52c41a', negColor = colors[1] || '#f5222d';
@@ -1787,7 +2264,7 @@ function renderWaterfall(data, labels, colors, attrs) {
   });
   var positions = [];
   for (var k = 0; k < data.length; k++) positions.push(padL + k * groupW + groupW / 2);
-  appendXLabels(svg, labels.slice(0, data.length), positions, h - 8, groupW, xl.rotate);
+  appendXLabels(svg, labels.slice(0, data.length), positions, h - 8, groupW, xl.rotate, xl.interval);
   svg.appendChild(tips.layer);
   bindTooltips(svg);
   return svg;
@@ -1813,18 +2290,24 @@ function renderBoxplot(data, labels, colors, attrs) {
   var range = hi - lo || 1;
   var padL = 44, padT = 18, padR = 12;
   var cw = w - padL - padR;
+  var zoomOn = zoomEnabled(attrs, boxes.length);
+  var ZOOM_H = zoomOn ? 28 : 0;
   var groupW = cw / boxes.length, boxW = Math.max(20, groupW * 0.5);
-  var xl = axisXLayout(labels.slice(0, boxes.length), groupW, 30);
+  var xl = axisXLayout(labels.slice(0, boxes.length), groupW, 30, cw, attrs.interval);
   var padB = xl.padB;
   var ch = h - padT - padB;
-  var svg = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + h, class: 'tokui-chart__svg', preserveAspectRatio: 'xMidYMid meet' });
-  var tips = createTipMgr(w, h);
+  var svg = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + (h + ZOOM_H), class: 'tokui-chart__svg', preserveAspectRatio: 'xMidYMid meet' });
+  var tips = createTipMgr(w, h + ZOOM_H);
   function yOf(v) { return padT + ch * (1 - (v - lo) / range); }
   for (var g = 0; g <= 4; g++) {
     var gy = yOf(lo + range * g / 4);
     svg.appendChild(svgEl('line', { x1: padL, y1: gy, x2: w - padR, y2: gy, stroke: 'var(--tokui-chart-grid, #e8e8e8)', 'stroke-width': 1 }));
     svg.appendChild(svgEl('text', { x: padL - 4, y: gy + 4, 'text-anchor': 'end', fill: 'var(--tokui-chart-text, #999)', 'font-size': '9' })).textContent = Math.round(lo + range * g / 4);
   }
+  var plotG = zoomOn ? svgEl('g', { class: 'tokui-chart-plot' }) : null;
+  if (plotG) svg.appendChild(plotG);
+  var geoTarget = plotG || svg;
+  var hoverGrps = [];
   boxes.forEach(function (b, i) {
     var cx = padL + i * groupW + groupW / 2;
     var color = colors[i % colors.length];
@@ -1836,14 +2319,39 @@ function renderBoxplot(data, labels, colors, attrs) {
     var boxY = yOf(b.q3), boxH = Math.max(0, yOf(b.q1) - yOf(b.q3));
     grp.appendChild(svgEl('rect', { x: cx - boxW / 2, y: boxY, width: boxW, height: boxH, fill: color, opacity: '0.4', stroke: color, 'stroke-width': 1.5, class: 'tokui-chart-box' }));
     grp.appendChild(svgEl('line', { x1: cx - boxW / 2, y1: yOf(b.med), x2: cx + boxW / 2, y2: yOf(b.med), stroke: color, 'stroke-width': 2 }));
-    tips.add(grp, (labels[i] || _t('chart.groupDefault', { n: i + 1 })) + '  min:' + b.min + ' Q1:' + b.q1 + ' ' + _t('chart.median') + ':' + b.med + ' Q3:' + b.q3 + ' max:' + b.max, cx, yOf(b.med));
-    svg.appendChild(grp);
+    var tipText = (labels[i] || _t('chart.groupDefault', { n: i + 1 })) + '  min:' + b.min + ' Q1:' + b.q1 + ' ' + _t('chart.median') + ':' + b.med + ' Q3:' + b.q3 + ' max:' + b.max;
+    if (zoomOn) { hoverGrps.push({ grp: grp, cx: cx, y: yOf(b.med), text: tipText }); }
+    else tips.add(grp, tipText, cx, yOf(b.med));
+    geoTarget.appendChild(grp);
   });
-  var positions = [];
-  for (var k = 0; k < boxes.length; k++) positions.push(padL + k * groupW + groupW / 2);
-  appendXLabels(svg, labels.slice(0, boxes.length), positions, h - 8, groupW, xl.rotate);
+  if (zoomOn) {
+    var n = boxes.length;
+    var zh = attachZoomPlot(svg, {
+      plotG: plotG, tipLayer: tips.layer,
+      padL: padL, cw: cw, padT: padT, ch: ch, h: h, w: w, n: n,
+      srcLeft: function (s) { return padL + s * groupW; },
+      srcRight: function (e) { return padL + (e + 1) * groupW; },
+      overview: boxes.map(function (b) { return b.q3; }),
+      valMin: lo, range: range,
+      renderLabels: function (labelG, s, e) {
+        var wn = e - s + 1, gw = cw / wn, pos = [];
+        for (var kk = s; kk <= e; kk++) pos.push(padL + (kk - s) * gw + gw / 2);
+        appendXLabels(labelG, labels.slice(s, e + 1), pos, h - 8, gw, xl.rotate, xl.interval);
+      }
+    });
+    hoverGrps.forEach(function (hg) {
+      hg.grp.addEventListener('mouseenter', function () {
+        zh.showTip(hg.text, zh.winState.sx * hg.cx + zh.winState.tx, hg.y);
+      });
+      hg.grp.addEventListener('mouseleave', function () { zh.sharedTip.style.opacity = ''; });
+    });
+  } else {
+    var positions = [];
+    for (var k = 0; k < boxes.length; k++) positions.push(padL + k * groupW + groupW / 2);
+    appendXLabels(svg, labels.slice(0, boxes.length), positions, h - 8, groupW, xl.rotate, xl.interval);
+  }
   svg.appendChild(tips.layer);
-  bindTooltips(svg);
+  if (!zoomOn) bindTooltips(svg);
   return svg;
 }
 
@@ -1987,22 +2495,28 @@ function renderCandlestick(data, labels, colors, attrs) {
   var range = hi - lo || 1;
   var padL = 44, padT = 18, padR = 12;
   var cw = w - padL - padR;
+  var zoomOn = zoomEnabled(attrs, candles.length);
+  var ZOOM_H = zoomOn ? 28 : 0;
   var groupW = cw / candles.length, bodyW = Math.max(3, groupW * 0.6);
-  var xl = axisXLayout(labels.slice(0, candles.length), groupW, 30);
+  var xl = axisXLayout(labels.slice(0, candles.length), groupW, 30, cw, attrs.interval);
   var padB = xl.padB;
   var ch = h - padT - padB;
   var customColors = parseColorList(attrs.c);
   // 中国惯例：阳线(收≥开=涨)红、阴线(跌)绿。c[0]=阳色 c[1]=阴色（与默认一致）。
   var upColor = customColors[0] || '#f5222d';
   var downColor = customColors[1] || '#52c41a';
-  var svg = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + h, class: 'tokui-chart__svg', preserveAspectRatio: 'xMidYMid meet' });
-  var tips = createTipMgr(w, h);
+  var svg = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + (h + ZOOM_H), class: 'tokui-chart__svg', preserveAspectRatio: 'xMidYMid meet' });
+  var tips = createTipMgr(w, h + ZOOM_H);
   function yOf(v) { return padT + ch * (1 - (v - lo) / range); }
   for (var g = 0; g <= 4; g++) {
     var gy = yOf(lo + range * g / 4);
     svg.appendChild(svgEl('line', { x1: padL, y1: gy, x2: w - padR, y2: gy, stroke: 'var(--tokui-chart-grid, #e8e8e8)', 'stroke-width': 1 }));
     svg.appendChild(svgEl('text', { x: padL - 4, y: gy + 4, 'text-anchor': 'end', fill: 'var(--tokui-chart-text, #999)', 'font-size': '9' })).textContent = Math.round(lo + range * g / 4);
   }
+  var plotG = zoomOn ? svgEl('g', { class: 'tokui-chart-plot' }) : null;
+  if (plotG) svg.appendChild(plotG);
+  var geoTarget = plotG || svg;
+  var hoverGrps = [];
   candles.forEach(function (c, i) {
     var cx = padL + i * groupW + groupW / 2;
     var isUp = c.c >= c.o;
@@ -2011,14 +2525,39 @@ function renderCandlestick(data, labels, colors, attrs) {
     grp.appendChild(svgEl('line', { x1: cx, y1: yOf(c.h), x2: cx, y2: yOf(c.l), stroke: col, 'stroke-width': 1, class: 'tokui-chart-wick' }));
     var bodyTop = yOf(Math.max(c.o, c.c)), bodyBot = yOf(Math.min(c.o, c.c));
     grp.appendChild(svgEl('rect', { x: cx - bodyW / 2, y: bodyTop, width: bodyW, height: Math.max(1, bodyBot - bodyTop), fill: col, class: 'tokui-chart-candle' }));
-    tips.add(grp, (labels[i] || ('D' + (i + 1))) + '  O:' + c.o + ' H:' + c.h + ' L:' + c.l + ' C:' + c.c + (isUp ? ' ↑' : ' ↓'), cx, bodyTop);
-    svg.appendChild(grp);
+    var tipText = (labels[i] || ('D' + (i + 1))) + '  O:' + c.o + ' H:' + c.h + ' L:' + c.l + ' C:' + c.c + (isUp ? ' ↑' : ' ↓');
+    if (zoomOn) hoverGrps.push({ grp: grp, cx: cx, y: bodyTop, text: tipText });
+    else tips.add(grp, tipText, cx, bodyTop);
+    geoTarget.appendChild(grp);
   });
-  var positions = [];
-  for (var k = 0; k < candles.length; k++) positions.push(padL + k * groupW + groupW / 2);
-  appendXLabels(svg, labels.slice(0, candles.length), positions, h - 8, groupW, xl.rotate);
+  if (zoomOn) {
+    var n = candles.length;
+    var zh = attachZoomPlot(svg, {
+      plotG: plotG, tipLayer: tips.layer,
+      padL: padL, cw: cw, padT: padT, ch: ch, h: h, w: w, n: n,
+      srcLeft: function (s) { return padL + s * groupW; },
+      srcRight: function (e) { return padL + (e + 1) * groupW; },
+      overview: candles.map(function (c) { return c.c; }),
+      valMin: lo, range: range,
+      renderLabels: function (labelG, s, e) {
+        var wn = e - s + 1, gw = cw / wn, pos = [];
+        for (var kk = s; kk <= e; kk++) pos.push(padL + (kk - s) * gw + gw / 2);
+        appendXLabels(labelG, labels.slice(s, e + 1), pos, h - 8, gw, xl.rotate, xl.interval);
+      }
+    });
+    hoverGrps.forEach(function (hg) {
+      hg.grp.addEventListener('mouseenter', function () {
+        zh.showTip(hg.text, zh.winState.sx * hg.cx + zh.winState.tx, hg.y);
+      });
+      hg.grp.addEventListener('mouseleave', function () { zh.sharedTip.style.opacity = ''; });
+    });
+  } else {
+    var positions = [];
+    for (var k = 0; k < candles.length; k++) positions.push(padL + k * groupW + groupW / 2);
+    appendXLabels(svg, labels.slice(0, candles.length), positions, h - 8, groupW, xl.rotate, xl.interval);
+  }
   svg.appendChild(tips.layer);
-  bindTooltips(svg);
+  if (!zoomOn) bindTooltips(svg);
   return svg;
 }
 
@@ -2610,6 +3149,8 @@ if (typeof window !== 'undefined') {
   window.TokUI._internal.bumpFsUnits = bumpFsUnits;
   window.TokUI._internal.applyTipScale = applyTipScale;
   window.TokUI._internal.axisXLayout = axisXLayout;
+  window.TokUI._internal.zoomBounds = zoomBounds;
+  window.TokUI._internal.zoomEnabled = zoomEnabled;
   window.TokUI._internal.solvePieFs = solvePieFs;
   window.TokUI._internal.pieSizing = pieSizing;
   window.TokUI._internal.MIN_CHART_PX = MIN_CHART_PX;
@@ -2618,6 +3159,6 @@ if (typeof window !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     registerChartComponents, registerChartRenderer,
-    bumpFsUnits, solvePieFs, pieSizing, MIN_CHART_PX, MAX_CHART_PX, applyTipScale, axisXLayout
+    bumpFsUnits, solvePieFs, pieSizing, MIN_CHART_PX, MAX_CHART_PX, applyTipScale, axisXLayout, zoomBounds, zoomEnabled
   };
 }

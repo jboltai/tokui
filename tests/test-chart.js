@@ -911,4 +911,210 @@ test('chart pie _pieFs 覆盖：标签/图例用 fs，viewBox 随 fs 拓宽', ()
   assert.strictEqual(lbl.getAttribute('font-size'), '14');
 });
 
+// === x 轴标签密度自适应（auto-skip / 旋转 / interval）===
+// 新签名：axisXLayout(labels, slotW, basePadB, availW, intervalAttr) → {rotate, padB, interval}
+// availW = 轴总宽（cw）；intervalAttr = 'auto'(默认)|N|'0'|undefined
+function mkLabels(n, p) { var a = []; for (var i = 1; i <= n; i++) a.push(p + i); return a; }
+
+test('axisXLayout：50 短标签窄宽 → auto 跳过 interval>1', () => {
+  var r = axisXLayout(mkLabels(50, 'D'), 26, 30, 1300); // 默认 auto
+  assert.ok(r.interval > 1, '50 点密集应跳过，得 interval=' + r.interval);
+  assert.strictEqual(r.rotate, false, '跳过时横排不旋转');
+});
+
+test('axisXLayout：40 短标签半宽 → auto 跳过 interval>1', () => {
+  var r = axisXLayout(mkLabels(40, 'W'), 26, 30, 1040);
+  assert.ok(r.interval > 1, '40 点半宽应跳过，得 interval=' + r.interval);
+});
+
+test('axisXLayout：中等密度（旋转能装下）→ 旋转不跳过 interval=1', () => {
+  // 15 标签、宽 500：横排放不下（fitH≈13）、旋转 -45 装得下（fitR≈18）→ 旋转全显
+  var r = axisXLayout(mkLabels(15, 'L'), 33, 30, 500);
+  assert.strictEqual(r.interval, 1, '中等密度优先旋转不跳过');
+  assert.strictEqual(r.rotate, true, '应旋转');
+  assert.strictEqual(r.padB, 52, '旋转 padB≥52');
+});
+
+test('axisXLayout：interval:2 显式 → interval=2 锁定步长', () => {
+  var r = axisXLayout(mkLabels(6, 'X'), 60, 30, 360, '2');
+  assert.strictEqual(r.interval, 2);
+});
+
+test('axisXLayout：interval:0 → 强制全显 interval=1', () => {
+  var r = axisXLayout(mkLabels(50, 'D'), 26, 30, 1300, '0');
+  assert.strictEqual(r.interval, 1, 'interval:0 关闭跳过');
+});
+
+test('axisXLayout：少标签宽裕 → 不转不跳 interval=1', () => {
+  var r = axisXLayout(['A', 'B', 'C'], 60, 30, 300);
+  assert.strictEqual(r.interval, 1);
+  assert.strictEqual(r.rotate, false);
+});
+
+test('axisXLayout：跳过时保留首末（appendXLabels 渲染首+末标签）', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  var labels = mkLabels(50, 'D');
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'bar', d: labels.map(function () { return '10'; }).join(','), l: labels.join(','), w: 1300, h: 200, interval: 'auto' }, content: '', children: [] });
+  var svg = dom.querySelector('.tokui-chart__svg');
+  var axisTexts = Array.from(svg.querySelectorAll('text')).filter(function (t) {
+    return /^D\d+$/.test(t.textContent || ''); // tooltip 文本 "D1: 10" 不匹配，自带排除
+  });
+  var txts = axisTexts.map(function (t) { return t.textContent; });
+  assert.ok(txts.indexOf('D1') !== -1, '应保留首标签 D1');
+  assert.ok(txts.indexOf('D50') !== -1, '应保留末标签 D50');
+  assert.ok(axisTexts.length < 50, '应跳过部分标签，剩 ' + axisTexts.length);
+});
+
+test('chart bar interval:2 → 轴标签约为一半', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  var labels = mkLabels(20, 'X');
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'bar', d: labels.map(function () { return '5'; }).join(','), l: labels.join(','), w: 800, h: 200, interval: '2' }, content: '', children: [] });
+  var svg = dom.querySelector('.tokui-chart__svg');
+  var axisTexts = Array.from(svg.querySelectorAll('text')).filter(function (t) {
+    return /^X\d+$/.test(t.textContent || ''); // tooltip "X1: 5" 不匹配，自带排除
+  });
+  // interval=2 → 显 idx 0,2,4,...,18 + 末 19，约 11 个
+  assert.ok(axisTexts.length <= 12 && axisTexts.length >= 10, 'interval:2 应显约一半，得 ' + axisTexts.length);
+});
+
+// === dataZoom 缩放滑块（zoomBounds 纯数学 + zoomEnabled + 渲染结构）===
+const { zoomBounds, zoomEnabled } = require('../src/components/chart');
+
+test('zoomBounds：全窗 (0,1) → 覆盖全部索引', () => {
+  var z = zoomBounds(50, 0, 1);
+  assert.strictEqual(z.s, 0);
+  assert.strictEqual(z.e, 49);
+});
+
+test('zoomBounds：前 20% 窗口', () => {
+  var z = zoomBounds(50, 0, 0.2);
+  assert.strictEqual(z.s, 0);
+  assert.strictEqual(z.e, 10); // round(0.2*49)=10
+});
+
+test('zoomBounds：末尾窗口', () => {
+  var z = zoomBounds(50, 0.8, 1);
+  assert.strictEqual(z.s, 39); // round(0.8*49)=39
+  assert.strictEqual(z.e, 49);
+});
+
+test('zoomBounds：极小窗口 → 钳到 MIN_WIN（≥10% 或 2）', () => {
+  var z = zoomBounds(50, 0.48, 0.52);
+  assert.ok(z.e - z.s >= 5, '窗口不小于 MIN_WIN，得 ' + (z.e - z.s));
+});
+
+test('zoomBounds：s>e 自动交换', () => {
+  var z = zoomBounds(50, 0.9, 0.1);
+  assert.ok(z.s < z.e, '应交换使 s<e');
+});
+
+test('zoomBounds：单点数据不崩', () => {
+  var z = zoomBounds(1, 0, 1);
+  assert.strictEqual(z.s, 0);
+  assert.strictEqual(z.e, 0);
+});
+
+test('zoomEnabled：undefined → 关', () => {
+  assert.strictEqual(zoomEnabled({}, 50), false);
+});
+
+test('zoomEnabled：auto / 50 点（>30）→ 开', () => {
+  assert.strictEqual(zoomEnabled({ zoom: 'auto' }, 50), true);
+  assert.strictEqual(zoomEnabled({ zoom: 'auto' }, 20), false);
+});
+
+test('zoomEnabled：off / 0 → 关', () => {
+  assert.strictEqual(zoomEnabled({ zoom: 'off' }, 50), false);
+  assert.strictEqual(zoomEnabled({ zoom: '0' }, 50), false);
+});
+
+test('zoomEnabled：N 阈值 → n>N 才开', () => {
+  assert.strictEqual(zoomEnabled({ zoom: '30' }, 50), true);
+  assert.strictEqual(zoomEnabled({ zoom: '30' }, 30), false);
+});
+
+test('chart bar zoom:auto 50 点 → SVG 含缩放滑块结构', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  var labels = mkLabels(50, 'D');
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'bar', d: labels.map(function () { return '10'; }).join(','), l: labels.join(','), w: 800, h: 200, zoom: 'auto' }, content: '', children: [] });
+  var svg = dom.querySelector('.tokui-chart__svg');
+  assert.ok(svg.querySelector('.tokui-chart-zoom-window'), '应有缩放窗口 rect');
+  var handles = svg.querySelectorAll('.tokui-chart-zoom-handle');
+  assert.strictEqual(handles.length, 2, '应有两个拖拽手柄');
+});
+
+test('chart bar zoom:auto 初始窗口 = 全量（窗口 rect 横跨整轴宽）', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  var labels = mkLabels(50, 'D');
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'bar', d: labels.map(function () { return '10'; }).join(','), l: labels.join(','), w: 800, h: 200, zoom: 'auto' }, content: '', children: [] });
+  var svg = dom.querySelector('.tokui-chart__svg');
+  var win = svg.querySelector('.tokui-chart-zoom-window');
+  var x = parseFloat(win.getAttribute('x'));
+  var w = parseFloat(win.getAttribute('width'));
+  // 初始全量：窗口从左侧 padL 附近开始，宽度 ≈ cw（覆盖整轴）
+  assert.ok(w > 600, '初始窗口应横跨整轴宽，得 width=' + w);
+});
+
+test('chart bar 无 zoom → 不渲染滑块', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  var labels = mkLabels(50, 'D');
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'bar', d: labels.map(function () { return '10'; }).join(','), l: labels.join(','), w: 800, h: 200 }, content: '', children: [] });
+  var svg = dom.querySelector('.tokui-chart__svg');
+  assert.ok(!svg.querySelector('.tokui-chart-zoom-window'), '无 zoom 属性不应渲染滑块');
+});
+
+// === line/area/boxplot/candlestick dataZoom 结构 ===
+function chartHasZoom(type, d, extra) {
+  var labels = mkLabels(50, 'X');
+  var attrs = Object.assign({ t: type, d: d, l: labels.join(','), w: 800, h: 200, zoom: 'auto' }, extra || {});
+  var dom = renderer4Zoom.render({ type: 'chart', attrs: attrs, content: '', children: [] });
+  var svg = dom.querySelector('.tokui-chart__svg');
+  return svg && svg.querySelector('.tokui-chart-zoom-window') && svg.querySelectorAll('.tokui-chart-zoom-handle').length === 2;
+}
+const renderer4Zoom = new TokUIRenderer(); registerChartComponents(renderer4Zoom);
+
+test('chart line zoom:auto 50 点 → 含滑块', () => {
+  var labels = mkLabels(50, 'X');
+  var dom = renderer4Zoom.render({ type: 'chart', attrs: { t: 'line', d: mkLabels(50, '').map(function (s, i) { return i; }).join(','), l: labels.join(','), w: 800, h: 200, zoom: 'auto' }, content: '', children: [] });
+  var svg = dom.querySelector('.tokui-chart__svg');
+  assert.ok(svg.querySelector('.tokui-chart-zoom-window'), 'line 应有缩放窗口');
+  assert.strictEqual(svg.querySelectorAll('.tokui-chart-zoom-handle').length, 2, 'line 应有 2 手柄');
+});
+
+test('chart area zoom:auto 50 点 → 含滑块', () => {
+  var labels = mkLabels(50, 'X');
+  var dom = renderer4Zoom.render({ type: 'chart', attrs: { t: 'area', d: mkLabels(50, '').map(function (s, i) { return i; }).join(','), l: labels.join(','), w: 800, h: 200, zoom: 'auto' }, content: '', children: [] });
+  assert.ok(dom.querySelector('.tokui-chart__svg').querySelector('.tokui-chart-zoom-window'), 'area 应有缩放窗口');
+});
+
+test('chart candlestick zoom:auto 60 根 → 含滑块', () => {
+  var k = [];
+  for (var i = 0; i < 60; i++) { var o = 100 + i, c = o + (i % 3 - 1); k.push(o + ',' + Math.max(o, c) + ',' + (90 + i) + ',' + (110 + i) + ',' + c); }
+  var labels = mkLabels(60, 'D');
+  var dom = renderer4Zoom.render({ type: 'chart', attrs: { t: 'candlestick', d: k.join(';'), l: labels.join(','), w: 800, h: 280, zoom: 'auto' }, content: '', children: [] });
+  assert.ok(dom.querySelector('.tokui-chart__svg').querySelector('.tokui-chart-zoom-window'), 'candlestick 应有缩放窗口');
+});
+
+test('chart boxplot zoom:auto 40 组 → 含滑块', () => {
+  var b = [];
+  for (var i = 0; i < 40; i++) b.push(i + ',' + (i + 2) + ',' + (i + 4) + ',' + (i + 6) + ',' + (i + 8));
+  var labels = mkLabels(40, 'G');
+  var dom = renderer4Zoom.render({ type: 'chart', attrs: { t: 'boxplot', d: b.join(';'), l: labels.join(','), w: 800, h: 240, zoom: 'auto' }, content: '', children: [] });
+  assert.ok(dom.querySelector('.tokui-chart__svg').querySelector('.tokui-chart-zoom-window'), 'boxplot 应有缩放窗口');
+});
+
+test('chart histogram zoom:auto（多 bin 委托 bar）→ 含滑块', () => {
+  var vals = []; for (var i = 0; i < 200; i++) vals.push(Math.round(Math.sin(i / 5) * 50 + 50));
+  var dom = renderer4Zoom.render({ type: 'chart', attrs: { t: 'histogram', d: vals.join(','), w: 800, h: 200, bins: 60, zoom: 'auto' }, content: '', children: [] });
+  assert.ok(dom.querySelector('.tokui-chart__svg').querySelector('.tokui-chart-zoom-window'), 'histogram 多 bin 应有缩放窗口');
+});
+
+test('chart line zoom 初始窗口全量（transform identity）', () => {
+  var labels = mkLabels(50, 'X');
+  var dom = renderer4Zoom.render({ type: 'chart', attrs: { t: 'line', d: mkLabels(50, '').map(function (s, i) { return i; }).join(','), l: labels.join(','), w: 800, h: 200, zoom: 'auto' }, content: '', children: [] });
+  var plotG = dom.querySelector('.tokui-chart__svg').querySelector('.tokui-chart-plot');
+  var tr = plotG && plotG.getAttribute('transform');
+  assert.ok(/matrix\(1 /.test(tr || ''), '初始 transform 应为 identity matrix(1 ...)，得 ' + tr);
+});
+
 run();

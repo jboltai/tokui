@@ -194,9 +194,6 @@ const NAV_DATA = [
       { trigger: 'demo-table-colspan', name: { zh: '合并单元格', en: 'Colspan' }, desc: { zh: 'colspan行列合并', en: 'Row/column merge' }, icon: '⇔' },
       { trigger: 'demo-table-enterprise', name: { zh: '企业表格', en: 'Enterprise' }, desc: { zh: 'ERP/MES业务场景', en: 'ERP/MES scenarios' }, icon: '◫' },
       { trigger: 'demo-crud', name: { zh: 'CRUD管理', en: 'CRUD' }, desc: { zh: '增删改查完整流程', en: 'Full CRUD workflow' }, icon: '✎' },
-      { trigger: 'demo-chart', name: { zh: '图表组件', en: 'Chart' }, desc: { zh: '柱/折/面积/饼/环/雷达/散点/气泡/热力/仪表盘等 20 种', en: '20 types: bar/line/pie/radar/heatmap/gauge...' }, icon: '📊' },
-      { trigger: 'demo-chart-gantt', name: { zh: '甘特图', en: 'Gantt' }, desc: { zh: '项目排期/MES排程', en: 'Project/MES scheduling' }, icon: '📅' },
-      { trigger: 'demo-chart-funnel', name: { zh: '漏斗图', en: 'Funnel' }, desc: { zh: '销售/转化漏斗', en: 'Sales/conversion funnel' }, icon: '🔻' },
       { trigger: 'demo-stat', name: { zh: '统计数值', en: 'Statistic' }, desc: { zh: '数据展示/趋势指示', en: 'Data display/trend' }, icon: '#' },
       { trigger: 'demo-barcode', name: { zh: '条形码', en: 'Barcode' }, desc: { zh: 'Code128 运单/订单号', en: 'Code128 tracking/order' }, icon: '▮' },
       { trigger: 'demo-qrcode', name: { zh: '二维码', en: 'QR Code' }, desc: { zh: 'QR 码 URL/文本/WiFi', en: 'QR URL/text/WiFi' }, icon: '▦' },
@@ -206,6 +203,18 @@ const NAV_DATA = [
       { trigger: 'demo-skeleton', name: { zh: 'Skeleton 骨架屏', en: 'Skeleton' }, desc: { zh: 'text/card/avatar/image', en: 'text/card/avatar/image' }, icon: '⏳' },
       { trigger: 'demo-result', name: { zh: '结果页', en: 'Result' }, desc: { zh: '成功/失败/警告/提示', en: 'Success/error/warning/info' }, icon: '✓' },
       { trigger: 'demo-empty', name: { zh: '空状态', en: 'Empty' }, desc: { zh: '无数据占位提示', en: 'Empty placeholder' }, icon: '∅' },
+    ]
+  },
+  {
+    id: 'svg-chart',
+    name: { zh: 'SVG 图表', en: 'SVG Charts' },
+    icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
+    items: [
+      { trigger: 'demo-chart', name: { zh: '图表组件', en: 'Chart' }, desc: { zh: '柱/折/面积/饼/环/雷达/散点/气泡/热力/仪表盘等 20 种', en: '20 types: bar/line/pie/radar/heatmap/gauge...' }, icon: '📊' },
+      { trigger: 'demo-chart-bar', name: { zh: '柱状图', en: 'Bar' }, desc: { zh: '大规模数据·50/40 数据点', en: 'Large scale · 50/40 points' }, icon: '📈' },
+      { trigger: 'demo-chart-gantt', name: { zh: '甘特图', en: 'Gantt' }, desc: { zh: '项目排期/MES排程', en: 'Project/MES scheduling' }, icon: '📅' },
+      { trigger: 'demo-chart-funnel', name: { zh: '漏斗图', en: 'Funnel' }, desc: { zh: '销售/转化漏斗', en: 'Sales/conversion funnel' }, icon: '🔻' },
+      { trigger: 'demo-chart-zoom', name: { zh: '缩放 Zoom', en: 'Zoom' }, desc: { zh: 'line/K线/箱线 dataZoom 拖拽缩放', en: 'line/candle/box dataZoom' }, icon: '🔍' },
     ]
   },
   {
