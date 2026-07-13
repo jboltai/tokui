@@ -19,8 +19,9 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Setup pnpm
-        # 用 @v4：@v6 为浮动 tag，近期 patch 引入 self-installer 退出码 1 回归（issue #261）。
-        uses: pnpm/action-setup@v4
+        # 用 @v6：跑 Node 24 runtime，消除 Node 20 弃用警告（@v4 跑 Node 20，GitHub 2026-06-02 起强制升 24）。
+        # issue #261（Windows 路径含空格）本仓 ubuntu-latest 不受影响。
+        uses: pnpm/action-setup@v6
         with:
           version: 11
 
