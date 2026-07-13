@@ -379,7 +379,25 @@ function registerTableComponents(renderer) {
       } else if (ch === ']') {
         depth--; current += ch;
       } else if (ch === ',' && depth === 0) {
-        result.push(current); current = '';
+        // 千分位逗号保护：仅当「本格已含货币符号 ¥ ￥ $ € £ ₩ ₹」+ 逗号构成千分组
+        // （前 1-3 位数字、后「恰好 3 位数字 + 第4位非数字」，如 ¥2,688.00 / $1,234,567）时，
+        // 判为格式化金额内的千分位、不切。
+        // 关键：必须「恰好 3 位 + 第4位非数字」——排除 ¥1,280.00,5（,5 只 1 位，是 cell 分隔，切）、
+        // ¥620.00,12（,12 只 2 位，切）。current 在每次切后重置 → 币符只保护本格内、不跨格泄漏。
+        // 无币符裸数字（8,320）有「一格 vs 多格」歧义 → 一律切；合并后缀（=c4）后逗号恒切。
+        var prev = str[i - 1];
+        var n1 = str[i + 1], n2 = str[i + 2], n3 = str[i + 3], n4 = str[i + 4];
+        var isMergeSuffix = /=([cr]\d+){1,2}$/.test(current);
+        var hasCurrency = /[¥￥$€£₩₹]/.test(current);
+        var isThousands = !isMergeSuffix
+          && hasCurrency
+          && prev >= '0' && prev <= '9'
+          && n1 >= '0' && n1 <= '9'
+          && n2 >= '0' && n2 <= '9'
+          && n3 >= '0' && n3 <= '9'
+          && !(n4 >= '0' && n4 <= '9');
+        if (isThousands) current += ch;
+        else { result.push(current); current = ''; }
       } else {
         current += ch;
       }
