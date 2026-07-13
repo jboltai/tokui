@@ -21,7 +21,8 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v6
+        # 用 @v4：@v6 为浮动 tag，近期 patch 引入 self-installer 退出码 1 回归（issue #261）。
+        uses: pnpm/action-setup@v4
         with:
           version: 11
 
