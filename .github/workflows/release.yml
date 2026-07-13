@@ -21,9 +21,14 @@ jobs:
       - name: Setup pnpm
         # 用 @v6：跑 Node 24 runtime，消除 Node 20 弃用警告（@v4 跑 Node 20，GitHub 2026-06-02 起强制升 24）。
         # issue #261（Windows 路径含空格）本仓 ubuntu-latest 不受影响。
+        # standalone:true 走独立安装器（直下载 pnpm 二进制），绕过 @v6 默认 self-installer
+        # 的 npm-based lockfile 读取——pnpm 11.12.0 在 createFullPkgId 处遇缺 integrity 字段会崩
+        # （"Cannot use 'in' operator to search for 'integrity' in undefined"）。
+        # version 精确钉 11.7.0：避免 action "Checking for updates" 把 11.7→11.12 升级触发该路径。
         uses: pnpm/action-setup@v6
         with:
-          version: 11
+          version: 11.7.0
+          standalone: true
 
       - name: Setup Node.js 22
         uses: actions/setup-node@v6
