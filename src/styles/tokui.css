@@ -156,6 +156,8 @@
 .tokui-form > .tokui-btn { width: fit-content; }
 .tokui-field { display: flex; flex-direction: column; gap: 4px; }
 .tokui-label { font-size: 0.875rem; font-weight: 500; color: var(--tokui-text); }
+/* 必填标记：req 字段 label 尾部红色 * */
+.tokui-label--req::after { content: ' *'; color: var(--tokui-danger); }
 .tokui-input, .tokui-select { padding: 8px 12px; border: 1px solid var(--tokui-border); border-radius: var(--tokui-radius); font-size: 0.9rem; color: var(--tokui-text); background: var(--tokui-bg); outline: none; transition: border-color 0.2s; }
 .tokui-input:focus, .tokui-select:focus { border-color: var(--tokui-primary); box-shadow: 0 0 0 2px var(--tokui-primary-focus); }
 .tokui-input::placeholder { color: var(--tokui-text-muted); }

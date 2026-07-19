@@ -87,6 +87,19 @@ test('boolean attribute', () => {
   assert.strictEqual(node.attrs.req, true);
 });
 
+// 测试：live 实时校验布尔属性
+test('boolean attribute live', () => {
+  const node = parseTag('input l:手机号 req pat:"1\\d{10}" live');
+  assert.strictEqual(node.attrs.live, true);
+  assert.strictEqual(node.attrs.pat, '1\\d{10}');
+});
+
+// 测试：live:input 即时校验模式（值形式）
+test('attribute live:input instant mode', () => {
+  const node = parseTag('input l:用户名 live:input');
+  assert.strictEqual(node.attrs.live, 'input');
+});
+
 // 测试：多个布尔属性
 test('multiple boolean attributes', () => {
   const node = parseTag('table stripe id:t1');

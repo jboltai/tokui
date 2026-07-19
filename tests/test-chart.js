@@ -871,20 +871,22 @@ test('applyTipScale：宽容器整组缩小 / 窄容器放大 / scale≈1 不变
 });
 
 // === X 轴标签整体旋转决策（任一超阈值 → 全部统一旋转）===
-test('axisXLayout：全部短→不转；任一长→全转；旋转时 padB 抬到 ≥52', () => {
+test('axisXLayout：全部短→不转；任一长→全转；旋转时 padB 按最长标签自适应', () => {
   // 全短：ascii estTextW 4.5/char，threshold=40*0.9=36，'abc'=13.5 < 36
   var a = axisXLayout(['abc', 'de', 'f'], 40, 30);
   assert.strictEqual(a.rotate, false, '全短标签不旋转');
   assert.strictEqual(a.padB, 30, '不旋转 padB=base');
 
   // 任一长：4 CJK estTextW=32 > 30*0.9=27 → 触发【全部】旋转
+  // padB = ceil(12 + 0.707·effW + 3)，effW = 32·16/7 ≈ 73.14 → ceil(66.7) = 67
   var b = axisXLayout(['短', '营业收入', 'x'], 30, 30);
   assert.strictEqual(b.rotate, true, '存在长标签 → 全部统一旋转');
-  assert.strictEqual(b.padB, 52, '旋转时 padB 抬到 52');
+  assert.strictEqual(b.padB, 67, '旋转 padB 按最长标签竖向足迹自适应（67）');
+  assert.ok(b.padB >= 52, '长标签 padB 不应低于旧固定值 52，实际 ' + b.padB);
 
-  // padB floor：base 已 >52 时取 base（不压小）
+  // padB floor：标签横排放得下 → 不旋转 → 保留 base
   var c = axisXLayout(['营业收入'], 20, 60);
-  assert.strictEqual(c.padB, 60, 'base 60 > 52 时保留 60');
+  assert.strictEqual(c.padB, 60, '不旋转时 padB=base 60');
 });
 
 test('pieSizing：fs=7 时 labelSpace = fixedA + maxLabelW（与历史布局等价）', () => {
@@ -929,10 +931,11 @@ test('axisXLayout：40 短标签半宽 → auto 跳过 interval>1', () => {
 
 test('axisXLayout：中等密度（旋转能装下）→ 旋转不跳过 interval=1', () => {
   // 15 标签、宽 500：横排放不下（fitH≈13）、旋转 -45 装得下（fitR≈18）→ 旋转全显
+  // 最长 'L15' estTextW=13.5 → effW≈30.86 → padB = ceil(12+0.707·30.86+3) = 37
   var r = axisXLayout(mkLabels(15, 'L'), 33, 30, 500);
   assert.strictEqual(r.interval, 1, '中等密度优先旋转不跳过');
   assert.strictEqual(r.rotate, true, '应旋转');
-  assert.strictEqual(r.padB, 52, '旋转 padB≥52');
+  assert.strictEqual(r.padB, 37, '短标签旋转 padB 自适应收紧（37）');
 });
 
 test('axisXLayout：interval:2 显式 → interval=2 锁定步长', () => {
@@ -1115,6 +1118,34 @@ test('chart line zoom 初始窗口全量（transform identity）', () => {
   var plotG = dom.querySelector('.tokui-chart__svg').querySelector('.tokui-chart-plot');
   var tr = plotG && plotG.getAttribute('transform');
   assert.ok(/matrix\(1 /.test(tr || ''), '初始 transform 应为 identity matrix(1 ...)，得 ' + tr);
+});
+
+// === bumpZoomTextFs：zoom 重画文字字号保底（防 zoom 后 x 标签回退 fs9 渲染过小）===
+const { bumpZoomTextFs } = require('../src/components/chart');
+
+test('bumpZoomTextFs：_tokuiBumpedFs 存在 → 组内 text 字号抬到 bump 值', () => {
+  var dom = renderer4Zoom.render({ type: 'chart', attrs: { t: 'bar', d: mkLabels(50, '').map(function (s, i) { return i; }).join(','), l: mkLabels(50, 'D').join(','), w: 800, h: 200, zoom: 'auto' }, content: '', children: [] });
+  var svg = dom.querySelector('.tokui-chart__svg');
+  var labelG = svg.querySelector('.tokui-chart-plot-labels');
+  assert.ok(labelG, 'zoom bar 应有标签组');
+  svg._tokuiBumpedFs = 54.19; // 模拟 adjustChartFs 注入的 bump 字号
+  bumpZoomTextFs(labelG, svg);
+  var texts = labelG.querySelectorAll('text');
+  assert.ok(texts.length > 0, '应有 x 标签');
+  for (var i = 0; i < texts.length; i++) {
+    assert.strictEqual(String(texts[i].getAttribute('font-size')), '54.19', '标签字号应抬到 bump 值');
+  }
+});
+
+test('bumpZoomTextFs：_tokuiBumpedFs 缺失（SSR/dom-mock）→ 不动字号', () => {
+  var dom = renderer4Zoom.render({ type: 'chart', attrs: { t: 'bar', d: mkLabels(50, '').map(function (s, i) { return i; }).join(','), l: mkLabels(50, 'D').join(','), w: 800, h: 200, zoom: 'auto' }, content: '', children: [] });
+  var svg = dom.querySelector('.tokui-chart__svg');
+  var labelG = svg.querySelector('.tokui-chart-plot-labels');
+  bumpZoomTextFs(labelG, svg);
+  var texts = labelG.querySelectorAll('text');
+  for (var i = 0; i < texts.length; i++) {
+    assert.strictEqual(String(texts[i].getAttribute('font-size')), '9', '无 bump 字号应保持基础 fs9');
+  }
 });
 
 run();

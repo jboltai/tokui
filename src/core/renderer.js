@@ -30,6 +30,11 @@ function resolveButtonAction(attrs) {
     var sh = (a.sub === true) ? null : String(a.sub);
     return { act: 'submit', formId: formId, handler: sh, target: null, trigger: false };
   }
+  if (a.t === 'submit') {
+    // t:'submit' 语义化：提交按钮。clk 携带的 handler 作为提交 handler（无 clk 则回退表单自身 sub）。
+    // 渲染 type=submit + data-tokui-act=submit → _doSubmit（含 reportValidity 校验闸门）
+    return { act: 'submit', formId: formId, handler: a.clk ? String(a.clk) : null, target: null, trigger: false };
+  }
   return { act: null, formId: formId, handler: a.clk ? String(a.clk) : null, target: null, trigger: false };
 }
 
@@ -312,6 +317,7 @@ class TokUIRenderer {
    * @returns {HTMLElement} 挂载的 DOM 元素
    */
   mount(node, targetContainer) {
+    this._mountRoot = targetContainer; // 供 upd 指令做容器内 id 作用域查找
     const dom = this.render(node);
     if (dom.nodeType === 1) {
       dom.style.animation = 'tokuiFadeIn 0.3s ease';
@@ -334,6 +340,7 @@ class TokUIRenderer {
    * @returns {HTMLElement|null} 挂载的 DOM 元素
    */
   mountStreaming(node, rootContainer) {
+    this._mountRoot = rootContainer; // 供 upd 指令做容器内 id 作用域查找
     // 纯自闭合大块骨架占位：开标签到达挂骨架，] 到达 swap 为真节点（须最先拦截）
     if (node._stream === 'skeleton-pending') {
       return this._streamSkeletonPending(node, rootContainer);
@@ -685,6 +692,17 @@ class TokUIRenderer {
   }
 
   /**
+   * 表单提交前校验闸门：优先 reportValidity（含原生气泡提示），降级 checkValidity。
+   * 无原生校验能力的环境（如测试 mock）放行。
+   */
+  _reportValidity(form) {
+    if (!form) return true;
+    if (typeof form.reportValidity === 'function') return form.reportValidity();
+    if (typeof form.checkValidity === 'function') return form.checkValidity();
+    return true;
+  }
+
+  /**
    * 从 DOM 元素获取其 TokUI 组件类型
    * 优先读取 _tokuiType 标记，其次从 CSS 类名中提取。
    */
@@ -760,6 +778,7 @@ class TokUIRenderer {
         e.preventDefault();
         // 提交按钮在 form 外：用附近 form 的 sub handler 处理
         if (nearbyFormForSubmit) {
+          if (!self._reportValidity(nearbyFormForSubmit)) return;
           const subName = nearbyFormForSubmit.getAttribute('data-tokui-sub');
           const handler = subName ? self.eventBus.getHandler(subName) : null;
           if (handler) {
@@ -775,6 +794,8 @@ class TokUIRenderer {
             const formId = element.getAttribute('data-tokui-form');
             if (formId) form = resolveTargetForm(element, formId);
           }
+          // submit 型按钮提交前过原生校验（普通 clk 按钮不触发）
+          if (form && element.getAttribute('type') === 'submit' && !self._reportValidity(form)) return;
           const data = form ? self._collectFormData(form) : null;
           handler(data, e, element);
         }
@@ -794,6 +815,7 @@ class TokUIRenderer {
       if (!handlerName) return;
       var submitFn = function (e) {
         e.preventDefault();
+        if (!self._reportValidity(form)) return;
         const handler = self.eventBus.getHandler(handlerName);
         if (handler) {
           const data = self._collectFormData(form);
@@ -850,12 +872,21 @@ class TokUIRenderer {
    */
   _doSubmit(btn, formId) {
     var form = resolveTargetForm(btn, formId);
-    if (!form) return;
     var handlerName = btn.getAttribute('data-tokui-sub');
-    var data = this._collectFormData(form);
+    if (!form) {
+      // 无表单上下文（form 外的 t:submit 写法）：退化为普通点击，保持旧行为
+      if (handlerName) {
+        var freeHandler = this.eventBus.getHandler(handlerName);
+        if (freeHandler) freeHandler(null, null, btn);
+      }
+      return;
+    }
+    if (!this._reportValidity(form)) return;
+    // 按钮未指名 handler 时回退到表单自身的 sub/clk（[form sub:H] + [btn t:submit] 组合）
+    if (!handlerName) handlerName = form.getAttribute('data-tokui-sub') || form.getAttribute('data-tokui-clk');
     if (handlerName) {
       var handler = this.eventBus.getHandler(handlerName);
-      if (handler) handler(data, null, form);
+      if (handler) handler(this._collectFormData(form), null, form);
     }
   }
 

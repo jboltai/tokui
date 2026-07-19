@@ -115,6 +115,26 @@ const DEMOS = [
     }
   },
   {
+    trigger: 'demo-inline-format',
+    title: '行内文本格式',
+    desc: 'p 容器内混排 b/em/mark/del/sub/sup 行内格式',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('行内文本格式')
+        .p('Builder 行内方法 b/strong/em/mark/del/sub/sup 生成行内格式标签，可在 p 容器内与纯文本混排：')
+        .card({ tt: '混排示例' })
+          .p()
+            .b('粗体').text('、')
+            .em('斜体').text('、')
+            .mark('高亮').text('、')
+            .del('删除线')
+            .text('、H').sub('2').text('O、x').sup('2')
+          .end()
+        .end();
+      return b;
+    }
+  },
+  {
     trigger: 'show-table',
     title: '数据表格',
     desc: '展示表格组件及斑马纹效果',
@@ -660,6 +680,25 @@ const DEMOS = [
         .end()
       .end();
 
+      return b;
+    }
+  },
+  {
+    trigger: 'demo-btn-size-whitelist',
+    title: '按钮尺寸白名单',
+    desc: 'w/radius 仅接受数字+px/%/em/rem/vw/vh，非法值静默丢弃',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('按钮 w / radius 白名单')
+        .p('w 与 radius 仅接受 数字 + px/%/em/rem/vw/vh 的组合；非法值静默丢弃，不写入内联样式。')
+        .card({ tt: '合法值（生效）' })
+          .btn({ tx: 'w:200px 固定宽', w: '200px' })
+          .btn({ tx: 'radius:12px 圆角', radius: '12px', v: 'primary' })
+        .end()
+        .card({ tt: '非法值（被丢弃）' })
+          .btn({ tx: 'w:auto（已丢弃，保持默认宽）', w: 'auto' })
+          .btn({ tx: 'radius:red（已丢弃，保持默认圆角）', radius: 'red', v: 'primary' })
+        .end();
       return b;
     }
   },
@@ -1332,7 +1371,7 @@ const DEMOS = [
             .cardTx('快捷操作', '点击左侧导航选择更多组件示例。')
           .end()
           .col_layout({ span: 6 })
-            .cardTx('版本更新', 'TokUI v0.1.6 已发布，支持卡片自闭合模式。')
+            .cardTx('版本更新', 'TokUI v0.1.7 已发布，支持卡片自闭合模式。')
           .end()
         .end()
         .hr()
@@ -1522,7 +1561,7 @@ const DEMOS = [
                 .a({ tx: '帮助文档', u: '/docs' })
                 .p(' | ')
                 .a({ tx: '联系我们', u: '/contact' })
-                .p('版本 v0.1.6')
+                .p('版本 v0.1.7')
               .end()
             .end()
           .end()
@@ -2827,8 +2866,8 @@ const DEMOS = [
       // === Dialog: 编辑员工 (张伟) ===
       b.dialog({ tt: '编辑员工 - 张伟 (EMP-001)', id: 'dlg-edit-1' })
         .form({ id: 'editForm1', sub: 'handleCrudEdit' })
-          .input({ l: '姓名', id: 'editName1', req: true })
-          .input({ l: '职位', id: 'editPos1', req: true })
+          .input({ l: '姓名', id: 'editName1', val: '张伟', req: true })
+          .input({ l: '职位', id: 'editPos1', val: '高级工程师', req: true })
           .select({ l: '部门', id: 'editDept1' })
             .opt({ v: 'tech', tx: '技术部' })
             .opt({ v: 'market', tx: '市场部' })
@@ -2851,8 +2890,8 @@ const DEMOS = [
       // === Dialog: 编辑员工 (李娜) ===
       b.dialog({ tt: '编辑员工 - 李娜 (EMP-002)', id: 'dlg-edit-2' })
         .form({ id: 'editForm2', sub: 'handleCrudEdit' })
-          .input({ l: '姓名', id: 'editName2', req: true })
-          .input({ l: '职位', id: 'editPos2', req: true })
+          .input({ l: '姓名', id: 'editName2', val: '李娜', req: true })
+          .input({ l: '职位', id: 'editPos2', val: '市场经理', req: true })
           .select({ l: '部门', id: 'editDept2' })
             .opt({ v: 'tech', tx: '技术部' })
             .opt({ v: 'market', tx: '市场部' })
@@ -2943,8 +2982,8 @@ const DEMOS = [
       // === Dialog: 编辑员工 (王强) ===
       b.dialog({ tt: '编辑员工 - 王强 (EMP-003)', id: 'dlg-edit-3' })
         .form({ id: 'editForm3', sub: 'handleCrudEdit' })
-          .input({ l: '姓名', id: 'editName3', req: true })
-          .input({ l: '职位', id: 'editPos3', req: true })
+          .input({ l: '姓名', id: 'editName3', val: '王强', req: true })
+          .input({ l: '职位', id: 'editPos3', val: 'UI设计师', req: true })
           .select({ l: '部门', id: 'editDept3' })
             .opt({ v: 'tech', tx: '技术部' })
             .opt({ v: 'market', tx: '市场部' })
@@ -2963,8 +3002,8 @@ const DEMOS = [
       // === Dialog: 编辑员工 (赵敏) ===
       b.dialog({ tt: '编辑员工 - 赵敏 (EMP-004)', id: 'dlg-edit-4' })
         .form({ id: 'editForm4', sub: 'handleCrudEdit' })
-          .input({ l: '姓名', id: 'editName4', req: true })
-          .input({ l: '职位', id: 'editPos4', req: true })
+          .input({ l: '姓名', id: 'editName4', val: '赵敏', req: true })
+          .input({ l: '职位', id: 'editPos4', val: 'HR主管', req: true })
           .select({ l: '部门', id: 'editDept4' })
             .opt({ v: 'tech', tx: '技术部' })
             .opt({ v: 'market', tx: '市场部' })
@@ -2983,8 +3022,8 @@ const DEMOS = [
       // === Dialog: 编辑员工 (陈刚) ===
       b.dialog({ tt: '编辑员工 - 陈刚 (EMP-005)', id: 'dlg-edit-5' })
         .form({ id: 'editForm5', sub: 'handleCrudEdit' })
-          .input({ l: '姓名', id: 'editName5', req: true })
-          .input({ l: '职位', id: 'editPos5', req: true })
+          .input({ l: '姓名', id: 'editName5', val: '陈刚', req: true })
+          .input({ l: '职位', id: 'editPos5', val: '前端工程师', req: true })
           .select({ l: '部门', id: 'editDept5' })
             .opt({ v: 'tech', tx: '技术部' })
             .opt({ v: 'market', tx: '市场部' })
@@ -3983,6 +4022,28 @@ const DEMOS = [
         chunks.push({ _wait: 800 });
       }
       return chunks;
+    }
+  },
+
+  // ===== UPD 同 id 冲突：命中本流容器 =====
+  {
+    trigger: 'demo-upd-dup-id',
+    title: 'UPD 同 id 冲突命中本流容器',
+    desc: 'upd 优先命中当前流容器内的元素，而非全文档第一个同 id',
+    build() {
+      const b = new TokUIBuilder();
+      b.card({ tt: 'UPD 同 id 冲突演示' })
+        .p('两张卡片内各有一个 id:dup 的进度条（故意同 id）。末尾的 [upd id:dup v:90] 优先命中本流容器内的元素，而非全文档第一个同 id。')
+        .card({ tt: '卡片 A' })
+          .progress({ id: 'dup', v: '10', l: '卡片 A 进度' })
+        .end()
+        .card({ tt: '卡片 B' })
+          .progress({ id: 'dup', v: '20', l: '卡片 B 进度' })
+        .end()
+        .upd({ id: 'dup', v: '90' })
+        .p('观察：v:90 命中本流内的 dup 进度条。')
+      .end();
+      return b;
     }
   },
 
@@ -7627,7 +7688,7 @@ const DEMOS = [
       // 多行 + 字数限制
       b.card({ tt: '多行输入 + 字数限制' })
         .p('设置 rows 和 maxChars 属性：')
-        .chatInput({ ph: '请输入详细描述...', clk: 'handleSend', rows: '3', id: 'chat-multi', maxchars: '500' })
+        .chatInput({ ph: '请输入详细描述...', clk: 'handleSend', rows: '3', id: 'chat-multi', max: '500' })
           .p('')
         .end()
       .end();
@@ -9843,6 +9904,79 @@ const DEMOS = [
           .end()
         .end();
       return b;
+    }
+  },
+  {
+    trigger: 'demo-form-validation',
+    title: '表单原生校验',
+    desc: '提交前执行原生 reportValidity，req/pat 不过则拦截',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('表单原生校验')
+        .p('提交前执行原生 reportValidity：req 必填、pat 正则不过则拦截提交并弹出原生校验气泡；err 自定义校验错误文案，v:error 置 aria-invalid。')
+        .card({ tt: '注册信息' })
+          .form({ id: 'validForm', sub: 'handleValid' })
+            .input({ l: '手机号', n: 'phone', req: true, pat: '1\\d{10}', err: '请输入 11 位手机号' })
+            .input({ l: '邮箱', n: 'mail', t: 'email', req: true })
+            .pwd({ l: '密码', n: 'pw', req: true })
+            .btn({ tx: '提交', t: 'submit', clk: 'handleValid', v: 'primary' })
+          .end()
+        .end();
+      return b;
+    }
+  },
+  {
+    trigger: 'demo-form-feedback',
+    title: '表单验证反馈（Hint 提示）',
+    desc: '静态三态 / 服务端校验 / 流式推送 / live 实时校验 / live:input 即时校验',
+    _ids: null,
+    build() {
+      const uid = Math.random().toString(36).slice(2, 6);
+      this._ids = { mail: 'fbm-' + uid };
+      const b = new TokUIBuilder();
+      b.h2('表单验证反馈（Hint 提示与验证反馈）')
+        .p('五种形态：① 静态 hint / v:error / v:success 状态展示；② 交互式服务端校验——提交后 handler 用 [upd] 把结论推回 hint；③ 流式异步校验——输入框到达后服务端延迟推送结论；④ 纯前端实时校验——live 属性 blur 本地校验；⑤ 即时校验——live:input 边输边验，均零网络。')
+        .card({ tt: '形态一 · 静态状态展示' })
+          .input({ l: '默认提示', ph: '8-20 位字符', hint: '8-20 位字符，需含字母与数字' })
+          .input({ l: '错误反馈', v: 'error', val: 'abc', hint: '格式不正确：需包含 @ 符号' })
+          .input({ l: '成功反馈', v: 'success', val: 'tokui_2026', hint: '✓ 用户名可用' })
+        .end()
+        .card({ tt: '形态二 · 交互式服务端校验' })
+          .p('试试用户名 admin（必被占用）或错误手机号：req 为空先被原生校验拦截；提交后"服务端"经 [upd] 把结论推回 hint。')
+          .form({ id: 'freg-' + uid })
+            .input({ l: '用户名', n: 'regname', id: 'fbn-' + uid, req: true, hint: ' ' })
+            .input({ l: '手机号', n: 'regphone', id: 'fbp-' + uid, req: true, hint: ' ' })
+            .btn({ tx: '提交注册', t: 'submit', clk: 'checkReg', v: 'primary' })
+          .end()
+        .end()
+        .card({ tt: '形态三 · 流式异步校验推送' })
+          .p('输入框随主流到达，校验结论由后续分片推送（_wait 模拟服务端耗时）。')
+          .input({ l: '邮箱', n: 'fbmail', id: this._ids.mail, val: 'abc@x.com', hint: '已提交服务端校验…' })
+        .end()
+        .card({ tt: '形态四 · 纯前端实时校验（live）' })
+          .p('live 属性：blur 时浏览器本地 checkValidity，零网络——失败出 err 红 hint，通过出 ok 绿 hint；error 态下改对立即转绿。')
+          .input({ l: '手机号', n: 'lvphone', req: true, pat: '1\\d{10}', err: '✗ 请输入 11 位手机号', ok: '✓ 手机号格式正确', live: true, hint: '11 位大陆手机号' })
+          .input({ l: '邮箱', n: 'lvmail', t: 'email', req: true, err: '✗ 邮箱格式不正确', live: true, hint: '工作邮箱' })
+          .input({ l: '昵称', n: 'lvnick', ml: '8', live: true, hint: '可选，最长 8 位' })
+        .end()
+        .card({ tt: '形态五 · 即时校验（live:input）' })
+          .p('live:input 即时模式：每次 input 事件（键入/粘贴/拖拽）都校验，边输边反馈，无需 blur。')
+          .input({ l: '用户名', n: 'instname', req: true, pat: '[a-zA-Z]\\w{3,15}', err: '✗ 字母开头，4-16 位字母/数字/下划线', ok: '✓ 用户名可用', live: 'input', hint: '字母开头，4-16 位' })
+          .input({ l: '密码', n: 'instpw', t: 'password', req: true, pat: '(?=.*[a-zA-Z])(?=.*\\d).{8,}', err: '✗ 至少 8 位且含字母与数字', ok: '✓ 密码强度达标', live: 'input', hint: '至少 8 位，含字母与数字' })
+        .end();
+      return b;
+    },
+    extraChunks() {
+      const chunks = [];
+      chunks.push({ _wait: 1500 });
+      let b = new TokUIBuilder();
+      b.upd({ id: this._ids.mail, status: 'error', hint: '✗ 邮箱域名不在白名单（服务端校验）' });
+      chunks.push(...b.toChunks());
+      chunks.push({ _wait: 2000 });
+      b = new TokUIBuilder();
+      b.upd({ id: this._ids.mail, status: 'success', hint: '✓ 复核通过：域名已加入白名单' });
+      chunks.push(...b.toChunks());
+      return chunks;
     }
   },
   {

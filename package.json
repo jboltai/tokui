@@ -1,6 +1,6 @@
 {
   "name": "@jboltai/tokui",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "TokUI — Zero-dependency streaming UI description & rendering framework for AI chat. Describe UI with a tiny DSL, stream over SSE, render to real DOM incrementally.",
   "keywords": [
     "tokui",

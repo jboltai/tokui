@@ -31,6 +31,78 @@ function _parseOptShorthand(str) {
 }
 
 /**
+ * CSS 尺寸值白名单校验：仅允许 数字+px/%/em/rem/vw/vh。
+ * 用于 btn 的 w/radius 等直拼 style 的属性，防 LLM 输出注入任意 CSS。
+ * @param {*} v - 原始属性值
+ * @returns {string|null} 合法返回原值，非法返回 null
+ */
+function _safeCssSize(v) {
+  var s = String(v == null ? '' : v).trim();
+  return /^\d+(\.\d+)?(px|%|em|rem|vw|vh)$/.test(s) ? s : null;
+}
+
+/**
+ * upd 校验反馈：切换输入框 error/success 状态样式。
+ * 联动三处：输入框变体类（tokui-{base}--error/success）、hint 配色类、aria-invalid。
+ * status 非 error/success（如空串）→ 清除状态回到中性。
+ * @param {HTMLElement} ctrl - 输入控件元素（_variantTarget）
+ * @param {HTMLElement|null} hintEl - hint 元素（可无）
+ * @param {*} status - 'error' | 'success' | 其他（清除）
+ * @param {string} base - 变体类基名（'tokui-input'）
+ */
+function _applyFieldStatus(ctrl, hintEl, status, base) {
+  var st = (status === 'error' || status === 'success') ? status : '';
+  ctrl.classList.remove(base + '--error');
+  ctrl.classList.remove(base + '--success');
+  if (st) ctrl.classList.add(base + '--' + st);
+  if (st === 'error') ctrl.setAttribute('aria-invalid', 'true');
+  else if (ctrl.removeAttribute) ctrl.removeAttribute('aria-invalid');
+  if (hintEl) {
+    hintEl.classList.remove('tokui-field__hint--error');
+    hintEl.classList.remove('tokui-field__hint--success');
+    if (st) hintEl.classList.add('tokui-field__hint--' + st);
+  }
+}
+
+/**
+ * live 纯前端实时校验（零网络）：本地 checkValidity，结果写入 hint + 状态样式。
+ * 两种模式：
+ * - `live`（布尔）      → blur 触发；error 态下继续输入会即时重检，改对立即转 success
+ * - `live:input`        → 即时模式：每次 input 事件（键入/粘贴/拖拽/自动填充）都校验
+ * 通过 → success 样式 + ok 文案（默认 '✓ 格式正确'）；失败 → error 样式 + err 文案（缺省回落 hint 原文）；
+ * 空值且非必填 → 回中性。
+ * 注：监听 input 事件而非 keyup/keypress——后者覆盖不了粘贴/拖拽/自动填充，keypress 已废弃。
+ * @param {HTMLElement} ctrl - 输入控件元素
+ * @param {HTMLElement|null} hintEl - hint 元素（live 模式渲染时必须已创建）
+ * @param {Object} attrs - DSL attrs（req/err/ok/hint/live）
+ * @param {string} base - 变体类基名（'tokui-input'）
+ */
+function _attachLiveValidation(ctrl, hintEl, attrs, base) {
+  if (typeof ctrl.addEventListener !== 'function') return;
+  var neutralHint = attrs.hint || '';
+  var instant = attrs.live === 'input';
+  function validate() {
+    if (typeof ctrl.checkValidity !== 'function') return;
+    if (!ctrl.value && attrs.req === undefined) {
+      _applyFieldStatus(ctrl, hintEl, '', base);
+      if (hintEl) hintEl.textContent = neutralHint;
+      return;
+    }
+    if (ctrl.checkValidity()) {
+      _applyFieldStatus(ctrl, hintEl, 'success', base);
+      if (hintEl) hintEl.textContent = attrs.ok || '✓ 格式正确';
+    } else {
+      _applyFieldStatus(ctrl, hintEl, 'error', base);
+      if (hintEl) hintEl.textContent = attrs.err || neutralHint;
+    }
+  }
+  ctrl.addEventListener('blur', validate);
+  ctrl.addEventListener('input', function () {
+    if (instant || ctrl.classList.contains(base + '--error')) validate();
+  });
+}
+
+/**
  * opt:"..." 简写展开：若 node 带 opt 属性，把 _parseOptShorthand 结果合成 opt 子节点
  * 追加到 children 末尾（返回新 node，不 mutate 原 node）；否则原样返回。
  * select/radio/checkbox 三处共用，避免展开逻辑重复。
@@ -176,6 +248,7 @@ function registerFormComponents(renderer) {
     if (node.attrs.l) {
       var labelAttrs = { class: 'tokui-label' };
       if (node.attrs.id) labelAttrs.for = node.attrs.id;
+      if (node.attrs.req !== undefined) labelAttrs.class += ' tokui-label--req';
       wrapper.appendChild(el('label', labelAttrs, node.attrs.l));
     }
     var inputAttrs = { class: 'tokui-input', type: node.attrs.t || 'text' };
@@ -191,8 +264,21 @@ function registerFormComponents(renderer) {
     if (node.attrs.dis !== undefined) inputAttrs.disabled = 'disabled';
     if (node.attrs.ro !== undefined) inputAttrs.readonly = 'readonly';
     if (node.attrs.req !== undefined) inputAttrs['aria-required'] = 'true';
+    if (vList.indexOf('error') !== -1) inputAttrs['aria-invalid'] = 'true';
+    if (node.attrs.pat) inputAttrs.pattern = node.attrs.pat;
     if (node.attrs.val !== undefined) inputAttrs.value = node.attrs.val;
     var inputEl = el('input', inputAttrs);
+    // err = 自定义校验错误文案：invalid 时写入 setCustomValidity，输入时清除恢复原生校验
+    if (node.attrs.err && typeof inputEl.addEventListener === 'function') {
+      inputEl.addEventListener('invalid', function () {
+        if (typeof inputEl.setCustomValidity === 'function' && inputEl.validity && !inputEl.validity.customError) {
+          inputEl.setCustomValidity(node.attrs.err);
+        }
+      });
+      inputEl.addEventListener('input', function () {
+        if (typeof inputEl.setCustomValidity === 'function') inputEl.setCustomValidity('');
+      });
+    }
     if (node.attrs.w) inputEl.style.width = node.attrs.w;
     // 搜索图标包装
     var searchWrap = null;
@@ -214,12 +300,14 @@ function registerFormComponents(renderer) {
       wrapper.appendChild(mountTarget);
     }
     var hintEl = null;
-    if (node.attrs.hint) {
-      hintEl = el('div', { class: 'tokui-field__hint' }, node.attrs.hint);
+    if (node.attrs.hint || node.attrs.live !== undefined) {
+      hintEl = el('div', { class: 'tokui-field__hint' }, node.attrs.hint || '');
       if (vList.indexOf('error') !== -1) hintEl.classList.add('tokui-field__hint--error');
       else if (vList.indexOf('success') !== -1) hintEl.classList.add('tokui-field__hint--success');
       wrapper.appendChild(hintEl);
     }
+    // live 纯前端实时校验：blur 本地 checkValidity，结果写入 hint（零网络）
+    if (node.attrs.live !== undefined) _attachLiveValidation(inputEl, hintEl, node.attrs, 'tokui-input');
     wrapper._update = function(uAttrs) {
       if (uAttrs.v !== undefined) inputEl.value = uAttrs.v;
       if (uAttrs.dis === true || uAttrs.dis === 'true') inputEl.disabled = true;
@@ -228,6 +316,8 @@ function registerFormComponents(renderer) {
       if (uAttrs.ro === true || uAttrs.ro === 'true') inputEl.readOnly = true;
       else if (uAttrs.ro === false || uAttrs.ro === 'false') inputEl.readOnly = false;
       if (uAttrs.hint !== undefined && hintEl) hintEl.textContent = uAttrs.hint;
+      // status:error/success → 校验反馈样式（输入框变体类 + hint 配色 + aria-invalid）；其他值清除
+      if (uAttrs.status !== undefined) _applyFieldStatus(inputEl, hintEl, uAttrs.status, 'tokui-input');
     };
     wrapper._variantTarget = inputEl;
     return wrapper;
@@ -245,6 +335,7 @@ function registerFormComponents(renderer) {
     if (node.attrs.l) {
       var labelAttrs = { class: 'tokui-label' };
       if (node.attrs.id) labelAttrs.for = node.attrs.id;
+      if (node.attrs.req !== undefined) labelAttrs.class += ' tokui-label--req';
       wrapper.appendChild(el('label', labelAttrs, node.attrs.l));
     }
     var inputAttrs = { class: 'tokui-input', type: 'password' };
@@ -259,6 +350,7 @@ function registerFormComponents(renderer) {
     if (node.attrs.dis !== undefined) inputAttrs.disabled = 'disabled';
     if (node.attrs.ro !== undefined) inputAttrs.readonly = 'readonly';
     if (node.attrs.req !== undefined) inputAttrs['aria-required'] = 'true';
+    if (vList.indexOf('error') !== -1) inputAttrs['aria-invalid'] = 'true';
     if (node.attrs.val !== undefined) inputAttrs.value = node.attrs.val;
     var inputEl = el('input', inputAttrs);
     if (node.attrs.w) inputEl.style.width = node.attrs.w;
@@ -291,12 +383,14 @@ function registerFormComponents(renderer) {
       wrapper.appendChild(inputEl);
     }
     var hintEl = null;
-    if (node.attrs.hint) {
-      hintEl = el('div', { class: 'tokui-field__hint' }, node.attrs.hint);
+    if (node.attrs.hint || node.attrs.live !== undefined) {
+      hintEl = el('div', { class: 'tokui-field__hint' }, node.attrs.hint || '');
       if (vList.indexOf('error') !== -1) hintEl.classList.add('tokui-field__hint--error');
       else if (vList.indexOf('success') !== -1) hintEl.classList.add('tokui-field__hint--success');
       wrapper.appendChild(hintEl);
     }
+    // live 纯前端实时校验：blur 本地 checkValidity，结果写入 hint（零网络）
+    if (node.attrs.live !== undefined) _attachLiveValidation(inputEl, hintEl, node.attrs, 'tokui-input');
     wrapper._update = function(uAttrs) {
       if (uAttrs.v !== undefined) inputEl.value = uAttrs.v;
       if (uAttrs.dis === true || uAttrs.dis === 'true') inputEl.disabled = true;
@@ -305,6 +399,8 @@ function registerFormComponents(renderer) {
       if (uAttrs.ro === true || uAttrs.ro === 'true') inputEl.readOnly = true;
       else if (uAttrs.ro === false || uAttrs.ro === 'false') inputEl.readOnly = false;
       if (uAttrs.hint !== undefined && hintEl) hintEl.textContent = uAttrs.hint;
+      // status:error/success → 校验反馈样式（输入框变体类 + hint 配色 + aria-invalid）；其他值清除
+      if (uAttrs.status !== undefined) _applyFieldStatus(inputEl, hintEl, uAttrs.status, 'tokui-input');
     };
     wrapper._variantTarget = inputEl;
     return wrapper;
@@ -319,6 +415,7 @@ function registerFormComponents(renderer) {
     if (node.attrs.l) {
       const labelAttrs = { class: 'tokui-label' };
       if (node.attrs.id) labelAttrs.for = node.attrs.id;
+      if (node.attrs.req !== undefined) labelAttrs.class += ' tokui-label--req';
       wrapper.appendChild(el('label', labelAttrs, node.attrs.l));
     }
 
@@ -342,6 +439,7 @@ function registerFormComponents(renderer) {
     if (node.attrs.dis !== undefined) taAttrs.disabled = 'disabled';
     if (node.attrs.ro !== undefined) taAttrs.readonly = 'readonly';
     if (node.attrs.req !== undefined) taAttrs['aria-required'] = 'true';
+    if (/(^|,)\s*error\s*(,|$)/.test(node.attrs.v || '')) taAttrs['aria-invalid'] = 'true';
     if (maxlen > 0) taAttrs.maxlength = String(maxlen);
     const ta = el('textarea', taAttrs);
     // 内容：children > content > tx 属性
@@ -801,6 +899,7 @@ function registerFormComponents(renderer) {
     if (node.attrs.l) {
       const labelAttrs = { class: 'tokui-label' };
       if (node.attrs.id && !isMulti) labelAttrs.for = node.attrs.id;
+      if (node.attrs.req !== undefined) labelAttrs.class += ' tokui-label--req';
       wrapper.appendChild(el('label', labelAttrs, node.attrs.l));
     }
     const selectAttrs = { class: 'tokui-select' };
@@ -809,6 +908,7 @@ function registerFormComponents(renderer) {
     if (node.attrs.n) selectAttrs.name = node.attrs.n;
     else if (node.attrs.id) selectAttrs.name = node.attrs.id;
     if (node.attrs.req !== undefined) selectAttrs['aria-required'] = 'true';
+    if (vList.indexOf('error') !== -1) selectAttrs['aria-invalid'] = 'true';
     const select = el('select', selectAttrs);
     if (node.attrs.ph) {
       const phOpt = el('option', { value: '', disabled: '', selected: '' }, node.attrs.ph);
@@ -1086,8 +1186,7 @@ function registerFormComponents(renderer) {
         document.removeEventListener('touchend', onEnd);
         thumb.classList.remove('tokui-slider__thumb--dragging');
         if (node.attrs.clk) {
-          var handler = (typeof window !== 'undefined' && window.TokUI && window.TokUI._eventBus)
-            ? window.TokUI._eventBus.getHandler(node.attrs.clk) : null;
+          var handler = renderer.eventBus ? renderer.eventBus.getHandler(node.attrs.clk) : null;
           if (handler) handler({ value: value, id: node.attrs.id });
         }
       };
@@ -1206,8 +1305,7 @@ function registerFormComponents(renderer) {
           stars[j].setAttribute('aria-checked', String(j < current));
         }
         if (node.attrs.clk) {
-          var handler = (typeof window !== 'undefined' && window.TokUI && window.TokUI._eventBus)
-            ? window.TokUI._eventBus.getHandler(node.attrs.clk) : null;
+          var handler = renderer.eventBus ? renderer.eventBus.getHandler(node.attrs.clk) : null;
           if (handler) handler({ value: current, max: max, id: node.attrs.id });
         }
       });
@@ -1385,8 +1483,7 @@ function registerFormComponents(renderer) {
       updateCount(to);
       updateHidden();
       if (node.attrs.clk && moved.length > 0) {
-        var handler = (typeof window !== 'undefined' && window.TokUI && window.TokUI._eventBus)
-          ? window.TokUI._eventBus.getHandler(node.attrs.clk) : null;
+        var handler = renderer.eventBus ? renderer.eventBus.getHandler(node.attrs.clk) : null;
         if (handler) handler({ values: rightPanel._items.map(function(i) { return i._cb.value; }), id: node.attrs.id });
       }
     }
@@ -1605,9 +1702,11 @@ function registerFormComponents(renderer) {
   });
 
   // === 按钮组件 ===
-  // attrs.t = 样式类型(primary/danger/...), attrs.tx = text
+  // attrs.t = 样式类型(primary/danger/...) 或语义 submit, attrs.tx = text
   // 内置动作（renderer 自动解析，无需 registerHandler）：
   //   sub:H       → 提交绑定表单 + 收集数据 + 调 handler H
+  //   t:'submit'  → 提交语义（type=submit + _doSubmit 校验闸门）；clk:H 作提交 handler，
+  //                 无 clk 时回退表单自身 sub；不在 form 内时退化为普通点击
   //   reset[:H]   → 重置绑定表单（+ post-reset 回调 H）
   //   print:T     → 打印 target 指定的 print-area/card（T='self' 表最近祖先）
   //   clk:H       → 普通点击 handler（走 event-bus）
@@ -1647,12 +1746,14 @@ function registerFormComponents(renderer) {
       if (key.startsWith('data-')) attrs[key] = node.attrs[key];
     });
     let style = '';
-    if (node.attrs.w) style += 'width:' + node.attrs.w + ';';
+    const safeW = _safeCssSize(node.attrs.w);
+    if (safeW) style += 'width:' + safeW + ';';
     const bgColor = resolveColor(node.attrs.bg);
     if (bgColor) style += 'background:' + bgColor + ';';
     const textColor = resolveColor(node.attrs.fc);
     if (textColor) style += 'color:' + textColor + ';';
-    if (node.attrs.radius) style += 'border-radius:' + node.attrs.radius + ';';
+    const safeRadius = _safeCssSize(node.attrs.radius);
+    if (safeRadius) style += 'border-radius:' + safeRadius + ';';
     if (style) attrs.style = style;
     const text = node.attrs.tx || node.content || '';
     const iconName = node.attrs.icon;
@@ -2084,8 +2185,7 @@ function registerFormComponents(renderer) {
       }
       renderFileList();
       if (node.attrs.clk) {
-        var handler = (typeof window !== 'undefined' && window.TokUI && window.TokUI._eventBus)
-          ? window.TokUI._eventBus.getHandler(node.attrs.clk) : null;
+        var handler = renderer.eventBus ? renderer.eventBus.getHandler(node.attrs.clk) : null;
         if (handler) handler({ id: node.attrs.id, files: selectedFiles });
       }
     }
@@ -2550,8 +2650,7 @@ function registerFormComponents(renderer) {
         closePanel();
         renderCalendar(currentYear, currentMonth);
         if (attrs.clk) {
-          var handler = (typeof window !== 'undefined' && window.TokUI && window.TokUI._eventBus)
-            ? window.TokUI._eventBus.getHandler(attrs.clk) : null;
+          var handler = renderer.eventBus ? renderer.eventBus.getHandler(attrs.clk) : null;
           if (handler) handler({ value: formatted, date: selectedDate, id: attrs.id });
         }
       });
@@ -2699,8 +2798,7 @@ function registerFormComponents(renderer) {
         hidden.value = formatted;
         closePanel();
         if (attrs.clk) {
-          var handler = (typeof window !== 'undefined' && window.TokUI && window.TokUI._eventBus)
-            ? window.TokUI._eventBus.getHandler(attrs.clk) : null;
+          var handler = renderer.eventBus ? renderer.eventBus.getHandler(attrs.clk) : null;
           if (handler) handler({ value: formatted, hour: currentHour, minute: currentMinute, second: currentSecond, id: attrs.id });
         }
       });
@@ -2898,8 +2996,7 @@ function registerFormComponents(renderer) {
         hidden.value = dateStr;
         closePanel();
         if (attrs.clk) {
-          var handler = (typeof window !== 'undefined' && window.TokUI && window.TokUI._eventBus)
-            ? window.TokUI._eventBus.getHandler(attrs.clk) : null;
+          var handler = renderer.eventBus ? renderer.eventBus.getHandler(attrs.clk) : null;
           if (handler) handler({ value: dateStr, date: selectedDate, id: attrs.id });
         }
       });

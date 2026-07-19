@@ -702,7 +702,14 @@ function registerBasicComponents(renderer) {
     var attrs = node.attrs || {};
     var id = attrs.id;
     if (id && typeof document !== 'undefined') {
-      var target = document.getElementById(id);
+      // 多消息场景 id 极易重名：优先在当前挂载容器内查找，查不到再回退全文档
+      //（回退保留「upd 打全局组件」的旧用法）
+      var target = null;
+      var root = renderer._mountRoot;
+      if (root && typeof root.querySelector === 'function') {
+        target = root.querySelector('[id="' + String(id).replace(/"/g, '\\"') + '"]');
+      }
+      if (!target) target = document.getElementById(id);
       // id 常挂在内层 input（hidden / 可聚焦输入），而 _update 挂在外层 wrapper（组件根）：
       // slider/rate 的 id 在 hidden、numinput/input 的 id 在 input，_update 都在 field/wrapper。
       // getElementById 取到内层无 _update → 静默失败。故向上找最近的 _update 节点（组件根）。
@@ -1315,6 +1322,10 @@ function registerBasicComponents(renderer) {
     }
 
     if (indicator) wrapper.appendChild(indicator);
+    // 流式挂载契约：_slot 供后续子节点插入（sup 为绝对定位，子节点落在其后无视觉影响），
+    // _tokuiType 供 _streamClose 类型匹配，避免闭标签时错弹插槽栈
+    wrapper._slot = wrapper;
+    wrapper._tokuiType = 'badge-box';
 
     return wrapper;
   });
@@ -3193,8 +3204,14 @@ function registerBasicComponents(renderer) {
       var val = textarea.value || '';
       if (!val.trim()) return;
       if (handlerName) {
-        wrapper.setAttribute('data-tokui-clk', handlerName);
+        // 兼容旧宿主：保留 value 属性盖章
         wrapper.setAttribute('data-tokui-clk-value', val);
+        // 直调 handler（Enter 与点击发送统一路径；不再依赖 wrapper 的 click 冒泡，
+        // 否则 Enter 路径无 click 事件 → handler 不触发，且点击 textarea 会误触发）
+        if (renderer.eventBus) {
+          var h = renderer.eventBus.getHandler(handlerName);
+          if (h) h({ value: val }, null, wrapper);
+        }
       }
       textarea.value = '';
       if (maxChars > 0) {
@@ -3216,8 +3233,6 @@ function registerBasicComponents(renderer) {
     sendBtn.addEventListener('click', function () {
       doSend();
     });
-
-    if (handlerName) wrapper.setAttribute('data-tokui-clk', handlerName);
 
     // 动态更新方法
     wrapper._update = function (uAttrs) {

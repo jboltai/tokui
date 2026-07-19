@@ -256,6 +256,16 @@ class TokUIBuilder {
   /** 容器内原始文本（用于 textarea/md/code 等容器组件） */
   text(content) { this.chunks.push(String(content)); return this; }
 
+  // ========== 行内格式组件（p/list 等容器内的文本修饰） ==========
+
+  /** 粗体 */ b(content) { return this._selfClosing('b', content); }
+  /** 粗体（strong 语义） */ strong(content) { return this._selfClosing('strong', content); }
+  /** 斜体 */ em(content) { return this._selfClosing('em', content); }
+  /** 高亮标记 */ mark(content) { return this._selfClosing('mark', content); }
+  /** 删除线 */ del(content) { return this._selfClosing('del', content); }
+  /** 下标 */ sub(content) { return this._selfClosing('sub', content); }
+  /** 上标 */ sup(content) { return this._selfClosing('sup', content); }
+
   // ========== 布局组件 ==========
 
   /** 卡片（容器模式：需 .end() 关闭） */
@@ -598,8 +608,8 @@ class TokUIBuilder {
   /** 计划步骤（自闭合或容器） */
   planStep(attrs) { return this._selfClosing('plan-step', null, attrs); }
 
-  /** Agent 状态卡片（自闭合或容器） */
-  agent(attrs) { return attrs && (attrs.status || attrs.name) && !attrs._container ? this._selfClosing('agent', null, attrs) : this._open('agent', attrs); }
+  /** Agent 状态卡片（自闭合；agent 组件纯 attr 驱动，无 children 语义） */
+  agent(attrs) { return this._selfClosing('agent', null, attrs); }
 
   /** 文件树（容器） */
   fileTree(attrs) { return this._open('file-tree', attrs); }

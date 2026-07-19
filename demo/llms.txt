@@ -18,7 +18,7 @@
 
 ## Key Facts
 
-- 项目: TokUI（当前演示版本 v0.1.6）
+- 项目: TokUI（当前演示版本 v0.1.7）
 - 定位: 零依赖的流式 UI 描述与渲染框架，核心场景为 AI 对话中的流式 UI 生成
 - 架构: 后端 TokUIBuilder 生成 DSL → SSE 流式推送 → 前端 TokUIParser 增量解析 → TokUIRenderer 渲染真实 DOM
 - 组件数: 80+，含表格、表单、图表（柱状/折线/饼图/雷达/散点/甘特/漏斗/仪表盘）、卡片、栅格、列表、AI 对话气泡、流式 Markdown、代码高亮、时间线、步骤条等

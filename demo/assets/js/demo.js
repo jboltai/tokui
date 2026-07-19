@@ -52,6 +52,7 @@ const NAV_DATA = [
       { trigger: 'demo-i18n', name: { zh: '多语言 i18n', en: 'i18n' }, desc: { zh: '组件 chrome 文案随语言切换', en: 'Chrome text follows locale toggle' }, icon: '🌐' },
       { trigger: 'demo-heading', name: { zh: '标题组件', en: 'Heading' }, desc: { zh: 'h1-h6 各级标题', en: 'h1-h6 headings' }, icon: 'H' },
       { trigger: 'demo-button', name: { zh: '按钮组件', en: 'Button' }, desc: { zh: '多类型多色彩按钮', en: 'Button types & colors' }, icon: '▶' },
+      { trigger: 'demo-btn-size-whitelist', name: { zh: '按钮尺寸白名单', en: 'Btn Size Whitelist' }, desc: { zh: 'w/radius 非法值静默丢弃', en: 'Invalid w/radius dropped' }, icon: '▶' },
       { trigger: 'demo-icon', name: { zh: '图标按钮', en: 'Icon' }, desc: { zh: 'SVG icon + emoji 全场景', en: 'SVG icon + emoji all scenarios' }, icon: '★' },
       { trigger: 'demo-input', name: { zh: '输入框', en: 'Input' }, desc: { zh: '文本/数字/密码/邮箱', en: 'Text/number/password/email' }, icon: '✎' },
       { trigger: 'demo-select', name: { zh: '选择 Select', en: 'Select' }, desc: { zh: '下拉单选/多选/简写/inline/取值', en: 'Single/multi/shorthand/inline' }, icon: '☑' },
@@ -59,6 +60,7 @@ const NAV_DATA = [
       { trigger: 'demo-checkbox', name: { zh: '多选 Checkbox', en: 'Checkbox' }, desc: { zh: '单布尔/简写/容器多选/取值', en: 'Boolean/shorthand/multi' }, icon: '☒' },
       { trigger: 'show-picker', name: { zh: 'Picker选择器', en: 'Picker' }, desc: { zh: '自定义选择器/搜索/多选', en: 'Custom select/search/multi' }, icon: '⬇' },
       { trigger: 'show-basic', name: { zh: '段落与链接', en: 'Text & Link' }, desc: { zh: '文本段落、超链接、分割线', en: 'Paragraphs, links, hr' }, icon: '↗' },
+      { trigger: 'demo-inline-format', name: { zh: '行内格式', en: 'Inline Format' }, desc: { zh: 'b/em/mark/del/sub/sup 混排', en: 'Inline b/em/mark/del/sub/sup' }, icon: 'B' },
       { trigger: 'demo-img', name: { zh: '图片组件', en: 'Image' }, desc: { zh: '单图/头像/圆角/边框', en: 'Single image variants' }, icon: '▣' },
       { trigger: 'demo-imgs', name: { zh: '多图九宫格', en: 'Image Grid' }, desc: { zh: '1-9图自适应网格', en: '1-9 image grid' }, icon: '⊞' },
       { trigger: 'demo-code', name: { zh: '代码块', en: 'Code Block' }, desc: { zh: '多语言语法高亮', en: 'Multi-language highlighting' }, icon: '⌘' },
@@ -104,6 +106,8 @@ const NAV_DATA = [
       { trigger: 'fa-submit-reset', name: { zh: '提交与重置', en: 'Submit & Reset' }, desc: { zh: 'sub 收集全字段 / reset 复原自定义控件', en: 'Collect all / reset custom controls' }, icon: '↺' },
       { trigger: 'fa-print', name: { zh: '打印区与打印按钮', en: 'Print Area' }, desc: { zh: 'print-area 1:1 打印 / 按钮不进预览', en: '1:1 print, button hidden in preview' }, icon: '🖨' },
       { trigger: 'fa-order', name: { zh: '综合订单页', en: 'Combo Order' }, desc: { zh: '表单+提交+重置+打印整卡', en: 'Form+submit+reset+print card' }, icon: '✦' },
+      { trigger: 'demo-form-validation', name: { zh: '原生校验', en: 'Validation' }, desc: { zh: '提交前 reportValidity 拦截 req/pat', en: 'reportValidity blocks invalid submit' }, icon: '✔' },
+      { trigger: 'demo-form-feedback', name: { zh: '验证反馈', en: 'Feedback' }, desc: { zh: 'Hint 三态/服务端校验/流式推送/live 实时校验', en: 'Hint states/server validation/stream push/live validation' }, icon: '💬' },
     ]
   },
   {
@@ -257,6 +261,7 @@ const NAV_DATA = [
       { trigger: 'demo-upd-chat-input', name: { zh: '输入状态', en: 'Chat Input' }, desc: { zh: '禁用/启用输入框', en: 'Disable/enable input' }, icon: '⌨' },
       { trigger: 'demo-upd-form', name: { zh: '表单联动', en: 'Form Linkage' }, desc: { zh: '多控件联动更新', en: 'Linked form updates' }, icon: '🔗' },
       { trigger: 'demo-upd-stat', name: { zh: '统计数值', en: 'Stat' }, desc: { zh: '实时数据监控', en: 'Live data monitor' }, icon: '📊' },
+      { trigger: 'demo-upd-dup-id', name: { zh: '同 id 冲突', en: 'Duplicate ID' }, desc: { zh: 'upd 命中本流容器内元素', en: 'upd hits in-stream element' }, icon: '⌖' },
     ]
   },
   {
@@ -312,7 +317,7 @@ const I18N = {
   action:         { zh: '操作', en: 'Action' },
   editClicked:    { zh: '编辑按钮被点击', en: 'Edit button clicked' },
   deleteClicked:  { zh: '删除按钮被点击', en: 'Delete button clicked' },
-  footerVer:      { zh: '当前版本:v0.1.6', en: 'Version: v0.1.6' },
+  footerVer:      { zh: '当前版本:v0.1.7', en: 'Version: v0.1.7' },
   footerCopy:     { zh: '零依赖 · 流式UI描述与渲染框架', en: 'Zero Deps · Streaming UI Framework' },
   dslRef:         { zh: 'DSL 语法速查', en: 'DSL Syntax Ref' },
   clearBtn:       { zh: '清空', en: 'Clear' },
@@ -523,6 +528,28 @@ TokUI.registerHandler('handleSave', () => addSystemMessage(t('action'), '保存'
 TokUI.registerHandler('handleCancel', () => addSystemMessage(t('action'), '取消'));
 TokUI.registerHandler('handleExport', () => addSystemMessage(t('action'), '导出'));
 TokUI.registerHandler('handleSearch', (data) => addSystemMessage('搜索', JSON.stringify(data, null, 2)));
+TokUI.registerHandler('handleSend', (data) => addSystemMessage('Chat Input 发送', (data && data.value) || ''));
+TokUI.registerHandler('handleValid', (data) => addSystemMessage('校验通过', JSON.stringify(data, null, 2)));
+TokUI.registerHandler('handleDrawerForm', (data) => addSystemMessage('抽屉表单提交', JSON.stringify(data, null, 2)));
+// 交互式服务端校验模拟（demo-form-feedback）：用 [upd] 把校验结论推回输入框 hint
+TokUI.registerHandler('checkReg', (data, _e, el) => {
+  const lastR = renders[renders.length - 1];
+  const push = (dsl) => { if (lastR && lastR.instance) lastR.instance.render(dsl); };
+  const nameEl = el.querySelector('[name="regname"]');
+  const phoneEl = el.querySelector('[name="regphone"]');
+  let ok = true;
+  if (nameEl) {
+    const taken = String((data && data.regname) || '').toLowerCase() === 'admin';
+    push('[upd id:' + nameEl.id + ' status:' + (taken ? 'error' : 'success') + ' hint:"' + (taken ? '✗ 该用户名已被占用' : '✓ 用户名可用') + '"]');
+    if (taken) ok = false;
+  }
+  if (phoneEl) {
+    const bad = !/^1\d{10}$/.test(String((data && data.regphone) || ''));
+    push('[upd id:' + phoneEl.id + ' status:' + (bad ? 'error' : 'success') + ' hint:"' + (bad ? '✗ 手机号格式不正确（服务端校验）' : '✓ 手机号格式正确') + '"]');
+    if (bad) ok = false;
+  }
+  addSystemMessage(ok ? '服务端校验通过' : '服务端校验未通过', JSON.stringify(data, null, 2));
+});
 
 // === 表单动作专题 handler（reset/print 为内置动作，无需 handler）===
 TokUI.registerHandler('faBindA', (data) => addSystemMessage('表单 A 提交数据', JSON.stringify(data, null, 2)));
@@ -690,7 +717,7 @@ TokUI.registerHandler('thumb-code-down', function (data) {
 
 // Dropdown 下拉菜单事件
 ['handleView', 'handleCopy',
-  'exportCSV', 'exportExcel', 'deleteAll', 'clearTrash', 'optA', 'optB',
+  'exportCSV', 'exportExcel', 'exportPDF', 'deleteAll', 'clearTrash', 'optA', 'optB',
   'openProfile', 'openSettings', 'handleLogout'].forEach(function (name) {
   TokUI.registerHandler(name, function () {
     addSystemMessage('菜单操作', name.replace('handle', '').replace(/([A-Z])/g, ' $1').trim());

@@ -10,3 +10,4 @@ docs/superpowers/
 server.pid
 .idea/
 coverage/
+.claude

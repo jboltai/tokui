@@ -10,6 +10,7 @@ const { setupDOM, teardownDOM } = require('./helpers/dom-mock');
 setupDOM();
 
 const { TokUIRenderer } = require('../src/core/renderer');
+const TokUIEventBus = require('../src/core/event-bus');
 const { registerFormComponents } = require('../src/components/form');
 const { registerBasicComponents } = require('../src/components/basic');
 
@@ -27,7 +28,7 @@ function run() {
 }
 
 function makeRenderer() {
-  const rc = new TokUIRenderer();
+  const rc = new TokUIRenderer(TokUIEventBus);
   registerFormComponents(rc);
   registerBasicComponents(rc);
   return rc;
@@ -824,6 +825,179 @@ test('upd ro:"false" 字符串路径清除 readonly', () => {
   rc.render({ type: 'input', attrs: { id: 'upd-i3', ro: true }, children: [] });
   rc.render({ type: 'upd', attrs: { id: 'upd-i3', ro: 'false' }, children: [] });
   assert.strictEqual(document.getElementById('upd-i3').readOnly, false, 'ro:"false" 应清除只读态');
+});
+
+// === P0 回归：change 回流 / 校验闸门 / aria-invalid / CSS 过滤 / upd 作用域 ===
+
+// 回归：旧实现读 window.TokUI._eventBus（从未赋值）→ rate change 回调静默失效
+test('rate clk 回调经 renderer.eventBus 触发', () => {
+  const rc = makeRenderer();
+  let got = null;
+  rc.eventBus.registerHandler('rateH', (data) => { got = data; });
+  const dom = rc.render({ type: 'rate', attrs: { id: 'r-clk', max: 5, clk: 'rateH' }, children: [] });
+  const rate = dom.querySelector('.tokui-rate');
+  const star = dom.querySelector('.tokui-rate__star');
+  assert.ok(rate && star, 'rate 应渲染容器与星星');
+  // rate 为容器委托监听：点击事件需带 target = 星星
+  (rate._events.click || []).forEach(fn => fn({ target: star, preventDefault() {} }));
+  assert.ok(got, '点击星星应触发 clk handler');
+  assert.strictEqual(got.id, 'r-clk');
+  assert.strictEqual(got.value, 1, '点第一颗星 value 应为 1');
+});
+
+// 回归：旧提交路径绕过原生校验，req 必填不强制
+test('sub 提交前过 reportValidity 闸门', () => {
+  const rc = makeRenderer();
+  let calls = 0;
+  rc.eventBus.registerHandler('subH', () => { calls++; });
+  const dom = rc.render({ type: 'form', attrs: { sub: 'subH' }, children: [
+    { type: 'input', attrs: { id: 'vf1', req: true }, children: [] }
+  ]});
+  rc.bindEvents(dom);
+  dom.reportValidity = () => false;
+  (dom._events.submit || []).forEach(fn => fn({ preventDefault() {} }));
+  assert.strictEqual(calls, 0, '校验失败不应调用 handler');
+  dom.reportValidity = () => true;
+  (dom._events.submit || []).forEach(fn => fn({ preventDefault() {} }));
+  assert.strictEqual(calls, 1, '校验通过应调用 handler');
+});
+
+test('input v:error 联动 aria-invalid + pat 映射 pattern', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'input', attrs: { v: 'error', pat: '\\d+' }, children: [] });
+  const input = dom.querySelector('.tokui-input');
+  assert.strictEqual(input.getAttribute('aria-invalid'), 'true');
+  assert.strictEqual(input.getAttribute('pattern'), '\\d+');
+});
+
+test('select/textarea v:error 联动 aria-invalid', () => {
+  const rc = makeRenderer();
+  const selDom = rc.render({ type: 'select', attrs: { v: 'error' }, children: [] });
+  assert.strictEqual(selDom.querySelector('.tokui-select').getAttribute('aria-invalid'), 'true');
+  const taDom = rc.render({ type: 'textarea', attrs: { v: 'error' }, children: [] });
+  assert.strictEqual(taDom.querySelector('.tokui-input').getAttribute('aria-invalid'), 'true');
+});
+
+// 安全：btn w/radius 直拼 style，非法值必须过滤
+test('btn w/radius 非法 CSS 值被过滤', () => {
+  const rc = makeRenderer();
+  const okDom = rc.render({ type: 'btn', attrs: { tx: 'x', w: '100px', radius: '8px' }, children: [] });
+  assert.ok(okDom.style.cssText.indexOf('width:100px') !== -1, '合法 w 应保留');
+  assert.ok(okDom.style.cssText.indexOf('border-radius:8px') !== -1, '合法 radius 应保留');
+  const badDom = rc.render({ type: 'btn', attrs: { tx: 'x', w: '100px;position:fixed', radius: 'expression(alert(1))' }, children: [] });
+  const s = badDom.style.cssText || '';
+  assert.ok(s.indexOf('position') === -1 && s.indexOf('expression') === -1, '非法值不应进入 style: ' + s);
+});
+
+// 多消息场景：同 id 时 upd 优先命中 _mountRoot 内的元素
+test('upd 优先命中 _mountRoot 内同 id 元素', () => {
+  const rc = makeRenderer();
+  const rootA = document.createElement('div');
+  const rootB = document.createElement('div');
+  const domA = rc.render({ type: 'input', attrs: { id: 'dup' }, children: [] });
+  rootA.appendChild(domA);
+  const domB = rc.render({ type: 'input', attrs: { id: 'dup' }, children: [] });
+  rootB.appendChild(domB);
+  rc._mountRoot = rootB;
+  rc.render({ type: 'upd', attrs: { id: 'dup', v: 'B' }, children: [] });
+  assert.strictEqual(domB.querySelector('.tokui-input').value, 'B', '容器内元素应被更新');
+  assert.notStrictEqual(domA.querySelector('.tokui-input').value, 'B', '容器外同 id 元素不应被误更新');
+});
+
+// upd status:error/success → 输入框变体类 + hint 配色 + aria-invalid 联动
+test('input _update status 切换校验反馈样式', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'input', attrs: { id: 'st1', hint: ' ' }, children: [] });
+  const input = dom.querySelector('.tokui-input');
+  const hint = dom.querySelector('.tokui-field__hint');
+  dom._update({ status: 'error', hint: '✗ 格式错误' });
+  assert.ok(input.className.indexOf('tokui-input--error') !== -1, '输入框应有 error 变体类');
+  assert.strictEqual(input.getAttribute('aria-invalid'), 'true');
+  assert.ok(hint.className.indexOf('tokui-field__hint--error') !== -1, 'hint 应有 error 配色类');
+  assert.strictEqual(hint.textContent, '✗ 格式错误');
+  dom._update({ status: 'success', hint: '✓ 通过' });
+  assert.ok(input.className.indexOf('tokui-input--error') === -1, 'error 类应被移除');
+  assert.ok(input.className.indexOf('tokui-input--success') !== -1);
+  assert.ok(hint.className.indexOf('tokui-field__hint--success') !== -1);
+  assert.strictEqual(input.getAttribute('aria-invalid'), null, '非 error 应移除 aria-invalid');
+  dom._update({ status: '' });
+  assert.ok(input.className.indexOf('tokui-input--success') === -1, '空 status 应清除状态类');
+  assert.ok(hint.className.indexOf('tokui-field__hint--success') === -1);
+});
+
+// live 纯前端实时校验：blur 本地 checkValidity → hint 反馈（零网络）
+test('input live：blur 校验失败出 error hint，改对即时转 success', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'input', attrs: {
+    l: '手机号', req: true, pat: '1\\d{10}',
+    err: '✗ 请输入 11 位手机号', ok: '✓ 手机号格式正确', live: true, hint: '11 位大陆手机号'
+  }, children: [] });
+  const input = dom.querySelector('.tokui-input');
+  const hint = dom.querySelector('.tokui-field__hint');
+  assert.ok(hint, 'live 模式必须创建 hint 槽');
+  let valid = false;
+  input.checkValidity = () => valid; // mock 原生校验
+  // blur 校验失败
+  input.value = '123';
+  (input._events.blur || []).forEach(fn => fn({}));
+  assert.strictEqual(hint.textContent, '✗ 请输入 11 位手机号');
+  assert.ok(input.className.indexOf('tokui-input--error') !== -1);
+  // error 态下继续输入，改对立即转 success
+  valid = true;
+  input.value = '13800138000';
+  (input._events.input || []).forEach(fn => fn({}));
+  assert.strictEqual(hint.textContent, '✓ 手机号格式正确');
+  assert.ok(input.className.indexOf('tokui-input--success') !== -1);
+});
+
+test('input live：空值非必填回中性', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'input', attrs: { l: '昵称', live: true, hint: '可选' }, children: [] });
+  const input = dom.querySelector('.tokui-input');
+  const hint = dom.querySelector('.tokui-field__hint');
+  input.checkValidity = () => true;
+  input.value = '';
+  (input._events.blur || []).forEach(fn => fn({}));
+  assert.strictEqual(hint.textContent, '可选', '空值非必填应恢复中性 hint');
+  assert.ok(input.className.indexOf('tokui-input--error') === -1);
+  assert.ok(input.className.indexOf('tokui-input--success') === -1);
+});
+
+// live:input 即时模式：每次 input 事件都校验（无需 blur）
+test('input live:input 即时校验——输入即反馈', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'input', attrs: {
+    l: '用户名', req: true, live: 'input',
+    err: '✗ 字母开头 4-16 位', ok: '✓ 用户名可用', hint: '字母开头 4-16 位字母数字'
+  }, children: [] });
+  const input = dom.querySelector('.tokui-input');
+  const hint = dom.querySelector('.tokui-field__hint');
+  let valid = false;
+  input.checkValidity = () => valid;
+  // 输入即错（不触发 blur）
+  input.value = '1ab';
+  (input._events.input || []).forEach(fn => fn({}));
+  assert.strictEqual(hint.textContent, '✗ 字母开头 4-16 位', '即时模式应在 input 事件即报错');
+  assert.ok(input.className.indexOf('tokui-input--error') !== -1);
+  // 改对立即转 success
+  valid = true;
+  input.value = 'abc123';
+  (input._events.input || []).forEach(fn => fn({}));
+  assert.strictEqual(hint.textContent, '✓ 用户名可用');
+  assert.ok(input.className.indexOf('tokui-input--success') !== -1);
+});
+
+// req 必填标记：label 带 tokui-label--req（CSS 渲染红色 *）
+test('req 字段 label 带必填标记类', () => {
+  const rc = makeRenderer();
+  const withReq = rc.render({ type: 'input', attrs: { l: '手机号', req: true }, children: [] });
+  assert.ok(withReq.querySelector('.tokui-label').className.indexOf('tokui-label--req') !== -1, 'req 应带标记类');
+  const noReq = rc.render({ type: 'input', attrs: { l: '昵称' }, children: [] });
+  assert.ok(noReq.querySelector('.tokui-label').className.indexOf('tokui-label--req') === -1, '非 req 不带标记类');
+  const ta = rc.render({ type: 'textarea', attrs: { l: '备注', req: true }, children: [] });
+  assert.ok(ta.querySelector('.tokui-label').className.indexOf('tokui-label--req') !== -1, 'textarea req 应带标记类');
+  const sel = rc.render({ type: 'select', attrs: { l: '城市', req: true }, children: [] });
+  assert.ok(sel.querySelector('.tokui-label').className.indexOf('tokui-label--req') !== -1, 'select req 应带标记类');
 });
 
 run();

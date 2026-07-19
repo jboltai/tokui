@@ -222,7 +222,7 @@ resizable canvas canvas-content chart p
 | `watermark` | 容器 | `tx` `s` `font` `c` `gap` `ro` | 水印容器。`ro` 旋转角度（默认 -22），`gap` 间距（默认 40），canvas 平铺 |
 | `avatar` | 自闭合 | `s` `tx` `size` `bg` `fc` | 头像。无 src 时文字头像（取前 2 字），无 bg 时按 hash 自动配色 |
 | `file` | 自闭合 | `n` `s` `t` `u` `tt` | 文件卡片。`t:pdf`/`word`/`excel`/`ppt`/`image`/`zip`/`code`/`default` |
-| `chat-input` | 容器 | `ph` `clk` `dis` `max` `auto` `rows` | 对话输入框。Enter 发送/Shift+Enter 换行 |
+| `chat-input` | 容器 | `ph` `clk` `dis` `max` `auto` `rows` | 对话输入框。Enter 发送/Shift+Enter 换行；Enter/发送按钮触发 clk handler，负载 `{value}` |
 | `msg-actions` | 容器 | `clk` `copy` `regenerate` `like`/`dislike` `delete` `visible` | 消息操作栏。布尔属性生成默认按钮 |
 
 ### 6.3 思考与计划
@@ -234,7 +234,7 @@ resizable canvas canvas-content chart p
 | `think-step` | 容器 | `status` `tt` `dur` | 推理步骤。`status:done`/`running`/`pending`/`error` |
 | `plan` | 容器 | `tt` | 执行计划；子项 `plan-step` |
 | `plan-step` | 自闭合 | `status` `tt` `desc` | 计划步骤。`status:pending`/`doing`/`done`/`error`/`skipped`（接受 `running`/`complete`/`fail` 等同义词） |
-| `agent` | 容器 | `name` `status` `action` `duration` `id` | 智能体状态。`status:idle`/`running`/`paused`/`done`/`error` |
+| `agent` | 自闭合 | `name` `status` `action` `duration` `id` | 智能体状态。`status:idle`/`running`/`paused`/`done`/`error` |
 
 ### 6.4 AI / 对话
 
@@ -314,8 +314,8 @@ resizable canvas canvas-content chart p
 
 | Tag | 类型 | 常用属性 | 说明 |
 |-----|------|----------|------|
-| `form` | 容器 | `act` `mtd` `sub` `clk` `id` | 表单。`act` 提交地址、`sub` 提交处理器 |
-| `input` | 自闭合 | `t` `l` `ph` `id` `n` `val` `ml` `min` `max` `step` `req` `dis` `ro` `w` `hint` `search` `v` `pre`/`app`/`prebtn`/`appbtn` | 输入框。`val` 存初值（`v` 是变体）；`ml` maxlength；`hint` 提示；`search` 加搜索图标（`search right` 右侧）；`pre`/`app` 前置/后置文本（可 `文本\|变体`）；`prebtn`/`appbtn` 前置/后置按钮（`文本:处理器\|变体`） |
+| `form` | 容器 | `act` `mtd` `sub` `clk` `id` | 表单。`act` 提交地址、`sub` 提交处理器；提交前执行原生 reportValidity（`req`/`pat` 不过则拦截） |
+| `input` | 自闭合 | `t` `l` `ph` `id` `n` `val` `ml` `min` `max` `step` `req` `dis` `ro` `w` `hint` `pat` `err` `ok` `live` `search` `v` `pre`/`app`/`prebtn`/`appbtn` | 输入框。`val` 存初值（`v` 是变体）；`ml` maxlength；`hint` 提示；`pat` 原生 pattern 校验；`err` 自定义校验错误文案；`live` 纯前端实时校验（blur 本地 checkValidity：失败出 `err` 红 hint，通过出 `ok` 绿 hint，默认 `✓ 格式正确`；`live:input` 即时模式边输边验）；`search` 加搜索图标（`search right` 右侧）；`pre`/`app` 前置/后置文本（可 `文本\|变体`）；`prebtn`/`appbtn` 前置/后置按钮（`文本:处理器\|变体`） |
 | `pwd` | 自闭合 | 同 `input` + `toggle` | 密码框。`toggle` 显隐开关 |
 | `textarea` | 容器 | `l` `id` `n` `ph` `rows` `maxlen` `maxrows` `auto` `tx`/裸内容 `req` `dis` `ro` | 多行文本。`auto` 自适应高度 |
 | `select` | 容器 | `l` `ph` `multi` `id` `n` `req` `v` `opt` | 下拉选择。子项 `opt`；或 `opt:"v:标签;…"` 简写自闭合 |
@@ -326,7 +326,7 @@ resizable canvas canvas-content chart p
 | `slider` | 自闭合 | `l` `min` `max` `step` `v` `dis` `clk` `id` `n` | 滑块 |
 | `rate` | 自闭合 | `l` `v` `max` `tx` `ro` `dis` `clk` `id` `n` | 评分。`max` 默认 5；`ro` 只读（报告/展示类必加） |
 | `numinput` | 自闭合 | `l` `v` `min` `max` `step` `dis` `id` `n` | 数字输入 |
-| `btn` | 自闭合 | `tx` `t` `sub` `clk` `id` `dis` `w` `bg` `fc` `radius` `icon` `i` `l`/`tt` `form` `reset` `print` | 按钮（见下方专节） |
+| `btn` | 自闭合 | `tx` `t` `sub` `clk` `id` `dis` `w` `bg` `fc` `radius` `icon` `i` `l`/`tt` `form` `reset` `print` | 按钮（见下方专节）。`t:submit` = 提交语义（渲染 `type=submit`，点击走 `_doSubmit` 校验闸门：`req`/`pat` 不过则拦截；`clk:H` 作提交 handler，缺省回退表单自身 `sub`；不在 form 内时退化为普通点击）。`w`/`radius` 仅接受 数字+px/%/em/rem/vw/vh，非法值静默丢弃 |
 | `btngroup` | 容器 | `id` `v` | 按钮组。`v:vertical`/`pill` |
 | `print-area` | 容器 | `id` `tt` | 打印区（配合 `[btn print:ID]` 1:1 打印） |
 | `picker` | 容器 | `l` `ph` `multi` `dis` `id` `n` `v` | 选择器（搜索下拉）；子项 `opt` |
@@ -662,9 +662,12 @@ sort  star  link  menu
 - `tag`：`tx` / `act:close`
 - `collapse`/`dialog`/`drawer`/`canvas`：`act:open` / `act:close` / `act:toggle` / `tt`
 - `input`/`pwd`/`select`/`slider`/`rate`/`numinput`/`switch`/`textarea`/`chat-input`/`input-tag`：`v` / `dis` / `ph` / `ro` / `hint` / `chk` 等
+- `input`/`pwd` 另支持 `status:error` / `status:success`：联动输入框变体类、hint 配色与 `aria-invalid`（校验反馈场景）；`status:` 空值清除状态
 - `steps`/`tabs`：`v`（切当前步 / 激活页）
 
 > `upd` 的 `dis:false` / `ro:false` / `chk:false` 是「主动关闭」语义（渲染端判 `=== 'false'`）；初始渲染的 `dis:false` 会被 parser 读成字符串 `'false'`（truthy），故初始禁用应省略而非写 `false`。
+
+> 目标查找：页面存在多个同 `id` 元素时（多轮消息重名常见），`upd` 优先命中当前流式容器内的元素，容器内无匹配才回退全文档查找。
 
 ---
 

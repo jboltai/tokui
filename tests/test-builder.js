@@ -951,4 +951,32 @@ test('checkbox 单布尔：维持自闭合', () => {
   assert.ok(out.indexOf('[/checkbox]') === -1);
 });
 
+// ===== P0：agent 恒自闭合 + 行内格式组件 =====
+
+// 回归：旧实现 attrs 无 status/name 时走 _open，但 agent 不在 parser CONTAINERS
+// → 闭标签报「未匹配」。agent 组件纯 attr 驱动，恒自闭合。
+test('agent 无 status/name 仍输出自闭合、不开栈', () => {
+  const b = new TokUIBuilder();
+  b.agent({ id: 'a1' }).h1('后续');
+  const out = b.toString();
+  assert.ok(out.indexOf('[agent id:a1]') >= 0, '应输出自闭合 [agent ...]');
+  assert.ok(out.indexOf('[/agent]') === -1, '不应有 [/agent] 闭标签');
+});
+
+test('agent 带 status 输出自闭合', () => {
+  const b = new TokUIBuilder();
+  b.agent({ name: 'Researcher', status: 'running' });
+  const out = b.toString();
+  assert.ok(out.indexOf('[agent') >= 0 && out.indexOf('[/agent]') === -1);
+});
+
+test('行内格式组件 b/strong/em/mark/del/sub/sup', () => {
+  const b = new TokUIBuilder();
+  b.b('粗').strong('壮').em('斜').mark('亮').del('删').sub('下').sup('上');
+  const out = b.toString();
+  ['[b 粗]', '[strong 壮]', '[em 斜]', '[mark 亮]', '[del 删]', '[sub 下]', '[sup 上]'].forEach(tag => {
+    assert.ok(out.indexOf(tag) >= 0, '缺少 ' + tag + '，实际: ' + out);
+  });
+});
+
 run();

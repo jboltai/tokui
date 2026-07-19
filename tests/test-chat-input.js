@@ -9,6 +9,7 @@ const { setupDOM, teardownDOM } = require('./helpers/dom-mock');
 setupDOM();
 
 const { TokUIRenderer } = require('../src/core/renderer');
+const TokUIEventBus = require('../src/core/event-bus');
 const { registerBasicComponents } = require('../src/components/basic');
 
 const tests = [];
@@ -25,7 +26,7 @@ function run() {
 }
 
 function makeRenderer() {
-  const rc = new TokUIRenderer();
+  const rc = new TokUIRenderer(TokUIEventBus);
   registerBasicComponents(rc);
   return rc;
 }
@@ -51,11 +52,40 @@ test('chat-input has send button', () => {
   assert.strictEqual(sendBtn.getAttribute('aria-label'), '发送');
 });
 
-// === 3. clk attribute on wrapper ===
-test('chat-input sets data-tokui-clk from clk attribute', () => {
+// === 3. wrapper 不再盖 data-tokui-clk（回归：旧实现点击 textarea 也误触发 handler） ===
+test('chat-input does not stamp data-tokui-clk on wrapper', () => {
   const rc = makeRenderer();
   const dom = rc.render({ type: 'chat-input', attrs: { clk: 'handleSend' }, children: [] });
-  assert.strictEqual(dom.getAttribute('data-tokui-clk'), 'handleSend');
+  assert.strictEqual(dom.getAttribute('data-tokui-clk'), null);
+});
+
+// === 3b. Enter 发送直调 handler（回归：旧实现 Enter 路径无 click 事件 → handler 不触发） ===
+test('chat-input Enter key invokes handler with value', () => {
+  const rc = makeRenderer();
+  let calls = 0, received = null;
+  rc.eventBus.registerHandler('handleSend', (data) => { calls++; received = data; });
+  const dom = rc.render({ type: 'chat-input', attrs: { clk: 'handleSend' }, children: [] });
+  var textarea = dom.querySelector('textarea');
+  textarea.value = '你好 TokUI';
+  (textarea._events.keydown || []).forEach(fn => fn({ key: 'Enter', shiftKey: false, preventDefault() {} }));
+  assert.strictEqual(calls, 1, 'Enter 应恰好触发一次 handler');
+  assert.deepStrictEqual(received, { value: '你好 TokUI' });
+  assert.strictEqual(textarea.value, '', '发送后应清空输入');
+  assert.strictEqual(dom.getAttribute('data-tokui-clk-value'), '你好 TokUI', '保留 value 属性盖章（向后兼容）');
+});
+
+// === 3c. 点击发送按钮同样触发且只触发一次 ===
+test('chat-input send button click invokes handler exactly once', () => {
+  const rc = makeRenderer();
+  let calls = 0, received = null;
+  rc.eventBus.registerHandler('handleSend', (data) => { calls++; received = data; });
+  const dom = rc.render({ type: 'chat-input', attrs: { clk: 'handleSend' }, children: [] });
+  var textarea = dom.querySelector('textarea');
+  var sendBtn = dom.querySelector('button');
+  textarea.value = 'hi';
+  (sendBtn._events.click || []).forEach(fn => fn({ preventDefault() {} }));
+  assert.strictEqual(calls, 1, '点击发送应恰好触发一次 handler（无冒泡双触发）');
+  assert.deepStrictEqual(received, { value: 'hi' });
 });
 
 // === 4. dis attribute adds disabled state ===
