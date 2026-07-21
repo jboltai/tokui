@@ -11,8 +11,23 @@
 export type TokUIHandlerFn = (data: any, event: Event, element: HTMLElement) => void;
 
 /**
+ * 组件交互事件 payload（onEvent('component', evt) 的第二参）
+ * DSL `on:"事件:处理器"` 之外的统一事件出口：所有接入上报的组件交互都会发到这里。
+ */
+export interface TokUIComponentEvent {
+  /** 组件类型，如 'input' / 'tabs' / 'dialog' / 'tool-call' */
+  type: string;
+  /** 组件 id 属性（无则 null） */
+  id: string | null;
+  /** 事件名，如 'change' / 'close' / 'stop' / 'approval' */
+  event: string;
+  /** 事件上下文，如 { value } / { index, title } / { approved, id, name } */
+  detail: any;
+}
+
+/**
  * onEvent 回调签名
- * @param eventName - 事件名，如 'streamEnd'
+ * @param eventName - 事件名：'streamEnd'（流结束）/ 'component'（组件交互，data 为 TokUIComponentEvent）
  * @param data      - 事件数据
  */
 export type TokUIEventCallback = (eventName: string, data: any) => void;
@@ -34,8 +49,10 @@ export interface TokUIOptions {
   locale?: string;
   /** 是否启用流式渲染模式，默认 true */
   streaming?: boolean;
-  /** 事件回调，如接收到 ('streamEnd', {}) */
+  /** 事件回调：('streamEnd', {}) 流结束；('component', TokUIComponentEvent) 组件交互统一出口 */
   onEvent?: TokUIEventCallback | null;
+  /** 组件交互事件过滤器：返回 false 丢弃该事件（onEvent 降噪用，如只看某类组件） */
+  eventFilter?: ((evt: TokUIComponentEvent) => boolean) | null;
 }
 
 /**

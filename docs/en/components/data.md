@@ -263,8 +263,12 @@ A self-closing directive. `id` targets an already-rendered component's ID, and t
 | `tt` / `tx` | New title / new text | `tt:已完成` |
 | `act` | New action | `act:restart` |
 
-**Usage**: First render a component with an `id`, then use the `upd` directive to override its state. The example below first renders progress at 30%, and the following `upd` updates the same target to 80% and marks it success — so the final state you see after rendering is the updated one.
+**Usage**: First render a component with an `id`, then use the `upd` directive to override its state. The example below first renders progress at 30%, and the following `upd` updates the same target to 80% and marks it success — so the final state you see after rendering is the updated one. `id` accepts comma-separated targets for batch updates: `[upd id:a,b v:80]` (the same props are applied to every matched component).
 
 <Playground dsl='[progress id:demo v:30 l:下载中][upd id:demo v:80 status:success]' />
 
-> `upd` only takes effect when the target component implements `_update` (e.g. `progress`, `stat`, `steps`). If the target is not rendered or has no `_update` method, `upd` is a silent no-op and renders as an empty text node. For the full prop list, see section 5.2 of the [DSL reference](https://github.com/jboltai/tokui/blob/master/demo/TOKUI_DSL_REFERENCE.md).
+**Delete & insert directives**: `[del id:x]` removes the component with the given id (a missing target is silently skipped; if the target is a container that is still streaming and not yet closed, `del` warns via `console.warn` and skips — wait for it to close before sending `del`); the container directives `[ins after:ID]` / `before:ID` / `into:ID` insert their children after / before / inside the target (`into` appends to the target's content slot) — children are staged off-document during streaming and moved in one shot when `[/ins]` closes. See [DSL Syntax · Dynamic update](/en/guide/dsl-syntax#dynamic-update).
+
+**`calendar` live update**: `[upd id:cal v:"8,15"]` / `[upd id:cal sel:"8,15"]` resets the selected days (comma-separated day numbers, full replacement).
+
+> `upd` only takes effect when the target component implements `_update` (e.g. `progress`, `stat`, `steps`). If the target is not rendered or has no `_update` method, `upd` is a silent no-op and renders as an empty text node. For the full prop list, see section 8 of the [DSL reference](https://github.com/jboltai/tokui/blob/master/demo/TOKUI_DSL_REFERENCE.md).

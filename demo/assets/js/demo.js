@@ -156,6 +156,7 @@ const NAV_DATA = [
       { trigger: 'demo-ai-advanced', name: { zh: '★ 高级组件合集', en: '★ Advanced Set' }, desc: { zh: '视频+音频+引用+沙盒+提交+测试', en: 'Video+Audio+Quote+Sandbox+Commit+Test' }, icon: '★' },
       { trigger: 'demo-artifact', name: { zh: 'Artifact 代码预览', en: 'Artifact Preview' }, desc: { zh: '侧边面板Code/Preview切换+拖拽', en: 'Side panel Code/Preview toggle + drag resize' }, icon: '◫' },
       { trigger: 'demo-conversations', name: { zh: 'Conversations 会话列表', en: 'Conversations' }, desc: { zh: '时间分组/激活/删除', en: 'Time grouping/active/delete' }, icon: '💬' },
+      { trigger: 'demo-interaction', name: { zh: '交互回路', en: 'Interaction Loop' }, desc: { zh: 'HITL审批/事件上报/del/ins/停止生成', en: 'HITL approval/events/del/ins/stop' }, icon: '🔁' },
     ]
   },
   {
@@ -315,9 +316,11 @@ const I18N = {
   loginData:      { zh: '登录数据', en: 'Login Data' },
   addEmpData:     { zh: '添加员工', en: 'Add Employee' },
   action:         { zh: '操作', en: 'Action' },
+  eventPanelTitle: { zh: '交互事件', en: 'Events' },
+  eventPanelClear: { zh: '清空', en: 'Clear' },
   editClicked:    { zh: '编辑按钮被点击', en: 'Edit button clicked' },
   deleteClicked:  { zh: '删除按钮被点击', en: 'Delete button clicked' },
-  footerVer:      { zh: '当前版本:v0.1.7', en: 'Version: v0.1.7' },
+  footerVer:      { zh: '当前版本:v0.1.8', en: 'Version: v0.1.8' },
   footerCopy:     { zh: '零依赖 · 流式UI描述与渲染框架', en: 'Zero Deps · Streaming UI Framework' },
   dslRef:         { zh: 'DSL 语法速查', en: 'DSL Syntax Ref' },
   clearBtn:       { zh: '清空', en: 'Clear' },
@@ -531,6 +534,23 @@ TokUI.registerHandler('handleSearch', (data) => addSystemMessage('搜索', JSON.
 TokUI.registerHandler('handleSend', (data) => addSystemMessage('Chat Input 发送', (data && data.value) || ''));
 TokUI.registerHandler('handleValid', (data) => addSystemMessage('校验通过', JSON.stringify(data, null, 2)));
 TokUI.registerHandler('handleDrawerForm', (data) => addSystemMessage('抽屉表单提交', JSON.stringify(data, null, 2)));
+
+// === 交互回路（demo-interaction）handler：on:"事件:处理器" 上报在此回显 ===
+TokUI.registerHandler('iaApproval', (data) => addSystemMessage('HITL 审批结果', JSON.stringify(data, null, 2)));
+TokUI.registerHandler('iaTab', (data) => addSystemMessage('Tabs 切换', JSON.stringify(data, null, 2)));
+TokUI.registerHandler('iaInput', (data) => addSystemMessage('Input 输入（300ms 防抖）', JSON.stringify(data, null, 2)));
+TokUI.registerHandler('iaSwitch', (data) => addSystemMessage('Switch 切换', JSON.stringify(data, null, 2)));
+TokUI.registerHandler('iaStop', (data) => addSystemMessage('停止生成', JSON.stringify(data || {}, null, 2)));
+TokUI.registerHandler('iaDlgClose', (data) => addSystemMessage('Dialog 关闭', JSON.stringify(data || {}, null, 2)));
+TokUI.registerHandler('iaSend', (data) => addSystemMessage('Chat Input 发送', (data && data.value) || ''));
+TokUI.registerHandler('iaOpenDlg', () => {
+  try {
+    const d = document.getElementById('dlg');
+    if (d && typeof d.showModal === 'function') d.showModal();
+  } catch (e) {
+    addSystemMessage('打开弹窗失败', String(e && e.message || e));
+  }
+});
 // 交互式服务端校验模拟（demo-form-feedback）：用 [upd] 把校验结论推回输入框 hint
 TokUI.registerHandler('checkReg', (data, _e, el) => {
   const lastR = renders[renders.length - 1];
@@ -1471,12 +1491,47 @@ function addAIMessage() {
   return { container: renderArea, sourceText, thinkingEl, updateStats, showSourceView, setRenderUICallback(fn) { renderUICallback = fn; } };
 }
 
+// 交互事件回显：右下角浮动面板（非模态，不占文档流），主页面不再随事件滚动。
+// 条目样式沿用 .msg.msg--system，仅承载容器变为浮动面板。
+const EVENT_PANEL_MAX = 20; // 容量上限：只留最近 20 条，防长会话无限增长
+
+function getEventPanel() {
+  let panel = document.getElementById('event-panel');
+  if (panel) return panel;
+  panel = document.createElement('div');
+  panel.id = 'event-panel';
+  panel.innerHTML =
+    '<div class="event-panel__header">' +
+      '<span class="event-panel__title">' + escapeHtml(t('eventPanelTitle')) +
+      ' <span class="event-panel__count" id="event-panel-count">0</span></span>' +
+      '<button type="button" class="event-panel__btn" id="event-panel-clear" title="' + escapeHtml(t('eventPanelClear')) + '">✕</button>' +
+    '</div>' +
+    '<div class="event-panel__body" id="event-panel-body"></div>';
+  document.body.appendChild(panel);
+  document.getElementById('event-panel-clear').addEventListener('click', function() {
+    document.getElementById('event-panel-body').innerHTML = '';
+    updateEventPanelCount();
+  });
+  return panel;
+}
+
+function updateEventPanelCount() {
+  const body = document.getElementById('event-panel-body');
+  const count = document.getElementById('event-panel-count');
+  if (body && count) count.textContent = String(body.children.length);
+}
+
 function addSystemMessage(title, data) {
+  getEventPanel();
+  const body = document.getElementById('event-panel-body');
   const el = document.createElement('div');
   el.className = 'msg msg--system';
   el.innerHTML = '<strong>' + escapeHtml(title) + '</strong><pre>' + escapeHtml(data) + '</pre>';
-  document.getElementById('messages').appendChild(el);
-  scrollToBottom();
+  body.appendChild(el);
+  while (body.children.length > EVENT_PANEL_MAX) body.removeChild(body.firstChild);
+  updateEventPanelCount();
+  // 面板内部滚到底（不碰主页面滚动位置）
+  body.scrollTop = body.scrollHeight;
 }
 
 function addLoadingIndicator() {

@@ -57,6 +57,8 @@
 
 <Playground dsl='[tabs][tab tt:概览][p 这是概览页内容。][/tab][tab tt:详情][p 这是详情页内容，可放任意子组件。][stat tt:访问量 v:1024 trend:up][/tab][tab tt:设置][p 设置项放在这里。][/tab][/tabs]' />
 
+> **切页回调**：`tabs` 声明 `on:"change:h"` 后，用户切页上报 `{index, title}`；程序化 `upd` 切换不触发。
+
 ## 手风琴 `accordion` / 折叠面板 `collapse`
 
 `accordion` 容器包裹多个 `collapse`，每个 `collapse` 独立可折叠。`tt` 标题、`open` 默认展开。
@@ -81,6 +83,8 @@
 
 > 由按钮触发：触发按钮写 `clk:openDialog data-target:"<dialog 的 id>"`，对应 `[dialog id:...]` 必须带**相同 id**。点击按钮调用内置 `openDialog` 处理器按 id 找到 dialog 并 `showModal()` 弹出；弹窗内的取消/确认按钮写 `clk:closeDialog` 自动收起所在弹窗（无需手写 id）。
 
+> **关闭回调**：声明 `on:"close:h"` 后，用户关闭路径（Esc / 遮罩 / ✕）都会上报，detail 为 `{}`；程序化 `[upd id:x act:close]` 不上报（防回环）。
+
 <Playground dsl='[row][col span:6][btn tx:点击打开对话框 v:primary clk:openDialog data-target:demoDialog][dialog tt:用户协议 id:demoDialog][p 请仔细阅读以下协议内容，勾选同意后即可继续。][p v:muted 点击「同意并继续」或 ✕ / 遮罩可关闭对话框。][ft v:right][btn tx:取消 clk:closeDialog] [btn tx:同意并继续 v:primary clk:closeDialog][/ft][/dialog][/col][/row]' />
 
 ## 抽屉 `drawer`
@@ -99,6 +103,8 @@
 **`pos` 变体**：`left` / `right` / `top` / `bottom`。
 
 > 由按钮触发：触发按钮写 `clk:openDrawer data-target:"<drawer 的 id>"`，对应 `[drawer id:...]` 必须带**相同 id**。点击按钮调用内置 `openDrawer` 处理器按 id 找到 drawer 并添加 `tokui-drawer--open` 类滑出；抽屉内取消/确认按钮写 `clk:closeDrawer` 自动收起。
+
+> **关闭回调**：声明 `on:"close:h"` 后，用户关闭路径（Esc / 遮罩 / ✕）都会上报，detail 为 `{}`；程序化 `[upd id:x act:close]` 不上报（防回环）。
 
 <Playground dsl='[btn tx:打开筛选抽屉 clk:openDrawer v:primary data-target:demoDrawer][drawer tt:筛选条件 pos:right w:360 id:demoDrawer][p 在这里放置筛选表单或详情内容，Esc / 遮罩 / ✕ 可关闭。][ft v:right][btn tx:取消 clk:closeDrawer][btn tx:应用 v:primary clk:closeDrawer][/ft][/drawer]' />
 
@@ -131,6 +137,8 @@
 
 <Playground dsl='[steps v:3][step tt:填写信息 基本信息][step tt:身份验证 完成实名认证][step tt:设置支付 配置支付方式][step tt:完成注册 激活账号][/steps]' />
 
+> **可点击步骤**：`steps` 声明 `on:"change:h"` 后步骤变为可点击，点击上报 `{index, title}`。
+
 ## 轮播 `carousel` / `carousel-item`
 
 `carousel` 容器，子项为 `carousel-item`（或直接 `img`）。**`carousel` 的子项也可写 `[item]`**——在 `carousel` 内自动按幻灯片渲染（与 `list`/`desc` 内的 `[item]` 同名不同义，按父级区分；`item` 与 `carousel-item` 等价，可混用）。`auto` 设置自动播放间隔（毫秒），支持左右箭头、指示点、拖动、键盘左右键切换。`thumb` 改用下方缩略图图例（替代指示点，点击丝滑跳转）。尺寸：`w` 宽、`h` 高（纯数字按 px，亦支持 `%`/`vw`/`rem`），或 `ratio` 宽高比（如 `16:9` / `4:3` / `1`）；设了 `h` 或 `ratio` 时幻灯片撑满高度、图片 `object-fit:cover` 裁切，`h` 优先于 `ratio`。
@@ -148,6 +156,8 @@
 | `tx` | 幻灯片描述 | `carousel-item` / `item` | `tx:说明文字` |
 
 <Playground dsl='[carousel auto:4000][item s:https://picsum.photos/seed/c1/600/280 tt:第一张 tx:用 item 声明][carousel-item s:https://picsum.photos/seed/c2/600/280 tt:第二张 tx:两种可混用][item s:https://picsum.photos/seed/c3/600/280 tt:第三张 tx:等价于 carousel-item][/carousel]' />
+
+> **切换上报**：声明 `on:"change:h"` 后，手动切换（箭头 / 指示点 / 拖动 / 键盘）上报 `{index}`；autoplay 自动播放不触发。
 
 固定尺寸（`h`）/ 比例尺寸（`ratio`）/ 缩略图图例（`thumb`）：
 
@@ -172,6 +182,8 @@
 
 <Playground dsl='[tree l:项目结构][tn tx:src open][tn tx:components leaf][tn tx:core leaf][tn tx:styles leaf][/tn][tn tx:tests open][tn tx:test-parser.js leaf][tn tx:test-renderer.js leaf][/tn][tn tx:package.json leaf][/tree]' />
 
+> **选中与复选上报**：声明 `on:"change:h"` 后选中节点上报 `{value, id}`；复选框模式（`chk`）下声明 `on:"check:h"`，复选变化上报 `{value: 选中值数组}`。
+
 ## 菜单 `menu` / `menu-item`
 
 `menu` 容器，`menu-item` 自闭合。`v` 切换方向（`vertical` 默认 / `horizontal` 横向 / `inline` 内联），`act` 默认激活项的 `clk` 值，`bg`/`fc` 自定义配色。
@@ -187,6 +199,8 @@
 | `dis` | 禁用 | `menu-item` | `dis` |
 
 <Playground dsl='[row][col span:6][p v:bold 竖向菜单][menu act:goHome][menu-item tx:首页 i:🏠 clk:goHome][menu-item tx:产品 i:📦 clk:goProduct][menu-item tx:文档 i:📖 clk:goDocs][menu-item tx:设置 i:⚙️ dis][/menu][/col][col span:6][p v:bold 横向菜单][menu v:horizontal][menu-item tx:概览 clk:go1][menu-item tx:分析 clk:go2][menu-item tx:报告 clk:go3][/menu][/col][/row]' />
+
+> **激活回调与程序化激活**：`menu` 声明 `on:"change:h"` 后，激活项变化上报 `{value}`（项标识取 id > v > 文本）；服务端可用 `[upd id:m act:activate v:标识]` 程序化激活菜单项。
 
 ## 可调面板 `resizable`
 

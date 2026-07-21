@@ -17,6 +17,23 @@ Wraps a group of form controls. On submit, triggers the `sub:` handler or the na
 
 <Playground dsl='[card tt:登录表单][form act:/api/login mtd:post sub:onLogin][input l:账号 ph:"请输入账号" req][pwd l:密码 ph:"请输入密码" req][ft][btn tx:登录 v:primary sub:onLogin][btn tx:重置 v:ghost t:reset][/ft][/form][/card]' />
 
+## Value-Change Reporting (change event)
+
+Form controls report user value changes in real time to a pre-registered handler via `on:"change:handler"` (**double quotes required**) — the "user → AI" interaction loop:
+
+```tokui
+[input n:city l:City on:"change:onCityChange"]
+[switch l:Notifications n:notify on:"change:onNotifyChange"]
+```
+
+- **Input debounce**: `input` / `pwd` / `textarea` / `numinput` report 300ms after typing stops; override the milliseconds with `db:` (e.g. `db:500`).
+- **Fire on change**: `select` / `radio` / `checkbox` / `switch` / `slider` / `rate` / `picker` / `transfer` / `cascader` / `datepicker` family / `input-tag` report immediately when the value changes.
+- **upload**: reports `change` when files are selected / removed, with detail `{value: filename array, name}`.
+- **detail shape**: handler signature `(detail, event, element)`, with `detail` = `{value, name}`.
+- **Unified outlet**: every interaction also goes to `new TokUI({ onEvent })`'s `onEvent('component', { type, id, event, detail })` — the host can listen to everything without any `on:` declaration.
+
+> For the full event list see [DSL Syntax · Interaction event reporting](/en/guide/dsl-syntax#interaction-event-reporting).
+
 ## Input `input`
 
 Single-line text input, self-closing. `l` for label, `ph` for placeholder, `t` for native type, `val` for initial value.
@@ -270,6 +287,8 @@ Self-closing. `accept` restricts file types, `multi` for multiple files, `max` f
 **Variants**: `sm` / `lg`.
 
 <Playground dsl='[upload l:头像 accept:"image/*" ph:"点击上传头像"][upload l:多文件上传 multi max:5 ph:"支持最多 5 个文件"][upload l:禁用上传 dis]' />
+
+> The server can push `[upd id:file act:clear]` to clear the selected-file list.
 
 ## Date Picker `datepicker`
 

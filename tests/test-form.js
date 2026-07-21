@@ -1000,4 +1000,117 @@ test('req 字段 label 带必填标记类', () => {
   assert.ok(sel.querySelector('.tokui-label').className.indexOf('tokui-label--req') !== -1, 'select req 应带标记类');
 });
 
+// === upd _update 测试：radio/checkbox/picker/select 按 v:value 动态选中 ===
+
+test('radio _update 按 v 选中对应项', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({
+    type: 'radio', attrs: { n: 'gender', l: '性别' }, children: [
+      { type: 'opt', attrs: { v: 'male', tx: '男' } },
+      { type: 'opt', attrs: { v: 'female', tx: '女' } },
+    ]
+  });
+  const inputs = dom.querySelectorAll('input[type=radio]');
+  assert.strictEqual(inputs[0].checked, false, '初始都未选');
+  assert.strictEqual(inputs[1].checked, false, '初始都未选');
+  dom._update({ v: 'female' });
+  assert.strictEqual(inputs[0].checked, false, 'male 应未选');
+  assert.strictEqual(inputs[1].checked, true, 'female 应选中');
+  // 切回 male
+  dom._update({ v: 'male' });
+  assert.strictEqual(inputs[0].checked, true, 'male 应选中');
+  assert.strictEqual(inputs[1].checked, false, 'female 应未选');
+});
+
+test('checkbox 多选 _update 按 v:"a,c" 选中（逗号多值）', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({
+    type: 'checkbox', attrs: { n: 'hobby', l: '爱好', multi: true }, children: [
+      { type: 'opt', attrs: { v: 'read', tx: '阅读', chk: true } },
+      { type: 'opt', attrs: { v: 'music', tx: '音乐' } },
+      { type: 'opt', attrs: { v: 'sport', tx: '运动' } },
+    ]
+  });
+  const inputs = dom.querySelectorAll('input[type=checkbox]');
+  assert.strictEqual(inputs[0].checked, true, '初始 chk:read 选中');
+  // 覆盖为 music,sport
+  dom._update({ v: 'music,sport' });
+  assert.strictEqual(inputs[0].checked, false, 'read 应取消');
+  assert.strictEqual(inputs[1].checked, true, 'music 应选中');
+  assert.strictEqual(inputs[2].checked, true, 'sport 应选中');
+  // 清空
+  dom._update({ v: '' });
+  assert.strictEqual(inputs[0].checked, false);
+  assert.strictEqual(inputs[1].checked, false);
+  assert.strictEqual(inputs[2].checked, false);
+});
+
+test('checkbox 单布尔 _update 按 chk 切换', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'checkbox', attrs: { n: 'agree', l: '同意' }, children: [] });
+  const input = dom.querySelector('input[type=checkbox]');
+  assert.strictEqual(input.checked, false, '初始未选');
+  dom._update({ chk: true });
+  assert.strictEqual(input.checked, true, 'chk:true 应选中');
+  dom._update({ chk: false });
+  assert.strictEqual(input.checked, false, 'chk:false 应取消');
+});
+
+test('picker 单选 _update 按 v 选中（更新 search/hidden/option 类）', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({
+    type: 'picker', attrs: { n: 'city', l: '城市' }, children: [
+      { type: 'opt', attrs: { v: 'bj', tx: '北京' } },
+      { type: 'opt', attrs: { v: 'sh', tx: '上海' } },
+    ]
+  });
+  dom._update({ v: 'sh' });
+  const opts = dom.querySelectorAll('.tokui-picker-option');
+  assert.strictEqual(opts[0].classList.contains('tokui-picker-option--selected'), false, 'bj 未选');
+  assert.strictEqual(opts[1].classList.contains('tokui-picker-option--selected'), true, 'sh 选中');
+  const search = dom.querySelector('.tokui-picker-search');
+  const hidden = dom.querySelector('input[type=hidden]');
+  assert.strictEqual(search.value, '上海', 'search.value=上海 text');
+  assert.strictEqual(hidden.value, 'sh', 'hidden.value=sh');
+});
+
+test('picker 多选 _update 按 v:"a,c" 设置选中集合', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({
+    type: 'picker', attrs: { n: 'tags', l: '标签', multi: true }, children: [
+      { type: 'opt', attrs: { v: 'a', tx: 'A', chk: true } },
+      { type: 'opt', attrs: { v: 'b', tx: 'B' } },
+      { type: 'opt', attrs: { v: 'c', tx: 'C' } },
+    ]
+  });
+  // 初始 a 已选；upd 覆盖为 b,c
+  dom._update({ v: 'b,c' });
+  const opts = dom.querySelectorAll('.tokui-picker-option');
+  assert.strictEqual(opts[0].classList.contains('tokui-picker-option--selected'), false, 'a 取消');
+  assert.strictEqual(opts[1].classList.contains('tokui-picker-option--selected'), true, 'b 选中');
+  assert.strictEqual(opts[2].classList.contains('tokui-picker-option--selected'), true, 'c 选中');
+  const hiddens = dom.querySelectorAll('input[type=hidden]');
+  const vals = Array.from(hiddens).map(h => h.value).sort();
+  assert.deepStrictEqual(vals, ['b', 'c'], 'hidden inputs 应为 b,c');
+  const tags = dom.querySelectorAll('.tokui-picker-tag');
+  assert.strictEqual(tags.length, 2, '应有两个标签');
+});
+
+test('select 多选 _update 按 v:"a,b" 设置多个 option 选中', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({
+    type: 'select', attrs: { n: 'tags', multi: true }, children: [
+      { type: 'opt', attrs: { v: 'a', tx: 'A' } },
+      { type: 'opt', attrs: { v: 'b', tx: 'B' } },
+      { type: 'opt', attrs: { v: 'c', tx: 'C' } },
+    ]
+  });
+  const sel = dom.querySelector('select');
+  dom._update({ v: 'a,c' });
+  assert.strictEqual(sel.children[0].getAttribute('selected'), '', 'a selected');
+  assert.ok(sel.children[0].getAttribute('selected') !== null, 'a 应 selected');
+  assert.ok(sel.children[1].getAttribute('selected') === null, 'b 不应 selected');
+  assert.ok(sel.children[2].getAttribute('selected') !== null, 'c 应 selected');
+});
+
 run();

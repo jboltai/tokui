@@ -13,7 +13,7 @@ body:
     id: version
     attributes:
       label: TokUI 版本
-      placeholder: "0.1.7"
+      placeholder: "0.1.8"
     validations:
       required: true
 

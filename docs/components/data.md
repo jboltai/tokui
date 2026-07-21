@@ -263,8 +263,12 @@ cell 尾缀覆盖列级：同格 cell 级生效，列级 align/color 让位。
 | `tt` / `tx` | 新标题 / 新文本 | `tt:已完成` |
 | `act` | 新动作 | `act:restart` |
 
-**用法**：先在页面上渲染一个带 `id` 的组件，再用 `upd` 指令覆盖其状态。下面的示例先把进度渲染到 30%，`upd` 紧接着把同一目标更新到 80% 并标记为成功——渲染完成时你看到的就是更新后的最终态。
+**用法**：先在页面上渲染一个带 `id` 的组件，再用 `upd` 指令覆盖其状态。下面的示例先把进度渲染到 30%，`upd` 紧接着把同一目标更新到 80% 并标记为成功——渲染完成时你看到的就是更新后的最终态。`id` 支持逗号分隔多目标批量更新：`[upd id:a,b v:80]`（同属性应用到每个命中组件）。
 
 <Playground dsl='[progress id:demo v:30 l:下载中][upd id:demo v:80 status:success]' />
 
-> `upd` 仅在目标组件实现了 `_update` 时生效（如 `progress`、`stat`、`steps` 等）。若目标未渲染或无 `_update` 方法，`upd` 静默无操作，渲染为空文本节点。完整属性见 [DSL 参考](https://github.com/jboltai/tokui/blob/master/demo/TOKUI_DSL_REFERENCE.md) 第 5.2 节。
+**删除与插入指令**：`[del id:x]` 移除指定 id 的组件（目标不存在静默跳过；目标是仍在流式输出中、未闭合的容器时 `console.warn` 并跳过——等它闭合后再发 `del`）；`[ins after:ID]` / `before:ID` / `into:ID` 容器指令把子节点插到目标之后 / 之前 / 内部（`into` 追加为目标内容插槽的子元素），流式期间先入暂存区、`[/ins]` 闭合时一次性搬迁。详见 [DSL 语法 · 动态更新](/guide/dsl-syntax#动态更新)。
+
+**`calendar` 动态更新**：`[upd id:cal v:"8,15"]` / `[upd id:cal sel:"8,15"]` 重设选中日（逗号分隔日号，全量替换）。
+
+> `upd` 仅在目标组件实现了 `_update` 时生效（如 `progress`、`stat`、`steps` 等）。若目标未渲染或无 `_update` 方法，`upd` 静默无操作，渲染为空文本节点。完整属性见 [DSL 参考](https://github.com/jboltai/tokui/blob/master/demo/TOKUI_DSL_REFERENCE.md) 第 8 节。

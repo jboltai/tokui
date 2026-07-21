@@ -127,15 +127,15 @@ test('chat-input container mode renders children', () => {
       { type: 'btn', attrs: { tx: '发送', t: 'primary' }, children: [] }
     ]
   });
-  // Should have the 2 child buttons + the default send button = 3 buttons in actions
+  // Should have the 2 child buttons + the default send button + the stop button = 4 buttons in actions
   var actionsWrap = dom.querySelector('.tokui-chat-input__actions') || dom.children[1];
   assert.ok(actionsWrap, 'actions wrapper exists');
-  // The actionsWrap should contain the children + the default send button
+  // The actionsWrap should contain the children + send button + stop button（streaming 态显示）
   var childCount = 0;
   for (var i = 0; i < actionsWrap.children.length; i++) {
     childCount++;
   }
-  assert.strictEqual(childCount, 3, 'actions wrap has 2 children + 1 send button = 3');
+  assert.strictEqual(childCount, 4, 'actions wrap has 2 children + send + stop = 4');
 });
 
 // === 8. ph attribute sets placeholder ===

@@ -90,6 +90,7 @@ const CONTAINERS = new Set([
   'resizable',
   'canvas', 'canvas-content',
   'chart',
+  'ins',
   'p'
 ]);
 
@@ -159,7 +160,9 @@ const BOOLEAN_ATTRS = new Set([
   'reset',
   'print',
   'show-total',
-  'live'
+  'live',
+  'approval',
+  'streaming'
 ]);
 
 // 变体提示（Variant hints）

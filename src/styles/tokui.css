@@ -3920,6 +3920,19 @@ textarea.tokui-textarea--auto { resize: none !important; }
 .tokui-chat-input__send--disabled {
   opacity: 0.3; cursor: not-allowed; pointer-events: none;
 }
+/* 停止生成按钮：默认隐藏，--streaming 态与发送钮互斥切换 */
+.tokui-chat-input__stop {
+  display: none; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--tokui-danger, #ef4444); color: #fff;
+  border: none; cursor: pointer;
+  transition: background 0.2s, transform 0.15s, opacity 0.2s;
+  flex-shrink: 0; padding: 0;
+}
+.tokui-chat-input__stop:hover { filter: brightness(1.1); transform: scale(1.05); }
+.tokui-chat-input__stop:active { transform: scale(0.95); }
+.tokui-chat-input--streaming .tokui-chat-input__stop { display: inline-flex; }
+.tokui-chat-input--streaming .tokui-chat-input__send { display: none; }
 .tokui-chat-input__counter {
   position: absolute; bottom: 6px; right: 48px;
   font-size: 0.68rem; color: var(--tokui-text-muted, #aaa);
@@ -4064,6 +4077,37 @@ textarea.tokui-textarea--auto { resize: none !important; }
   font-size: 0.8rem;
   color: var(--tokui-danger, #ef4444);
 }
+/* HITL 人工审批按钮条 */
+.tokui-tool-call__approval {
+  display: flex; gap: 8px;
+  padding: 8px 12px 10px;
+}
+.tokui-tool-call__approve,
+.tokui-tool-call__deny {
+  padding: 4px 14px; border-radius: var(--tokui-radius, 8px);
+  font-size: 0.8rem; cursor: pointer;
+  border: 1px solid var(--tokui-border, #d9d9d9);
+  background: var(--tokui-bg, #fff); color: var(--tokui-text, #333);
+  transition: background 0.15s, color 0.15s, border-color 0.15s, opacity 0.2s;
+}
+.tokui-tool-call__approve {
+  background: var(--tokui-primary); border-color: var(--tokui-primary); color: #fff;
+}
+.tokui-tool-call__approve:hover { filter: brightness(1.08); }
+.tokui-tool-call__deny:hover {
+  color: var(--tokui-danger, #ef4444); border-color: var(--tokui-danger, #ef4444);
+}
+.tokui-tool-call__approval--decided .tokui-tool-call__approve,
+.tokui-tool-call__approval--decided .tokui-tool-call__deny {
+  opacity: 0.45; cursor: default;
+}
+.tokui-tool-call__approval--chosen { opacity: 1 !important; }
+
+/* ins 插入指令锚点（流式暂存用，页面不留痕） */
+.tokui-ins-anchor { display: none; }
+
+/* steps 可点击（声明了 on 事件上报时） */
+.tokui-steps--clickable .tokui-step { cursor: pointer; }
 
 /* --- typing 打字指示器 --- */
 @keyframes tokuiTypingBounce {

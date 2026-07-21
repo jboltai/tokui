@@ -68,6 +68,18 @@
       // 初始化渲染器并注册所有组件
       this.renderer = new _TokUIRenderer(_TokUIEventBus);
       _registerAll(this.renderer);
+      // 渲染器回指所属实例：chat-input 停止生成等「找自己所在实例」场景用，
+      // 避免多实例页面误操作 window.TokUI._instance（最后构造者）
+      this.renderer._tokuiInstance = this;
+
+      // 组件交互事件统一出口：renderer 上报 → options.onEvent('component', evt)
+      // evt 形如 { type: 'input', id: 'xxx', event: 'change', detail: { value: '...' } }
+      // options.eventFilter 可选过滤（返回 false 丢弃），降噪用
+      var self = this;
+      this.renderer._onComponentEvent = function (evt) {
+        if (self.options.eventFilter && !self.options.eventFilter(evt)) return;
+        if (self.options.onEvent) self.options.onEvent('component', evt);
+      };
 
       this.parser = null;
       this.container = null;

@@ -249,10 +249,14 @@ function registerLayoutComponents(renderer) {
   // 流式渲染：tab 子组件自行生成 input+label+panel，追加到 tabs 容器
   renderer.register('tabs', (node, rc) => {
     const container = el('div', { class: 'tokui-tabs', role: 'tablist' });
+    // 盖 id：upd（v 切页）/ del / ins 指令按 id 定位的前提
+    if (node.attrs.id) container.id = node.attrs.id;
     const tabId = 'tokui-tab-' + Math.random().toString(36).slice(2, 8);
     // 存储到 DOM 属性，供 tab 子组件读取
     container._tabId = tabId;
     container._tabCount = 0;
+    // 交互上报：on:"change:handler" / options.onEvent 统一出口
+    var report = renderer.createReporter('tabs', node.attrs, container);
 
     (node.children || []).forEach((child, idx) => {
       if (child.type !== 'tab') return;
@@ -272,6 +276,16 @@ function registerLayoutComponents(renderer) {
       var next = e.key === 'ArrowRight' ? (idx + 1) % labels.length : (idx - 1 + labels.length) % labels.length;
       var radio = container.querySelector('#' + labels[next].getAttribute('for'));
       if (radio) { radio.checked = true; labels[next].focus(); }
+    });
+    // 用户切换 tab 时上报 change：radio input 的原生 change 事件冒泡到容器。
+    // 程序化切换（_update / _streamCloseHook / 键盘导航的 checked 赋值）不触发原生 change，
+    // 天然不会误报——不要手动 dispatch。
+    container.addEventListener('change', function(e) {
+      var target = e.target;
+      if (!target || !target.classList || !target.classList.contains('tokui-tabs-input')) return;
+      var index = parseInt(target.getAttribute('data-index'), 10);
+      var label = container.querySelector('.tokui-tabs-label[data-index="' + index + '"]');
+      report('change', { index: index, title: label ? label.textContent : '' });
     });
     container._update = function(uAttrs) {
       if (uAttrs.v !== undefined) {
@@ -387,6 +401,14 @@ function registerLayoutComponents(renderer) {
     var attrs = { class: 'tokui-dialog' };
     if (node.attrs.id) attrs.id = node.attrs.id;
     var dialog = el('dialog', attrs);
+    // 交互上报：原生 <dialog> 的 close 事件覆盖全部用户关闭路径
+    //（关闭按钮 / 点击背板 dialog.close() / Esc）；
+    // _update act:close 的程序化关闭置静默标记跳过上报（防「upd → 回报 → 再 upd」回环）
+    var report = renderer.createReporter('dialog', node.attrs, dialog);
+    dialog.addEventListener('close', function () {
+      if (dialog._tokuiSilentClose) { dialog._tokuiSilentClose = false; return; }
+      report('close', {});
+    });
     if (node.attrs.tt) {
       var header = el('div', { class: 'tokui-dialog-header' });
       var titleSpan = el('span', {}, node.attrs.tt);
@@ -434,7 +456,11 @@ function registerLayoutComponents(renderer) {
     });
     dialog._update = function (uAttrs) {
       if (uAttrs.act === 'open') dialog.showModal();
-      else if (uAttrs.act === 'close') dialog.close();
+      else if (uAttrs.act === 'close') {
+        // 程序化关闭：置静默标记，close 事件监听器跳过上报（与用户主动关闭区分）
+        dialog._tokuiSilentClose = true;
+        dialog.close();
+      }
       if (uAttrs.tt !== undefined) {
         var hdr = dialog.querySelector('.tokui-dialog-header span');
         if (hdr) hdr.textContent = uAttrs.tt;
@@ -452,9 +478,17 @@ function registerLayoutComponents(renderer) {
     if (node.attrs.id) wrapper.id = node.attrs.id;
     if (node.attrs.clk) wrapper.setAttribute('data-tokui-clk', node.attrs.clk);
 
+    // 交互上报 + 统一关闭入口：overlay 点击 / close 按钮 / Escape 三条用户路径经 closeDrawer() 上报；
+    // _update act:close 走 closeDrawer(true)（程序化关闭不上报，防「服务端 upd → 前端回报 → 再 upd」回环）
+    var report = renderer.createReporter('drawer', node.attrs, wrapper);
+    function closeDrawer(silent) {
+      if (!silent) report('close', {});
+      wrapper.classList.remove('tokui-drawer--open');
+    }
+
     var overlay = el('div', { class: 'tokui-drawer__overlay' });
     overlay.addEventListener('click', function () {
-      wrapper.classList.remove('tokui-drawer--open');
+      closeDrawer();
     });
     wrapper.appendChild(overlay);
 
@@ -475,7 +509,7 @@ function registerLayoutComponents(renderer) {
       header.appendChild(el('span', {}, node.attrs.tt));
       var closeBtn = el('button', { class: 'tokui-drawer__close', 'aria-label': _t('common.close') }, '✕');
       closeBtn.addEventListener('click', function () {
-        wrapper.classList.remove('tokui-drawer--open');
+        closeDrawer();
       });
       header.appendChild(closeBtn);
       panel.appendChild(header);
@@ -502,11 +536,11 @@ function registerLayoutComponents(renderer) {
     wrapper._tokuiType = 'drawer';
     // Escape 关闭
     wrapper.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') { wrapper.classList.remove('tokui-drawer--open'); e.stopPropagation(); }
+      if (e.key === 'Escape') { closeDrawer(); e.stopPropagation(); }
     });
     wrapper._update = function (uAttrs) {
       if (uAttrs.act === 'open') wrapper.classList.add('tokui-drawer--open');
-      else if (uAttrs.act === 'close') wrapper.classList.remove('tokui-drawer--open');
+      else if (uAttrs.act === 'close') closeDrawer(true);
       if (uAttrs.tt !== undefined) {
         var hdr = wrapper.querySelector('.tokui-drawer__header span');
         if (hdr) hdr.textContent = uAttrs.tt;
@@ -677,6 +711,21 @@ function registerLayoutComponents(renderer) {
     const wrapperAttrs = { class: classes.join(' ') };
     if (attrs.id) wrapperAttrs.id = attrs.id;
     const wrapper = el('div', wrapperAttrs);
+
+    // 交互上报：声明 on 时给容器加 clickable 类（样式由 CSS 侧补充，此处只加类名逻辑）
+    const report = renderer.createReporter('steps', attrs, wrapper);
+    if (attrs.on) wrapper.classList.add('tokui-steps--clickable');
+
+    // 点击某个 step 时上报 change：事件委托在容器上，保持 step 的 DOM 结构不变（不改成 button）
+    wrapper.addEventListener('click', function (e) {
+      const stepEl = e.target && e.target.closest ? e.target.closest('.tokui-step') : null;
+      if (!stepEl) return;
+      const stepEls = wrapper.querySelectorAll('.tokui-step');
+      const index = Array.prototype.indexOf.call(stepEls, stepEl);
+      if (index === -1) return;
+      const titleEl = stepEl.querySelector('.tokui-step__title');
+      report('change', { index: index, title: titleEl ? titleEl.textContent : '' });
+    });
 
     const stepNodes = (node.children || []).filter(c => c.type === 'step');
     stepNodes.forEach(function (child, idx) {
@@ -928,6 +977,9 @@ function registerLayoutComponents(renderer) {
     wrapperAttrs['data-carousel'] = attrs.id || ('carousel-' + Math.random().toString(36).slice(2, 8));
     var wrapper = el('div', wrapperAttrs);
 
+    // 交互上报：用户切换幻灯（指示点/箭头/键盘/拖动）经 report 收口，自动轮播不报
+    var report = renderer.createReporter('carousel', attrs, wrapper);
+
     // viewport：包裹 track+箭头+圆点，提供圆角裁剪与箭头/圆点定位上下文
     var viewport = el('div', { class: 'tokui-carousel__viewport' });
     var track = el('div', { class: 'tokui-carousel__track' });
@@ -1087,27 +1139,29 @@ function registerLayoutComponents(renderer) {
         }
       }
 
-      function goTo(index) {
+      function goTo(index, fromUser) {
         if (index < 0) index = slideEls.length - 1;
         if (index >= slideEls.length) index = 0;
         currentIndex = index;
         track.style.transform = 'translateX(-' + (currentIndex * 100) + '%)';
         setActive();
+        // 仅用户交互路径上报；自动轮播（程序化语义）不传 fromUser，不上报
+        if (fromUser) report('change', { index: currentIndex });
       }
 
       prevBtn.addEventListener('click', function() {
-        goTo(currentIndex - 1);
+        goTo(currentIndex - 1, true);
         resetAuto();
       });
       nextBtn.addEventListener('click', function() {
-        goTo(currentIndex + 1);
+        goTo(currentIndex + 1, true);
         resetAuto();
       });
       if (dots) {
         dots.addEventListener('click', function(e) {
           var dot = e.target.closest('.tokui-carousel__dot');
           if (!dot) return;
-          goTo(parseInt(dot.getAttribute('data-index')));
+          goTo(parseInt(dot.getAttribute('data-index')), true);
           resetAuto();
         });
       }
@@ -1115,7 +1169,7 @@ function registerLayoutComponents(renderer) {
         thumbs.addEventListener('click', function(e) {
           var thumb = e.target.closest('.tokui-carousel__thumb');
           if (!thumb) return;
-          goTo(parseInt(thumb.getAttribute('data-index')));
+          goTo(parseInt(thumb.getAttribute('data-index')), true);
           resetAuto();
         });
       }
@@ -1138,8 +1192,8 @@ function registerLayoutComponents(renderer) {
       // 键盘导航
       wrapper.setAttribute('tabindex', '0');
       wrapper.addEventListener('keydown', function(e) {
-        if (e.key === 'ArrowLeft') { goTo(currentIndex - 1); resetAuto(); }
-        else if (e.key === 'ArrowRight') { goTo(currentIndex + 1); resetAuto(); }
+        if (e.key === 'ArrowLeft') { goTo(currentIndex - 1, true); resetAuto(); }
+        else if (e.key === 'ArrowRight') { goTo(currentIndex + 1, true); resetAuto(); }
       });
 
       // 拖动/滑动切换
@@ -1179,9 +1233,9 @@ function registerLayoutComponents(renderer) {
         track.style.transition = '';
         var threshold = wrapper.offsetWidth * 0.2;
         if (dragDelta < -threshold) {
-          goTo(currentIndex + 1);
+          goTo(currentIndex + 1, true);
         } else if (dragDelta > threshold) {
-          goTo(currentIndex - 1);
+          goTo(currentIndex - 1, true);
         } else {
           goTo(currentIndex);
         }
@@ -1230,6 +1284,7 @@ function registerLayoutComponents(renderer) {
     });
     nodeEl.setAttribute('data-value', node.attrs.v || '');
     nodeEl.setAttribute('data-text', node.attrs.tx || node.attrs.v || '');
+    if (node.attrs.id) nodeEl.setAttribute('data-id', node.attrs.id);
 
     var header = el('div', { class: 'tokui-tree-node-header', tabindex: '0' });
 
@@ -1293,6 +1348,9 @@ function registerLayoutComponents(renderer) {
 
     field.appendChild(tree);
 
+    // 交互上报：节点选中（change）/ 复选选中态变化（check）经 report 收口
+    var report = renderer.createReporter('tree', node.attrs, field);
+
     // 是否已绑定过事件
     var behaviorBound = false;
 
@@ -1341,6 +1399,10 @@ function registerLayoutComponents(renderer) {
             text: nodeEl.getAttribute('data-text')
           });
         }
+        report('change', {
+          value: nodeEl.getAttribute('data-value'),
+          id: nodeEl.getAttribute('data-id') || undefined
+        });
       });
 
       // 复选框模式
@@ -1366,6 +1428,15 @@ function registerLayoutComponents(renderer) {
             }
           });
           updateParentCheckboxes(tree);
+          // 上报当前所有选中节点的 value 数组（级联与父框回写完成后取终态）
+          var checkedValues = [];
+          Array.prototype.forEach.call(tree.querySelectorAll('.tokui-tree-checkbox'), function(cb) {
+            if (cb.checked) {
+              var cbNode = cb.closest('.tokui-tree-node');
+              if (cbNode) checkedValues.push(cbNode.getAttribute('data-value'));
+            }
+          });
+          report('check', { value: checkedValues });
         });
       }
 
@@ -1467,6 +1538,19 @@ function registerLayoutComponents(renderer) {
     menu._tokuiType = 'menu';
     menu._activeClk = activeClk;
 
+    // 交互上报：激活项变化时 report('change', { value: 项标识 })
+    var report = renderer.createReporter('menu', attrs, menu);
+    menu._report = report;
+
+    // 程序化激活：[upd id:xxx act:activate v:项标识]，复用同一激活函数（silent：不重复上报）
+    menu._update = function (uAttrs) {
+      if (uAttrs.act !== 'activate' || uAttrs.v === undefined) return;
+      var items = menu.querySelectorAll('.tokui-menu__item');
+      for (var i = 0; i < items.length; i++) {
+        if (_menuItemValue(items[i]) === String(uAttrs.v)) { _setMenuItemActive(items[i], true); break; }
+      }
+    };
+
     // 键盘导航：ArrowDown/Up 在 menu-item 间移动，Enter 选择
     menu.addEventListener('keydown', function(e) {
       var item = e.target.closest('.tokui-menu__item');
@@ -1488,6 +1572,27 @@ function registerLayoutComponents(renderer) {
     return menu;
   });
 
+  // 取菜单项标识：构建时记录的 id 属性，无则 v，再退文本
+  function _menuItemValue(itemEl) {
+    if (itemEl._menuValue !== undefined) return itemEl._menuValue;
+    var textEl = itemEl.querySelector('.tokui-menu__text');
+    return textEl ? textEl.textContent : itemEl.textContent;
+  }
+
+  // 激活指定菜单项：切换激活 class（用户点击与程序化 activate 共用）；silent 为 true 时不上报 change
+  function _setMenuItemActive(itemEl, silent) {
+    var menu = itemEl.closest('.tokui-menu');
+    if (menu) {
+      menu.querySelectorAll('.tokui-menu__item--active').forEach(function(el) {
+        el.classList.remove('tokui-menu__item--active');
+      });
+    }
+    itemEl.classList.add('tokui-menu__item--active');
+    if (!silent && menu && menu._report) {
+      menu._report('change', { value: _menuItemValue(itemEl) });
+    }
+  }
+
   function _buildMenuItem(childNode, activeClk) {
     var itemAttrs = childNode.attrs || {};
     var itemClasses = ['tokui-menu__item'];
@@ -1507,18 +1612,15 @@ function registerLayoutComponents(renderer) {
     var text = el('span', { class: 'tokui-menu__text' }, itemAttrs.tx || childNode.content || '');
     itemEl.appendChild(text);
 
-    // 点击事件
-    if (itemAttrs.clk && itemAttrs.dis === undefined) {
-      itemEl.setAttribute('data-tokui-clk', itemAttrs.clk);
+    // 记录菜单项标识（id > v > 文本），供激活上报与程序化 activate 匹配
+    itemEl._menuValue = itemAttrs.id || itemAttrs.v || itemAttrs.tx || childNode.content || '';
+
+    // 点击事件：clk 仅决定是否盖事件印章；激活切换 + change 上报始终绑定（禁用项除外）
+    if (itemAttrs.dis === undefined) {
+      if (itemAttrs.clk) itemEl.setAttribute('data-tokui-clk', itemAttrs.clk);
       itemEl.addEventListener('click', function() {
-        // 更新激活状态
-        var menu = itemEl.closest('.tokui-menu');
-        if (menu) {
-          menu.querySelectorAll('.tokui-menu__item--active').forEach(function(el) {
-            el.classList.remove('tokui-menu__item--active');
-          });
-        }
-        itemEl.classList.add('tokui-menu__item--active');
+        // 更新激活状态并上报 change
+        _setMenuItemActive(itemEl);
       });
     }
 
@@ -1544,16 +1646,15 @@ function registerLayoutComponents(renderer) {
     }
     itemEl.appendChild(el('span', { class: 'tokui-menu__text' }, attrs.tx || node.content || ''));
 
-    if (attrs.clk && attrs.dis === undefined) {
-      itemEl.setAttribute('data-tokui-clk', attrs.clk);
+    // 记录菜单项标识（id > v > 文本），供激活上报与程序化 activate 匹配
+    itemEl._menuValue = attrs.id || attrs.v || attrs.tx || node.content || '';
+
+    // 点击事件：clk 仅决定是否盖事件印章；激活切换 + change 上报始终绑定（禁用项除外）
+    if (attrs.dis === undefined) {
+      if (attrs.clk) itemEl.setAttribute('data-tokui-clk', attrs.clk);
       itemEl.addEventListener('click', function() {
-        var menu = itemEl.closest('.tokui-menu');
-        if (menu) {
-          menu.querySelectorAll('.tokui-menu__item--active').forEach(function(el) {
-            el.classList.remove('tokui-menu__item--active');
-          });
-        }
-        itemEl.classList.add('tokui-menu__item--active');
+        // 更新激活状态并上报 change
+        _setMenuItemActive(itemEl);
       });
     }
 

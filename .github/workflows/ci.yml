@@ -52,3 +52,34 @@ jobs:
         run: |
           node --input-type=module -e "import('./dist/tokui.mjs').then(m=>{ if(!m.TokUI && !(m.default&&m.default.TokUI)) throw new Error('ESM TokUI missing'); console.log('ESM OK'); })"
           node -e "const m=require('./dist/tokui.cjs'); if(!m.TokUI) throw new Error('CJS TokUI missing'); console.log('CJS OK');"
+
+  e2e:
+    name: E2E Smoke (Chromium)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.7.0
+          standalone: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # demo 走 demo/lib 快照：先重建同步，保证 e2e 测的是当前 src 行为
+      - name: Sync demo snapshot (build → demo/lib)
+        run: npm run demo:sync
+
+      - name: Run e2e smoke
+        run: npm run test:e2e

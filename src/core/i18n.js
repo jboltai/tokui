@@ -31,6 +31,7 @@ var STRINGS = {
     'common.download': '下载',
     'common.view': '查看',
     'common.send': '发送',
+    'common.stop': '停止生成',
     'common.loading': '加载中',
     'common.renderFailed': '渲染失败',
 
@@ -79,6 +80,8 @@ var STRINGS = {
     'actions.like': '赞',
     'actions.dislike': '踩',
     'actions.delete': '删除',
+    'actions.approve': '批准',
+    'actions.deny': '拒绝',
 
     // —— 文件类 ——
     'file.unnamed': '未知文件',
@@ -184,6 +187,7 @@ var STRINGS = {
     'common.download': 'Download',
     'common.view': 'View',
     'common.send': 'Send',
+    'common.stop': 'Stop generating',
     'common.loading': 'Loading',
     'common.renderFailed': 'Render failed',
 
@@ -232,6 +236,8 @@ var STRINGS = {
     'actions.like': 'Like',
     'actions.dislike': 'Dislike',
     'actions.delete': 'Delete',
+    'actions.approve': 'Approve',
+    'actions.deny': 'Deny',
 
     // —— file ——
     'file.unnamed': 'Unnamed file',

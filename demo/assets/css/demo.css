@@ -1180,6 +1180,81 @@ body.dark .tok-text     { color: #cbd5e1; }
   overflow-x: auto;
 }
 
+/* 交互事件浮动面板（右下角，非模态，不占文档流；条目沿用 .msg--system 样式） */
+#event-panel {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  animation: eventPanelIn 0.2s ease;
+}
+@keyframes eventPanelIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+.event-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 0.8rem;
+  color: #6b7280;
+  flex-shrink: 0;
+}
+.event-panel__count {
+  display: inline-block;
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: #f59e0b;
+  color: #fff;
+  font-size: 0.7rem;
+  text-align: center;
+}
+.event-panel__btn {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: #9ca3af;
+  font-size: 0.85rem;
+  padding: 2px 4px;
+}
+.event-panel__btn:hover { color: #ef4444; }
+.event-panel__body {
+  overflow-y: auto;
+  max-height: 40vh;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+/* 面板内条目铺满宽度（覆盖消息流里的居中/限宽） */
+#event-panel .msg--system {
+  align-self: stretch;
+  max-width: 100%;
+  text-align: left;
+  padding: 8px 12px;
+}
+body.dark #event-panel {
+  background: #1f2937;
+  border-color: #374151;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+body.dark .event-panel__header {
+  border-bottom-color: #374151;
+  color: #9ca3af;
+}
+
 /* Loading */
 .msg--loading {
   display: flex;

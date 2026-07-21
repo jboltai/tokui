@@ -66,7 +66,7 @@ test('streaming: container-mode ft still mounts under card (regression)', () => 
   assert.ok(footer, 'footer 存在');
   assert.strictEqual(footer.parentNode, card,
     '容器模式 ft 必须挂在 card 下');
-  const btns = (footer.childNodes || []).filter(c => c.nodeType === 1);
+  const btns = Array.from(footer.childNodes || []).filter(c => c.nodeType === 1);
   assert.strictEqual(btns.length, 2, 'footer 含两个按钮');
 });
 

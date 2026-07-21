@@ -59,8 +59,21 @@ A tool/function-call card showing the name, status, and duration. Status is colo
 | `status` | Status | `status:done` |
 | `duration` | Duration | `duration:1.2s` |
 | `id` | Identifier (updatable via `upd`) | `id:tc1` |
+| `approval` | Human-approval mode (HITL, paired with `status:pending`) | `approval` |
+| `clk` | Approval-decision handler | `clk:onApproval` |
 
 <Playground dsl='[tool-call name:web_search status:done duration:1.2s][p 已搜索「TokUI 流式 UI」，找到 8 条结果。[/tool-call][tool-call name:run_code status:running][p 正在执行 Python 代码…[/tool-call][tool-call name:read_file status:error duration:0.4s][p 文件不存在。[/tool-call]' />
+
+**HITL human approval**: with `approval` plus `status:pending`, the card renders Approve / Reject buttons. The user's decision is reported back through the `clk:` handler (or `on:"approval:h"`) as `{approved, id, name}`; once decided, the buttons are disabled and the follow-up status is pushed by the server via `upd`.
+
+```tokui
+[tool-call id:tc1 name:delete_file approval status:pending clk:onApproval][p About to delete ./tmp/cache — needs human confirmation.[/tool-call]
+
+;; after the user clicks, onApproval receives {approved:true/false, id:"tc1", name:"delete_file"}
+;; the server then pushes the follow-up status:
+[upd id:tc1 status:running]
+[upd id:tc1 status:done duration:0.8s]
+```
 
 ## Typing Indicator `typing`
 
@@ -79,8 +92,11 @@ A one-line quick-reply suggestion, self-closing container. `items` separates mul
 | Prop | Meaning | Example |
 |------|---------|---------|
 | `items` | Suggestion list (`|`-separated) | `items:"A|B|C"` |
+| `clk` | Click handler (payload `{value: label}`) | `clk:onPick` |
 
 <Playground dsl='[p v:muted 你可能想问：][quick-reply items:"如何接入 SSE？|支持哪些图表？|怎样自定义主题？|DSL 怎么写？"][/quick-reply]' />
+
+> **Click reporting**: once `on:"select:h"` is declared, clicking a suggestion reports `{value: label}`.
 
 ## Suggestion Cards `suggestions` / `suggestion`
 
@@ -97,6 +113,8 @@ A grid suggestion container; child `suggestion` nodes show title, description, a
 | `dis` | Disabled | `suggestion` |
 
 <Playground dsl='[suggestions cols:2][suggestion tt:快速入门 tx:五分钟跑起第一个组件 clk:a][suggestion tt:DSL 语法 tx:掌握组件描述语言 clk:b][suggestion tt:流式渲染 tx:理解增量解析原理 clk:c][suggestion tt:主题定制 tx:打造品牌视觉 clk:d][/suggestions]' />
+
+> **Select reporting**: once `on:"select:h"` is declared, clicking a suggestion card reports `{value: title}`.
 
 ## Cited Source `source`
 
@@ -346,8 +364,19 @@ A chat-input container with a send button. `auto` enables auto-growing height, `
 | `auto` | Auto-grow height | `auto` |
 | `rows` | Default rows | `rows:3` |
 | `max` | Max characters | `max:2000` |
+| `streaming` | Generating state: show the stop button (mutually exclusive with send) | `streaming` |
+| `on` | Event reporting declaration | `on:"stop:onStop"` |
 
 <Playground dsl='[chat-input ph:输入消息，按 Enter 发送 clk:onSend auto rows:2][/chat-input]' />
+
+**Send reporting**: Enter / the send button triggers the `clk` handler (payload `{value}`) and also reports a `send` event (detail `{value}`) through `on:"send:h"` and the unified outlet.
+
+**Stop generating**: adding the `streaming` boolean prop swaps the send button for a "stop generating" button (the two are mutually exclusive). Clicking it fires the `on:"stop:h"` report (detail `{}`); when no `on` is declared, the default behavior is to disconnect the SSE connection of **the TokUI instance that owns this component** (`disconnect()`, idempotent and safe — on multi-instance pages it won't stop other instances), and the input immediately returns to the send state (optimistic UI — if the stream hasn't actually stopped, the server can restore it with `upd streaming:true`). When generation finishes, the server pushes `[upd id:x streaming:false]` to restore the send button; `streaming:true` re-enters the generating state.
+
+```tokui
+[chat-input id:ci ph:"Type a message…" clk:onSend streaming on:"stop:onStop"][/chat-input]
+[upd id:ci streaming:false]   ;; generation finished, restore the send button
+```
 
 ## Message Actions `msg-actions`
 
@@ -381,4 +410,4 @@ Combining bubble, reasoning chain, tool call, cited sources, markdown, and an ac
 
 <Playground dsl='[bubble role:user][p 帮我查一下 TokUI 的最新特性并写一个登录卡片。[/bubble][bubble role:ai model:GLM-5.2 time:刚刚][think-chain tt:推理过程][think-step status:done tt:理解需求 dur:0.2s][p 搜索资料 + 生成代码[/think-step][think-step status:done tt:联网检索 dur:1.1s][p 找到 3 条结果[/think-step][think-step status:done tt:生成代码 dur:3.4s][/think-step][/think-chain][tool-call name:web_search status:done duration:1.1s][p 检索「TokUI 最新特性」完成。[/tool-call][md]根据检索结果，TokUI 的核心特性：- **零依赖** 纯原生实现- **流式渲染** 基于 SSE- **组件丰富** 覆盖 AI 对话全场景[/md][quote role:user tx:写一个登录卡片][/quote][artifact tt:登录卡片 lang:html][artifact-code]<form class="login">\n  <input name="user" placeholder="用户名"/>\n  <input name="pwd" type="password"/>\n  <button type="submit">登录</button>\n</form>[/artifact-code][/artifact][p v:muted 来源：][source n:1 tt:TokUI 官方文档 sn:零依赖流式 UI 框架 u:#][source n:2 tt:SSE 协议 sn:服务端实时推送 u:#][msg-actions copy regenerate like dislike visible][/msg-actions][/bubble]' />
 
-> Tip: handlers referenced by `clk:` / `sub:` must be pre-registered via `TokUI.registerHandler(name, fn)`; the DSL itself carries no executable code. For the full prop tables, see sections 5.3–5.4 of the [DSL syntax reference](https://github.com/jboltai/tokui/blob/master/demo/TOKUI_DSL_REFERENCE.md).
+> Tip: handlers referenced by `clk:` / `sub:` must be pre-registered via `TokUI.registerHandler(name, fn)`; the DSL itself carries no executable code. For the full prop tables, see sections 6.3–6.4 of the [DSL syntax reference](https://github.com/jboltai/tokui/blob/master/demo/TOKUI_DSL_REFERENCE.md).

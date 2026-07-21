@@ -42,6 +42,23 @@
 
 <Playground dsl='[h3 表单外按钮靠 form:ID 绑定][row][col span:6][card tt:表单 A][form id:fa sub:onA][input l:姓名 n:name ph:张三][input l:邮箱 n:email ph:a@x.com][/form][btngroup][btn tx:"提交 A" form:fa sub:onA v:primary][btn tx:重置 form:fa reset v:ghost][/btngroup][/card][/col][col span:6][card tt:表单 B][form id:fb sub:onB][input l:公司 n:company ph:TokUI][numinput l:人数 n:count v:5 min:1 max:99][/form][btngroup][btn tx:"提交 B" form:fb sub:onB v:primary][btn tx:重置 form:fb reset v:ghost][/btngroup][/card][/col][/row]' />
 
+## 值变更上报（change 事件）
+
+表单控件用 `on:"change:处理器"`（**必须双引号**）把用户的值变更实时上报给已注册的 handler，构成「用户 → AI」交互回路：
+
+```tokui
+[input n:city l:城市 on:"change:onCityChange"]
+[switch l:邮件通知 n:notify on:"change:onNotifyChange"]
+```
+
+- **输入防抖**：`input` / `pwd` / `textarea` / `numinput` 停止输入 300ms 后上报，`db:` 可覆盖毫秒数（如 `db:500`）。
+- **值变即报**：`select` / `radio` / `checkbox` / `switch` / `slider` / `rate` / `picker` / `transfer` / `cascader` / `datepicker` 系列 / `input-tag` 值一变立即上报。
+- **upload**：选择 / 移除文件时上报 `change`，detail 为 `{value: 文件名数组, name}`。
+- **detail 形状**：handler 签名 `(detail, event, element)`，`detail` 为 `{value, name}`。
+- **统一出口**：所有交互同时发到 `new TokUI({ onEvent })` 的 `onEvent('component', { type, id, event, detail })`——不声明 `on:` 也能在宿主侧全量监听。
+
+> 完整事件清单见 [DSL 语法 · 交互事件上报](/guide/dsl-syntax#交互事件上报)。
+
 ## 打印区 `print-area`
 
 标记一块 **1:1 打印**区域，配合 `[btn print:ID]` 触发浏览器打印。打印时仅该区域可见、如实还原配色与布局；打印按钮自身不进预览。
@@ -320,6 +337,8 @@
 **变体**：`sm` / `lg`。
 
 <Playground dsl='[upload l:头像 accept:"image/*" ph:"点击上传头像"][upload l:多文件上传 multi max:5 ph:"支持最多 5 个文件"][upload l:禁用上传 dis]' />
+
+> 服务端可推 `[upd id:file act:clear]` 清空已选文件列表。
 
 ## 日期选择 `datepicker`
 

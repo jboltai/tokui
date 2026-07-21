@@ -33,6 +33,7 @@ v:"primary,sm"                                ; comma-separated variants
 | `form` | button → bind a form id | `reset` | reset action (`reset` or `reset:H`) |
 | `print` | print action (`print:ID` / `print:self`) | `target` | `a` open target |
 | `icon` | SVG icon name (btn / action col) | `i` | emoji icon (btn / action col / menu-item) |
+| `on` | event reporting declaration `on:"event:handler,…"` (**double quotes required**, see [Interaction event reporting](#interaction-event-reporting)) | | |
 
 > `clk:` / `sub:` handlers must be pre-registered via `TokUI.registerHandler(name, fn)` — the server ships no executable code.
 > `sub` / `reset` / `print` are button **built-in actions**, resolved automatically by the renderer; `reset` / `print` need no registered handler. See [Form components](/en/components/form#form-actions-submit-reset-data-collection).
@@ -45,8 +46,10 @@ Just the key, no value:
 
 ```
 stripe dis ro req chk multi auto plain round closable bordered open
-pill dot leaf inline rounded container reset print
+pill dot leaf inline rounded container reset print approval streaming
 ```
+
+> `approval` puts `tool-call` into human-approval mode, and `streaming` shows the stop-generating button on `chat-input` (see [AI Chat](/en/components/ai-chat)).
 
 ## Variants
 
@@ -78,6 +81,65 @@ pill dot leaf inline rounded container reset print
 <Playground dsl='[progress id:prog v:0 l:Progress][upd id:prog v:50][upd id:prog v:100 status:success]' />
 
 > `[upd]` shines in **async incremental** updates: the server first sends `[progress id:prog v:0]`, then pushes `[upd id:prog v:50]` as it advances. Click **⚡ Stream** at the bottom-right to replay token by token — the bar jumps 0% → 50% → 100% live.
+
+`id` accepts comma-separated targets for batch updates: `[upd id:prog1,prog2 status:success]` (the same props are applied to every matched component).
+
+### Delete `del` & Insert `ins`
+
+`[del id:x]` is a self-closing directive that removes the component with the given `id` — when an inner element is hit, it climbs to the component root and removes the whole component; a missing target is silently skipped and no DOM is produced.
+
+> If the target is a container that is **still streaming** (not yet closed), `del` warns via `console.warn` and skips — deleting half a component would scramble the slot stack. Wait for it to close before sending `del`.
+
+`[ins]` is a container directive that inserts its children after / before / inside a target component, depending on the position prop:
+
+```tokui
+[del id:old-card]
+[ins after:target-id][p inserted after the target][/ins]
+[ins before:target-id][p inserted before the target][/ins]
+[ins into:target-id][p appended as a child of the target][/ins]
+```
+
+`into` appends to the target's content insertion point (`_slot`). During streaming, children first go into a detached staging area and are moved to the target in one shot when `[/ins]` arrives (no layout flicker). The target must be an **already-rendered** component; if it doesn't exist, the content is discarded.
+
+> `into` only works on containers whose content is a plain child flow (card / list / callout / bubble / dialog body, etc.). Structural containers (`tabs` / `table` / `chart` / `select` / `radio` / `checkbox` / `picker` / `transfer` / `cascader` / `steps` / `menu` / `tree` — their children mount through dedicated protocols) forbid `into`: it warns via `console.warn` and skips. To append content to those, use their own streaming child-node protocols.
+
+<Playground dsl='[card tt:"Target card" id:insDemo][p Original card content][/card][ins into:insDemo][p A paragraph appended by ins][/ins][p id:delDemo This paragraph is removed by del right after render][del id:delDemo]' />
+
+> **Directive receipts**: after `upd` / `del` / `ins` executes, the result is reported to the unified outlet: `{type:'upd'|'del'|'ins', id, event:'applied', detail:{applied}}` / `{removed}` / `{moved}` — the server can use this to confirm the directive landed (when the target doesn't exist, `applied` / `removed` is `false` and `moved` is `0`).
+
+### Interaction event reporting
+
+Declare interaction reporting on a component with `on:"event:handler,…"` (**double quotes required**). Handlers are pre-registered via `TokUI.registerHandler`, with the signature `(detail, event, element)`; `detail` carries the context (e.g. `{value}` / `{index, title}`):
+
+```tokui
+[input n:city ph:"City" on:"change:onCityChange"]
+[tabs on:"change:onTabSwitch"][tab tt:A]…[/tab][tab tt:B]…[/tab][/tabs]
+[dialog tt:"Confirm" id:dlg on:"close:onDialogClose"]…[/dialog]
+```
+
+Beyond the named handler, every interaction is also delivered to the unified outlet of `new TokUI({ onEvent })`: `onEvent('component', { type, id, event, detail })` — the host can listen to everything even without any `on:` declaration; `new TokUI({ eventFilter })` filters component events as needed (return `false` to drop).
+
+> Referencing an unregistered handler name (a typo in `on:` / `clk:`) triggers a `console.warn` reminder (once per name) — events are no longer dropped silently.
+> **Programmatic behavior never reports**: `upd` switches/closes, carousel autoplay, initial render, etc. — only real user actions are reported, preventing the "server upd → client report → upd again" loop.
+
+| Component | Event | detail |
+|-----------|-------|--------|
+| `input` / `pwd` / `textarea` / `numinput` | `change` (300ms input debounce; `db:` overrides the milliseconds) | `{value, name}` |
+| `select` / `radio` / `checkbox` / `switch` / `slider` / `rate` / `picker` / `transfer` / `cascader` / `input-tag` / `datepicker` family | `change` (fires on every value change) | `{value, name}` |
+| `upload` | `change` (file selected / removed) | `{value: filename array, name}` |
+| `tabs` / `steps` | `change` (user tab switch / step click) | `{index, title}` |
+| `menu` | `change` (item identity: id > v > text) | `{value}` |
+| `pagination` | `change` (page turn / jump) | `{value: page number}` |
+| `tree` | `change` (node selected) / `check` (checkbox change) | `{value, id}` / `{value: checked values array}` |
+| `carousel` | `change` (manual switch; autoplay does not fire) | `{index}` |
+| `conversations` | `change` (conversation selected) / `delete` (conversation deleted) | `{value}` (conversation identity) |
+| `dialog` / `drawer` / `artifact` | `close` (user paths only; programmatic `act:close` does not fire) | `{}` |
+| `chat-input` | `send` (message sent) / `stop` (stop button in `streaming` state) | `{value}` / `{}` |
+| `msg-actions` | `action` (built-in buttons) | `{act: 'copy'/'regenerate'/'like'/'dislike'/'delete'}` |
+| `quick-reply` / `suggestion` | `select` (item clicked) | `{value: label/title}` |
+| `tool-call` | `approval` (HITL human approval) | `{approved, id, name}` |
+
+> Per-component details live in the component docs: [Form](/en/components/form), [Layout](/en/components/layout), [AI Chat](/en/components/ai-chat); full description in §8.4 of the [DSL reference](https://github.com/jboltai/tokui/blob/master/demo/TOKUI_DSL_REFERENCE.md).
 
 ## Component categories
 

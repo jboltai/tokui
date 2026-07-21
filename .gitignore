@@ -11,3 +11,5 @@ server.pid
 .idea/
 coverage/
 .claude
+test-results/
+playwright-report/

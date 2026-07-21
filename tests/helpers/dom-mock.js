@@ -14,8 +14,25 @@ function stripTags(html) {
   return String(html == null ? '' : html).replace(/<[^>]*>/g, '');
 }
 
-function matches(child, selector) {
-  if (child.nodeType !== 1) return false;
+// 类 NodeList 代理处理器：只放真实 NodeList 拥有的成员，数组方法一律 undefined
+var _nodeListHandler = {
+  get: function (target, prop) {
+    if (prop === Symbol.iterator) return target[Symbol.iterator].bind(target);
+    if (prop === 'length') return target.length;
+    if (prop === 'item') return function (i) { return target[i] != null ? target[i] : null; };
+    if (prop === 'forEach' || prop === 'entries' || prop === 'keys' || prop === 'values') {
+      return target[prop].bind(target);
+    }
+    if (typeof prop === 'string' && /^\d+$/.test(prop)) return target[prop];
+    return undefined;
+  },
+  set: function (target, prop, value) {
+    if (typeof prop === 'string' && /^\d+$/.test(prop)) { target[prop] = value; return true; }
+    return false;
+  },
+};
+
+function matches(child, selector) {  if (child.nodeType !== 1) return false;
   var remaining = selector;
   // tag 部分
   var tagMatch = remaining.match(/^[a-zA-Z][a-zA-Z0-9]*/);
@@ -25,21 +42,28 @@ function matches(child, selector) {
     if (ctag !== tag) return false;
     remaining = remaining.slice(tagMatch[0].length);
   }
-  // 属性部分（可以有多个）
-  var attrRe = /\[([^\]=]+)(?:="([^"]*)")?\]/g;
+  // 属性部分（可以有多个，可与 class 任意交错：.foo[x=1][y=2] / [x=1].foo 均支持）
+  // 支持 [attr]（存在性）、[attr="v"]（引号等值）、[attr=v]（裸值等值，CSS 规范等同引号形式）
+  var attrRe = /\[([^\]=]+)(?:(=)(?:"([^"]*)"|([^\]]*)))?\]/g;
   var m;
   while ((m = attrRe.exec(remaining)) !== null) {
     var aKey = m[1];
-    var aVal = m[2];
-    if (aVal !== undefined) {
+    var hasEq = m[2];
+    var aValQuoted = m[3];
+    var aValBare = m[4];
+    if (hasEq) {
+      var aVal = aValQuoted !== undefined ? aValQuoted : aValBare;
       if (child.attributes[aKey] !== aVal) return false;
     } else {
       if (!(aKey in child.attributes)) return false;
     }
   }
-  // class 部分
-  if (remaining && remaining.startsWith('.')) {
-    var cls = remaining.slice(1);
+  // class 部分（支持多个 .foo，任意位置；先剥离 [attr] 块，避免值内的 `.` 被误当 class）
+  var noAttr = selector.replace(/\[[^\]]*\]/g, '');
+  var clsRe = /\.([^.\\\[\]]+)/g;
+  var cm;
+  while ((cm = clsRe.exec(noAttr)) !== null) {
+    var cls = cm[1];
     if (!child.className || child.className.split(' ').indexOf(cls) === -1) return false;
   }
   return true;
@@ -51,7 +75,7 @@ function createElement(tag) {
     _rawTag: tag,
     nodeType: 1,
     className: '',
-    childNodes: [],
+    _cn: [],          // childNodes 后备数组（内部用）；对外 childNodes 是 NodeList 代理
     children: [],
     attributes: {},
     // 表单控件 IDL 默认值（与浏览器一致）：input/textarea/select 的 .checked 默认 false。
@@ -98,15 +122,15 @@ function createElement(tag) {
     },
     appendChild(child) {
       if (child && typeof child === 'object') {
-        this.childNodes.push(child);
+        this._cn.push(child);
         if (child.nodeType === 1) this.children.push(child);
         child.parentNode = this;
       }
       return child;
     },
     removeChild(child) {
-      var idx = this.childNodes.indexOf(child);
-      if (idx > -1) this.childNodes.splice(idx, 1);
+      var idx = this._cn.indexOf(child);
+      if (idx > -1) this._cn.splice(idx, 1);
       idx = this.children.indexOf(child);
       if (idx > -1) this.children.splice(idx, 1);
       if (child.parentNode === this) child.parentNode = null;
@@ -118,11 +142,11 @@ function createElement(tag) {
       if (newNode.parentNode && newNode.parentNode.removeChild) {
         newNode.parentNode.removeChild(newNode);
       }
-      var idx = referenceNode ? this.childNodes.indexOf(referenceNode) : this.childNodes.length;
-      if (idx === -1) idx = this.childNodes.length;
-      this.childNodes.splice(idx, 0, newNode);
+      var idx = referenceNode ? this._cn.indexOf(referenceNode) : this._cn.length;
+      if (idx === -1) idx = this._cn.length;
+      this._cn.splice(idx, 0, newNode);
       // 重建元素子节点列表（仅 nodeType===1，按 childNodes 顺序）
-      this.children = this.childNodes.filter(function (c) { return c && c.nodeType === 1; });
+      this.children = this._cn.filter(function (c) { return c && c.nodeType === 1; });
       newNode.parentNode = this;
       return newNode;
     },
@@ -243,6 +267,17 @@ function createElement(tag) {
       el.children = [];
     },
   });
+  // childNodes 访问器：对外暴露类 NodeList 代理（保真真实 DOM）——
+  // 只有 length/数字索引/item/forEach/entries/keys/values/Symbol.iterator；
+  // indexOf/push/splice/map/filter/slice 等数组方法一律 undefined，
+  // 误用者在测试期即炸 "xxx is not a function"（真实浏览器同款报错），
+  // 防止「mock 里是数组能过、浏览器里 NodeList 崩」的盲区 bug。
+  // setter 兼容"整体替换子节点"的内部写法（textContent/innerHTML setter 用）。
+  Object.defineProperty(el, 'childNodes', {
+    configurable: true,
+    get() { return new Proxy(el._cn, _nodeListHandler); },
+    set(v) { el._cn = Array.prototype.slice.call(v || []); },
+  });
   // id 访问器：直接 el.id = x 与 setAttribute('id', x) 都走 setAttribute → 登记 idRegistry。
   // 真实浏览器两者等价；slider/rate/numinput 等用 hidden.id = ... 直接赋值，需此访问器捕获。
   Object.defineProperty(el, 'id', {
@@ -256,6 +291,16 @@ function createElement(tag) {
   Object.defineProperty(el, 'parentElement', {
     configurable: true,
     get() { return (this.parentNode && this.parentNode.nodeType === 1) ? this.parentNode : null; },
+  });
+  // name 访问器：与真实 DOM IDL 反射一致——input.name = x 写入 attribute，
+  // 使 querySelectorAll('[name=x]') 能命中（流式 checkbox/radio 组注入共享 name 依赖此）。
+  // 注意：setter 必须直写 this.attributes，不可走 setAttribute——
+  // setAttribute 内有 this.name = value 的 IDL 反射，互调会无限递归。
+  Object.defineProperty(el, 'name', {
+    configurable: true,
+    enumerable: true,
+    get() { return this.attributes.name || ''; },
+    set(v) { this.attributes.name = String(v); },
   });
 
   return el;

@@ -140,6 +140,41 @@ function el(tag, attrs, textContent) {
 }
 
 /**
+ * 解析 on:"change:h1,close:h2" 事件上报声明 → { change: 'h1', close: 'h2' }
+ * 键/值限标识符安全字符，非法对静默丢弃。
+ *
+ * @param {string} on - DSL on: 属性值
+ * @returns {Object} 事件名 → handler 名 映射
+ */
+function parseOnSpec(on) {
+  var map = {};
+  if (!on || typeof on !== 'string') return map;
+  on.split(',').forEach(function (pair) {
+    var idx = pair.indexOf(':');
+    if (idx <= 0) return;
+    var ev = pair.slice(0, idx).trim();
+    var h = pair.slice(idx + 1).trim();
+    if (/^[\w-]+$/.test(ev) && /^[\w-]+$/.test(h)) map[ev] = h;
+  });
+  return map;
+}
+
+/**
+ * 通用防抖（trailing edge），返回函数带 .cancel()。
+ * 文本类控件 input 事件上报用，避免逐字符打到后端。
+ */
+function debounce(fn, ms) {
+  var timer = null;
+  var debounced = function () {
+    var args = arguments;
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(function () { timer = null; fn.apply(null, args); }, ms);
+  };
+  debounced.cancel = function () { if (timer) { clearTimeout(timer); timer = null; } };
+  return debounced;
+}
+
+/**
  * 组件变体白名单
  * key = 组件类型, value = 允许的变体名 Set
  * DSL: v:variant1,variant2 → CSS: tokui-{type}--{variant}
@@ -199,6 +234,68 @@ class TokUIRenderer {
     this.slotStack = [];  // 流式渲染时的插槽栈
     this._boundElements = []; // 记录绑定过事件的元素，用于 destroy
     this._onError = null; // 全局错误回调
+    this._onComponentEvent = null; // 组件交互事件出口（TokUI 实例接到 options.onEvent('component', evt)）
+  }
+
+  /**
+   * 创建组件交互上报函数（「用户 → AI」回路）
+   *
+   * 组件渲染函数内构建：
+   *   var report = renderer.createReporter('input', node.attrs, wrapper);
+   * 交互发生时调用：
+   *   report('change', { value: v });
+   *
+   * 行为：
+   * 1. attrs.on 声明了该事件的命名 handler（DSL: on:"change:onInput"）→ eventBus 调 handler(detail, null, el)
+   * 2. 始终转发 renderer._onComponentEvent({ type, id, event, detail })（TokUI 实例统一事件出口）
+   *
+   * @param {string} type - 组件类型
+   * @param {Object} [attrs] - DSL 属性（读取 id / on）
+   * @param {HTMLElement} [element] - 组件根元素（透传给 handler 第三参）
+   * @returns {Function} report(event, detail)
+   */
+  createReporter(type, attrs, element) {
+    var self = this;
+    var onMap = parseOnSpec(attrs && attrs.on);
+    var id = attrs && attrs.id != null && attrs.id !== '' ? String(attrs.id) : null;
+    return function report(event, detail) {
+      var handlerName = onMap[event];
+      if (handlerName && self.eventBus) {
+        var fn = self.eventBus.getHandler(handlerName);
+        if (fn) {
+          try { fn(detail != null ? detail : null, null, element || null); }
+          catch (e) { console.warn('TokUI: on:' + event + ' handler error', e); }
+        } else {
+          self._warnMissingHandler(handlerName);
+        }
+      }
+      if (self._onComponentEvent) {
+        try { self._onComponentEvent({ type: type, id: id, event: event, detail: detail != null ? detail : null }); }
+        catch (e) { /* ignore callback errors */ }
+      }
+    };
+  }
+
+  /**
+   * handler 未注册告警（每名称只报一次）：on:/clk: 引用了未 registerHandler 的名字时
+   * 事件会静默丢弃，拼写错误极难排查——开发期必须吱声。
+   * @param {string} name - handler 名
+   */
+  _warnMissingHandler(name) {
+    this._warnedHandlers = this._warnedHandlers || {};
+    if (this._warnedHandlers[name]) return;
+    this._warnedHandlers[name] = true;
+    console.warn('TokUI: 事件处理器未注册 "' + name + '"（需先 TokUI.registerHandler("' + name + '", fn)），事件已丢弃');
+  }
+
+  /**
+   * 通用防抖（trailing edge），供组件值变更上报用。
+   * @param {Function} fn - 目标函数
+   * @param {number} ms - 防抖毫秒数
+   * @returns {Function} 带 .cancel() 的防抖函数
+   */
+  debounce(fn, ms) {
+    return debounce(fn, ms);
   }
 
   /**
@@ -798,6 +895,8 @@ class TokUIRenderer {
           if (form && element.getAttribute('type') === 'submit' && !self._reportValidity(form)) return;
           const data = form ? self._collectFormData(form) : null;
           handler(data, e, element);
+        } else {
+          self._warnMissingHandler(handlerName);
         }
       };
       element.addEventListener('click', clickFn);
@@ -820,6 +919,8 @@ class TokUIRenderer {
         if (handler) {
           const data = self._collectFormData(form);
           handler(data, e, form);
+        } else {
+          self._warnMissingHandler(handlerName);
         }
       };
       form.addEventListener('submit', submitFn);
@@ -838,6 +939,8 @@ class TokUIRenderer {
             const form = dom.closest('form');
             const data = form ? self._collectFormData(form) : null;
             handler(data, e, dom);
+          } else {
+            self._warnMissingHandler(handlerName);
           }
         };
         dom.addEventListener('click', domClickFn);
@@ -1007,7 +1110,9 @@ if (typeof window !== 'undefined') {
   window.TokUI._internal.resolveTargetForm = resolveTargetForm;
   window.TokUI._internal.resolvePrintScope = resolvePrintScope;
   window.TokUI._internal.broadcastTokuiReset = broadcastTokuiReset;
+  window.TokUI._internal.parseOnSpec = parseOnSpec;
+  window.TokUI._internal.debounce = debounce;
 }
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { el, TokUIRenderer, VARIANTS, resolveButtonAction, resolveTargetForm, resolvePrintScope, broadcastTokuiReset };
+  module.exports = { el, TokUIRenderer, VARIANTS, resolveButtonAction, resolveTargetForm, resolvePrintScope, broadcastTokuiReset, parseOnSpec, debounce };
 }

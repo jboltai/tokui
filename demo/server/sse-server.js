@@ -1371,7 +1371,7 @@ const DEMOS = [
             .cardTx('快捷操作', '点击左侧导航选择更多组件示例。')
           .end()
           .col_layout({ span: 6 })
-            .cardTx('版本更新', 'TokUI v0.1.7 已发布，支持卡片自闭合模式。')
+            .cardTx('版本更新', 'TokUI v0.1.8 已发布，支持卡片自闭合模式。')
           .end()
         .end()
         .hr()
@@ -1561,7 +1561,7 @@ const DEMOS = [
                 .a({ tx: '帮助文档', u: '/docs' })
                 .p(' | ')
                 .a({ tx: '联系我们', u: '/contact' })
-                .p('版本 v0.1.7')
+                .p('版本 v0.1.8')
               .end()
             .end()
           .end()
@@ -3317,6 +3317,82 @@ const DEMOS = [
         }
       });
       return b.toChunks();
+    }
+  },
+
+  // ===== 交互回路（HITL 审批 / on: 事件上报 / del·ins 动态增删 / 停止生成）=====
+  {
+    trigger: 'demo-interaction',
+    title: '交互回路',
+    desc: 'HITL 审批、on: 事件上报、del/ins 动态增删、chat-input 停止生成',
+    build() { return new TokUIBuilder(); },
+    stream(res) {
+      // 手写 DSL 分段推送（on: 值按规范双引号包裹）；
+      // del/ins 段插入 { _wait } 延迟，保证「卡片 A → ins 插入 → 卡片 B → del 删除」肉眼可见。
+      // 注意：DSL 没有注释语法，;; 行会被当正文文本渲染，故分段用 h3 小节标题。
+      var chunks = [
+        '[card tt:"交互回路 Interaction Loop"]',
+        '[p v:muted "Phase 1 交互回路：HITL 审批、on 事件上报、del/ins 动态增删、chat-input 停止生成。与下方组件交互，上报内容会回显为对话区系统消息。"]',
+
+        // === 1. HITL 审批：tool-call approval ===
+        '[h3 1. HITL 审批 — tool-call approval]',
+        '[p v:muted "status:pending + approval 渲染批准/拒绝按钮，点击经 clk 上报 {approved, id, name}："]',
+        '[tool-call id:ia-tc name:delete_files status:pending approval clk:iaApproval "rm -rf /tmp/build-cache（3 个目录，约 1.2 GB）"][/tool-call]',
+
+        // === 2. on:"事件:处理器" 交互上报 ===
+        '[h3 2. 事件上报 — on 属性]',
+        '[p v:muted "tabs 切换（{index, title}）、input 输入（300ms 防抖，{value, name}）、switch 切换（{value, name}）："]',
+        '[tabs on:"change:iaTab"]',
+        '[tab tt:说明][p v:muted "切到「详情」页签试试，每次切换回显一条系统消息。"][/tab]',
+        '[tab tt:详情][p v:muted "这是第二页。change 事件携带 {index, title}。"][/tab]',
+        '[/tabs]',
+        '[input n:city ph:"输入试试（300ms 防抖）" on:"change:iaInput"]',
+        '[switch n:sw l:"通知开关" on:"change:iaSwitch"]',
+
+        // === 3. ins / del 动态增删（先渲染再删，延迟可见） ===
+        '[h3 3. 动态增删 — ins 插入 / del 删除]',
+        '[p v:muted "卡片 A 保留 → 1.5s 后 ins 在 A 后插入内容 → 再渲染卡片 B → 2.5s 后 del 删除 B："]',
+        '[card id:ia-card-a tt:"卡片 A（保留）"][p 我是锚点卡片，ins 会在我后面插入内容。][/card]',
+        { _wait: 1500 },
+        '[ins after:ia-card-a][callout t:success tx:"ins after:ia-card-a 插入成功 — 闭标签到达时一次性挂载，无闪动。"][/ins]',
+        { _wait: 1500 },
+        '[card id:ia-card-b tt:"卡片 B（将被删除）"][p v:muted "我还能存在 2.5 秒……"][/card]',
+        { _wait: 2500 },
+        '[del id:ia-card-b]',
+
+        // === 4. chat-input streaming 停止生成 ===
+        '[h3 4. 停止生成 — chat-input streaming]',
+        '[p v:muted "streaming 态发送钮变为停止钮，点击经 on：stop 上报（未声明 on 时默认断开 SSE 连接）："]',
+        '[chat-input streaming ph:"模拟生成中…点击右侧 ■ 停止" on:"stop:iaStop" clk:iaSend][/chat-input]',
+
+        // === 5. dialog close 事件 ===
+        '[h3 5. 弹窗关闭事件 — dialog close]',
+        '[btn tx:"打开弹窗" v:primary clk:iaOpenDlg]',
+        '[dialog id:dlg tt:"试试关闭我" on:"close:iaDlgClose"][p 点 ×、按 ESC 或点遮罩关闭，close 事件都会上报。][btn tx:"关闭" clk:closeDialog][/dialog]',
+
+        '[/card]'
+      ];
+      var i = 0;
+      var cleaned = false;
+      res.on('close', function() { cleaned = true; });
+      function sendNext() {
+        if (cleaned || i >= chunks.length) {
+          if (!cleaned) {
+            res.write('data: [DONE]\n\n');
+            res.end();
+          }
+          return;
+        }
+        var chunk = chunks[i++];
+        // { _wait: ms } 延迟占位，不发数据只等待（同 streamBuilder 语义）
+        if (typeof chunk === 'object' && chunk._wait) {
+          setTimeout(sendNext, chunk._wait);
+        } else {
+          res.write('data: ' + JSON.stringify({ tokui: chunk }) + '\n\n');
+          setTimeout(sendNext, 80);
+        }
+      }
+      sendNext();
     }
   },
 

@@ -57,6 +57,8 @@ List container. `list` is unordered (`ul`) by default; `t:ol` switches it to an 
 
 <Playground dsl='[tabs][tab tt:概览][p 这是概览页内容。][/tab][tab tt:详情][p 这是详情页内容，可放任意子组件。][stat tt:访问量 v:1024 trend:up][/tab][tab tt:设置][p 设置项放在这里。][/tab][/tabs]' />
 
+> **Tab-switch callback**: once `tabs` declares `on:"change:h"`, user tab switches report `{index, title}`; programmatic `upd` switches do not fire it.
+
 ## Accordion `accordion` / Collapse `collapse`
 
 `accordion` wraps multiple `collapse` panels, each independently collapsible. `tt` sets the title; `open` expands by default.
@@ -81,6 +83,8 @@ Built on the native `<dialog>` element, with a backdrop + centered modal. Esc / 
 
 > Triggered by a button: the trigger button uses `clk:openDialog data-target:"<the dialog's id>"`, and the matching `[dialog id:...]` must carry the **same id**. Clicking calls the built-in `openDialog` handler, which finds the dialog by id and calls `showModal()`. Cancel/confirm buttons inside use `clk:closeDialog` to dismiss the enclosing dialog (no id needed).
 
+> **Close callback**: once `on:"close:h"` is declared, user close paths (Esc / backdrop / ✕) are reported with detail `{}`; programmatic `[upd id:x act:close]` is not reported (loop prevention).
+
 <Playground dsl='[row][col span:6][btn tx:点击打开对话框 v:primary clk:openDialog data-target:demoDialog][dialog tt:用户协议 id:demoDialog][p 请仔细阅读以下协议内容，勾选同意后即可继续。][p v:muted 点击「同意并继续」或 ✕ / 遮罩可关闭对话框。][ft v:right][btn tx:取消 clk:closeDialog] [btn tx:同意并继续 v:primary clk:closeDialog][/ft][/dialog][/col][/row]' />
 
 ## Drawer `drawer`
@@ -99,6 +103,8 @@ A panel that slides in from the side. `pos` controls the direction; `w` sets the
 **`pos` variants**: `left` / `right` / `top` / `bottom`.
 
 > Triggered by a button: the trigger button uses `clk:openDrawer data-target:"<the drawer's id>"`, and the matching `[drawer id:...]` must carry the **same id**. Clicking calls the built-in `openDrawer` handler, which finds the drawer by id and adds the `tokui-drawer--open` class to slide it in. Cancel/confirm buttons inside use `clk:closeDrawer` to dismiss the enclosing drawer.
+
+> **Close callback**: once `on:"close:h"` is declared, user close paths (Esc / backdrop / ✕) are reported with detail `{}`; programmatic `[upd id:x act:close]` is not reported (loop prevention).
 
 <Playground dsl='[btn tx:打开筛选抽屉 clk:openDrawer v:primary data-target:demoDrawer][drawer tt:筛选条件 pos:right w:360 id:demoDrawer][p 在这里放置筛选表单或详情内容，Esc / 遮罩 / ✕ 可关闭。][ft v:right][btn tx:取消 clk:closeDrawer][btn tx:应用 v:primary clk:closeDrawer][/ft][/drawer]' />
 
@@ -131,6 +137,8 @@ A horizontal flow indicator. `v` sets the current step (1-based), `vd:vertical` 
 
 <Playground dsl='[steps v:3][step tt:填写信息 基本信息][step tt:身份验证 完成实名认证][step tt:设置支付 配置支付方式][step tt:完成注册 激活账号][/steps]' />
 
+> **Clickable steps**: once `steps` declares `on:"change:h"`, steps become clickable and a click reports `{index, title}`.
+
 ## Carousel `carousel` / `carousel-item`
 
 `carousel` is the container; children are `carousel-item` (or plain `img`). **Children may also be written as `[item]`** — inside `carousel` it renders as a slide (same name as `[item]` in `list`/`desc`, disambiguated by parent; `item` and `carousel-item` are equivalent and can be mixed). `auto` sets the autoplay interval (in milliseconds). Supports left/right arrows, indicator dots, dragging, and left/right keyboard navigation. `thumb` switches to a thumbnail legend below (replaces dots; click to jump smoothly). Sizing: `w` width, `h` height (plain numbers are px; `%`/`vw`/`rem` also accepted), or `ratio` aspect ratio (e.g. `16:9` / `4:3` / `1`); when `h` or `ratio` is set, slides fill the height and images are cropped with `object-fit:cover`; `h` takes precedence over `ratio`.
@@ -148,6 +156,8 @@ A horizontal flow indicator. `v` sets the current step (1-based), `vd:vertical` 
 | `tx` | Slide description | `carousel-item` / `item` | `tx:说明文字` |
 
 <Playground dsl='[carousel auto:4000][item s:https://picsum.photos/seed/c1/600/280 tt:第一张 tx:用 item 声明][carousel-item s:https://picsum.photos/seed/c2/600/280 tt:第二张 tx:两种可混用][item s:https://picsum.photos/seed/c3/600/280 tt:第三张 tx:等价于 carousel-item][/carousel]' />
+
+> **Switch reporting**: once `on:"change:h"` is declared, manual switches (arrows / dots / drag / keyboard) report `{index}`; autoplay does not fire it.
 
 Fixed size (`h`) / aspect ratio (`ratio`) / thumbnail legend (`thumb`):
 
@@ -172,6 +182,8 @@ Fixed size (`h`) / aspect ratio (`ratio`) / thumbnail legend (`thumb`):
 
 <Playground dsl='[tree l:项目结构][tn tx:src open][tn tx:components leaf][tn tx:core leaf][tn tx:styles leaf][/tn][tn tx:tests open][tn tx:test-parser.js leaf][tn tx:test-renderer.js leaf][/tn][tn tx:package.json leaf][/tree]' />
 
+> **Select & check reporting**: declare `on:"change:h"` to report `{value, id}` when a node is selected; in checkbox mode (`chk`), declare `on:"check:h"` to report `{value: checked values array}` on checkbox changes.
+
 ## Menu `menu` / `menu-item`
 
 `menu` is the container; `menu-item` is self-closing. `v` switches direction (`vertical` default / `horizontal` / `inline`), `act` sets the `clk` value of the active item, and `bg`/`fc` customize colors.
@@ -187,6 +199,8 @@ Fixed size (`h`) / aspect ratio (`ratio`) / thumbnail legend (`thumb`):
 | `dis` | Disabled | `menu-item` | `dis` |
 
 <Playground dsl='[row][col span:6][p v:bold 竖向菜单][menu act:goHome][menu-item tx:首页 i:🏠 clk:goHome][menu-item tx:产品 i:📦 clk:goProduct][menu-item tx:文档 i:📖 clk:goDocs][menu-item tx:设置 i:⚙️ dis][/menu][/col][col span:6][p v:bold 横向菜单][menu v:horizontal][menu-item tx:概览 clk:go1][menu-item tx:分析 clk:go2][menu-item tx:报告 clk:go3][/menu][/col][/row]' />
+
+> **Activation callback & programmatic activation**: once `menu` declares `on:"change:h"`, changes of the active item report `{value}` (item identity resolves as id > v > text); the server can activate a menu item programmatically with `[upd id:m act:activate v:identity]`.
 
 ## Resizable Panel `resizable`
 
