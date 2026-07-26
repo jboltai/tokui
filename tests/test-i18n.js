@@ -214,4 +214,24 @@ test('t() 性能特征：单态查表，切 locale 后立即生效', () => {
   resetZh();
 });
 
+test('bubble 头像文案双语存在（bubble.you / bubble.ai）', () => {
+  resetZh();
+  assert.strictEqual(i18n.t('bubble.you'), '你');
+  assert.strictEqual(i18n.t('bubble.ai'), 'AI');
+  i18n.setLocale('en-US');
+  assert.strictEqual(i18n.t('bubble.you'), 'You');
+  assert.strictEqual(i18n.t('bubble.ai'), 'AI');
+  resetZh();
+});
+
+test('terminal 复制按钮文案 key 双语存在（actions.copy / common.copied）', () => {
+  resetZh();
+  assert.strictEqual(i18n.t('actions.copy'), '复制');
+  assert.strictEqual(i18n.t('common.copied'), '已复制');
+  i18n.setLocale('en-US');
+  assert.strictEqual(i18n.t('actions.copy'), 'Copy');
+  assert.strictEqual(i18n.t('common.copied'), 'Copied');
+  resetZh();
+});
+
 run();

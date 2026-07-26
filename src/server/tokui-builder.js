@@ -153,6 +153,19 @@ class TokUIBuilder {
     return this;
   }
 
+  /** KaTeX 公式（容器=块级 / inline:true → [katex f:"公式"] 行内；渲染依赖宿主加载 katex，无插件回退源码） */
+  katex(content, inline) {
+    return inline
+      ? this._selfClosing('katex', null, { f: content })
+      : (this.chunks.push(`[katex]${content}[/katex]`), this);
+  }
+
+  /** Mermaid 图（容器；渲染依赖宿主加载 mermaid，无插件回退代码块） */
+  mermaid(content) {
+    this.chunks.push(`[mermaid]${content}[/mermaid]`);
+    return this;
+  }
+
   /** 分割线 */
   hr() { this.chunks.push('[hr]'); return this; }
 

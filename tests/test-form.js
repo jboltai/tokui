@@ -16,12 +16,12 @@ const { registerBasicComponents } = require('../src/components/basic');
 
 const tests = [];
 function test(name, fn) { tests.push({ name, fn }); }
-function run() {
+async function run() {
   let passed = 0, failed = 0;
-  tests.forEach(t => {
-    try { t.fn(); passed++; console.log('  \x1b[32m✓\x1b[0m ' + t.name); }
+  for (const t of tests) {
+    try { await t.fn(); passed++; console.log('  \x1b[32m✓\x1b[0m ' + t.name); }
     catch (e) { failed++; console.log('  \x1b[31m✗\x1b[0m ' + t.name); console.log('    ' + e.message); }
-  });
+  }
   console.log('\n  ' + passed + ' passed, ' + failed + ' failed');
   teardownDOM();
   if (failed) process.exit(1);
@@ -1111,6 +1111,228 @@ test('select 多选 _update 按 v:"a,b" 设置多个 option 选中', () => {
   assert.ok(sel.children[0].getAttribute('selected') !== null, 'a 应 selected');
   assert.ok(sel.children[1].getAttribute('selected') === null, 'b 不应 selected');
   assert.ok(sel.children[2].getAttribute('selected') !== null, 'c 应 selected');
+});
+
+// === upload 传输层（u: XHR 上传）===
+
+test('upload 无 u 时行为不变（不创建 XHR、无传输 UI）', () => {
+  const xhrCount = { n: 0 };
+  class SpyXHR { constructor() { xhrCount.n++; } }
+  global.XMLHttpRequest = SpyXHR;
+  try {
+    const rc = makeRenderer();
+    const dom = rc.render({ type: 'upload', attrs: { l: 'File' }, children: [] });
+    const fileInput = dom.querySelector('input[type=file]');
+    fileInput.files = [{ name: 'a.txt', size: 10, type: 'text/plain' }];
+    (fileInput._events.change || []).forEach(fn => fn.call(fileInput));
+    assert.strictEqual(xhrCount.n, 0, '无 u 不应创建 XHR');
+    assert.strictEqual(dom.querySelector('.tokui-upload__progress'), null, '无 u 不应有进度条');
+    assert.strictEqual(dom.querySelector('.tokui-upload__status'), null, '无 u 不应有状态标');
+    // 原有 change 上报（文件名数组）保留
+    const hidden = dom.querySelector('input[type=hidden]');
+    assert.strictEqual(hidden.value, 'a.txt', 'hidden 仍为文件名');
+  } finally {
+    delete global.XMLHttpRequest;
+  }
+});
+
+test('upload 有 u 时 XHR 被触发（FormData 收文件字段 + progress/success 上报）', () => {
+  const xhrInstances = [];
+  class FakeXHR {
+    constructor() {
+      this.upload = { _ev: {}, addEventListener(t, fn) { this._ev[t] = fn; } };
+      xhrInstances.push(this);
+    }
+    open(mtd, url) { this.method = mtd; this.url = url; }
+    send(fd) {
+      this.fd = fd;
+      if (this.upload._ev.progress) this.upload._ev.progress({ loaded: 50, total: 100 });
+      this.status = 200;
+      this.responseText = '{"ok":true}';
+      if (this.onload) this.onload();
+    }
+  }
+  const fdAppends = [];
+  class FakeFormData { append(k, f, name) { fdAppends.push([k, name || (f && f.name)]); } }
+  const OrigFormData = global.FormData;
+  global.XMLHttpRequest = FakeXHR;
+  global.FormData = FakeFormData;
+  try {
+    const rc = makeRenderer();
+    const events = [];
+    rc._onComponentEvent = (e) => events.push(e);
+    const dom = rc.render({ type: 'upload', attrs: { u: '/api/upload', n: 'avatar' }, children: [] });
+    const fileInput = dom.querySelector('input[type=file]');
+    fileInput.files = [{ name: 'a.png', size: 100, type: 'image/png' }];
+    (fileInput._events.change || []).forEach(fn => fn.call(fileInput));
+    assert.strictEqual(xhrInstances.length, 1, '应创建一个 XHR');
+    assert.strictEqual(xhrInstances[0].method, 'POST', 'mtd 缺省 POST');
+    assert.strictEqual(xhrInstances[0].url, '/api/upload');
+    assert.deepStrictEqual(fdAppends, [['avatar', 'a.png']], 'FormData 应以 n 为字段名收到文件');
+    const kinds = events.map(e => e.event);
+    assert.ok(kinds.indexOf('progress') !== -1, '应有 progress 上报');
+    assert.ok(kinds.indexOf('success') !== -1, '应有 success 上报');
+    assert.ok(kinds.indexOf('change') !== -1, '原有 change 上报保留');
+    const prog = events.filter(e => e.event === 'progress')[0];
+    assert.strictEqual(prog.detail.percent, 50);
+    assert.strictEqual(prog.detail.file, 'a.png');
+    const succ = events.filter(e => e.event === 'success')[0];
+    assert.strictEqual(succ.detail.response, '{"ok":true}');
+    assert.notStrictEqual(dom.querySelector('.tokui-upload__status--done'), null, '成功应显示 ✓');
+  } finally {
+    delete global.XMLHttpRequest;
+    global.FormData = OrigFormData;
+  }
+});
+
+test('upload u: 非法协议（javascript:）被拒绝退化为本选择', () => {
+  const xhrCount = { n: 0 };
+  class SpyXHR { constructor() { xhrCount.n++; } }
+  global.XMLHttpRequest = SpyXHR;
+  const origWarn = console.warn;
+  console.warn = () => {};
+  try {
+    const rc = makeRenderer();
+    const dom = rc.render({ type: 'upload', attrs: { u: 'javascript:alert(1)' }, children: [] });
+    const fileInput = dom.querySelector('input[type=file]');
+    fileInput.files = [{ name: 'b.txt', size: 5, type: 'text/plain' }];
+    (fileInput._events.change || []).forEach(fn => fn.call(fileInput));
+    assert.strictEqual(xhrCount.n, 0, '非法协议不应创建 XHR');
+    assert.strictEqual(dom.querySelector('input[type=hidden]').value, 'b.txt', '退化为本地选择');
+  } finally {
+    console.warn = origWarn;
+    delete global.XMLHttpRequest;
+  }
+});
+
+// === slider range 双滑块 + marks ===
+
+test('slider range 双柄 DOM + hidden "20,60" + _update', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'slider', attrs: { range: true, v: '20,60', id: 'sr1' }, children: [] });
+  const thumbs = dom.querySelectorAll('.tokui-slider__thumb');
+  assert.strictEqual(thumbs.length, 2, 'range 应有两个柄');
+  assert.notStrictEqual(dom.querySelector('.tokui-slider__thumb--min'), null);
+  assert.notStrictEqual(dom.querySelector('.tokui-slider__thumb--max'), null);
+  assert.strictEqual(dom.querySelector('input[type=hidden]').value, '20,60');
+  assert.strictEqual(dom.querySelector('.tokui-slider__value').textContent, '20 ~ 60');
+  dom._update({ v: '30,70' });
+  assert.strictEqual(dom.querySelector('input[type=hidden]').value, '30,70', '_update v:"30,70" 应生效');
+  assert.strictEqual(dom.querySelector('.tokui-slider__value').textContent, '30 ~ 70');
+});
+
+test('slider marks 渲染刻度点与文案', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'slider', attrs: { marks: '0:免费,50:标准,100:旗舰' }, children: [] });
+  const marks = dom.querySelectorAll('.tokui-slider__mark');
+  assert.strictEqual(marks.length, 3, '应有 3 个刻度');
+  assert.strictEqual(marks[1].textContent, '标准');
+  assert.notStrictEqual(dom.querySelector('.tokui-slider--has-marks'), null);
+  assert.strictEqual(marks[2].style.left, '100%');
+});
+
+// === rate half 半选 ===
+
+test('rate half 点击左半区出 3.5 + change 上报', () => {
+  const rc = makeRenderer();
+  const events = [];
+  rc._onComponentEvent = (e) => events.push(e);
+  const dom = rc.render({ type: 'rate', attrs: { half: true, max: '5', n: 'score' }, children: [] });
+  const zones = dom.querySelectorAll('.tokui-rate__zone');
+  assert.strictEqual(zones.length, 10, '5 颗星 × 左右半区');
+  const rate = dom.querySelector('.tokui-rate');
+  const star4Left = zones[6]; // 第 4 颗星左半区 → 3.5
+  (rate._events.click || []).forEach(fn => fn({ target: star4Left, preventDefault() {} }));
+  const hidden = dom.querySelector('input[type=hidden]');
+  assert.strictEqual(String(hidden.value), '3.5', 'hidden 值应为 3.5');
+  const change = events.filter(e => e.event === 'change').pop();
+  assert.strictEqual(change.detail.value, 3.5, 'change 上报值应含 .5');
+  assert.strictEqual(change.detail.name, 'score');
+  const star4 = star4Left.parentNode;
+  assert.ok(star4.classList.contains('tokui-rate__star--half'), '第 4 颗星应为半选态');
+  assert.strictEqual(dom.querySelector('.tokui-rate__text').textContent, '3.5/5');
+});
+
+// === datepicker range 范围模式 ===
+
+test('datepicker range 选两天 hidden 值 "起 ~ 止" 格式 + 交换', () => {
+  const rc = makeRenderer();
+  const events = [];
+  rc._onComponentEvent = (e) => events.push(e);
+  const dom = rc.render({ type: 'datepicker', attrs: { range: true, n: 'period' }, children: [] });
+  const dropdown = dom.querySelector('.tokui-datepicker-dropdown');
+  function clickDay(n) {
+    const days = dom.querySelectorAll('.tokui-datepicker-day')
+      .filter(d => !d.classList.contains('tokui-datepicker-day--other') && d.getAttribute('data-day') === String(n));
+    (dropdown._events.click || []).forEach(fn => fn({ target: days[0], stopPropagation() {} }));
+  }
+  clickDay(10);
+  assert.strictEqual(dom.querySelector('input[type=hidden]').value, '', '仅选 start 不回填');
+  assert.notStrictEqual(dom.querySelector('.tokui-datepicker-day--range-start'), null, 'start 日应强调');
+  clickDay(15);
+  const hidden = dom.querySelector('input[type=hidden]');
+  assert.ok(/^\d{4}-\d{2}-10 ~ \d{4}-\d{2}-15$/.test(hidden.value), 'hidden 应为 "起 ~ 止"，实际: ' + hidden.value);
+  const change = events.filter(e => e.event === 'change').pop();
+  assert.strictEqual(change.detail.value, hidden.value);
+  assert.notStrictEqual(dom.querySelector('.tokui-datepicker-day--in-range'), null, '区间日应高亮');
+  // 第三次点击重选；end<start 自动交换
+  clickDay(20);
+  clickDay(5);
+  assert.ok(/-05 ~ \d{4}-\d{2}-20$/.test(dom.querySelector('input[type=hidden]').value),
+    'end<start 应自动交换，实际: ' + dom.querySelector('input[type=hidden]').value);
+});
+
+// === input sug 联想建议 ===
+
+test('input sug 同步数据源下拉出现 + Enter 选定', async () => {
+  const rc = makeRenderer();
+  const events = [];
+  rc._onComponentEvent = (e) => events.push(e);
+  rc.eventBus.registerHandler('sugSrc', () => ['apple', 'banana', { v: 'ch', tx: 'Cherry' }]);
+  const dom = rc.render({ type: 'input', attrs: { sug: 'sugSrc', n: 'fruit', db: '1' }, children: [] });
+  const input = dom.querySelector('.tokui-input');
+  input.value = 'a';
+  (input._events.input || []).forEach(fn => fn.call(input));
+  await new Promise(r => setTimeout(r, 30));
+  const sug = dom.querySelector('.tokui-sug');
+  assert.notStrictEqual(sug, null, '应有 sug 下拉容器');
+  assert.strictEqual(sug.style.display, '', '数据源返回后下拉应显示');
+  const items = sug.querySelectorAll('.tokui-sug__item');
+  assert.strictEqual(items.length, 3);
+  assert.strictEqual(items[2].textContent, 'Cherry', '{v,tx} 项应显示 tx');
+  assert.ok(items[0].classList.contains('tokui-sug__item--active'), '首项默认高亮');
+  (input._events.keydown || []).forEach(fn => fn({ key: 'Enter', preventDefault() {} }));
+  assert.strictEqual(input.value, 'apple', 'Enter 应写入高亮项值');
+  assert.strictEqual(sug.style.display, 'none', '选定后下拉关闭');
+  const change = events.filter(e => e.event === 'change').pop();
+  assert.strictEqual(change.detail.value, 'apple');
+  assert.strictEqual(change.detail.name, 'fruit');
+});
+
+test('input sug 键盘 ↓ 移动高亮后 Enter 选定', async () => {
+  const rc = makeRenderer();
+  rc.eventBus.registerHandler('sugSrc2', () => ['x1', 'x2']);
+  const dom = rc.render({ type: 'input', attrs: { sug: 'sugSrc2', db: '1' }, children: [] });
+  const input = dom.querySelector('.tokui-input');
+  input.value = 'x';
+  (input._events.input || []).forEach(fn => fn.call(input));
+  await new Promise(r => setTimeout(r, 30));
+  (input._events.keydown || []).forEach(fn => fn({ key: 'ArrowDown', preventDefault() {} }));
+  (input._events.keydown || []).forEach(fn => fn({ key: 'Enter', preventDefault() {} }));
+  assert.strictEqual(input.value, 'x2', '↓ + Enter 应选定第二项');
+});
+
+test('input sug handler 未注册走 _warnMissingHandler', async () => {
+  const rc = makeRenderer();
+  let warned = null;
+  rc._warnMissingHandler = (name) => { warned = name; };
+  const dom = rc.render({ type: 'input', attrs: { sug: 'nopeSrc', db: '1' }, children: [] });
+  const input = dom.querySelector('.tokui-input');
+  input.value = 'x';
+  (input._events.input || []).forEach(fn => fn.call(input));
+  await new Promise(r => setTimeout(r, 30));
+  assert.strictEqual(warned, 'nopeSrc', '未注册 handler 应告警');
+  assert.strictEqual(dom.querySelector('.tokui-sug').style.display, 'none', '下拉保持关闭');
 });
 
 run();

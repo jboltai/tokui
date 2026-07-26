@@ -178,7 +178,9 @@ resizable canvas canvas-content chart p
 | `img` | 自闭合 | `s` `alt` `w` `h` `tt` `v` | 图片，点击灯箱预览。变体 `avatar`/`rounded`/`bordered` |
 | `hr` | 自闭合 | — | 水平分割线 |
 | `dv` | 自闭合 | `tx`/裸内容 `v` `vert` `size` `align` `bg` `th` `plain` | 带文本分割线。`vert` 垂直，`align` 对齐，`th` 边框宽度 |
-| `md` | 容器·原始 | — | Markdown 渲染（表格/列表/任务/引用/代码围栏/链接图片） |
+| `md` | 容器·原始 | — | Markdown 渲染（表格/列表/任务/引用/代码围栏/链接图片）。可选插件增强：` ```mermaid ` 围栏与 `$$公式$$`/`$公式$` 在宿主加载 mermaid/katex 全局对象时自动增强渲染，无插件回退源码展示（零依赖不受损） |
+| `katex` | 容器·原始/自闭合 | `f` | 独立公式组件（md KaTeX 管线别名）。容器 `[katex]公式[/katex]` 块级；`[katex f:"公式"]` 行内。宿主加载 katex 才渲染，无插件回退源码。内容为 raw 且豁免转义解码，LaTeX 命令（`\nabla`/`\times`/`\to` 等）按标准语法直接书写 |
+| `mermaid` | 容器·原始 | — | 独立图组件（md mermaid 管线别名）。`[mermaid]图源[/mermaid]`，宿主加载 mermaid 才渲染，无插件回退代码块 |
 | `code` | 容器·原始 | `lang` | 语法高亮代码块，带复制按钮 + 行号。`lang`：`js`/`ts`/`py`/`html`/`css`/`sql`/`json`/`java`/`go`/`rust`/`bash` 及别名 |
 | `tag` | 自闭合 | `tx` `t` `s` `round` `bordered` `closable` `dis` `bg` `fc` | 标签。颜色用 `t:`（`default`/`primary`/`success`/`warning`/`danger`/`info`），尺寸 `s:small`/`medium`/`large` |
 | `b`/`strong`/`em`/`mark`/`del`/`sub`/`sup` | 自闭合 | 裸内容 | 行内格式（加粗/斜体/高亮/删除/上下标） |
@@ -223,7 +225,7 @@ resizable canvas canvas-content chart p
 | `watermark` | 容器 | `tx` `s` `font` `c` `gap` `ro` | 水印容器。`ro` 旋转角度（默认 -22），`gap` 间距（默认 40），canvas 平铺 |
 | `avatar` | 自闭合 | `s` `tx` `size` `bg` `fc` | 头像。无 src 时文字头像（取前 2 字），无 bg 时按 hash 自动配色 |
 | `file` | 自闭合 | `n` `s` `t` `u` `tt` | 文件卡片。`t:pdf`/`word`/`excel`/`ppt`/`image`/`zip`/`code`/`default` |
-| `chat-input` | 容器 | `ph` `clk` `dis` `max` `auto` `rows` `streaming` `on` | 对话输入框。Enter 发送/Shift+Enter 换行；Enter/发送按钮触发 clk handler，负载 `{value}`；`streaming` 显示停止生成按钮（`on:"stop:h"` 或默认断开 SSE，见 §8.4） |
+| `chat-input` | 容器 | `ph` `clk` `dis` `max` `auto` `rows` `streaming` `mention` `on` | 对话输入框。Enter 发送/Shift+Enter 换行；Enter/发送按钮触发 clk handler，负载 `{value}`；`streaming` 显示停止生成按钮（`on:"stop:h"` 或默认断开 SSE，见 §8.4）；`mention:数据源handler名` 启用 @ 提及下拉（数据源 fn({value:查询词}) 返回数组或 Promise，项为字符串或 `{v,tx}`；↑↓ 导航 Enter 选定，选定上报 `mention` 事件） |
 | `msg-actions` | 容器 | `clk` `copy` `regenerate` `like`/`dislike` `delete` `visible` | 消息操作栏。布尔属性生成默认按钮 |
 
 ### 6.3 思考与计划
@@ -303,11 +305,11 @@ resizable canvas canvas-content chart p
 | `carousel` | 容器 | `id` `auto` `thumb` `w` `h` `ratio` | 轮播。`auto` 毫秒自动播放；`thumb` 缩略图图例；`ratio:16:9`/`4:3`/`1`；子项 `carousel-item`/`item`/`img` |
 | `carousel-item` | 自闭合 | `s` `tt` `tx` | 轮播项 |
 | `tree` | 容器 | `id` `l` `clk` `chk` `dis` | 树。`chk` 可勾选（父子联动）；子项 `tn` |
-| `tn` | 容器/自闭合 | `v` `tx` `open` `leaf` `chk` `dis` | 树节点。`leaf` 自闭合；可递归嵌套 `tn` |
+| `tn` | 容器/自闭合 | `v` `tx` `open` `leaf` `chk` `dis` `load` | 树节点。`leaf` 自闭合；可递归嵌套 `tn`；`load:数据handler名` 懒加载（首次展开调 fn({id,value})，返回子节点对象数组或 Promise，加载完成上报 `load` 事件） |
 | `menu` | 容器 | `v` `act` `bg` `fc` `id` | 菜单。`v:vertical`/`horizontal`/`inline`；子项 `menu-item` |
 | `menu-item` | 自闭合 | `tx` `clk` `i` `dis` `act` | 菜单项 |
 | `resizable` | 容器 | `dir` `min` `max` `default` `w` | 分割面板。`dir:h`/`v`；须 2 个子面板 |
-| `scroll-area` | 容器 | `h` `w` `id` | 自定义滚动区域 |
+| `scroll-area` | 容器 | `h` `w` `id` `virtual` `ih` | 自定义滚动区域。`virtual` 虚拟滚动（均匀行高模式，`ih:N` 行高默认 36px，仅可视窗口+buffer 挂 DOM）；滚动到底部阈值上报 `loadmore` 事件（长列表/对话历史加载更多用） |
 | `sidebar` | 容器 | `w` `pos` `collapsible` `tt` `bg` `fc` `id` | 侧边栏。`pos:left`/`right`；子项 `sidebar-content` / `sidebar-footer` |
 | `sidebar-content` / `sidebar-footer` | 容器 | — | 侧边栏内容区 / 页脚 |
 
@@ -316,7 +318,7 @@ resizable canvas canvas-content chart p
 | Tag | 类型 | 常用属性 | 说明 |
 |-----|------|----------|------|
 | `form` | 容器 | `act` `mtd` `sub` `clk` `id` | 表单。`act` 提交地址、`sub` 提交处理器；提交前执行原生 reportValidity（`req`/`pat` 不过则拦截） |
-| `input` | 自闭合 | `t` `l` `ph` `id` `n` `val` `ml` `min` `max` `step` `req` `dis` `ro` `w` `hint` `pat` `err` `ok` `live` `search` `v` `pre`/`app`/`prebtn`/`appbtn` | 输入框。`val` 存初值（`v` 是变体）；`ml` maxlength；`hint` 提示；`pat` 原生 pattern 校验；`err` 自定义校验错误文案；`live` 纯前端实时校验（blur 本地 checkValidity：失败出 `err` 红 hint，通过出 `ok` 绿 hint，默认 `✓ 格式正确`；`live:input` 即时模式边输边验）；`search` 加搜索图标（`search right` 右侧）；`pre`/`app` 前置/后置文本（可 `文本\|变体`）；`prebtn`/`appbtn` 前置/后置按钮（`文本:处理器\|变体`） |
+| `input` | 自闭合 | `t` `l` `ph` `id` `n` `val` `ml` `min` `max` `step` `req` `dis` `ro` `w` `hint` `pat` `err` `ok` `live` `search` `v` `pre`/`app`/`prebtn`/`appbtn` `rule` `msg` `sug` `db` | 输入框。`val` 存初值（`v` 是变体）；`ml` maxlength；`hint` 提示；`pat` 原生 pattern 校验；`err` 自定义校验错误文案；`live` 纯前端实时校验（blur 本地 checkValidity：失败出 `err` 红 hint，通过出 `ok` 绿 hint，默认 `✓ 格式正确`；`live:input` 即时模式边输边验）；`rule`/`msg` DSL 校验规则（见下方专节）；`sug:数据源handler名` 输入联想下拉（fn({value}) 返回数组或 Promise，项为字符串或 `{v,tx}`；↑↓/Enter/Esc 导航，选定触发 change 上报）；`search` 加搜索图标（`search right` 右侧）；`pre`/`app` 前置/后置文本（可 `文本\|变体`）；`prebtn`/`appbtn` 前置/后置按钮（`文本:处理器\|变体`） |
 | `pwd` | 自闭合 | 同 `input` + `toggle` | 密码框。`toggle` 显隐开关 |
 | `textarea` | 容器 | `l` `id` `n` `ph` `rows` `maxlen` `maxrows` `auto` `tx`/裸内容 `req` `dis` `ro` | 多行文本。`auto` 自适应高度 |
 | `select` | 容器 | `l` `ph` `multi` `id` `n` `req` `v` `opt` | 下拉选择。子项 `opt`；或 `opt:"v:标签;…"` 简写自闭合 |
@@ -324,8 +326,8 @@ resizable canvas canvas-content chart p
 | `opt` | 自闭合 | `v` `tx` `chk` `p` | 选项。随父容器变 select/radio/checkbox/picker/cascader/transfer 选项；`p` 指定父值（仅 cascader） |
 | `checkbox` | 自闭合/容器 | `l` `chk` `id` `n` `v` `opt` `multi` | 复选框（**三态**：见下方专节） |
 | `switch` | 自闭合 | `l` `chk` `dis` `clk` `id` `n` `v` | 开关 |
-| `slider` | 自闭合 | `l` `min` `max` `step` `v` `dis` `clk` `id` `n` | 滑块 |
-| `rate` | 自闭合 | `l` `v` `max` `tx` `ro` `dis` `clk` `id` `n` | 评分。`max` 默认 5；`ro` 只读（报告/展示类必加） |
+| `slider` | 自闭合 | `l` `min` `max` `step` `v` `dis` `clk` `id` `n` `range` `marks` | 滑块。`range` 双滑块（`v:"20,60"`，change 报 `{value:[min,max]}`）；`marks:"0:免费,50:标准,100:旗舰"` 刻度 |
+| `rate` | 自闭合 | `l` `v` `max` `tx` `ro` `dis` `clk` `id` `n` `half` | 评分。`max` 默认 5；`ro` 只读（报告/展示类必加）；`half` 半选（0.5 步进，同值再点清零） |
 | `numinput` | 自闭合 | `l` `v` `min` `max` `step` `dis` `id` `n` | 数字输入 |
 | `btn` | 自闭合 | `tx` `t` `sub` `clk` `id` `dis` `w` `bg` `fc` `radius` `icon` `i` `l`/`tt` `form` `reset` `print` | 按钮（见下方专节）。`t:submit` = 提交语义（渲染 `type=submit`，点击走 `_doSubmit` 校验闸门：`req`/`pat` 不过则拦截；`clk:H` 作提交 handler，缺省回退表单自身 `sub`；不在 form 内时退化为普通点击）。`w`/`radius` 仅接受 数字+px/%/em/rem/vw/vh，非法值静默丢弃 |
 | `btngroup` | 容器 | `id` `v` | 按钮组。`v:vertical`/`pill` |
@@ -333,10 +335,26 @@ resizable canvas canvas-content chart p
 | `picker` | 容器 | `l` `ph` `multi` `dis` `id` `n` `v` | 选择器（搜索下拉）；子项 `opt` |
 | `cascader` | 容器 | `l` `ph` `dis` `clk` `v` `id` `n` | 级联选择。`v` 预选路径（`/` 分隔）；扁平 `opt` 用 `p` 指定父值 |
 | `transfer` | 容器 | `l` `tt` `tt2` `clk` `id` `dis` `n` `h` `mh` | 穿梭框。`tt`/`tt2` 左/右标题；`h`/`mh` 固定/最大高度；子项 `opt`（`chk` 进右栏） |
-| `upload` | 自闭合 | `l` `ph` `accept` `multi` `dis` `clk` `max` `id` `n` | 文件上传 |
-| `datepicker` | 自闭合 | `l` `ph` `fmt` `v` `clk` `dis` `id` `n` | 日期选择。`fmt` 默认 `YYYY-MM-DD` |
+| `upload` | 自闭合 | `l` `ph` `accept` `multi` `dis` `clk` `max` `id` `n` `u` `mtd` | 文件上传。`u:` 上传地址（仅 http(s)/相对路径）启用自动传输：XHR 逐个上传，进度条/成功 ✓/失败 ✗+重试三态，上报 `progress`/`success`/`error` 事件；无 `u` 仅前端选择 |
+| `datepicker` | 自闭合 | `l` `ph` `fmt` `v` `clk` `dis` `id` `n` `range` | 日期选择。`fmt` 默认 `YYYY-MM-DD`；`range` 范围模式（两次点击选起止，值格式 `YYYY-MM-DD ~ YYYY-MM-DD`） |
 | `timepicker` | 自闭合 | `l` `ph` `fmt` `v` `clk` `dis` `id` `n` | 时间选择。`fmt` 默认 `HH:mm`（含 `ss` 显示秒） |
 | `datetimepicker` | 自闭合 | `l` `ph` `fmt` `v` `clk` `dis` `id` `n` | 日期时间选择。`fmt` 默认 `YYYY-MM-DD HH:mm` |
+
+#### DSL 校验规则（`rule:` + `msg:`）
+
+`input`/`pwd`/`textarea`/`select` 支持声明式校验规则，**提交时统一执行**（`sub`/`t:submit` 全部路径），失败拦截提交、错误字段标红 + hint 出文案并聚焦：
+
+```tokui
+[input n:email l:"邮箱" rule:"required|email"]
+[input n:code l:"验证码" rule:"required|len:6" msg:"请输入 6 位验证码"]
+[select n:city l:"城市" rule:"required" opt:"bj:北京;sh:上海"]
+```
+
+- 规则管道分隔按序短路：`required` `email` `url` `number` `len:N`（精确长度）`min:N` `max:N`（字符数）`re:正则`
+- 空值跳过非 `required` 规则（HTML5 同语义：空且非必填 = 合法）
+- `msg:` 自定义错误文案（缺省用内置 i18n 文案）；未知规则名/非法正则 `console.warn` 跳过
+- 与 `live` 组合：blur 实时校验，error 态下输入即时重检
+- `select` 的 `req` 会写原生 `required` 属性（多选除外，语义不符）
 
 #### `opt:"..."` 选项简写（radio / checkbox / select 通用）
 
@@ -398,7 +416,7 @@ resizable canvas canvas-content chart p
 
 | Tag | 类型 | 常用属性 | 说明 |
 |-----|------|----------|------|
-| `table` | 容器 | `stripe` `cap`/`caption` `v` `id` | 表格。`cap` 标题；`v:bordered`/`compact`（注：bordered 由 CSS 类驱动） |
+| `table` | 容器 | `stripe` `cap`/`caption` `v` `id` `sortable` `filter` `pagination` `ps` | 表格。`cap` 标题；`v:bordered`/`compact`（注：bordered 由 CSS 类驱动）；`sortable` 客户端排序（点击表头 asc/desc 切换，数值感知）；`filter` 客户端筛选（表头下筛选行，子串 AND 多列，300ms 防抖）；`pagination` + `ps:N` 客户端分页（默认 10/页）；三者可组合（先筛后分）；排序/筛选/翻页上报 `sort`/`filter`/`page` 事件 |
 | `thead` | 容器/自闭合 | `cols` | 表头。`cols:"姓名,年龄"` 支持 `chk`（全选列）/`#`（序号列）；`;` 分多行；列名后 `/c`/`/r`/`/l` 对齐、`/primary`/`/danger`/`/success`/`/warning`/`/info` 配色 |
 | `tbody` | 容器 | — | 表体（区间勾选 + 列位追踪） |
 | `tr` | 自闭合 | `cs`(legacy) `v:total` | 表格行，内容逗号分隔单元格；cell 尾缀 `=cN`/`=rN`/`=cNrM` 合并 |
@@ -722,17 +740,19 @@ handler 签名 `(detail, event, element)`，`detail` 携带上下文（如 `{val
 |------|------|--------|
 | `input`/`pwd`/`textarea`/`numinput` | `change`（输入防抖 300ms，`db:` 可覆盖毫秒数） | `{value, name}` |
 | `select`/`radio`/`checkbox`/`switch`/`slider`/`rate`/`picker`/`transfer`/`cascader`/`input-tag`/`datepicker` 系列 | `change`（值变即报） | `{value, name}` |
-| `upload` | `change`（选择/移除文件） | `{value: 文件名数组, name}` |
+| `upload` | `change`（选择/移除文件）/ `progress` / `success` / `error`（后三个仅 `u:` 传输模式） | `{value: 文件名数组, name}` / `{file, percent}` / `{file, response}` / `{file, error}` |
 | `tabs` | `change`（用户切页） | `{index, title}` |
 | `steps` | `change`（点击步骤，声明 `on` 时步骤可点） | `{index, title}` |
 | `menu` | `change`（激活项变化） | `{value}`（项标识：id > v > 文本） |
 | `pagination` | `change`（翻页/跳转） | `{value: 页码}` |
-| `tree` | `change`（选中节点）/ `check`（复选变化） | `{value, id}` / `{value: 选中值数组}` |
+| `tree` | `change`（选中节点）/ `check`（复选变化）/ `load`（懒加载完成） | `{value, id}` / `{value: 选中值数组}` / `{value, count}` |
+| `table` | `sort`（排序）/ `filter`（筛选）/ `page`（翻页） | `{column, dir}` / `{filters}` / `{value: 页码}` |
+| `scroll-area` | `loadmore`（滚动触底） | `{}` |
 | `carousel` | `change`（手动切换，autoplay 不报） | `{index}` |
 | `conversations` | `change`（选中会话）/ `delete`（删除会话） | `{value}`（会话标识） |
 | `dialog`/`drawer` | `close`（仅用户路径；程序化 `act:close` 不报） | `{}` |
 | `artifact` | `close` | `{}` |
-| `chat-input` | `send`（发送）/ `stop`（streaming 态点停止按钮） | `{value}` / `{}` |
+| `chat-input` | `send`（发送）/ `stop`（streaming 态点停止按钮）/ `mention`（@ 提及选定） | `{value}` / `{}` / `{value, name}` |
 | `msg-actions` | `action`（默认按钮） | `{act: 'copy'/'regenerate'/'like'/'dislike'/'delete'}` |
 | `quick-reply` / `suggestion` | `select`（点击项） | `{value: 标签/标题}` |
 | `tool-call` | `approval`（HITL 审批，也可用 `clk:` 收） | `{approved, id, name}` |

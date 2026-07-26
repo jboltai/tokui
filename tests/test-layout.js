@@ -29,13 +29,13 @@ function test(name, fn) {
   tests.push({ name, fn });
 }
 
-/** 运行所有测试用例并输出结果 */
-function run() {
+/** 运行所有测试用例并输出结果（支持 async 用例） */
+async function run() {
   passed = 0;
   failed = 0;
   for (const t of tests) {
     try {
-      t.fn();
+      await t.fn();
       passed++;
       console.log(`  ✓ ${t.name}`);
     } catch (e) {
@@ -706,6 +706,208 @@ test('desc 末行 border：不满一行（2 项/3 列）全标', () => {
   const items = renderDesc('[desc cols:3][item l:A tx:1][item l:B tx:2][/desc]');
   const marked = Array.from(items).map(i => i.classList.contains('tokui-desc__item--last-row'));
   assert.deepStrictEqual(marked, [true, true], '2 项 < cols，都属末行');
+});
+
+// ===== Scroll Area 虚拟滚动 / 触底加载测试 =====
+const eventBus = require('../src/core/event-bus');
+
+// dom-mock 无 dispatchEvent：直接触发存储的监听器
+function fireEvt(el, type, evt) {
+  (el._events && el._events[type] || []).forEach(fn => fn(evt || { preventDefault() {}, stopPropagation() {} }));
+}
+
+// 每用例清理 handler，防串扰
+function cleanupHandlers() {
+  eventBus.getHandlerNames().forEach(n => eventBus.removeHandler(n));
+}
+
+// 构造 30 个 item 子节点的 scroll-area AST
+function makeScrollArea(attrs, count) {
+  const children = [];
+  for (let i = 0; i < count; i++) {
+    children.push({ type: 'item', attrs: {}, content: 'row' + i, children: [] });
+  }
+  return { type: 'scroll-area', attrs, children };
+}
+
+// 视口内挂载的行元素（排除 spacer）
+function mountedRows(viewport) {
+  return Array.prototype.filter.call(viewport.children, c => !c.classList.contains('tokui-scroll-area__spacer'));
+}
+
+test('scroll-area virtual 只挂可视窗口+buffer 行，spacer 撑总高', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const dom = rc.render(makeScrollArea({ h: '72', ih: '36', virtual: true }, 30));
+  assert.ok(dom.classList.contains('tokui-scroll-area--virtual'));
+  const viewport = dom.querySelector('.tokui-scroll-area__viewport');
+  const rows = mountedRows(viewport);
+  // h:72 / ih:36 = 2 行可视 + 5 行后置 buffer = 7 行（远小于 30）
+  assert.strictEqual(rows.length, 7);
+  assert.ok(rows.length < 30, '挂载行数应远小于子项总数');
+  const spacers = Array.prototype.filter.call(viewport.children, c => c.classList.contains('tokui-scroll-area__spacer'));
+  assert.strictEqual(spacers.length, 2);
+  const topH = parseInt(spacers[0].style.height, 10);
+  const bottomH = parseInt(spacers[1].style.height, 10);
+  assert.strictEqual(topH, 0);
+  // spacer 总高 + 已挂行高 = 全部行高（30*36=1080）
+  assert.strictEqual(topH + bottomH + rows.length * 36, 30 * 36);
+});
+
+test('scroll-area virtual 滚动后窗口移动', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const dom = rc.render(makeScrollArea({ h: '72', ih: '36', virtual: true }, 30));
+  const viewport = dom.querySelector('.tokui-scroll-area__viewport');
+  viewport.scrollTop = 36 * 15; // 540
+  fireEvt(viewport, 'scroll');
+  const rows = mountedRows(viewport);
+  // start = 15-5 = 10，end = ceil((540+72)/36)+5 = 22 → 12 行
+  assert.strictEqual(rows.length, 12);
+  assert.strictEqual(rows[0].textContent, 'row10', '窗口首行应为第 10 项');
+  assert.strictEqual(rows[11].textContent, 'row21');
+  const spacers = Array.prototype.filter.call(viewport.children, c => c.classList.contains('tokui-scroll-area__spacer'));
+  assert.strictEqual(parseInt(spacers[0].style.height, 10), 10 * 36);
+  assert.strictEqual(parseInt(spacers[1].style.height, 10), (30 - 22) * 36);
+});
+
+test('scroll-area virtual 触底上报 loadmore 一次，离开阈值区可重置', () => {
+  cleanupHandlers();
+  const rc = new TokUIRenderer(eventBus);
+  registerLayoutComponents(rc);
+  let handlerCalls = 0;
+  const events = [];
+  eventBus.registerHandler('onLoadMore', () => { handlerCalls++; });
+  rc._onComponentEvent = (e) => { if (e.event === 'loadmore') events.push(e); };
+  const dom = rc.render(makeScrollArea({ h: '72', ih: '36', virtual: true, on: 'loadmore:onLoadMore' }, 30));
+  const viewport = dom.querySelector('.tokui-scroll-area__viewport');
+  // scrollTop 拉满（maxScroll = 30*36-72 = 1008）→ 触底上报一次
+  viewport.scrollTop = 1008;
+  fireEvt(viewport, 'scroll');
+  assert.strictEqual(handlerCalls, 1);
+  assert.strictEqual(events.length, 1);
+  assert.strictEqual(events[0].type, 'scroll-area');
+  // 停留在底部重复滚动不重复上报
+  fireEvt(viewport, 'scroll');
+  assert.strictEqual(handlerCalls, 1);
+  // 离开阈值区重置后再次触底可再报
+  viewport.scrollTop = 0;
+  fireEvt(viewport, 'scroll');
+  viewport.scrollTop = 1008;
+  fireEvt(viewport, 'scroll');
+  assert.strictEqual(handlerCalls, 2);
+  cleanupHandlers();
+});
+
+test('scroll-area 非 virtual 行为零变化（全量挂载、无 spacer、无 scroll 监听）', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const dom = rc.render(makeScrollArea({ h: '72' }, 3));
+  assert.ok(!dom.classList.contains('tokui-scroll-area--virtual'));
+  const viewport = dom.querySelector('.tokui-scroll-area__viewport');
+  assert.strictEqual(viewport.children.length, 3);
+  assert.strictEqual(viewport.querySelector('.tokui-scroll-area__spacer'), null);
+  assert.strictEqual(viewport._events['scroll'], undefined);
+});
+
+// ===== Tree 懒加载测试 =====
+
+// 点击 tn 箭头（经 tree 委托的 click 监听器）
+function clickTreeArrow(tree, nodeEl) {
+  const arrow = nodeEl.querySelector('.tokui-tree-arrow');
+  fireEvt(tree, 'click', { target: arrow, preventDefault() {}, stopPropagation() {} });
+}
+
+test('tree 懒加载：同步 handler 返回 2 节点，展开挂载并上报 load', () => {
+  cleanupHandlers();
+  const rc = new TokUIRenderer(eventBus);
+  registerLayoutComponents(rc);
+  let loadCalls = 0;
+  let query = null;
+  eventBus.registerHandler('loadKids', (q) => {
+    loadCalls++;
+    query = q;
+    return [
+      { type: 'tn', attrs: { v: 'c1', tx: '子1', leaf: true }, children: [] },
+      { type: 'tn', attrs: { v: 'c2', tx: '子2', leaf: true }, children: [] }
+    ];
+  });
+  const loadEvents = [];
+  rc._onComponentEvent = (e) => { if (e.event === 'load') loadEvents.push(e); };
+  const dom = rc.render({
+    type: 'tree',
+    attrs: {},
+    children: [
+      { type: 'tn', attrs: { v: 'p', tx: '父节点', load: 'loadKids' }, children: [] }
+    ]
+  });
+  const tree = dom.querySelector('.tokui-tree');
+  const nodeEl = dom.querySelector('.tokui-tree-node');
+  // 无子节点但带 load：渲染为可展开态（非 leaf）
+  assert.ok(!nodeEl.classList.contains('tokui-tree-node--leaf'));
+  const children = nodeEl.querySelector('.tokui-tree-node-children');
+  assert.notStrictEqual(children, null);
+  assert.strictEqual(children.querySelectorAll('.tokui-tree-node').length, 0);
+  // 首次展开 → 调 handler 挂载子树
+  clickTreeArrow(tree, nodeEl);
+  assert.strictEqual(loadCalls, 1);
+  assert.deepStrictEqual(query, { id: undefined, value: 'p' });
+  const kids = children.querySelectorAll('.tokui-tree-node');
+  assert.strictEqual(kids.length, 2);
+  assert.strictEqual(kids[0].getAttribute('data-value'), 'c1');
+  // 加载完成上报 load {value, count}
+  assert.strictEqual(loadEvents.length, 1);
+  assert.deepStrictEqual(loadEvents[0].detail, { value: 'p', count: 2 });
+  // loading 态已移除
+  assert.ok(!nodeEl.classList.contains('tokui-tree__loading'));
+  assert.strictEqual(children.querySelector('.tokui-tree-loading'), null);
+  // 再折叠/展开不重复请求
+  clickTreeArrow(tree, nodeEl); // 折叠
+  clickTreeArrow(tree, nodeEl); // 再展开
+  assert.strictEqual(loadCalls, 1);
+  cleanupHandlers();
+});
+
+test('tree 懒加载：Promise 数据源同样可用', async () => {
+  cleanupHandlers();
+  const rc = new TokUIRenderer(eventBus);
+  registerLayoutComponents(rc);
+  let loadCalls = 0;
+  eventBus.registerHandler('loadKidsAsync', () => {
+    loadCalls++;
+    return Promise.resolve([
+      { type: 'tn', attrs: { v: 'a1', tx: '异步子1', leaf: true }, children: [] },
+      { type: 'tn', attrs: { v: 'a2', tx: '异步子2', leaf: true }, children: [] }
+    ]);
+  });
+  const loadEvents = [];
+  rc._onComponentEvent = (e) => { if (e.event === 'load') loadEvents.push(e); };
+  const dom = rc.render({
+    type: 'tree',
+    attrs: {},
+    children: [
+      { type: 'tn', attrs: { v: 'ap', tx: '异步父', load: 'loadKidsAsync' }, children: [] }
+    ]
+  });
+  const tree = dom.querySelector('.tokui-tree');
+  const nodeEl = dom.querySelector('.tokui-tree-node');
+  const children = nodeEl.querySelector('.tokui-tree-node-children');
+  clickTreeArrow(tree, nodeEl);
+  // Promise 未落地前：loading 态 + 加载文案（i18n common.loading）
+  assert.ok(nodeEl.classList.contains('tokui-tree__loading'));
+  const loadingEl = children.querySelector('.tokui-tree-loading');
+  assert.notStrictEqual(loadingEl, null);
+  assert.strictEqual(loadingEl.textContent, '加载中');
+  await new Promise(r => setTimeout(r, 0));
+  assert.strictEqual(loadCalls, 1);
+  assert.strictEqual(children.querySelectorAll('.tokui-tree-node').length, 2);
+  assert.ok(!nodeEl.classList.contains('tokui-tree__loading'));
+  assert.deepStrictEqual(loadEvents[0].detail, { value: 'ap', count: 2 });
+  // 再展开不重复请求
+  clickTreeArrow(tree, nodeEl);
+  clickTreeArrow(tree, nodeEl);
+  assert.strictEqual(loadCalls, 1);
+  cleanupHandlers();
 });
 
 run();

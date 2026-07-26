@@ -905,5 +905,65 @@ test('upload 文件选择上报 change、act:clear 程序化不报', () => {
   assert.strictEqual(evts.filter(e => e.type === 'upload').length, 0, '程序化 clear 不报');
 });
 
+// =============================================
+// chat-input mentions
+// =============================================
+
+test('mention 输入 @ 触发下拉（同步数据源）', () => {
+  cleanupHandlers();
+  const rc = makeRenderer();
+  eventBus.registerHandler('userSource', (q) => ['alice', 'amy'].filter(n => n.indexOf(q.value) !== -1));
+  const dom = rc.render({ type: 'chat-input', attrs: { mention: 'userSource' }, children: [] });
+  const textarea = dom.querySelector('textarea');
+  const dropdown = dom.querySelector('.tokui-chat-input__mention');
+  assert.ok(dropdown, '下拉容器存在');
+  assert.strictEqual(dropdown.style.display, 'none');
+  textarea.value = 'hello @a';
+  fire(textarea, 'input');
+  assert.notStrictEqual(dropdown.style.display, 'none', '@a 触发下拉');
+  assert.strictEqual(dropdown.childNodes.length, 2);
+  // 邮箱不触发（@ 前非空白）
+  textarea.value = 'a@b';
+  fire(textarea, 'input');
+  assert.strictEqual(dropdown.style.display, 'none');
+});
+
+test('mention Enter 选定插入 @标签 并上报，不触发发送', () => {
+  cleanupHandlers();
+  const rc = makeRenderer();
+  let sent = 0, mentionEvt = null;
+  eventBus.registerHandler('userSource2', () => [{ v: 'u1', tx: '张三' }]);
+  eventBus.registerHandler('sendH', () => { sent++; });
+  rc._onComponentEvent = (e) => { if (e.event === 'mention') mentionEvt = e; };
+  const dom = rc.render({ type: 'chat-input', attrs: { mention: 'userSource2', clk: 'sendH' }, children: [] });
+  const textarea = dom.querySelector('textarea');
+  textarea.value = '@张';
+  fire(textarea, 'input');
+  const dropdown = dom.querySelector('.tokui-chat-input__mention');
+  assert.strictEqual(dropdown.childNodes.length, 1);
+  fire(textarea, 'keydown', { key: 'Enter', shiftKey: false, preventDefault() {} });
+  assert.strictEqual(sent, 0, '下拉打开时 Enter 不发送');
+  assert.strictEqual(textarea.value, '@张三 ');
+  assert.ok(mentionEvt && mentionEvt.detail.value === 'u1');
+  // 下拉已关闭，再按 Enter 正常发送
+  fire(textarea, 'keydown', { key: 'Enter', shiftKey: false, preventDefault() {} });
+  assert.strictEqual(sent, 1);
+});
+
+test('mention 异步数据源 + Esc 关闭', async () => {
+  cleanupHandlers();
+  const rc = makeRenderer();
+  eventBus.registerHandler('asyncSource', () => Promise.resolve(['bob']));
+  const dom = rc.render({ type: 'chat-input', attrs: { mention: 'asyncSource' }, children: [] });
+  const textarea = dom.querySelector('textarea');
+  const dropdown = dom.querySelector('.tokui-chat-input__mention');
+  textarea.value = '@b';
+  fire(textarea, 'input');
+  await new Promise(r => setTimeout(r, 20));
+  assert.strictEqual(dropdown.childNodes.length, 1, '异步结果到达渲染');
+  fire(textarea, 'keydown', { key: 'Escape', preventDefault() {} });
+  assert.strictEqual(dropdown.style.display, 'none');
+});
+
 cleanupHandlers();
 run();

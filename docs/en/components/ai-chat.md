@@ -38,6 +38,8 @@ A chat message container. `role` aligns the bubble left/right; `model` and `time
 
 <Playground dsl='[bubble role:user][p 帮我设计一个登录界面[/bubble][bubble role:ai model:GLM-5.2 time:刚刚][p 好的！已为你生成登录卡片：[/bubble]' />
 
+> The bubble avatar and header names (`bubble.you` / `bubble.ai` / `bubble.system` / `bubble.assistant`) live in the i18n dictionary — `setLocale` + `rerender()` switches their language in place (see [i18n](/en/guide/i18n)).
+
 ## Toolbar `toolbar`
 
 A horizontal action bar, usually placed at the top or bottom of a bubble.
@@ -185,7 +187,7 @@ A file-tree container with `ft-folder` children (nestable) and `ft-file` leaves.
 
 ## Terminal `terminal`
 
-A container for terminal commands and output. `title` is the window title; `status` is the execution result status. **Raw content mode**: inner `[` is treated as literal text.
+A container for terminal commands and output. `title` is the window title; `status` is the execution result status. A copy button is built into the right side of the title bar (Copy → Copied). **Raw content mode**: inner `[` is treated as literal text.
 
 | Prop | Meaning | Example |
 |------|---------|---------|
@@ -366,10 +368,13 @@ A chat-input container with a send button. `auto` enables auto-growing height, `
 | `max` | Max characters | `max:2000` |
 | `streaming` | Generating state: show the stop button (mutually exclusive with send) | `streaming` |
 | `on` | Event reporting declaration | `on:"stop:onStop"` |
+| `mention` | @-mention data-source handler | `mention:onMention` |
 
 <Playground dsl='[chat-input ph:输入消息，按 Enter 发送 clk:onSend auto rows:2][/chat-input]' />
 
 **Send reporting**: Enter / the send button triggers the `clk` handler (payload `{value}`) and also reports a `send` event (detail `{value}`) through `on:"send:h"` and the unified outlet.
+
+**@ mentions**: `mention:data-source-handler` enables the @-mention dropdown — typing `@` triggers it; the data source `fn({value: query})` returns an array or a Promise (items are strings or `{v, tx}`); ↑↓ navigates, Enter selects, Esc closes (keys take precedence over sending). Selecting inserts `@label` and reports the `mention` event `{value, name}`.
 
 **Stop generating**: adding the `streaming` boolean prop swaps the send button for a "stop generating" button (the two are mutually exclusive). Clicking it fires the `on:"stop:h"` report (detail `{}`); when no `on` is declared, the default behavior is to disconnect the SSE connection of **the TokUI instance that owns this component** (`disconnect()`, idempotent and safe — on multi-instance pages it won't stop other instances), and the input immediately returns to the send state (optimistic UI — if the stream hasn't actually stopped, the server can restore it with `upd streaming:true`). When generation finishes, the server pushes `[upd id:x streaming:false]` to restore the send button; `streaming:true` re-enters the generating state.
 

@@ -107,6 +107,7 @@ const NAV_DATA = [
       { trigger: 'fa-print', name: { zh: '打印区与打印按钮', en: 'Print Area' }, desc: { zh: 'print-area 1:1 打印 / 按钮不进预览', en: '1:1 print, button hidden in preview' }, icon: '🖨' },
       { trigger: 'fa-order', name: { zh: '综合订单页', en: 'Combo Order' }, desc: { zh: '表单+提交+重置+打印整卡', en: 'Form+submit+reset+print card' }, icon: '✦' },
       { trigger: 'demo-form-validation', name: { zh: '原生校验', en: 'Validation' }, desc: { zh: '提交前 reportValidity 拦截 req/pat', en: 'reportValidity blocks invalid submit' }, icon: '✔' },
+      { trigger: 'demo-form-enhanced', name: { zh: '表单增强', en: 'Form Enhanced' }, desc: { zh: 'range滑块/半选评分/日期范围/联想/上传', en: 'Range slider/half rate/date range/sug/upload' }, icon: '⚒' },
       { trigger: 'demo-form-feedback', name: { zh: '验证反馈', en: 'Feedback' }, desc: { zh: 'Hint 三态/服务端校验/流式推送/live 实时校验', en: 'Hint states/server validation/stream push/live validation' }, icon: '💬' },
     ]
   },
@@ -196,6 +197,8 @@ const NAV_DATA = [
     icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>',
     items: [
       { trigger: 'demo-table', name: { zh: '表格组件', en: 'Table Variants' }, desc: { zh: '基础/斑马/边框/紧凑', en: 'Basic/striped/bordered' }, icon: '▦' },
+      { trigger: 'demo-data-long', name: { zh: '大数据长内容', en: 'Big Data & Long' }, desc: { zh: '排序筛选分页/虚拟滚动/懒加载', en: 'Sort/filter/page/virtual/lazy' }, icon: '⚡' },
+      { trigger: 'demo-md-plugins', name: { zh: 'MD 插件渲染', en: 'MD Plugins' }, desc: { zh: 'mermaid流程图/KaTeX公式', en: 'Mermaid/KaTeX rendering' }, icon: '∑' },
       { trigger: 'demo-table-colspan', name: { zh: '合并单元格', en: 'Colspan' }, desc: { zh: 'colspan行列合并', en: 'Row/column merge' }, icon: '⇔' },
       { trigger: 'demo-table-enterprise', name: { zh: '企业表格', en: 'Enterprise' }, desc: { zh: 'ERP/MES业务场景', en: 'ERP/MES scenarios' }, icon: '◫' },
       { trigger: 'demo-crud', name: { zh: 'CRUD管理', en: 'CRUD' }, desc: { zh: '增删改查完整流程', en: 'Full CRUD workflow' }, icon: '✎' },
@@ -320,7 +323,7 @@ const I18N = {
   eventPanelClear: { zh: '清空', en: 'Clear' },
   editClicked:    { zh: '编辑按钮被点击', en: 'Edit button clicked' },
   deleteClicked:  { zh: '删除按钮被点击', en: 'Delete button clicked' },
-  footerVer:      { zh: '当前版本:v0.1.8', en: 'Version: v0.1.8' },
+  footerVer:      { zh: '当前版本:v0.1.9', en: 'Version: v0.1.9' },
   footerCopy:     { zh: '零依赖 · 流式UI描述与渲染框架', en: 'Zero Deps · Streaming UI Framework' },
   dslRef:         { zh: 'DSL 语法速查', en: 'DSL Syntax Ref' },
   clearBtn:       { zh: '清空', en: 'Clear' },
@@ -532,6 +535,41 @@ TokUI.registerHandler('handleCancel', () => addSystemMessage(t('action'), '取�
 TokUI.registerHandler('handleExport', () => addSystemMessage(t('action'), '导出'));
 TokUI.registerHandler('handleSearch', (data) => addSystemMessage('搜索', JSON.stringify(data, null, 2)));
 TokUI.registerHandler('handleSend', (data) => addSystemMessage('Chat Input 发送', (data && data.value) || ''));
+// mention 数据源：模拟成员目录（真实场景常为异步接口，这里同步返回；{v, tx} v 值 tx 显示）
+TokUI.registerHandler('iaMention', (q) => {
+  const users = [
+    { v: 'u1', tx: '张三' }, { v: 'u2', tx: '李四' }, { v: 'u3', tx: '王五' },
+    { v: 'u4', tx: 'Alice' }, { v: 'u5', tx: 'Bob' }
+  ];
+  const kw = (q && q.value || '').toLowerCase();
+  return users.filter(u => u.tx.toLowerCase().indexOf(kw) !== -1);
+});
+// 表单增强案例 handlers
+TokUI.registerHandler('feSlider', (d) => addSystemMessage('Slider 区间', JSON.stringify(d)));
+TokUI.registerHandler('feRate', (d) => addSystemMessage('Rate 评分', JSON.stringify(d)));
+TokUI.registerHandler('feDate', (d) => addSystemMessage('日期范围', JSON.stringify(d)));
+TokUI.registerHandler('feSug', (d) => addSystemMessage('联想选定', JSON.stringify(d)));
+TokUI.registerHandler('feUpOk', (d) => addSystemMessage('上传成功', JSON.stringify(d)));
+TokUI.registerHandler('feUpErr', (d) => addSystemMessage('上传失败', JSON.stringify(d)));
+TokUI.registerHandler('feCitySug', (q) => {
+  const cities = ['北京', '上海', '广州', '深圳', '杭州', '成都', '南京', '武汉'];
+  const kw = (q && q.value) || '';
+  return cities.filter(c => c.indexOf(kw) !== -1);
+});
+// 大数据与长内容案例 handlers
+TokUI.registerHandler('p3Sort', (d) => addSystemMessage('Table 排序', JSON.stringify(d)));
+TokUI.registerHandler('p3Filter', (d) => addSystemMessage('Table 筛选', JSON.stringify(d)));
+TokUI.registerHandler('p3Page', (d) => addSystemMessage('Table 翻页', JSON.stringify(d)));
+TokUI.registerHandler('p3LoadMore', () => addSystemMessage('触底加载', 'loadmore：这里可触发下一页数据推送'));
+TokUI.registerHandler('p3TreeLoaded', (d) => addSystemMessage('Tree 懒加载完成', JSON.stringify(d)));
+// tree 懒加载数据源：返回子节点对象数组（真实场景可为 Promise 拉接口）
+TokUI.registerHandler('p3TreeSource', (q) => {
+  const map = {
+    tech: [{ type: 'tn', attrs: { tx: '前端组', leaf: true }, children: [] }, { type: 'tn', attrs: { tx: '后端组', leaf: true }, children: [] }],
+    mkt: [{ type: 'tn', attrs: { tx: '品牌组', leaf: true }, children: [] }]
+  };
+  return map[q && q.value] || [{ type: 'tn', attrs: { tx: '默认组', leaf: true }, children: [] }];
+});
 TokUI.registerHandler('handleValid', (data) => addSystemMessage('校验通过', JSON.stringify(data, null, 2)));
 TokUI.registerHandler('handleDrawerForm', (data) => addSystemMessage('抽屉表单提交', JSON.stringify(data, null, 2)));
 

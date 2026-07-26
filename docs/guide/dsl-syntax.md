@@ -40,6 +40,8 @@ v:"primary,sm"                               ; 多变体用逗号分隔
 > `clk:` / `sub:` 的处理器名称需通过 `TokUI.registerHandler(name, fn)` 预先注册，服务端不下发可执行代码。
 > `sub` / `reset` / `print` 是按钮**内置动作**，由 renderer 自动解析；`reset` / `print` 无需注册 handler。详见[表单组件](/components/form#表单动作-提交-重置-数据收集)。
 
+> 表单校验：`input` / `pwd` / `textarea` / `select` 支持 `rule:"required|email|…"` + `msg:"自定义文案"` 声明式校验规则——提交时统一执行，失败拦截提交、错误字段标红出 hint 并聚焦首错。详见 [表单 · DSL 校验规则](/components/form#dsl-校验规则)。
+
 > **文本写哪：裸内容 vs `tx:` 属性**——文本**块**组件 `p` / `h1~h6` / `item` 把文本当**裸内容**写在标签内：`[p 段落文本]`、`[h1 标题]`；`tx:` 是**自闭合展示**组件（`btn` / `tag` / `callout` / `stat` / `badge` / `dot` 等）的文本属性：`[btn tx:按钮]`。混用会丢内容——`[p tx:文本]` 不符合规范（p/h 现已兼容 `tx:` 兜底，但标准写法是裸内容）。多变体用逗号 `v:"muted,center"`，不要写两个 `v:`（后者覆盖前者）。
 
 > **标题加徽标**：`h3` 等标题是自闭合组件，禁止嵌套 `[h3 文本 [badge]]`。两种官方写法——并排 pill 用 `row v:inline`（flex，**必须 `v:inline`**，默认 `row` 是 12 列 grid 会挤窄标题）`[row v:inline][h3 SaaS Pro][badge tx:v2.4 pill][/row]`；右上角角标用 `badge-box` 包裹 `[badge-box tx:v2.4][h3 SaaS Pro][/badge-box]`。版本号/小数用 `tx` 文本模式（`count` 走 `parseInt` 会把 `2.4` 截成 `2`）。`badge-box` 文本徽标用 `tx`（兼容旧写 `label`）。
@@ -134,15 +136,17 @@ DSL 用 `on:"事件:处理器,…"`（**必须双引号**）声明组件交互�
 |------|------|--------|
 | `input` / `pwd` / `textarea` / `numinput` | `change`（输入防抖 300ms，`db:` 覆盖毫秒数） | `{value, name}` |
 | `select` / `radio` / `checkbox` / `switch` / `slider` / `rate` / `picker` / `transfer` / `cascader` / `input-tag` / `datepicker` 系列 | `change`（值变即报） | `{value, name}` |
-| `upload` | `change`（选择 / 移除文件） | `{value: 文件名数组, name}` |
+| `upload` | `change`（选择 / 移除文件）/ `progress` / `success` / `error`（后三个仅 `u:` 传输模式） | `{value: 文件名数组, name}` / `{file, percent}` / `{file, response}` / `{file, error}` |
 | `tabs` / `steps` | `change`（用户切页 / 点击步骤） | `{index, title}` |
 | `menu` | `change`（项标识：id > v > 文本） | `{value}` |
 | `pagination` | `change`（翻页 / 跳转） | `{value: 页码}` |
-| `tree` | `change`（选中节点）/ `check`（复选变化） | `{value, id}` / `{value: 选中值数组}` |
+| `tree` | `change`（选中节点）/ `check`（复选变化）/ `load`（懒加载完成） | `{value, id}` / `{value: 选中值数组}` / `{value, count}` |
+| `table` | `sort`（排序）/ `filter`（筛选）/ `page`（翻页） | `{column, dir}` / `{filters}` / `{value: 页码}` |
+| `scroll-area` | `loadmore`（滚动触底） | `{}` |
 | `carousel` | `change`（手动切换，autoplay 不报） | `{index}` |
 | `conversations` | `change`（选中会话）/ `delete`（删除会话） | `{value}`（会话标识） |
 | `dialog` / `drawer` / `artifact` | `close`（仅用户路径；程序化 `act:close` 不报） | `{}` |
-| `chat-input` | `send`（发送）/ `stop`（`streaming` 态点停止按钮） | `{value}` / `{}` |
+| `chat-input` | `send`（发送）/ `stop`（`streaming` 态点停止按钮）/ `mention`（@ 提及选定） | `{value}` / `{}` / `{value, name}` |
 | `msg-actions` | `action`（默认按钮） | `{act: 'copy'/'regenerate'/'like'/'dislike'/'delete'}` |
 | `quick-reply` / `suggestion` | `select`（点击项） | `{value: 标签/标题}` |
 | `tool-call` | `approval`（HITL 人工审批） | `{approved, id, name}` |

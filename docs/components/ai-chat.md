@@ -38,6 +38,8 @@
 
 <Playground dsl='[bubble role:user][p 帮我设计一个登录界面[/bubble][bubble role:ai model:GLM-5.2 time:刚刚][p 好的！已为你生成登录卡片：[/bubble]' />
 
+> 气泡头像与 header 名称（`bubble.you` / `bubble.ai` / `bubble.system` / `bubble.assistant`）已入 i18n 字典，`setLocale` + `rerender()` 可就地切换语言（见 [多语言](/guide/i18n)）。
+
 ## 工具栏 `toolbar`
 
 横向操作工具条容器，常出现在气泡顶部或底部。
@@ -185,7 +187,7 @@
 
 ## 终端 `terminal`
 
-终端命令与输出容器。`title` 窗口标题、`status` 执行结果状态。**原始内容模式**：内部 `[` 当字面文本。
+终端命令与输出容器。`title` 窗口标题、`status` 执行结果状态。标题栏右侧内置复制按钮（Copy → Copied）。**原始内容模式**：内部 `[` 当字面文本。
 
 | 属性 | 含义 | 示例 |
 |------|------|------|
@@ -371,10 +373,13 @@ Git 提交信息卡片，自闭合。
 | `max` | 最大字符 | `max:2000` |
 | `streaming` | 生成中态：显示停止按钮（与发送钮互斥） | `streaming` |
 | `on` | 事件上报声明 | `on:"stop:onStop"` |
+| `mention` | @ 提及数据源 handler | `mention:onMention` |
 
 <Playground dsl='[chat-input ph:输入消息，按 Enter 发送 clk:onSend auto rows:2][/chat-input]' />
 
 **发送上报**：Enter / 发送按钮触发 `clk` handler（负载 `{value}`）的同时，也经 `on:"send:h"` 与统一出口上报 `send` 事件（detail `{value}`）。
+
+**@ 提及（mention）**：`mention:数据源handler名` 启用 @ 提及下拉——输入 `@` 触发，数据源 `fn({value: 查询词})` 返回数组或 Promise（项为字符串或 `{v, tx}`），↑↓ 导航、Enter 选定、Esc 关闭（按键优先于发送）；选定后插入 `@标签` 并上报 `mention` 事件 `{value, name}`。
 
 **停止生成**：加 `streaming` 布尔属性后，发送按钮切换为「停止生成」按钮（二者互斥）。点击触发 `on:"stop:h"` 上报（detail `{}`）；未声明 `on` 时默认断开**该组件所属** TokUI 实例的 SSE 连接（`disconnect()`，幂等安全，多实例页面不会误停别的实例），点击后输入框立即恢复发送态（乐观 UI——流未停时服务端可 `upd streaming:true` 恢复）。生成结束后服务端推 `[upd id:x streaming:false]` 恢复发送按钮，`streaming:true` 再次进入生成态。
 

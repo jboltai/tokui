@@ -83,6 +83,22 @@ var STRINGS = {
     'actions.approve': '批准',
     'actions.deny': '拒绝',
 
+    // —— bubble 气泡 ——
+    'bubble.you': '你',
+    'bubble.ai': 'AI',
+    'bubble.system': '系统',
+    'bubble.assistant': '助手',
+
+    // —— DSL 校验规则默认错误文案（rule:"required|email|…"）——
+    'rule.required': '该字段为必填项',
+    'rule.email': '请输入有效的邮箱地址',
+    'rule.url': '请输入有效的 URL（http/https）',
+    'rule.number': '请输入数字',
+    'rule.len': '长度须为 {n} 个字符',
+    'rule.min': '至少输入 {n} 个字符',
+    'rule.max': '最多输入 {n} 个字符',
+    'rule.re': '格式不正确',
+
     // —— 文件类 ——
     'file.unnamed': '未知文件',
 
@@ -141,6 +157,10 @@ var STRINGS = {
     'select.placeholder': '请选择',
     'upload.hint': '点击或拖拽文件至此处上传',
     'upload.browse': '浏览文件',
+    'upload.uploading': '上传中',
+    'upload.done': '已上传',
+    'upload.failed': '上传失败',
+    'upload.retry': '重试',
 
     // —— 图表 chart ——
     'chart.empty': '暂无数据',
@@ -239,6 +259,16 @@ var STRINGS = {
     'actions.approve': 'Approve',
     'actions.deny': 'Deny',
 
+    // —— DSL validation rule default messages (rule:"required|email|…") ——
+    'rule.required': 'This field is required',
+    'rule.email': 'Please enter a valid email address',
+    'rule.url': 'Please enter a valid URL (http/https)',
+    'rule.number': 'Please enter a number',
+    'rule.len': 'Must be exactly {n} characters',
+    'rule.min': 'At least {n} characters required',
+    'rule.max': 'At most {n} characters allowed',
+    'rule.re': 'Invalid format',
+
     // —— file ——
     'file.unnamed': 'Unnamed file',
 
@@ -291,12 +321,22 @@ var STRINGS = {
     'agent.generating': 'Generating',
     'agent.total': 'Total',
 
+    // —— bubble avatar ——
+    'bubble.you': 'You',
+    'bubble.ai': 'AI',
+    'bubble.system': 'System',
+    'bubble.assistant': 'Assistant',
+
     // —— form ——
     'picker.noMatch': 'No matches',
     'rate.defaultLabel': 'Rating',
     'select.placeholder': 'Select...',
     'upload.hint': 'Click or drag files here to upload',
     'upload.browse': 'Browse',
+    'upload.uploading': 'Uploading',
+    'upload.done': 'Uploaded',
+    'upload.failed': 'Upload failed',
+    'upload.retry': 'Retry',
 
     // —— chart ——
     'chart.empty': 'No data',

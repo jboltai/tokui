@@ -310,7 +310,23 @@ Code128 Set B 纯 SVG 条码（零依赖），适用运单号/订单号/序列�
 
 Markdown 渲染容器。支持标题、列表、引用、代码、表格、链接等常用语法。
 
+> **可选插件增强**：`` ```mermaid `` 围栏与 `$$公式$$` / `$公式$` 在宿主加载 `window.mermaid` / `window.katex` 全局对象时自动增强渲染；未加载插件时回退源码展示（零依赖不受损，`$5 $6` 这类货币金额不会被误吃）。
+
 <Playground dsl='[md]## Markdown 渲染支持 **加粗**、*斜体*、`行内代码`、[链接](#)。- 无序列表项一- 无序列表项二> 引用块文字。[/md]' />
+
+> **可选插件增强**：`` ```mermaid `` 围栏与 `$$公式$$` / `$公式$` 在宿主加载 `window.mermaid` / `window.katex` 全局对象时自动增强渲染；未加载插件时回退源码展示（零依赖不受损，`$5 $6` 这类货币金额不会被误吃）。
+
+## 公式 `katex` / 图 `mermaid`
+
+md 插件管线的独立组件别名，不走 md 文本直接声明：
+
+- `[katex]O(n) = \sum_{i=1}^{n} t_i[/katex]` — 容器，块级公式
+- `[katex f:"E = mc^2"]` — `f:` 属性，行内公式
+- `[mermaid]flowchart LR\n  A --> B[/mermaid]` — 容器，图源（raw 内容，内部 `[` 不解析）
+
+宿主未加载 katex/mermaid 时分别回退为源码 / 代码块。katex 内容豁免 raw 转义解码，`\nabla`/`\times`/`\to` 等 LaTeX 命令按标准语法直接书写即可。
+
+<Playground dsl='[katex f:"E = mc^2"]' />
 
 ## 代码块 `code`
 

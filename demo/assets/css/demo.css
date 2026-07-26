@@ -2137,3 +2137,7 @@ body.dark .nav-category-header:hover {
 .toast-container { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 99999; display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; }
 .toast { background: var(--tokui-text, #333); color: var(--tokui-bg, #fff); padding: 10px 20px; border-radius: 6px; font-size: 0.9em; opacity: 0; transform: translateY(-8px); transition: all 0.3s ease; pointer-events: auto; }
 .toast--visible { opacity: 1; transform: translateY(0); }
+
+/* mermaid 渲染时注入 body 的全局 tooltip 占位（无交互图用不到）——
+   它会把页面撑出滚动条/底部空白，直接隐藏 */
+.mermaidTooltip { display: none !important; }

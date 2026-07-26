@@ -91,6 +91,8 @@ const CONTAINERS = new Set([
   'canvas', 'canvas-content',
   'chart',
   'ins',
+  'katex',
+  'mermaid',
   'p'
 ]);
 
@@ -162,7 +164,14 @@ const BOOLEAN_ATTRS = new Set([
   'show-total',
   'live',
   'approval',
-  'streaming'
+  'streaming',
+  'range',
+  'half',
+  'sortable',
+  'filter',
+  'virtual',
+  'lazy',
+  'pagination'
 ]);
 
 // 变体提示（Variant hints）
@@ -388,7 +397,7 @@ class TokUIParser {
       const safeEnd = (bs % 2 === 1) ? safeEnd0 - 1 : safeEnd0;
       const already = top._rawEmittedLen || 0;
       if (safeEnd > already) {
-        const textContent = this._unescapeRaw(this.buffer.slice(already, safeEnd));
+        const textContent = this._unescapeRaw(this.buffer.slice(already, safeEnd), top.type);
         if (textContent) {
           const textNode = { type: '_text', attrs: {}, content: textContent, children: [] };
           top.children.push(textNode);
@@ -515,7 +524,7 @@ class TokUIParser {
         // 流式 raw 已按 top._rawEmittedLen 增量发过：此处只 flush 剩余（如回持的半截闭标签残部 / 未闭合容器正文）
         const top = this.stack[this.stack.length - 1];
         const already = (this.streaming && top && top._rawEmittedLen) ? top._rawEmittedLen : 0;
-        leftover = this._unescapeRaw(this.buffer.slice(already).trim());
+        leftover = this._unescapeRaw(this.buffer.slice(already).trim(), top && top.type);
       } else {
         leftover = this.buffer.trim();
       }
@@ -551,7 +560,8 @@ class TokUIParser {
   _isRawContent() {
     for (let i = this.stack.length - 1; i >= 0; i--) {
       var t = this.stack[i].type;
-      if (t === 'code' || t === 'md' || t === 'diff' || t === 'terminal' || t === 'sandbox' || t === 'artifact-code') return true;
+      if (t === 'code' || t === 'md' || t === 'diff' || t === 'terminal' || t === 'sandbox' || t === 'artifact-code'
+        || t === 'katex' || t === 'mermaid') return true;
     }
     return false;
   }
@@ -562,9 +572,15 @@ class TokUIParser {
    * 按真换行(0x0A)切行，字面 \n 不触发 → 整段塌成一行。此处把 \n→\n \t→\t \r→\r \\→\
    * 仅认这四种转义；其余（如正则 \d、路径 \w）保留字面反斜杠，不误伤代码字面量。
    * 仅在原始内容块调用，普通文本/属性值不动。
+   *
+   * katex/md 豁免：LaTeX 反斜杠是语法本体（\nabla/\times/\to/\right 会被误吃成
+   * 换行/Tab/回车 + 残肢，\\ 换行符也会被压成 \），必须原样保留，不做任何解码。
+   * md 内 $$公式$$/$公式$/```mermaid 围栏同受此保护；md 正文换行 AI 本就吐真换行。
+   * mermaid 独立组件不豁免：文档约定的单行写法 [mermaid]flowchart LR\n A-->B[/mermaid] 依赖 \n 解码。
    */
-  _unescapeRaw(s) {
+  _unescapeRaw(s, rawType) {
     if (typeof s !== 'string' || s.indexOf('\\') === -1) return s;
+    if (rawType === 'katex' || rawType === 'md') return s;
     return s.replace(/\\(.)/g, function (_, ch) {
       if (ch === 'n') return '\n';
       if (ch === 't') return '\t';
@@ -599,7 +615,7 @@ class TokUIParser {
             // 流式期间已按 top._rawEmittedLen 增量发过；此处只补发剩余未发部分，避免重复 emit
             const already = (this.streaming && top._rawEmittedLen) ? top._rawEmittedLen : 0;
             if (closeIdx > already) {
-              const textContent = this._unescapeRaw(this.buffer.slice(already, closeIdx));
+              const textContent = this._unescapeRaw(this.buffer.slice(already, closeIdx), topType);
               if (textContent) {
                 const textNode = { type: '_text', attrs: {}, content: textContent, children: [] };
                 if (this.streaming && this.stack.length > 0) {
@@ -887,7 +903,10 @@ class TokUIParser {
     // input-tag 带 tags 属性 → 自闭合（与 builder.inputTag() 的 _selfClosing 分支对齐）；
     // 否则按容器打开收子节点。
     const isTagsSelfClosing = node.type === 'input-tag' && node.attrs.tags;
+    // katex 带 f:"公式" 属性 → 行内自闭合（容器 [/katex] 为块级）；与 builder.katex(c, true) 对齐
+    const isKatexInlineSelfClosing = node.type === 'katex' && !!node.attrs.f;
     const isSelfClosing = isTxSelfClosing || isLeafSelfClosing || isTagsSelfClosing
+      || isKatexInlineSelfClosing
       || isOptShorthandSelfClosing(node) || isCheckboxSingleSelfClosing(node);
     // desc/suggestions use cols as layout attribute, not as self-closing trigger
     // chart 的 cols 是数据列标签（heatmap），非布局自闭合触发，须豁免（否则容器写法 [/chart] 报错）
@@ -945,7 +964,10 @@ class TokUIParser {
     const isTxSelfClosing = CONTAINERS.has(node.type) && !TX_CONTAINER_EXCLUDE.has(node.type) && node.attrs.tx;
     const isLeafSelfClosing = node.type === 'tn' && node.attrs.leaf !== undefined;
     const isTagsSelfClosing = node.type === 'input-tag' && node.attrs.tags;
+    // katex 带 f:"公式" 属性 → 行内自闭合（容器 [/katex] 为块级）；与 builder.katex(c, true) 对齐
+    const isKatexInlineSelfClosing = node.type === 'katex' && !!node.attrs.f;
     const isSelfClosing = isTxSelfClosing || isLeafSelfClosing || isTagsSelfClosing
+      || isKatexInlineSelfClosing
       || isOptShorthandSelfClosing(node) || isCheckboxSingleSelfClosing(node);
     // desc/suggestions use cols as layout attribute, not as self-closing trigger
     // chart 的 cols 是数据列标签（heatmap），非布局自闭合触发，须豁免（否则容器写法 [/chart] 报错）

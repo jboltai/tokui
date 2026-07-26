@@ -244,4 +244,61 @@ test('audio w 设容器宽度', () => {
   assert.strictEqual(dom.style.width, '300px', 'audio w 纯数字 → px');
 });
 
+// === terminal 复制按钮 ===
+test('terminal 标题栏右侧有复制按钮（文案走 i18n）', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'terminal', attrs: { title: 'bash' }, content: 'echo hi', children: [] });
+  const btn = dom.querySelector('.tokui-terminal__copy');
+  assert.ok(btn, '应有复制按钮');
+  assert.strictEqual(btn.textContent, '复制', '默认 zh-CN 文案');
+  // 按钮在标题栏内（dots + title + copy）
+  const titlebar = dom.querySelector('.tokui-terminal__titlebar');
+  assert.strictEqual(titlebar.querySelector('.tokui-terminal__copy'), btn, '按钮应挂在标题栏');
+});
+
+test('terminal 点击复制按钮调 clipboard.writeText 并 Copied 反馈', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'terminal', attrs: {}, content: 'echo hello', children: [] });
+  const btn = dom.querySelector('.tokui-terminal__copy');
+  var copied = null;
+  var origNav = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  Object.defineProperty(globalThis, 'navigator', {
+    value: { clipboard: { writeText: function (t) { copied = t; } } },
+    configurable: true, writable: true
+  });
+  try {
+    btn._events.click[btn._events.click.length - 1]({});
+  } finally {
+    if (origNav) Object.defineProperty(globalThis, 'navigator', origNav);
+  }
+  assert.strictEqual(copied, 'echo hello', '应复制终端全文');
+  assert.strictEqual(btn.textContent, '已复制', '点击后文案变为「已复制」');
+  assert.ok(btn.classList.contains('tokui-terminal__copy--done'), '应有 done 态 class');
+});
+
+test('terminal 无 clipboard 时点击不报错', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'terminal', attrs: {}, content: 'ls', children: [] });
+  const btn = dom.querySelector('.tokui-terminal__copy');
+  var origNav = Object.getOwnPropertyDescriptor(globalThis, 'navigator');
+  Object.defineProperty(globalThis, 'navigator', { value: {}, configurable: true, writable: true });
+  try {
+    btn._events.click[btn._events.click.length - 1]({});
+  } finally {
+    if (origNav) Object.defineProperty(globalThis, 'navigator', origNav);
+  }
+  assert.strictEqual(btn.textContent, '已复制', '无 clipboard 仍有文案反馈');
+});
+
+// === code 行号（现状：wrapLines + CSS counter，已内置）===
+test('code 组件输出行包装 .code-line（CSS counter 行号载体）', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'code', attrs: { lang: 'text' }, content: 'line1\nline2\nline3', children: [] });
+  const codeEl = dom.querySelector('code');
+  assert.ok(codeEl, '应有 code 元素');
+  var html = codeEl.innerHTML;
+  var count = html.split('class="code-line"').length - 1;
+  assert.strictEqual(count, 3, '每行应包一个 .code-line（行号由 CSS counter 生成）');
+});
+
 run();

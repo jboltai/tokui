@@ -174,7 +174,7 @@
     <!-- Footer -->
     <footer class="app-footer">
       <div class="app-footer-left">
-        <span class="app-footer-ver" id="footerVer">当前版本:v0.1.8</span>
+        <span class="app-footer-ver" id="footerVer">当前版本:v0.1.9</span>
       </div>
       <div class="app-footer-center">
         <button class="app-footer-btn" id="clearBtn" title="清空">
@@ -253,6 +253,50 @@
 
   <!-- TokUI Library (built: npm run build) -->
   <script src="lib/tokui.umd.js"></script>
+
+  <!-- 可选插件懒加载（md 增强演示：宿主按需，TokUI 检测到全局对象才增强渲染）。
+       window load 后异步注入，不阻塞主页面结构渲染；插件晚到时对已渲染的 fallback 补渲染。 -->
+  <script>
+    window.addEventListener('load', function () {
+      // KaTeX CSS 单独异步拉取
+      var css = document.createElement('link');
+      css.rel = 'stylesheet';
+      css.href = 'https://cdn.bootcdn.net/ajax/libs/KaTeX/0.16.44/katex.min.css';
+      document.head.appendChild(css);
+      // JS 按序加载（async 不阻塞解析），katex 先到 → 重绘已有 md（公式增强），mermaid 后到 → 补渲染 mermaid 块
+      function loadJs(url, onload) {
+        var s = document.createElement('script');
+        s.src = url;
+        s.async = true;
+        if (onload) s.onload = onload;
+        document.head.appendChild(s);
+      }
+      loadJs('https://cdn.bootcdn.net/ajax/libs/KaTeX/0.16.44/katex.min.js', function () {
+        // 插件晚到：只把含公式源码的块按留档原文重绘（不重放整树，避免内容重复）
+        var internal = window.TokUI && window.TokUI._internal;
+        if (!internal || !internal.simpleMarkdown) return;
+        Array.prototype.forEach.call(document.querySelectorAll('.tokui-md'), function (m) {
+          if (m._rawMd && m._rawMd.indexOf('$$') !== -1) {
+            m.innerHTML = internal.simpleMarkdown(m._rawMd);
+            if (typeof internal.runMdMermaid === 'function') internal.runMdMermaid(m);
+          }
+        });
+        // [katex] 组件块：按 _rawMd 重绘（块级/行内依类名）
+        if (internal.renderKatexHtml) {
+          Array.prototype.forEach.call(document.querySelectorAll('.tokui-katex'), function (m) {
+            if (!m._rawMd) return;
+            m.innerHTML = internal.renderKatexHtml(m._rawMd, m.className.indexOf('--block') !== -1);
+          });
+        }
+      });
+      loadJs('https://registry.npmmirror.com/mermaid/11.16.0/files/dist/mermaid.min.js', function () {
+        // 补渲染已存在的 mermaid fallback 源码块（库暴露的入口）
+        if (window.TokUI && window.TokUI._internal && typeof window.TokUI._internal.runMdMermaid === 'function') {
+          window.TokUI._internal.runMdMermaid(document.body);
+        }
+      });
+    });
+  </script>
 
   <!-- Demo -->
   <script src="assets/js/demo.js"></script>

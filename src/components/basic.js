@@ -874,6 +874,55 @@ function registerBasicComponents(renderer) {
   // === Markdown 组件 ===
   // 容器模式：内容从 children 拼接获取（保留原始换行）
   // 流式模式下，子节点作为 Text 节点追加；关闭时统一重新渲染
+
+  // mermaid 增强：md 渲染后若宿主已引入 window.mermaid，把 .tokui-md__mermaid 源码块渲染为 SVG。
+  // 兼容 v10/v11 的 run API 与 v9 及以前的 init API；任何失败均静默回退为源码展示（div 内嵌 pre 代码块）。
+  function runMdMermaid(container) {
+    var mermaid = _getHostPlugin('mermaid');
+    if (!mermaid || !container) return;
+    // 先用 innerHTML 标记判断是否含 mermaid 块（无则直接返回，不打扰插件）；
+    // 组件路径（el() 构建的 DOM，mock 的 innerHTML 不解析）回退 querySelector 检测
+    var hasBlock = String(container.innerHTML || '').indexOf('tokui-md__mermaid') !== -1
+      || (typeof container.querySelector === 'function' && !!container.querySelector('.tokui-md__mermaid'));
+    if (!hasBlock) return;
+    var nodes = (typeof container.querySelectorAll === 'function')
+      ? Array.prototype.slice.call(container.querySelectorAll('.tokui-md__mermaid'))
+      : [];
+    // mermaid 期望节点内是纯净图源文本（<pre class="mermaid">graph …</pre> 形态）。
+    // 我们的回退结构是 div>pre>code（嵌套标签会让 mermaid 把标记误当图源），
+    // 故先把 code 的 textContent 拍平回节点——渲染成功出 SVG，失败保留纯文本源码。
+    // _mermaidDone 防重：md 初次渲染与 _streamCloseHook 重渲会两次走到这里，
+    // 不守卫会在同一 div 内重复挂 SVG。
+    var pending = [];
+    nodes.forEach(function (n) {
+      if (n._mermaidDone) return;
+      n._mermaidDone = true;
+      var code = typeof n.querySelector === 'function' ? n.querySelector('code') : null;
+      var src = code ? code.textContent : n.textContent;
+      n.textContent = src;
+      pending.push(n);
+    });
+    if (nodes.length && !pending.length) return;
+    try {
+      if (typeof mermaid.run === 'function') {
+        // mermaid v10/v11：run 返回 Promise，拒绝时静默回退源码
+        var p = mermaid.run({ nodes: pending });
+        if (p && typeof p.catch === 'function') p.catch(function () {});
+      } else if (typeof mermaid.init === 'function') {
+        // mermaid v9 及以下
+        mermaid.init(undefined, pending);
+      }
+    } catch (e) { /* 渲染失败：保留源码展示 */ }
+  }
+
+  // 暴露 md 插件增强入口：宿主懒加载 mermaid/katex 后可手动补渲染
+  //（runMdMermaid(document.body)；simpleMarkdown 供按 _rawMd 重绘公式）
+  if (typeof window !== 'undefined' && window.TokUI && window.TokUI._internal) {
+    window.TokUI._internal.runMdMermaid = runMdMermaid;
+    window.TokUI._internal.simpleMarkdown = simpleMarkdown;
+    window.TokUI._internal.renderKatexHtml = _renderKatexHtml;
+  }
+
   renderer.register('md', (node) => {
     const div = el('div', { class: 'tokui-md' });
     let text = '';
@@ -883,8 +932,10 @@ function registerBasicComponents(renderer) {
       text = node.content || '';
     }
     if (text) {
+      div._rawMd = text; // 留档原始 Markdown：插件懒加载晚到时按需补渲染（KaTeX/mermaid）
       div.innerHTML = simpleMarkdown(text);
       bindMdLightbox(div);
+      runMdMermaid(div);
     }
     // 流式模式关闭钩子：收集所有子文本节点，重新用 Markdown 渲染。
     // 仅在有文本节点（流式累积）时重渲；一次性渲染后 div 已是 HTML 元素（无文本节点），
@@ -897,12 +948,88 @@ function registerBasicComponents(renderer) {
         }
       }
       if (raw) {
+        div._rawMd = raw; // 流式累积的最终稿同步留档
         div.innerHTML = simpleMarkdown(raw);
         bindMdLightbox(div);
+        runMdMermaid(div);
       }
     };
     div._tokuiType = 'md';
     return div;
+  });
+
+  // === KaTeX 公式组件（md 增强的别名形式）===
+  // [katex]块级公式[/katex]（容器）/ [katex "行内公式"]（自闭合）
+  // 渲染走 md 的 KaTeX 管线（_renderKatexHtml）：有 window.katex 渲染，无插件回退源码。
+  // 内容为 raw 模式（同 md），且与 md 一样豁免 C 转义解码（parser._unescapeRaw 对
+  // katex/md 原样保留）——LaTeX 命令 \nabla/\times/\to/\right 等不会被误吃，按标准语法书写。
+  renderer.register('katex', (node) => {
+    var inlineF = node.attrs && node.attrs.f; // [katex f:"公式"] 行内自闭合
+    var isBlock = !inlineF;                    // 容器=块级，f:=行内
+    var div = el('div', { class: 'tokui-katex' + (isBlock ? ' tokui-katex--block' : ' tokui-katex--inline') });
+    var collect = function () {
+      if (inlineF) return inlineF;
+      if (node.children && node.children.length) {
+        return node.children.map(function (c) { return c.content || ''; }).join('');
+      }
+      return node.content || '';
+    };
+    var initial = collect();
+    if (initial) {
+      div._rawMd = initial; // 原文留档（插件晚到补渲染协议与 md 一致）
+      div.innerHTML = _renderKatexHtml(initial, isBlock);
+    }
+    // 流式闭合：汇聚流入的文本节点，终稿重渲（同 md 思路）
+    div._streamCloseHook = function () {
+      var raw = '';
+      for (const child of Array.from(div.childNodes)) {
+        if (child.nodeType === 3) raw += child.textContent;
+      }
+      if (raw) {
+        div._rawMd = raw;
+        div.innerHTML = _renderKatexHtml(raw, true); // 流式必为容器形态=块级
+      }
+    };
+    div._slot = div;
+    div._tokuiType = 'katex';
+    return div;
+  });
+
+  // === Mermaid 图组件（md 增强的别名形式）===
+  // [mermaid]图源[/mermaid]（容器）——与 ```mermaid 围栏同管线：
+  // 回退结构 div>pre>code（无插件按代码块展示），有 window.mermaid 时 runMdMermaid 拍平渲染。
+  renderer.register('mermaid', (node) => {
+    var wrap = el('div', { class: 'tokui-mermaid' });
+    var collect = function () {
+      if (node.children && node.children.length) {
+        return node.children.map(function (c) { return c.content || ''; }).join('');
+      }
+      return node.content || '';
+    };
+    var paint = function (src) {
+      wrap.innerHTML = '';
+      var d = el('div', { class: 'tokui-md__mermaid' });
+      var pre = el('pre', { class: 'tokui-code' });
+      var code = el('code', { class: 'language-mermaid' }, src);
+      pre.appendChild(code);
+      d.appendChild(pre);
+      wrap.appendChild(d);
+      wrap._rawMd = src;
+      runMdMermaid(wrap);
+    };
+    var initial = collect();
+    if (initial) paint(initial);
+    // 流式闭合：汇聚文本节点终稿重渲
+    wrap._streamCloseHook = function () {
+      var raw = '';
+      for (const child of Array.from(wrap.childNodes)) {
+        if (child.nodeType === 3) raw += child.textContent;
+      }
+      if (raw) paint(raw);
+    };
+    wrap._slot = wrap;
+    wrap._tokuiType = 'mermaid';
+    return wrap;
   });
 
   // === 代码块组件 ===
@@ -1288,14 +1415,14 @@ function registerBasicComponents(renderer) {
     // row: avatar + content
     var row = el('div', { class: 'tokui-bubble__row' });
     var avatar = el('span', { class: 'tokui-bubble__avatar' });
-    avatar.textContent = role === 'user' ? 'You' : 'AI';
+    avatar.textContent = role === 'user' ? _t('bubble.you') : _t('bubble.ai');
     row.appendChild(avatar);
 
     var content = el('div', { class: 'tokui-bubble__content' });
     // header
     var header = el('div', { class: 'tokui-bubble__header' });
     var nameSpan = el('span', {});
-    nameSpan.textContent = role === 'user' ? 'You' : role === 'system' ? 'System' : 'Assistant';
+    nameSpan.textContent = role === 'user' ? _t('bubble.you') : role === 'system' ? _t('bubble.system') : _t('bubble.assistant');
     header.appendChild(nameSpan);
     if (model) {
       var modelBadge = el('span', { class: 'tokui-badge tokui-badge--info tokui-badge--pill' });
@@ -2472,7 +2599,7 @@ function registerBasicComponents(renderer) {
 
     var field = el('div', { class: 'tokui-field' });
     if (attrs.l) {
-      field.appendChild(el('label', { class: 'tokui-label' }, attrs.l));
+      field.appendChild(el('label', { class: 'tokui-label' + (attrs.req !== undefined ? ' tokui-label--req' : '') }, attrs.l));
     }
 
     var box = el('div', { class: 'tokui-input-tag__box' });
@@ -3403,6 +3530,112 @@ function registerBasicComponents(renderer) {
       });
     }
 
+    // === Mentions 提及：mention:数据源handler名 ===
+    // 输入 @ 触发建议下拉；数据源 = 宿主 registerHandler 的函数 fn({value:查询词})，
+    // 返回数组（同步）或 Promise（异步），项为字符串或 {v, tx}（v 值 tx 显示）。
+    // 键盘：↑/↓ 高亮、Enter/Tab 选定、Esc 关闭（优先于 Enter 发送，经 e._tokuiMentionHandled 让位）。
+    var mentionSource = attrs.mention || '';
+    if (mentionSource) {
+      var mentionDropdown = el('div', { class: 'tokui-chat-input__mention', role: 'listbox' });
+      mentionDropdown.style.display = 'none';
+      wrapper.appendChild(mentionDropdown);
+      var mentionItems = [];
+      var mentionActive = -1;
+      var mentionRange = null; // { query, start, end } 光标前 @query 区间
+
+      var closeMention = function () {
+        mentionDropdown.style.display = 'none';
+        mentionItems = [];
+        mentionActive = -1;
+        mentionRange = null;
+      };
+      // 光标前最近的 @query（@ 前须为行首或空白，防邮箱误触发）
+      var currentMentionQuery = function () {
+        var pos = textarea.selectionStart != null ? textarea.selectionStart : (textarea.value || '').length;
+        var before = (textarea.value || '').slice(0, pos);
+        var m = before.match(/(^|\s)@([^\s@]*)$/);
+        if (!m) return null;
+        return { query: m[2], start: pos - m[2].length - 1, end: pos };
+      };
+      var pickMention = function (idx) {
+        var item = mentionItems[idx];
+        if (!item || !mentionRange) return;
+        var v = typeof item === 'string' ? item : (item.v != null ? item.v : item.tx);
+        var tx = typeof item === 'string' ? item : (item.tx != null ? item.tx : item.v);
+        var val = textarea.value || '';
+        textarea.value = val.slice(0, mentionRange.start) + '@' + tx + ' ' + val.slice(mentionRange.end);
+        var caret = mentionRange.start + String(tx).length + 2;
+        if (typeof textarea.setSelectionRange === 'function') textarea.setSelectionRange(caret, caret);
+        report('mention', { value: v, name: attrs.n || undefined });
+        closeMention();
+        if (typeof textarea.focus === 'function') textarea.focus();
+      };
+      var renderMentionItems = function (items) {
+        mentionDropdown.innerHTML = '';
+        mentionItems = items.slice(0, 8);
+        if (!mentionItems.length) { closeMention(); return; }
+        mentionActive = 0;
+        mentionItems.forEach(function (item, idx) {
+          var tx = typeof item === 'string' ? item : (item.tx != null ? item.tx : item.v);
+          var opt = el('div', {
+            class: 'tokui-chat-input__mention-item' + (idx === 0 ? ' tokui-chat-input__mention-item--active' : ''),
+            role: 'option'
+          }, tx);
+          opt.addEventListener('mousedown', function (e) {
+            if (e && e.preventDefault) e.preventDefault(); // 防 blur 抢先关闭
+            pickMention(idx);
+          });
+          mentionDropdown.appendChild(opt);
+        });
+        mentionDropdown.style.display = '';
+      };
+      var refreshMention = function () {
+        var range = currentMentionQuery();
+        if (!range) { closeMention(); return; }
+        if (!renderer.eventBus) return;
+        var fn = renderer.eventBus.getHandler(mentionSource);
+        if (!fn) { renderer._warnMissingHandler(mentionSource); closeMention(); return; }
+        mentionRange = range;
+        var result;
+        try { result = fn({ value: range.query }); }
+        catch (e) { console.warn('TokUI: mention 数据源异常', e); closeMention(); return; }
+        if (result && typeof result.then === 'function') {
+          // 异步数据源：返回时查询词已变则丢弃（防旧结果覆盖新输入）
+          result.then(function (items) {
+            if (mentionRange && mentionRange.query === range.query && Array.isArray(items)) renderMentionItems(items);
+          }).catch(function () { closeMention(); });
+        } else if (Array.isArray(result)) {
+          renderMentionItems(result);
+        } else {
+          closeMention();
+        }
+      };
+      // 键盘导航（注册在发送 keydown 之前，置 e._tokuiMentionHandled 让发送让位）
+      textarea.addEventListener('keydown', function (e) {
+        if (mentionDropdown.style.display === 'none') return;
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          if (e.preventDefault) e.preventDefault();
+          e._tokuiMentionHandled = true;
+          mentionActive = (mentionActive + (e.key === 'ArrowDown' ? 1 : -1) + mentionItems.length) % mentionItems.length;
+          for (var i = 0; i < mentionDropdown.childNodes.length; i++) {
+            var optEl = mentionDropdown.childNodes[i];
+            if (!optEl.classList) continue;
+            if (i === mentionActive) optEl.classList.add('tokui-chat-input__mention-item--active');
+            else optEl.classList.remove('tokui-chat-input__mention-item--active');
+          }
+        } else if (e.key === 'Enter' || e.key === 'Tab') {
+          if (e.preventDefault) e.preventDefault();
+          e._tokuiMentionHandled = true;
+          pickMention(mentionActive);
+        } else if (e.key === 'Escape') {
+          e._tokuiMentionHandled = true;
+          closeMention();
+        }
+      });
+      textarea.addEventListener('input', refreshMention);
+      textarea.addEventListener('blur', function () { setTimeout(closeMention, 150); });
+    }
+
     // 发送逻辑
     function doSend() {
       if (disabled) return;
@@ -3431,8 +3664,9 @@ function registerBasicComponents(renderer) {
       }
     }
 
-    // Enter 发送，Shift+Enter 换行
+    // Enter 发送，Shift+Enter 换行（mentions 下拉打开时 Enter/↑↓/Esc 已被提及导航消费）
     textarea.addEventListener('keydown', function (e) {
+      if (e._tokuiMentionHandled) return;
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         doSend();
@@ -4074,6 +4308,22 @@ function registerBasicComponents(renderer) {
       if (child && child.nodeType) content.appendChild(child);
     });
     wrapper.appendChild(content);
+    // 标题栏右侧复制按钮：复制终端全文，Copy → Copied 2s 恢复（复用 artifact/code 的复制模式）
+    var copyBtn = el('button', { class: 'tokui-terminal__copy', type: 'button' });
+    copyBtn.textContent = _t('actions.copy');
+    copyBtn.addEventListener('click', function () {
+      var text = content.textContent || '';
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        navigator.clipboard.writeText(text);
+      }
+      copyBtn.textContent = _t('common.copied');
+      copyBtn.classList.add('tokui-terminal__copy--done');
+      setTimeout(function () {
+        copyBtn.textContent = _t('actions.copy');
+        copyBtn.classList.remove('tokui-terminal__copy--done');
+      }, 2000);
+    });
+    titlebar.appendChild(copyBtn);
     wrapper._slot = content;
     wrapper._tokuiType = 'terminal';
     return wrapper;
@@ -5693,6 +5943,17 @@ function bindMdLightbox(container) {
 }
 
 /**
+ * 取宿主页面注入的可选插件全局对象（mermaid / katex）。
+ * 插件不 vendored 进库——宿主自行 CDN/npm 引入，检测不到即优雅回退，控制台不报错。
+ * @param {string} name - 全局对象名（'mermaid' / 'katex'）
+ * @returns {Object|null}
+ */
+function _getHostPlugin(name) {
+  if (typeof window !== 'undefined' && window && window[name]) return window[name];
+  return null;
+}
+
+/**
  * 简易 Markdown 转 HTML 解析器（增强版）
  * 支持：加粗、斜体、删除线、行内代码、链接、图片、标题、有序/无序列表、
  *       表格（含对齐）、代码围栏、任务列表、引用块、分隔线、段落。
@@ -5701,6 +5962,24 @@ function bindMdLightbox(container) {
  * @param {string} text - Markdown 文本
  * @returns {string} 转换后的 HTML 字符串
  */
+// 有 window.katex 时 katex.renderToString 渲染；无插件/渲染失败回退转义原文。
+// display: true 块级 div / false 行内 span。md 的 $$ 占位回填与 [katex] 组件共用。
+// 模块级：simpleMarkdown 与 registerBasicComponents 内的 katex 组件都要可见。
+function _renderKatexHtml(tex, display) {
+  var katex = null;
+  if (typeof window !== 'undefined' && window.katex) katex = window.katex;
+  if (katex && typeof katex.renderToString === 'function') {
+    try {
+      var rendered = katex.renderToString(tex, { throwOnError: false, displayMode: display });
+      return display
+        ? '<div class="tokui-md__math tokui-md__math--block">' + rendered + '</div>'
+        : '<span class="tokui-md__math">' + rendered + '</span>';
+    } catch (e) { /* 渲染失败：回退为原文 */ }
+  }
+  var raw = display ? '$$' + tex + '$$' : '$' + tex + '$';
+  return raw.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
 function simpleMarkdown(text) {
   if (!text) return '';
 
@@ -5750,6 +6029,32 @@ function simpleMarkdown(text) {
     return '\x02CODEFENCE' + idx + '\x03';
   });
 
+  // 预处理：提取数学公式为占位符（在转义/行内规则之前，避免 $ 内容与 Markdown 规则互相破坏）。
+  // 有 window.katex 时 katex.renderToString 渲染；无插件时回填转义后的原文。
+  var mathSnippets = [];
+  // 块级 $$...$$（可跨行）
+  text = text.replace(/\$\$([\s\S]+?)\$\$/g, function (match, tex) {
+    var idx = mathSnippets.length;
+    mathSnippets.push({ tex: tex, display: true });
+    return '\x02TOKUIMATH' + idx + '\x03';
+  });
+  // 行内 $...$：$ 后非空格、成对、不跨行、收尾非空格，且闭 $ 后不接数字（防误吃货币 $5 / $6）
+  text = text.replace(/\$([^\s$](?:[^$\n]*[^\s$])?)\$(?!\d)/g, function (match, tex) {
+    var idx = mathSnippets.length;
+    mathSnippets.push({ tex: tex, display: false });
+    return '\x02TOKUIMATH' + idx + '\x03';
+  });
+
+  // 回填数学公式占位符：有 katex 渲染（throwOnError:false），无插件/渲染失败保留转义原文
+  function renderMathSnippet(item) {
+    return _renderKatexHtml(item.tex, item.display);
+  }
+  function restoreMath(html) {
+    return html.replace(/\x02TOKUIMATH(\d+)\x03/g, function (match, i) {
+      return renderMathSnippet(mathSnippets[parseInt(i)]);
+    });
+  }
+
   // 预处理：提取水平线（避免 inlineFormat 将 *** 处理为粗体/斜体）
   var HR_PLACEHOLDER = '\x02TOKUIHR\x03';
   text = text.replace(/^(?:\*{3,}|-{3,}|_{3,})\s*$/gm, HR_PLACEHOLDER);
@@ -5766,12 +6071,26 @@ function simpleMarkdown(text) {
     if (fenceMatch) {
       var fence = codeFences[parseInt(fenceMatch[1])];
       var lang = fence.lang || 'text';
+      // mermaid 围栏：div 装源码（内嵌 pre 代码块，无插件时按普通代码块展示），
+      // 有 window.mermaid 时由 md 组件渲染后调 runMdMermaid 增强为 SVG 图。
+      if (lang === 'mermaid') {
+        var msrc = fence.code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return '<div class="tokui-md__mermaid"><pre class="tokui-code"><code class="language-mermaid">' + msrc + '</code></pre></div>';
+      }
       var highlighted = HL_LANGS[lang] ? highlightCode(fence.code, lang) : fence.code.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       return '<pre class="tokui-code"><code class="language-' + lang + '">' + highlighted + '</code></pre>';
     }
 
+    // 整块即块级公式：直接输出块级数学容器，不进段落/行内规则
+    var mathBlockMatch = block.match(/^\x02TOKUIMATH(\d+)\x03$/);
+    if (mathBlockMatch && mathSnippets[parseInt(mathBlockMatch[1])].display) {
+      return renderMathSnippet(mathSnippets[parseInt(mathBlockMatch[1])]);
+    }
+
     // 先对整块做行内格式处理
     block = inlineFormat(block);
+    // 行内规则跑完后回填数学公式占位符（此时其它内容已转义，公式不受破坏）
+    block = restoreMath(block);
 
     // 按行处理块级元素
     var lines = block.split('\n');

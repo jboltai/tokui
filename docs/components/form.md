@@ -1,6 +1,6 @@
 # 表单组件
 
-表单容器、各类输入控件与选择器。每个示例左侧为格式化 + 高亮的 TokUI DSL，右侧为实时渲染，点「编辑」可即时改动。
+表单容器、各类输入控件与选择器。每个示例左侧为格式化 + 高亮的 TokUI DSL，右侧为实时渲染，点「编辑」可即时改动。所有表单控件的 label 在带 `req` 时都渲染必填星号。
 
 ## 表单容器 `form`
 
@@ -59,6 +59,22 @@
 
 > 完整事件清单见 [DSL 语法 · 交互事件上报](/guide/dsl-syntax#交互事件上报)。
 
+## DSL 校验规则
+
+`input` / `pwd` / `textarea` / `select` 支持 `rule:` + `msg:` 声明式校验规则，**提交时统一执行**（`sub` / `t:submit` 全部路径），失败拦截提交、错误字段标红 + hint 出文案并聚焦首个错误字段：
+
+```tokui
+[input n:email l:"邮箱" rule:"required|email"]
+[input n:code l:"验证码" rule:"required|len:6" msg:"请输入 6 位验证码"]
+[select n:city l:"城市" rule:"required" opt:"bj:北京;sh:上海"]
+```
+
+- 规则管道分隔、按序短路：`required` `email` `url` `number` `len:N`（精确长度）`min:N` `max:N`（字符数）`re:正则`。
+- 空值跳过非 `required` 规则（HTML5 同语义：空且非必填 = 合法）。
+- `msg:` 自定义错误文案（缺省用内置 i18n 文案）；未知规则名 / 非法正则 `console.warn` 跳过。
+- 与 `live` 组合：blur 实时校验，error 态下输入即时重检。
+- `select` 的 `req` 会写原生 `required` 属性（多选除外，语义不符）。
+
 ## 打印区 `print-area`
 
 标记一块 **1:1 打印**区域，配合 `[btn print:ID]` 触发浏览器打印。打印时仅该区域可见、如实还原配色与布局；打印按钮自身不进预览。
@@ -99,11 +115,15 @@
 | `search` | 搜索样式（`search right` 图标加右侧） | `search` |
 | `pre` / `app` | 前置 / 后置文本（可带变体 `文本\|变体`） | `pre:¥` |
 | `prebtn` / `appbtn` | 前置 / 后置按钮（`文本:处理器\|变体`） | `prebtn:"搜索:doSearch\|primary"` |
+| `rule` / `msg` | DSL 校验规则 / 自定义错误文案（见 [DSL 校验规则](#dsl-校验规则)） | `rule:"required|email"` |
+| `sug` | 输入联想数据源 handler | `sug:onSuggest` |
 | `req` / `dis` / `ro` | 必填 / 禁用 / 只读 | `req` |
 
 **变体**：`error` / `success`（校验状态），`sm` / `lg`（尺寸），`underline`（下划线风格），`pill`（圆角），`inline`（标签与控件同行）。
 
 <Playground dsl='[input l:姓名 ph:"请输入姓名" req][input l:邮箱 t:email ph:name@example.com][input l:带默认值 val:张三][input l:搜索框 ph:"输入关键词搜索" search][input l:禁用态 ph:不可编辑 dis][input l:错误状态 v:error ph:校验失败]' />
+
+> **输入联想（sug）**：`sug:数据源handler名` 启用联想下拉——`fn({value})` 返回数组或 Promise（项为字符串或 `{v, tx}`），↑↓ / Enter / Esc 导航，选定触发 `change` 上报。
 
 ## 密码框 `pwd`
 
@@ -232,10 +252,14 @@
 | `clk` | 拖动回调 | `clk:onSlide` |
 | `n` | 字段名 | `n:volume` |
 | `id` | 元素 ID | `id:volume` |
+| `range` | 双滑块区间模式 | `range` |
+| `marks` | 刻度标签（`值:标签` 逗号分隔） | `marks:"0:免费,50:标准"` |
 
 **变体**：`sm` / `lg`。
 
 <Playground dsl='[slider l:音量 v:60 min:0 max:100][slider l:亮度 step:5 v:75][slider l:不透明度 v:30 clk:onOpacity][slider l:禁用 v:50 dis]' />
+
+> **区间与刻度**：`range` 双滑块选区间（`v:"20,60"`），`change` 上报 `{value: [min, max]}`；`marks:"0:免费,50:标准,100:旗舰"` 渲染刻度标签。
 
 ## 评分 `rate`
 
@@ -249,6 +273,7 @@
 | `clk` | 选择回调 | `clk:onRate` |
 | `dis` | 只读/禁用 | `dis` |
 | `tx` | 文案 | `tx:很好` |
+| `half` | 半选（0.5 步进，同值再点清零） | `half` |
 
 <Playground dsl='[rate l:商品评分 v:4 max:5][rate l:服务评分 v:0 max:5 clk:onRate][rate l:只读评分 v:5 dis]' />
 
@@ -333,8 +358,12 @@
 | `clk` | 上传回调 | `clk:onUpload` |
 | `n` | 字段名 | `n:file` |
 | `id` | 元素 ID | `id:file` |
+| `u` | 上传地址（仅 http(s) / 相对路径，启用自动传输） | `u:/api/upload` |
+| `mtd` | 上传方法 | `mtd:post` |
 
 **变体**：`sm` / `lg`。
+
+**传输层**：带 `u:` 时选择文件后自动经 XHR 逐个上传，文件项呈现进度条 / 成功 ✓ / 失败 ✗+重试三态，并上报 `progress` `{file, percent}` / `success` `{file, response}` / `error` `{file, error}` 事件；不带 `u:` 仅前端选择（仅 `change` 事件）。
 
 <Playground dsl='[upload l:头像 accept:"image/*" ph:"点击上传头像"][upload l:多文件上传 multi max:5 ph:"支持最多 5 个文件"][upload l:禁用上传 dis]' />
 
@@ -354,8 +383,11 @@
 | `dis` | 禁用 | `dis` |
 | `n` | 字段名 | `n:birthday` |
 | `id` | 元素 ID | `id:birthday` |
+| `range` | 范围模式（两次点击选起止） | `range` |
 
 <Playground dsl='[datepicker l:出生日期 ph:"请选择日期" fmt:yyyy-MM-dd][datepicker l:默认值示例 v:2026-06-20][datepicker l:禁用态 ph:不可选择 dis]' />
+
+> **范围模式**：`range` 下两次点击选定起止日期，值格式 `YYYY-MM-DD ~ YYYY-MM-DD`。
 
 ## 时间选择 `timepicker`
 

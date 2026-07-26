@@ -38,6 +38,8 @@ v:"primary,sm"                                ; comma-separated variants
 > `clk:` / `sub:` handlers must be pre-registered via `TokUI.registerHandler(name, fn)` — the server ships no executable code.
 > `sub` / `reset` / `print` are button **built-in actions**, resolved automatically by the renderer; `reset` / `print` need no registered handler. See [Form components](/en/components/form#form-actions-submit-reset-data-collection).
 
+> Form validation: `input` / `pwd` / `textarea` / `select` support declarative rules via `rule:"required|email|…"` + `msg:"custom message"` — enforced uniformly on submit; failures block submission, mark the field red with a hint, and focus the first error. See [Form · DSL validation rules](/en/components/form#dsl-validation-rules).
+
 > **Where text goes — bare content vs `tx:`**: text-**block** components `p` / `h1~h6` / `item` take text as **bare content** inside the tag: `[p body text]`, `[h1 Title]`; `tx:` is the text prop of **self-closing display** components (`btn` / `tag` / `callout` / `stat` / `badge` / `dot`…): `[btn tx:Click]`. Mixing loses content. Combine variants with commas `v:"muted,center"` — never write two `v:` (the second overwrites the first).
 
 ## Boolean attributes
@@ -126,15 +128,17 @@ Beyond the named handler, every interaction is also delivered to the unified out
 |-----------|-------|--------|
 | `input` / `pwd` / `textarea` / `numinput` | `change` (300ms input debounce; `db:` overrides the milliseconds) | `{value, name}` |
 | `select` / `radio` / `checkbox` / `switch` / `slider` / `rate` / `picker` / `transfer` / `cascader` / `input-tag` / `datepicker` family | `change` (fires on every value change) | `{value, name}` |
-| `upload` | `change` (file selected / removed) | `{value: filename array, name}` |
+| `upload` | `change` (file selected / removed) / `progress` / `success` / `error` (last three only in `u:` transfer mode) | `{value: filename array, name}` / `{file, percent}` / `{file, response}` / `{file, error}` |
 | `tabs` / `steps` | `change` (user tab switch / step click) | `{index, title}` |
 | `menu` | `change` (item identity: id > v > text) | `{value}` |
 | `pagination` | `change` (page turn / jump) | `{value: page number}` |
-| `tree` | `change` (node selected) / `check` (checkbox change) | `{value, id}` / `{value: checked values array}` |
+| `tree` | `change` (node selected) / `check` (checkbox change) / `load` (lazy-load finished) | `{value, id}` / `{value: checked values array}` / `{value, count}` |
+| `table` | `sort` (sorting) / `filter` (filtering) / `page` (page turn) | `{column, dir}` / `{filters}` / `{value: page number}` |
+| `scroll-area` | `loadmore` (scrolled to bottom) | `{}` |
 | `carousel` | `change` (manual switch; autoplay does not fire) | `{index}` |
 | `conversations` | `change` (conversation selected) / `delete` (conversation deleted) | `{value}` (conversation identity) |
 | `dialog` / `drawer` / `artifact` | `close` (user paths only; programmatic `act:close` does not fire) | `{}` |
-| `chat-input` | `send` (message sent) / `stop` (stop button in `streaming` state) | `{value}` / `{}` |
+| `chat-input` | `send` (message sent) / `stop` (stop button in `streaming` state) / `mention` (@-mention selected) | `{value}` / `{}` / `{value, name}` |
 | `msg-actions` | `action` (built-in buttons) | `{act: 'copy'/'regenerate'/'like'/'dislike'/'delete'}` |
 | `quick-reply` / `suggestion` | `select` (item clicked) | `{value: label/title}` |
 | `tool-call` | `approval` (HITL human approval) | `{approved, id, name}` |

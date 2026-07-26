@@ -1371,7 +1371,7 @@ const DEMOS = [
             .cardTx('快捷操作', '点击左侧导航选择更多组件示例。')
           .end()
           .col_layout({ span: 6 })
-            .cardTx('版本更新', 'TokUI v0.1.8 已发布，支持卡片自闭合模式。')
+            .cardTx('版本更新', 'TokUI v0.1.9 已发布，支持卡片自闭合模式。')
           .end()
         .end()
         .hr()
@@ -1561,7 +1561,7 @@ const DEMOS = [
                 .a({ tx: '帮助文档', u: '/docs' })
                 .p(' | ')
                 .a({ tx: '联系我们', u: '/contact' })
-                .p('版本 v0.1.8')
+                .p('版本 v0.1.9')
               .end()
             .end()
           .end()
@@ -3349,6 +3349,10 @@ const DEMOS = [
         '[input n:city ph:"输入试试（300ms 防抖）" on:"change:iaInput"]',
         '[switch n:sw l:"通知开关" on:"change:iaSwitch"]',
 
+        // === 2b. chat-input mention @ 提及 ===
+        '[p v:muted "chat-input 输入 @ 触发提及下拉（数据源为预注册 handler，支持异步）："]',
+        '[chat-input mention:iaMention ph:"输入 @ 试试提及成员" clk:iaSend][/chat-input]',
+
         // === 3. ins / del 动态增删（先渲染再删，延迟可见） ===
         '[h3 3. 动态增删 — ins 插入 / del 删除]',
         '[p v:muted "卡片 A 保留 → 1.5s 后 ins 在 A 后插入内容 → 再渲染卡片 B → 2.5s 后 del 删除 B："]',
@@ -3393,6 +3397,168 @@ const DEMOS = [
         }
       }
       sendNext();
+    }
+  },
+
+  // ===== Phase 2 表单增强 =====
+  {
+    trigger: 'demo-form-enhanced',
+    title: '表单增强',
+    desc: 'slider range/marks、rate 半选、datepicker 范围、input 联想、upload 传输层',
+    build() { return new TokUIBuilder(); },
+    stream(res) {
+      var chunks = [
+        '[card tt:"表单增强 Form Enhanced"]',
+        '[p v:muted "Phase 2：slider range 双滑块 + marks 刻度、rate 半选、datepicker 范围、input 联想、upload 传输层。交互会回显为事件消息。"]',
+
+        '[h3 1. slider range 双滑块 + marks 刻度]',
+        '[slider range min:0 max:100 v:"20,60" marks:"0:免费,50:标准,100:旗舰" l:"预算区间" on:"change:feSlider"]',
+        '[slider min:0 max:10 v:4 marks:"0:差,5:中,10:优" l:"单滑块带刻度"]',
+
+        '[h3 2. rate 半选（0.5 步进，同值再点清零）]',
+        '[rate half v:2.5 l:"服务评分" on:"change:feRate"]',
+
+        '[h3 3. datepicker 范围模式]',
+        '[datepicker range ph:"选择日期范围" l:"出行日期" on:"change:feDate"]',
+
+        '[h3 4. input 联想建议（sug 数据源，300ms 防抖）]',
+        '[input n:city2 l:"城市" ph:"输入城市名试试（如「上」）" sug:feCitySug on:"change:feSug"]',
+
+        '[h3 5. upload 传输层（XHR 进度 / 成功 / 失败重试）]',
+        '[p v:muted "选择文件后自动 POST 到 /api/upload（演示端点，收到即返成功）："]',
+        '[upload n:file1 u:"/api/upload" l:"附件" on:"success:feUpOk,error:feUpErr"]',
+        '[/card]'
+      ];
+      var i = 0;
+      var cleaned = false;
+      res.on('close', function() { cleaned = true; });
+      function sendNext() {
+        if (cleaned || i >= chunks.length) {
+          if (!cleaned) { res.write('data: [DONE]\n\n'); res.end(); }
+          return;
+        }
+        var chunk = chunks[i++];
+        res.write('data: ' + JSON.stringify({ tokui: chunk }) + '\n\n');
+        setTimeout(sendNext, 80);
+      }
+      sendNext();
+    }
+  },
+
+  // ===== Phase 3 数据展示与长内容 =====
+  {
+    trigger: 'demo-data-long',
+    title: '大数据与长内容',
+    desc: 'table 排序/筛选/分页、scroll-area 虚拟滚动、tree 懒加载、terminal 复制',
+    build() { return new TokUIBuilder(); },
+    stream(res) {
+      var chunks = [
+        '[card tt:"大数据与长内容 Data & Long Content"]',
+        '[p v:muted "Phase 3：table 客户端排序/筛选/分页、scroll-area 虚拟滚动触底加载、tree 懒加载、terminal 复制按钮。交互回显为事件消息。"]',
+
+        '[h3 1. table 客户端排序 / 筛选 / 分页（ps:4）]',
+        '[table stripe sortable filter pagination ps:4 on:"sort:p3Sort,filter:p3Filter,page:p3Page"]',
+        '[thead cols:"工单号,产品,进度,状态"]',
+        '[tbody]',
+        '[tr "WO-001,前壳,85,生产中"]',
+        '[tr "WO-002,中框,40,待排产"]',
+        '[tr "WO-003,后盖,100,已完成"]',
+        '[tr "WO-004,按键,12,待排产"]',
+        '[tr "WO-005,屏幕,67,生产中"]',
+        '[tr "WO-006,电池,91,质检中"]',
+        '[/table]',
+
+        '[h3 2. scroll-area 虚拟滚动（30 行只挂可视窗口）+ 触底 loadmore]',
+        '[scroll-area h:144 virtual ih:36 on:"loadmore:p3LoadMore"]',
+        '[p 消息 01][p 消息 02][p 消息 03][p 消息 04][p 消息 05][p 消息 06][p 消息 07][p 消息 08][p 消息 09][p 消息 10]',
+        '[p 消息 11][p 消息 12][p 消息 13][p 消息 14][p 消息 15][p 消息 16][p 消息 17][p 消息 18][p 消息 19][p 消息 20]',
+        '[p 消息 21][p 消息 22][p 消息 23][p 消息 24][p 消息 25][p 消息 26][p 消息 27][p 消息 28][p 消息 29][p 消息 30]',
+        '[/scroll-area]',
+
+        '[h3 3. tree 懒加载（点开「技术部」才拉子节点）]',
+        '[tree on:"load:p3TreeLoaded"]',
+        '[tn tx:技术部 v:tech load:p3TreeSource]',
+        '[tn tx:市场部 v:mkt load:p3TreeSource]',
+        '[/tree]',
+
+        '[h3 4. terminal 复制按钮]',
+        '[terminal title:"npm test" status:0]✓ 57 passed, 0 failed\\nDone in 1.2s[/terminal]',
+        '[/card]'
+      ];
+      var i = 0;
+      var cleaned = false;
+      res.on('close', function() { cleaned = true; });
+      function sendNext() {
+        if (cleaned || i >= chunks.length) {
+          if (!cleaned) { res.write('data: [DONE]\n\n'); res.end(); }
+          return;
+        }
+        var chunk = chunks[i++];
+        res.write('data: ' + JSON.stringify({ tokui: chunk }) + '\n\n');
+        setTimeout(sendNext, 80);
+      }
+      sendNext();
+    }
+  },
+
+  {
+    trigger: 'demo-md-plugins',
+    title: 'MD 插件渲染',
+    desc: 'mermaid 流程图 + KaTeX 公式（宿主 CDN 按需加载，无插件回退源码）',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('Markdown 可选插件渲染')
+        .p('宿主页面（本 demo 经 CDN）加载了 mermaid 与 KaTeX 全局对象，md 组件检测到才增强渲染；未加载时回退为源码展示，核心零依赖不受损。');
+
+      b.card({ tt: 'mermaid 流程图（```mermaid 围栏）' })
+        .md('## 渲染流程\n\n```mermaid\nflowchart LR\n  A[后端 Builder] -->|DSL| B(SSE 流)\n  B --> C{Parser 增量解析}\n  C --> D[Renderer 渲染 DOM]\n  D --> E[用户交互]\n  E -->|on: 事件上报| A\n```')
+      .end();
+
+      b.card({ tt: 'mermaid 时序图' })
+        .md('```mermaid\nsequenceDiagram\n  participant U as 用户\n  participant A as Agent\n  participant T as 工具\n  U->>A: 删除缓存\n  A->>U: tool-call approval 审批卡\n  U->>A: 批准：delete_files\n  A->>T: 执行删除\n  T-->>A: done\n  A-->>U: upd status:done\n```')
+      .end();
+
+      b.card({ tt: 'KaTeX 数学公式（$$ 块级 / $ 行内）' })
+        .md('## 流式解析复杂度\n\n块级公式：\n\n$$O(n) = \\sum_{i=1}^{n} t_i$$\n\n（$t_i$ 为第 $i$ 个 chunk 的解析耗时）\n\n行内公式：设解析器状态机有 $k$ 个状态，输入字符集大小为 $|\\Sigma|$，则转移表空间为 $O(k \\cdot |\\Sigma|)$。\n\n货币不会被误吃：本方案成本 $5 元，对比方案 $6 元。')
+      .end();
+
+      // 独立组件语法（md 增强的别名形式，与围栏/$$ 同一渲染管线）
+      b.card({ tt: '独立组件 [mermaid] 与 [katex]' })
+        .p('不走 md 文本，直接声明组件：容器 [mermaid]…[/mermaid] 画图源、容器 [katex]…[/katex] 写块级公式、自闭合 [katex f:"…"] 写行内公式（下行即为行内形态）。')
+        .mermaid('flowchart TD\n  A[用户提问] --> B{需要工具?}\n  B -->|是| C[tool-call 审批]\n  B -->|否| D[直接回答]\n  C --> D')
+        .katex('E = mc^2')
+        .p('↑ 块级容器 [katex]E = mc^2[/katex]')
+        .katex('e^{i\\pi} + 1 = 0', true)
+        .p('↑ 自闭合行内 [katex f:"e^{i\\pi} + 1 = 0"]')
+      .end();
+
+      // mermaid 图集：常用图型一网打尽
+      b.card({ tt: 'mermaid 图集（state / gantt / pie）' })
+        .h3('状态图 stateDiagram-v2')
+        .mermaid('stateDiagram-v2\n  pending --> running: 批准\n  pending --> denied: 拒绝\n  running --> done\n  running --> error\n  done --> [*]\n  denied --> [*]')
+        .h3('甘特图 gantt')
+        .mermaid('gantt\n  title 迭代计划\n  dateFormat YYYY-MM-DD\n  section 设计\n  需求评审 :a1, 2026-07-27, 3d\n  交互稿 :a2, after a1, 4d\n  section 开发\n  DSL 解析 :b1, 2026-08-03, 5d\n  渲染引擎 :b2, after b1, 6d\n  section 测试\n  回归 :c1, after b2, 3d')
+        .h3('饼图 pie')
+        .mermaid('pie title 组件占比\n  "基础组件" : 35\n  "AI 对话" : 30\n  "表单" : 20\n  "图表" : 15')
+      .end();
+
+      // katex 公式集：常用写法速查
+      b.card({ tt: 'katex 公式集（分数/根式/积分/上下标/矩阵）' })
+        .p('分数与根式：')
+        .katex('\\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}')
+        .p('积分与极限：')
+        .katex('\\int_0^1 x^2 dx = \\frac{1}{3} \\qquad \\lim_{n \\longrightarrow \\infty} \\frac{1}{n} = 0')
+        .p('矩阵（行分隔 \\\\ 在 DSL 需写 \\\\\\\\）：')
+        .katex('A = \\begin{pmatrix} a & b \\\\\\\\ c & d \\end{pmatrix}, \\quad \\det(A) = ad - bc')
+        .p('行内混排（f: 自闭合）：质能方程 ')
+        .katex('E = mc^2', true)
+        .p('、理想气体 ')
+        .katex('PV = nRT', true)
+        .p('、以及勾股定理 ')
+        .katex('a^2 + b^2 = c^2', true)
+        .p(' 都可以跟在文字后面。')
+      .end();
+      return b;
     }
   },
 
@@ -10039,6 +10205,15 @@ const DEMOS = [
           .p('live:input 即时模式：每次 input 事件（键入/粘贴/拖拽）都校验，边输边反馈，无需 blur。')
           .input({ l: '用户名', n: 'instname', req: true, pat: '[a-zA-Z]\\w{3,15}', err: '✗ 字母开头，4-16 位字母/数字/下划线', ok: '✓ 用户名可用', live: 'input', hint: '字母开头，4-16 位' })
           .input({ l: '密码', n: 'instpw', t: 'password', req: true, pat: '(?=.*[a-zA-Z])(?=.*\\d).{8,}', err: '✗ 至少 8 位且含字母与数字', ok: '✓ 密码强度达标', live: 'input', hint: '至少 8 位，含字母与数字' })
+        .end()
+        .card({ tt: '形态六 · DSL 校验规则（rule/msg）' })
+          .p('rule 声明式规则：提交统一执行，失败拦截 + 标红 + hint 文案 + 聚焦首错；msg 自定义文案；与 live 组合 blur 实时校验。')
+          .form({ id: 'frule-' + uid, sub: 'handleValid' })
+            .input({ l: '邮箱', n: 'rulemail', rule: 'required|email', hint: '工作邮箱', live: true })
+            .input({ l: '验证码', n: 'rulecode', rule: 'required|len:6', msg: '请输入 6 位数字验证码', hint: '6 位数字' })
+            .input({ l: '个人主页', n: 'rulesite', rule: 'url', hint: '可选，http/https' })
+            .btn({ tx: '提交', t: 'submit', clk: 'handleValid', v: 'primary' })
+          .end()
         .end();
       return b;
     },
@@ -10298,6 +10473,18 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json' });
     const list = DEMOS.map(d => ({ trigger: d.trigger, title: d.title, desc: d.desc }));
     res.end(JSON.stringify(list));
+    return;
+  }
+
+  // API: upload 传输层演示接收端点（demo-form-enhanced 用）
+  // 不解析 multipart，排空请求体即返成功——演示的是前端 XHR 进度/三态，非服务端存储
+  if (req.url === '/api/upload' && req.method === 'POST') {
+    var received = 0;
+    req.on('data', function (c) { received += c.length; });
+    req.on('end', function () {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, bytes: received }));
+    });
     return;
   }
 

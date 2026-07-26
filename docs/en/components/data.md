@@ -124,6 +124,22 @@ When `thead` omits `cols`, you can declare columns one by one with `tcol` childr
 
 <Playground dsl='[table stripe][thead][tcol n:月份][tcol n:销售额][tcol n:环比][/thead][tbody][tr 1月,120万,+12%][tr 2月,190万,+18%][/tbody][/table]' />
 
+### Client-side Sorting / Filtering / Pagination
+
+`table` supports purely client-side sorting, filtering, and pagination — freely combinable (filter first, then paginate):
+
+| Prop | Meaning | Example |
+|------|---------|---------|
+| `sortable` | Client-side sorting (click a header to toggle asc/desc, number-aware) | `sortable` |
+| `filter` | Client-side filtering (filter row under the header, substring match, multi-column AND, 300ms debounce) | `filter` |
+| `pagination` | Client-side pagination | `pagination` |
+| `ps` | Page size (default 10) | `ps:20` |
+
+- Interaction reporting: sorting `sort` `{column, dir}`, filtering `filter` `{filters}`, page turns `page` `{value: page number}` (via `on:"sort:h,filter:h2,page:h3"` or the unified outlet).
+- **Streaming behavior**: rows arriving mid-stream are shown/hidden according to the current filter / page; while a `sortable` ordering is active, new rows append without re-sorting.
+
+<Playground dsl='[table stripe sortable filter pagination ps:5][thead cols:"姓名,年龄,城市,状态"][tbody][tr 张三,25,北京,在职][tr 李四,30,上海,休假][tr 王五,28,深圳,在职][tr 赵六,35,北京,在职][tr 钱七,26,上海,休假][tr 孙八,33,深圳,在职][tr 周九,29,北京,休假][/tbody][/table]' />
+
 ## Description List `desc` / `desc-item`
 
 Structured key-value display, commonly used on detail pages. `desc` is the container; its children are `desc-item` nodes (`l` for label, `tx` for value, `span` for column span). Children of `desc` may also be written as `[item]` — inside `desc` it is rendered as a description item (same name as the `[item]` in `list`, but disambiguated by parent).

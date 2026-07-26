@@ -1,6 +1,6 @@
 # Form Components
 
-Form containers, various input controls and selectors. Each example shows the formatted, highlighted TokUI DSL on the left and the live render on the right; click "Edit" to modify it instantly.
+Form containers, various input controls and selectors. Each example shows the formatted, highlighted TokUI DSL on the left and the live render on the right; click "Edit" to modify it instantly. Every form control's label renders a required asterisk when `req` is set.
 
 ## Form Container `form`
 
@@ -34,6 +34,22 @@ Form controls report user value changes in real time to a pre-registered handler
 
 > For the full event list see [DSL Syntax · Interaction event reporting](/en/guide/dsl-syntax#interaction-event-reporting).
 
+## DSL Validation Rules
+
+`input` / `pwd` / `textarea` / `select` support declarative validation via `rule:` + `msg:`, **enforced uniformly on submit** (all `sub` / `t:submit` paths). Failures block submission, mark the field red with a hint, and focus the first invalid field:
+
+```tokui
+[input n:email l:"Email" rule:"required|email"]
+[input n:code l:"Code" rule:"required|len:6" msg:"Please enter the 6-digit code"]
+[select n:city l:"City" rule:"required" opt:"bj:Beijing;sh:Shanghai"]
+```
+
+- Rules are pipe-separated and short-circuit in order: `required` `email` `url` `number` `len:N` (exact length) `min:N` `max:N` (character count) `re:regex`.
+- Empty values skip non-`required` rules (HTML5 semantics: empty + not required = valid).
+- `msg:` customizes the error message (built-in i18n text by default); unknown rule names / invalid regexes are skipped with a `console.warn`.
+- Combined with `live`: real-time validation on blur, with instant re-check while typing in the error state.
+- `req` on `select` writes the native `required` attribute (except multi-select, where the semantics don't fit).
+
 ## Input `input`
 
 Single-line text input, self-closing. `l` for label, `ph` for placeholder, `t` for native type, `val` for initial value.
@@ -49,11 +65,15 @@ Single-line text input, self-closing. `l` for label, `ph` for placeholder, `t` f
 | `w` | Width | `w:240` |
 | `hint` | Hint text | `hint:6~16 个字符` |
 | `search` | Search style | `search` |
+| `rule` / `msg` | DSL validation rules / custom error message (see [DSL Validation Rules](#dsl-validation-rules)) | `rule:"required|email"` |
+| `sug` | Input-suggestion data-source handler | `sug:onSuggest` |
 | `req` / `dis` / `ro` | Required / Disabled / Read-only | `req` |
 
 **Variants**: `error` / `success` (validation states), `sm` / `lg` (sizes), `underline` (underline style), `pill` (rounded).
 
 <Playground dsl='[input l:姓名 ph:"请输入姓名" req][input l:邮箱 t:email ph:name@example.com][input l:带默认值 val:张三][input l:搜索框 ph:"输入关键词搜索" search][input l:禁用态 ph:不可编辑 dis][input l:错误状态 v:error ph:校验失败]' />
+
+> **Input suggestions (sug)**: `sug:data-source-handler` enables a suggestion dropdown — `fn({value})` returns an array or a Promise (items are strings or `{v, tx}`); navigate with ↑↓ / Enter / Esc, and selecting fires the `change` report.
 
 ## Password `pwd`
 
@@ -182,10 +202,14 @@ Self-closing. `min`/`max`/`step` for range and step, `v` for current value.
 | `clk` | Drag callback | `clk:onSlide` |
 | `n` | Field name | `n:volume` |
 | `id` | Element ID | `id:volume` |
+| `range` | Dual-thumb range mode | `range` |
+| `marks` | Tick labels (`value:label`, comma-separated) | `marks:"0:免费,50:标准"` |
 
 **Variants**: `sm` / `lg`.
 
 <Playground dsl='[slider l:音量 v:60 min:0 max:100][slider l:亮度 step:5 v:75][slider l:不透明度 v:30 clk:onOpacity][slider l:禁用 v:50 dis]' />
+
+> **Range & marks**: `range` selects an interval with two thumbs (`v:"20,60"`), and `change` reports `{value: [min, max]}`; `marks:"0:免费,50:标准,100:旗舰"` renders tick labels.
 
 ## Rate `rate`
 
@@ -199,6 +223,7 @@ Self-closing. `max` for max star count, `v` for current rating, `clk` for the se
 | `clk` | Select callback | `clk:onRate` |
 | `dis` | Read-only / disabled | `dis` |
 | `tx` | Caption text | `tx:很好` |
+| `half` | Half-star selection (0.5 steps; clicking the same value again clears it) | `half` |
 
 <Playground dsl='[rate l:商品评分 v:4 max:5][rate l:服务评分 v:0 max:5 clk:onRate][rate l:只读评分 v:5 dis]' />
 
@@ -283,8 +308,12 @@ Self-closing. `accept` restricts file types, `multi` for multiple files, `max` f
 | `clk` | Upload callback | `clk:onUpload` |
 | `n` | Field name | `n:file` |
 | `id` | Element ID | `id:file` |
+| `u` | Upload URL (http(s) / relative paths only; enables auto-transfer) | `u:/api/upload` |
+| `mtd` | Upload method | `mtd:post` |
 
 **Variants**: `sm` / `lg`.
+
+**Transfer layer**: with `u:` set, selected files are automatically uploaded one by one via XHR; each file item shows a progress bar / success ✓ / failure ✗+retry state, and reports the `progress` `{file, percent}` / `success` `{file, response}` / `error` `{file, error}` events. Without `u:`, selection stays frontend-only (only the `change` event).
 
 <Playground dsl='[upload l:头像 accept:"image/*" ph:"点击上传头像"][upload l:多文件上传 multi max:5 ph:"支持最多 5 个文件"][upload l:禁用上传 dis]' />
 
@@ -304,8 +333,11 @@ Self-closing. `fmt` for date format, `v` for default value, `clk` for the select
 | `dis` | Disabled | `dis` |
 | `n` | Field name | `n:birthday` |
 | `id` | Element ID | `id:birthday` |
+| `range` | Range mode (two clicks pick start and end) | `range` |
 
 <Playground dsl='[datepicker l:出生日期 ph:"请选择日期" fmt:yyyy-MM-dd][datepicker l:默认值示例 v:2026-06-20][datepicker l:禁用态 ph:不可选择 dis]' />
+
+> **Range mode**: with `range`, two clicks pick the start and end dates; the value format is `YYYY-MM-DD ~ YYYY-MM-DD`.
 
 ## Time Picker `timepicker`
 

@@ -179,10 +179,13 @@ Fixed size (`h`) / aspect ratio (`ratio`) / thumbnail legend (`thumb`):
 | `leaf` | Leaf node | `tn` | `leaf` |
 | `open` | Expand by default | `tn` | `open` |
 | `chk` / `dis` | Selected / disabled | `tn` | `chk` |
+| `load` | Lazy-load data handler | `tn` | `load:loadChildren` |
 
 <Playground dsl='[tree l:项目结构][tn tx:src open][tn tx:components leaf][tn tx:core leaf][tn tx:styles leaf][/tn][tn tx:tests open][tn tx:test-parser.js leaf][tn tx:test-renderer.js leaf][/tn][tn tx:package.json leaf][/tree]' />
 
 > **Select & check reporting**: declare `on:"change:h"` to report `{value, id}` when a node is selected; in checkbox mode (`chk`), declare `on:"check:h"` to report `{value: checked values array}` on checkbox changes.
+
+> **Lazy loading (load)**: when a `tn` declares `load:data-handler`, expanding the node for the first time calls `fn({id, value})` (returning an array of child-node objects or a Promise) with a loading state shown while pending; loaded nodes are never re-fetched, and returned children may carry `load` themselves for recursive lazy loading. Completion reports the `load` event `{value, count}`.
 
 ## Menu `menu` / `menu-item`
 
@@ -239,8 +242,12 @@ A content region with a fixed outer size and custom scrollbar styling. `h`/`w` s
 | `h` | Height | `h:160` |
 | `w` | Width | `w:100%` |
 | `id` | Identifier | `id:myScroll` |
+| `virtual` | Virtual scrolling (uniform row-height mode) | `virtual` |
+| `ih` | Row height (px, default 36) | `ih:40` |
 
 <Playground dsl='[scroll-area h:180][p 第一段：滚动区域内可放任意长内容，超出部分出现自定义滚动条。][p 第二段：固定高度 180px，自动纵向滚动。][p 第三段：常用于侧边栏长列表、聊天记录区、日志面板。][p 第四段：配合 row/col 可做多栏滚动。][p 第五段：滚动到底部。][/scroll-area]' />
+
+> **Virtual scrolling & load-more**: `virtual` mounts only the visible window plus a buffer into the DOM (uniform row-height mode — not suitable for variable-height rows); scrolling past the 80% threshold near the bottom reports the `loadmore` event (`on:"loadmore:h"`, detail `{}`) — handy for long lists and chat-history "load more".
 
 ## Sidebar `sidebar`
 

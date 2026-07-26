@@ -1268,11 +1268,16 @@ function registerLayoutComponents(renderer) {
 
   // === 树节点 ===
   // 容器组件，可递归嵌套子 tn
-  // attrs: v(值), tx(显示文本), open(默认展开), leaf(叶节点), chk(选中), dis(禁用)
+  // attrs: v(值), tx(显示文本), open(默认展开), leaf(叶节点), chk(选中), dis(禁用),
+  //        load(懒加载数据 handler 名：无子节点且带 load 时渲染为可展开态，
+  //             首次展开调 handler 取子节点，见 tree 组件的懒加载逻辑)
   renderer.register('tn', (node, rc) => {
     var isLeaf = node.attrs.leaf !== undefined;
     var isOpen = node.attrs.open !== undefined;
     var isDisabled = node.attrs.dis !== undefined;
+    // 懒加载：无静态子节点且声明了 load handler
+    var lazyLoadName = (node.attrs.load && !(node.children && node.children.length))
+      ? String(node.attrs.load) : null;
 
     var nodeEl = el('div', {
       class: 'tokui-tree-node' +
@@ -1314,6 +1319,12 @@ function registerLayoutComponents(renderer) {
       nodeEl.appendChild(childContainer);
       nodeEl._slot = childContainer;
     }
+    // 懒加载状态挂在 DOM 节点上，由 tree 的展开逻辑消费
+    if (lazyLoadName) {
+      nodeEl._lazyLoad = lazyLoadName; // 数据 handler 名
+      nodeEl._lazyLoaded = false;      // 已加载标记（加载成功后不再重复请求）
+      nodeEl._lazyLoading = false;     // 加载中标记（防并发重复请求）
+    }
     nodeEl._tokuiType = 'tn';
 
     return nodeEl;
@@ -1354,6 +1365,67 @@ function registerLayoutComponents(renderer) {
     // 是否已绑定过事件
     var behaviorBound = false;
 
+    // 复选框模式下给（懒加载）新挂载的节点头补插 checkbox
+    function injectCheckbox(nodeEl) {
+      if (!isChkMode) return;
+      var header = nodeEl.querySelector(':scope > .tokui-tree-node-header');
+      if (!header || header.querySelector('.tokui-tree-checkbox')) return;
+      var cb = el('input', { type: 'checkbox', class: 'tokui-tree-checkbox' });
+      if (nodeEl.classList.contains('tokui-tree-node--disabled')) cb.disabled = true;
+      header.insertBefore(cb, header.firstChild);
+    }
+
+    // tn 懒加载：首次展开无子节点且带 load 的节点时请求子数据。
+    // handler 签名：fn({id, value}) → 节点对象数组 或 Promise<节点对象数组>，
+    // 形如 [{type:'tn', attrs:{tt:'子'}, children:[...]}]；返回非数组按空处理。
+    function maybeLazyLoad(nodeEl, children) {
+      var loadName = nodeEl._lazyLoad;
+      if (!loadName || nodeEl._lazyLoaded || nodeEl._lazyLoading) return;
+      var handler = renderer.eventBus ? renderer.eventBus.getHandler(loadName) : null;
+      if (!handler) {
+        renderer._warnMissingHandler(loadName);
+        return;
+      }
+      nodeEl._lazyLoading = true;
+      nodeEl.classList.add('tokui-tree__loading');
+      var loadingEl = el('div', { class: 'tokui-tree-loading' }, _t('common.loading'));
+      children.appendChild(loadingEl);
+
+      var finish = function(childNodes) {
+        nodeEl._lazyLoading = false;
+        nodeEl._lazyLoaded = true; // 标记已加载：再折叠/展开不重复请求
+        nodeEl.classList.remove('tokui-tree__loading');
+        if (loadingEl.parentNode) loadingEl.parentNode.removeChild(loadingEl);
+        var list = Array.isArray(childNodes) ? childNodes : [];
+        var count = 0;
+        list.forEach(function(childNode) {
+          if (!childNode || typeof childNode !== 'object') return;
+          var dom = renderer.render(childNode, 'tree');
+          if (dom && dom.nodeType) {
+            injectCheckbox(dom);
+            children.appendChild(dom);
+            count++;
+          }
+        });
+        report('load', { value: nodeEl.getAttribute('data-value'), count: count });
+      };
+
+      var result;
+      try {
+        result = handler({
+          id: nodeEl.getAttribute('data-id') || undefined,
+          value: nodeEl.getAttribute('data-value')
+        });
+      } catch (e) {
+        result = []; // handler 抛错按空数据处理
+      }
+      if (result && typeof result.then === 'function') {
+        result.then(finish, function() { finish([]); });
+      } else {
+        finish(result);
+      }
+    }
+
     // 初始化交互行为
     function initTreeBehavior() {
       if (isDisabled || behaviorBound) return;
@@ -1375,6 +1447,7 @@ function registerLayoutComponents(renderer) {
         } else {
           nodeEl.classList.add('tokui-tree-node--open');
           children.style.display = '';
+          maybeLazyLoad(nodeEl, children);
         }
       });
 
@@ -1810,9 +1883,15 @@ function registerLayoutComponents(renderer) {
   // 容器组件， attrs.h = 高度(px), attrs.w = 宽度
   // 外层 overflow:hidden 固定尺寸，内层 overflow:auto 可滚动
   // 自定义滚动条样式（webkit + Firefox）
+  // attrs.virtual = 虚拟滚动模式（均匀行高假设：attrs.ih = 行高 px，默认 36；
+  //   不等高的子项不适用本模式）。全部子项保留在脱离文档的容器里，
+  //   仅可视窗口（前后各 5 行 buffer）挂进 DOM，顶部/底部 spacer 撑出总高。
+  // 滚动到可滚距离底部 80% 阈值内上报一次 loadmore（离开阈值区后重置，可再次触发），
+  // 可用 on:"loadmore:handler名" 接命名 handler。
   renderer.register('scroll-area', (node, rc) => {
     var attrs = node.attrs || {};
-    var outerAttrs = { class: 'tokui-scroll-area' };
+    var isVirtual = attrs.virtual !== undefined;
+    var outerAttrs = { class: 'tokui-scroll-area' + (isVirtual ? ' tokui-scroll-area--virtual' : '') };
     if (attrs.id) outerAttrs.id = attrs.id;
     var outer = el('div', outerAttrs);
 
@@ -1823,13 +1902,109 @@ function registerLayoutComponents(renderer) {
     // 内层可滚动视口
     var viewport = el('div', { class: 'tokui-scroll-area__viewport' });
 
-    // 渲染子节点到视口
+    if (!isVirtual) {
+      // 普通模式：渲染全部子节点到视口（行为与历史版本一致）
+      rc(node.children || []).forEach(function(child) {
+        if (child && child.nodeType) viewport.appendChild(child);
+      });
+
+      outer.appendChild(viewport);
+      outer._slot = viewport;
+      outer._tokuiType = 'scroll-area';
+      return outer;
+    }
+
+    // ===== 虚拟滚动模式 =====
+    var itemHeight = parseInt(attrs.ih, 10) > 0 ? parseInt(attrs.ih, 10) : 36;
+    var BUFFER = 5; // 可视窗口前后各多挂 5 行
+    // 视口高度：优先实测 clientHeight，Node 测试等无布局环境回退 attrs.h
+    function viewHeight() {
+      return viewport.clientHeight || parseInt(attrs.h, 10) || itemHeight;
+    }
+
+    // 全部子项渲染进脱离文档的容器，快照为数组后按需挂载。
+    // 流式场景：_slot 指向 pool（见末尾），子节点随流直接进 pool；
+    // 故 items 不做一次性快照，renderWindow 每次动态取 pool.children（slice 开销可忽略）。
+    var pool = document.createElement('div');
     rc(node.children || []).forEach(function(child) {
-      if (child && child.nodeType) viewport.appendChild(child);
+      if (child && child.nodeType) pool.appendChild(child);
+    });
+    var items = [];
+
+    // 顶部/底部 spacer：撑出总高，保持滚动条比例正确
+    var topSpacer = el('div', { class: 'tokui-scroll-area__spacer' });
+    var bottomSpacer = el('div', { class: 'tokui-scroll-area__spacer' });
+    viewport.appendChild(topSpacer);
+    viewport.appendChild(bottomSpacer);
+
+    var mountedStart = -1;
+    var mountedEnd = -1;
+    var mountedTotal = -1;
+
+    // 按 scrollTop 计算可视窗口并重挂（均匀行高假设，O(1) 定位）
+    function renderWindow() {
+      // 把新到达的子项（一次性渲染 rc 的 / 流式进 _slot=pool 的）并入管理数组
+      while (pool.childNodes.length > 0) {
+        items.push(pool.removeChild(pool.childNodes[0]));
+      }
+      var total = items.length;
+      var scrollTop = viewport.scrollTop || 0;
+      var start = Math.max(0, Math.floor(scrollTop / itemHeight) - BUFFER);
+      var end = Math.min(total, Math.ceil((scrollTop + viewHeight()) / itemHeight) + BUFFER);
+      if (start === mountedStart && end === mountedEnd && total === mountedTotal) return;
+      mountedStart = start;
+      mountedEnd = end;
+      mountedTotal = total;
+      // 摘下上一轮挂载的行（childNodes 是类数组，倒序 removeChild）
+      for (var i = viewport.children.length - 1; i >= 0; i--) {
+        var c = viewport.children[i];
+        if (c !== topSpacer && c !== bottomSpacer) viewport.removeChild(c);
+      }
+      topSpacer.style.height = (start * itemHeight) + 'px';
+      bottomSpacer.style.height = ((total - end) * itemHeight) + 'px';
+      for (var j = start; j < end; j++) {
+        viewport.insertBefore(items[j], bottomSpacer);
+      }
+    }
+
+    // 触底上报：到底一次报一次，离开阈值区重置
+    var report = renderer.createReporter('scroll-area', attrs, outer);
+    var atBottom = false;
+    function onScroll() {
+      renderWindow();
+      var maxScroll = items.length * itemHeight - viewHeight();
+      var nearBottom = maxScroll <= 0 ? true : (viewport.scrollTop || 0) >= maxScroll * 0.8;
+      if (nearBottom && !atBottom) {
+        atBottom = true;
+        report('loadmore', {});
+      } else if (!nearBottom) {
+        atBottom = false;
+      }
+    }
+
+    // scroll 用 requestAnimationFrame 节流；无 rAF 环境（Node 测试）退化为直接计算
+    var raf = (typeof requestAnimationFrame === 'function')
+      ? function(fn) { requestAnimationFrame(fn); }
+      : function(fn) { fn(); };
+    var rafScheduled = false;
+    viewport.addEventListener('scroll', function() {
+      if (rafScheduled) return;
+      rafScheduled = true;
+      raf(function() {
+        rafScheduled = false;
+        onScroll();
+      });
     });
 
+    renderWindow(); // 初始窗口
+
     outer.appendChild(viewport);
-    outer._slot = viewport;
+    // 虚拟模式插槽指向 pool（脱离文档）：流式子节点先进 pool，
+    // 闭合时统一重排窗口——避免子项绕过虚拟化直挂视口
+    outer._slot = pool;
+    // 流式逐子项到达即重排窗口（真流式虚拟滚动，边收边显）
+    outer._streamAppendHook = function () { renderWindow(); };
+    outer._streamCloseHook = function () { renderWindow(); };
     outer._tokuiType = 'scroll-area';
     return outer;
   });

@@ -90,7 +90,7 @@ test('bubble role:user → tokui-bubble--user', function() {
   var dom = rc.render({ type: 'bubble', attrs: { role: 'user' }, children: [] });
   assert.ok(dom.classList.contains('tokui-bubble--user'));
   var avatar = dom.querySelector('.tokui-bubble__avatar');
-  assert.strictEqual(avatar.textContent, 'You');
+  assert.strictEqual(avatar.textContent, '你'); // bubble.you 已入 i18n（zh-CN 默认）
 });
 
 test('bubble model attr creates badge', function() {

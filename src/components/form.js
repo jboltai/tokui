@@ -122,7 +122,7 @@ function _expandOptChildren(node) {
  * @param {TokUIRenderer} renderer - 渲染器实例
  */
 function registerFormComponents(renderer) {
-  const { el, resolveButtonAction } = (typeof require === 'function')
+  const { el, resolveButtonAction, evaluateRules } = (typeof require === 'function')
     ? require('../core/renderer')
     : window.TokUI._internal;
   const resolveColor = (typeof require === 'function')
@@ -134,6 +134,39 @@ function registerFormComponents(renderer) {
   const _t = (typeof require === 'function')
     ? require('../core/i18n').t
     : window.TokUI._internal.t;
+
+  /**
+   * DSL 校验规则挂载：rule:"required|email" + msg:"自定义错误文案"。
+   * 在 wrapper 上盖 data-tokui-rule 印章（提交闸门 _validateRuleFields 的扫描依据）
+   * 并实现 _tokuiValidate()：规则求值 → 错误态绘制（复用 _applyFieldStatus + hint 文案）
+   * → 返回错误文案（null = 通过）。空值跳过非 required 规则（HTML5 同语义）。
+   * attrs.live 存在时附加 blur 实时校验（error 态下输入即时重检）。
+   * @param {HTMLElement} wrapper - 字段容器
+   * @param {HTMLElement} ctrl - 输入控件（_variantTarget）
+   * @param {HTMLElement|null} hintEl - hint 元素
+   * @param {Object} attrs - DSL attrs（rule/msg/hint/live）
+   * @param {string} base - 变体类基名（'tokui-input'）
+   * @param {Function} getValue - 取当前值（select 等读取方式不同）
+   */
+  function _attachRuleValidation(wrapper, ctrl, hintEl, attrs, base, getValue) {
+    if (!attrs.rule) return;
+    wrapper.setAttribute('data-tokui-rule', attrs.rule);
+    var neutralHint = attrs.hint || (hintEl ? hintEl.textContent : '');
+    function doValidate() {
+      var failed = evaluateRules(getValue(), attrs.rule);
+      var errText = failed ? (attrs.msg || _t('rule.' + failed.name, { n: failed.n })) : null;
+      _applyFieldStatus(ctrl, hintEl, errText ? 'error' : '', base);
+      if (hintEl) hintEl.textContent = errText || neutralHint;
+      return errText;
+    }
+    wrapper._tokuiValidate = doValidate;
+    if (attrs.live !== undefined && typeof ctrl.addEventListener === 'function') {
+      ctrl.addEventListener('blur', doValidate);
+      ctrl.addEventListener('input', function () {
+        if (attrs.live === 'input' || ctrl.classList.contains(base + '--error')) doValidate();
+      });
+    }
+  }
 
   /**
    * 解析 pre/app 属性值：文本 或 文本|variant
@@ -295,12 +328,22 @@ function registerFormComponents(renderer) {
     if (hasInputGroup(node)) {
       var group = buildInputGroup(node, mountTarget);
       if (vList.indexOf('pill') !== -1) group.classList.add('tokui-input-group--pill');
-      wrapper.appendChild(group);
+      mountTarget = group;
+    }
+    // sug 联想建议：sug:数据源handler名 → 输入框下方弹建议下拉
+    var sugList = null;
+    if (node.attrs.sug) {
+      var sugWrap = el('div', { class: 'tokui-sug-wrap' });
+      sugWrap.appendChild(mountTarget);
+      sugList = el('div', { class: 'tokui-sug', role: 'listbox' });
+      sugList.style.display = 'none';
+      sugWrap.appendChild(sugList);
+      wrapper.appendChild(sugWrap);
     } else {
       wrapper.appendChild(mountTarget);
     }
     var hintEl = null;
-    if (node.attrs.hint || node.attrs.live !== undefined) {
+    if (node.attrs.hint || node.attrs.live !== undefined || node.attrs.rule) {
       hintEl = el('div', { class: 'tokui-field__hint' }, node.attrs.hint || '');
       if (vList.indexOf('error') !== -1) hintEl.classList.add('tokui-field__hint--error');
       else if (vList.indexOf('success') !== -1) hintEl.classList.add('tokui-field__hint--success');
@@ -308,6 +351,8 @@ function registerFormComponents(renderer) {
     }
     // live 纯前端实时校验：blur 本地 checkValidity，结果写入 hint（零网络）
     if (node.attrs.live !== undefined) _attachLiveValidation(inputEl, hintEl, node.attrs, 'tokui-input');
+    // DSL 校验规则：rule:"required|email" + msg:"自定义文案"，提交闸门统一调用
+    _attachRuleValidation(wrapper, inputEl, hintEl, node.attrs, 'tokui-input', function () { return inputEl.value; });
     wrapper._update = function(uAttrs) {
       if (uAttrs.v !== undefined) inputEl.value = uAttrs.v;
       if (uAttrs.dis === true || uAttrs.dis === 'true') inputEl.disabled = true;
@@ -325,6 +370,96 @@ function registerFormComponents(renderer) {
       report('change', { value: inputEl.value, name: node.attrs.n || undefined });
     }, parseInt(node.attrs.db) || 300);
     inputEl.addEventListener('input', reportChange);
+    // sug 联想建议下拉：数据源 = 宿主预注册（registerHandler）的函数，
+    // 调 fn({value}) 返回数组（同步）或 Promise（异步）；项为字符串或 {v, tx}
+    if (node.attrs.sug && sugList) {
+      var sugName = node.attrs.sug;
+      var sugItems = [];
+      var sugActive = -1;
+      var sugSeq = 0; // 异步竞态守卫：仅渲染最后一次查询结果
+      var closeSug = function() {
+        sugList.style.display = 'none';
+        sugItems = [];
+        sugActive = -1;
+      };
+      var paintSug = function() {
+        sugList.innerHTML = '';
+        if (!sugItems.length) { sugList.style.display = 'none'; return; }
+        sugItems.forEach(function(it, i) {
+          var cls = 'tokui-sug__item' + (i === sugActive ? ' tokui-sug__item--active' : '');
+          var item = el('div', { class: cls, role: 'option' }, it.tx);
+          item.setAttribute('data-idx', i);
+          sugList.appendChild(item);
+        });
+        sugList.style.display = '';
+      };
+      var applySugResult = function(result) {
+        var arr = Array.isArray(result) ? result : [];
+        sugItems = arr.map(function(it) {
+          if (it && typeof it === 'object') {
+            return { v: String(it.v != null ? it.v : it.tx), tx: String(it.tx != null ? it.tx : it.v) };
+          }
+          return { v: String(it), tx: String(it) };
+        });
+        sugActive = sugItems.length ? 0 : -1;
+        paintSug();
+      };
+      var pickSug = function(i) {
+        if (i < 0 || i >= sugItems.length) return;
+        inputEl.value = sugItems[i].v;
+        closeSug();
+        report('change', { value: inputEl.value, name: node.attrs.n || undefined });
+      };
+      // 输入触发查询（沿用 300ms 防抖设施，db 可覆盖）
+      var querySug = renderer.debounce(function() {
+        var fn = renderer.eventBus ? renderer.eventBus.getHandler(sugName) : null;
+        if (!fn) {
+          renderer._warnMissingHandler(sugName);
+          closeSug();
+          return;
+        }
+        var seq = ++sugSeq;
+        var result;
+        try { result = fn({ value: inputEl.value }); }
+        catch (err) { console.warn('TokUI: sug handler error', err); closeSug(); return; }
+        if (result && typeof result.then === 'function') {
+          result.then(function(arr) { if (seq === sugSeq) applySugResult(arr); },
+            function() { if (seq === sugSeq) closeSug(); });
+        } else {
+          applySugResult(result);
+        }
+      }, parseInt(node.attrs.db) || 300);
+      inputEl.addEventListener('input', querySug);
+      // 键盘：↑/↓ 高亮，Enter 选定，Esc 关闭
+      inputEl.addEventListener('keydown', function(e) {
+        if (sugList.style.display === 'none') return;
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          sugActive = Math.min(sugActive + 1, sugItems.length - 1);
+          paintSug();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          sugActive = Math.max(sugActive - 1, 0);
+          paintSug();
+        } else if (e.key === 'Enter') {
+          if (sugActive >= 0) {
+            e.preventDefault();
+            pickSug(sugActive);
+          }
+        } else if (e.key === 'Escape') {
+          closeSug();
+        }
+      });
+      // blur 延迟 150ms 关闭：让 item 的 click 先触发
+      inputEl.addEventListener('blur', function() {
+        setTimeout(closeSug, 150);
+      });
+      sugList.addEventListener('click', function(e) {
+        var item = e.target.closest ? e.target.closest('.tokui-sug__item') : null;
+        if (!item) return;
+        pickSug(parseInt(item.getAttribute('data-idx')));
+      });
+    }
     wrapper._variantTarget = inputEl;
     return wrapper;
   });
@@ -389,7 +524,7 @@ function registerFormComponents(renderer) {
       wrapper.appendChild(inputEl);
     }
     var hintEl = null;
-    if (node.attrs.hint || node.attrs.live !== undefined) {
+    if (node.attrs.hint || node.attrs.live !== undefined || node.attrs.rule) {
       hintEl = el('div', { class: 'tokui-field__hint' }, node.attrs.hint || '');
       if (vList.indexOf('error') !== -1) hintEl.classList.add('tokui-field__hint--error');
       else if (vList.indexOf('success') !== -1) hintEl.classList.add('tokui-field__hint--success');
@@ -397,6 +532,8 @@ function registerFormComponents(renderer) {
     }
     // live 纯前端实时校验：blur 本地 checkValidity，结果写入 hint（零网络）
     if (node.attrs.live !== undefined) _attachLiveValidation(inputEl, hintEl, node.attrs, 'tokui-input');
+    // DSL 校验规则：rule:"required|email" + msg:"自定义文案"，提交闸门统一调用
+    _attachRuleValidation(wrapper, inputEl, hintEl, node.attrs, 'tokui-input', function () { return inputEl.value; });
     wrapper._update = function(uAttrs) {
       if (uAttrs.v !== undefined) inputEl.value = uAttrs.v;
       if (uAttrs.dis === true || uAttrs.dis === 'true') inputEl.disabled = true;
@@ -512,6 +649,15 @@ function registerFormComponents(renderer) {
       wrapper.appendChild(ta);
     }
 
+    // hint（rule 校验错误文案的展示位；无 hint 无 rule 不创建）
+    var hintEl = null;
+    if (node.attrs.hint || node.attrs.rule) {
+      hintEl = el('div', { class: 'tokui-field__hint' }, node.attrs.hint || '');
+      wrapper.appendChild(hintEl);
+    }
+    // DSL 校验规则：rule:"required|min:10" + msg:"自定义文案"，提交闸门统一调用
+    _attachRuleValidation(wrapper, ta, hintEl, node.attrs, 'tokui-input', function () { return ta.value; });
+
     wrapper._update = function(uAttrs) {
       if (uAttrs.v !== undefined) ta.value = uAttrs.v;
       if (uAttrs.dis === true || uAttrs.dis === 'true') ta.disabled = true;
@@ -546,6 +692,7 @@ function registerFormComponents(renderer) {
     if (node.attrs.l) {
       const labelAttrs = { class: 'tokui-label' };
       if (node.attrs.id) labelAttrs.for = node.attrs.id;
+      if (node.attrs.req !== undefined) labelAttrs.class += ' tokui-label--req';
       wrapper.appendChild(el('label', labelAttrs, node.attrs.l));
     }
 
@@ -986,6 +1133,8 @@ function registerFormComponents(renderer) {
     if (node.attrs.id) selectAttrs.id = node.attrs.id;
     if (node.attrs.n) selectAttrs.name = node.attrs.n;
     else if (node.attrs.id) selectAttrs.name = node.attrs.id;
+    // req 写原生 required（此前只有 aria-required，原生校验有洞）；多选原生 required 语义不符，跳过
+    if (node.attrs.req !== undefined && !isMulti) selectAttrs.required = 'required';
     if (node.attrs.req !== undefined) selectAttrs['aria-required'] = 'true';
     if (vList.indexOf('error') !== -1) selectAttrs['aria-invalid'] = 'true';
     const select = el('select', selectAttrs);
@@ -997,6 +1146,21 @@ function registerFormComponents(renderer) {
       if (child && child.nodeType) select.appendChild(child);
     });
     wrapper.appendChild(select);
+    // hint（rule 校验错误文案展示位）
+    var hintEl = null;
+    if (node.attrs.hint || node.attrs.rule) {
+      hintEl = el('div', { class: 'tokui-field__hint' }, node.attrs.hint || '');
+      wrapper.appendChild(hintEl);
+    }
+    // DSL 校验规则：rule:"required" + msg:"自定义文案"；多选取所有选中值拼接（空串 = 未选）
+    _attachRuleValidation(wrapper, select, hintEl, node.attrs, 'tokui-select', function () {
+      if (!isMulti) return select.value;
+      var vals = [];
+      Array.prototype.forEach.call(select.children, function (opt) {
+        if (opt && opt.tagName === 'OPTION' && opt.selected) vals.push(opt.value != null ? String(opt.value) : '');
+      });
+      return vals.join(',');
+    });
     // 值变更上报：多选取所有选中值数组，单选取当前值
     var report = renderer.createReporter('select', node.attrs, wrapper);
     select.addEventListener('change', function () {
@@ -1047,7 +1211,7 @@ function registerFormComponents(renderer) {
     const wrapperClass = isInline ? 'tokui-field tokui-field--inline' : 'tokui-field';
     const wrapper = el('div', { class: wrapperClass });
     if (node.attrs.l) {
-      wrapper.appendChild(el('div', { class: 'tokui-label' }, node.attrs.l));
+      wrapper.appendChild(el('div', { class: 'tokui-label' + (node.attrs.req !== undefined ? ' tokui-label--req' : '') }, node.attrs.l));
     }
     const isVertical = vList.indexOf('vertical') !== -1;
     const group = el('div', { class: 'tokui-radio-group' + (isVertical ? ' tokui-radio-group--vertical' : ''), role: 'radiogroup' });
@@ -1192,7 +1356,7 @@ function registerFormComponents(renderer) {
     const wrapperClass = isInline ? 'tokui-field tokui-field--inline' : 'tokui-field';
     const wrapper = el('div', { class: wrapperClass });
     if (node.attrs.l) {
-      wrapper.appendChild(el('div', { class: 'tokui-label' }, node.attrs.l));
+      wrapper.appendChild(el('div', { class: 'tokui-label' + (node.attrs.req !== undefined ? ' tokui-label--req' : '') }, node.attrs.l));
     }
     const cbName = node.attrs.n || node.attrs.id || 'checkbox';
     const isVertical = vList.indexOf('vertical') !== -1;
@@ -1293,9 +1457,173 @@ function registerFormComponents(renderer) {
     if (value < min) value = min;
     if (value > max) value = max;
 
+    // marks:"0:免费,50:标准" → 轨道下方刻度点 + 文案（数值:标签 逗号分隔）
+    var marks = [];
+    if (node.attrs.marks) {
+      String(node.attrs.marks).split(',').forEach(function(pair) {
+        var s = pair.trim();
+        if (!s) return;
+        var ci = s.indexOf(':');
+        var mv = ci === -1 ? parseFloat(s) : parseFloat(s.substring(0, ci));
+        if (isNaN(mv)) return;
+        marks.push({ v: mv, tx: ci === -1 ? s : s.substring(ci + 1).trim() });
+      });
+    }
+    // 刻度容器：绝对定位挂在 track（position:relative）下方
+    function buildMarks() {
+      var wrap = el('div', { class: 'tokui-slider__marks' });
+      marks.forEach(function(m) {
+        var pct = ((m.v - min) / (max - min)) * 100;
+        if (pct < 0) pct = 0;
+        if (pct > 100) pct = 100;
+        var mark = el('div', { class: 'tokui-slider__mark' });
+        mark.style.left = pct + '%';
+        mark.appendChild(el('span', { class: 'tokui-slider__mark-dot' }));
+        mark.appendChild(el('span', { class: 'tokui-slider__mark-label' }, m.tx));
+        wrap.appendChild(mark);
+      });
+      return wrap;
+    }
+
+    // === range 双滑块：range 布尔属性，v:"20,60" 初始化，hidden 值 "min,max" ===
+    if (node.attrs.range !== undefined) {
+      var lo = min, hi = max;
+      if (node.attrs.v !== undefined) {
+        var vParts = String(node.attrs.v).split(',');
+        var pLo = parseFloat(vParts[0]), pHi = parseFloat(vParts[1]);
+        if (!isNaN(pLo)) lo = pLo;
+        if (!isNaN(pHi)) hi = pHi;
+      }
+      lo = Math.max(min, Math.min(max, lo));
+      hi = Math.max(min, Math.min(max, hi));
+      if (lo > hi) { var t0 = lo; lo = hi; hi = t0; }
+
+      var rField = el('div', { class: 'tokui-field' });
+      if (node.attrs.l) {
+        rField.appendChild(el('label', { class: 'tokui-label' + (node.attrs.req !== undefined ? ' tokui-label--req' : ''), for: node.attrs.id || '' }, node.attrs.l));
+      }
+      var rSlider = el('div', { class: 'tokui-slider tokui-slider--range' });
+      var rTrack = el('div', { class: 'tokui-slider__track' });
+      var rFill = el('div', { class: 'tokui-slider__fill' });
+      var thumbMin = el('div', { class: 'tokui-slider__thumb tokui-slider__thumb--min', role: 'slider', 'aria-valuemin': String(min), 'aria-valuemax': String(max), 'aria-valuenow': String(lo), 'aria-label': (node.attrs.l || 'Slider') + ' min', tabindex: '0' });
+      var thumbMax = el('div', { class: 'tokui-slider__thumb tokui-slider__thumb--max', role: 'slider', 'aria-valuemin': String(min), 'aria-valuemax': String(max), 'aria-valuenow': String(hi), 'aria-label': (node.attrs.l || 'Slider') + ' max', tabindex: '0' });
+      var rValSpan = el('span', { class: 'tokui-slider__value' }, lo + ' ~ ' + hi);
+      var rHidden = el('input', { type: 'hidden' });
+      if (node.attrs.id) rHidden.id = node.attrs.id;
+      if (node.attrs.n) rHidden.name = node.attrs.n;
+      else if (node.attrs.id) rHidden.name = node.attrs.id;
+
+      rTrack.appendChild(rFill);
+      rTrack.appendChild(thumbMin);
+      rTrack.appendChild(thumbMax);
+      if (marks.length) {
+        rTrack.appendChild(buildMarks());
+        rSlider.classList.add('tokui-slider--has-marks');
+      }
+      rSlider.appendChild(rTrack);
+      rSlider.appendChild(rValSpan);
+      rSlider.appendChild(rHidden);
+
+      function paintRange() {
+        var pl = ((lo - min) / (max - min)) * 100;
+        var ph = ((hi - min) / (max - min)) * 100;
+        rFill.style.left = pl + '%';
+        rFill.style.width = (ph - pl) + '%';
+        thumbMin.style.left = pl + '%';
+        thumbMax.style.left = ph + '%';
+        thumbMin.setAttribute('aria-valuenow', String(lo));
+        thumbMax.setAttribute('aria-valuenow', String(hi));
+        rValSpan.textContent = lo + ' ~ ' + hi;
+        rHidden.value = lo + ',' + hi;
+      }
+      paintRange();
+
+      if (node.attrs.dis !== undefined) {
+        rSlider.classList.add('tokui-slider--disabled');
+      } else {
+        // 值变更上报：拖拽结束时上报 [min, max] 数组
+        var rReport = renderer.createReporter('slider', node.attrs, rField);
+        var activeThumb = null; // 'min' | 'max'
+        var snapValue = function(e) {
+          var rect = rTrack.getBoundingClientRect();
+          var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+          var ratio = (clientX - rect.left) / rect.width;
+          ratio = Math.max(0, Math.min(1, ratio));
+          var raw = min + ratio * (max - min);
+          var snapped = Math.round(raw / step) * step;
+          snapped = Math.max(min, Math.min(max, snapped));
+          var floatFix = step < 1 ? Math.pow(10, Math.ceil(-Math.log10(step))) : 1;
+          return Math.round(snapped * floatFix) / floatFix;
+        };
+        var onRangeDrag = function(e) {
+          e.preventDefault();
+          var v = snapValue(e);
+          // 钳制策略：min 柄不可越过 max 柄（反之亦然），两柄不交叉
+          if (activeThumb === 'min') lo = Math.min(v, hi);
+          else hi = Math.max(v, lo);
+          paintRange();
+        };
+        var onRangeEnd = function() {
+          document.removeEventListener('mousemove', onRangeDrag);
+          document.removeEventListener('mouseup', onRangeEnd);
+          document.removeEventListener('touchmove', onRangeDrag);
+          document.removeEventListener('touchend', onRangeEnd);
+          (activeThumb === 'min' ? thumbMin : thumbMax).classList.remove('tokui-slider__thumb--dragging');
+          if (node.attrs.clk) {
+            var handler = renderer.eventBus ? renderer.eventBus.getHandler(node.attrs.clk) : null;
+            if (handler) handler({ value: [lo, hi], id: node.attrs.id });
+          }
+          rReport('change', { value: [lo, hi], name: node.attrs.n || undefined });
+          activeThumb = null;
+        };
+        var onRangeStart = function(e) {
+          e.preventDefault();
+          var v = snapValue(e);
+          // 就近原则：按下点离哪个柄近就动哪个；两柄重叠时按按下方位决定
+          activeThumb = Math.abs(v - lo) <= Math.abs(v - hi) ? 'min' : 'max';
+          if (lo === hi) activeThumb = v <= lo ? 'min' : 'max';
+          onRangeDrag(e);
+          document.addEventListener('mousemove', onRangeDrag);
+          document.addEventListener('mouseup', onRangeEnd);
+          document.addEventListener('touchmove', onRangeDrag);
+          document.addEventListener('touchend', onRangeEnd);
+          (activeThumb === 'min' ? thumbMin : thumbMax).classList.add('tokui-slider__thumb--dragging');
+        };
+        rSlider.addEventListener('mousedown', onRangeStart);
+        rSlider.addEventListener('touchstart', onRangeStart, { passive: false });
+      }
+
+      rField._update = function(uAttrs) {
+        if (uAttrs.v !== undefined) {
+          var nParts = String(uAttrs.v).split(',');
+          var nLo = parseFloat(nParts[0]), nHi = parseFloat(nParts[1]);
+          if (!isNaN(nLo)) lo = Math.max(min, Math.min(max, nLo));
+          if (!isNaN(nHi)) hi = Math.max(min, Math.min(max, nHi));
+          if (lo > hi) { var t1 = lo; lo = hi; hi = t1; }
+          paintRange();
+        }
+        if (uAttrs.dis === true || uAttrs.dis === 'true') {
+          rSlider.classList.add('tokui-slider--disabled');
+        } else if (uAttrs.dis === false || uAttrs.dis === 'false') {
+          rSlider.classList.remove('tokui-slider--disabled');
+        }
+      };
+      // 重置契约：复原初始区间
+      var rangeInitLo = lo, rangeInitHi = hi;
+      rField.setAttribute('data-tokui-resettable', '');
+      rField._tokuiReset = function () {
+        lo = rangeInitLo;
+        hi = rangeInitHi;
+        paintRange();
+      };
+      rSlider._variantTarget = rSlider;
+      rField.appendChild(rSlider);
+      return rField;
+    }
+
     var field = el('div', { class: 'tokui-field' });
     if (node.attrs.l) {
-      field.appendChild(el('label', { class: 'tokui-label', for: node.attrs.id || '' }, node.attrs.l));
+      field.appendChild(el('label', { class: 'tokui-label' + (node.attrs.req !== undefined ? ' tokui-label--req' : ''), for: node.attrs.id || '' }, node.attrs.l));
     }
 
     var slider = el('div', { class: 'tokui-slider' });
@@ -1311,6 +1639,10 @@ function registerFormComponents(renderer) {
 
     track.appendChild(fill);
     track.appendChild(thumb);
+    if (marks.length) {
+      track.appendChild(buildMarks());
+      slider.classList.add('tokui-slider--has-marks');
+    }
     slider.appendChild(track);
     slider.appendChild(valSpan);
     slider.appendChild(hidden);
@@ -1413,9 +1745,137 @@ function registerFormComponents(renderer) {
     var charOn = node.attrs.tx || '★';
     var charOff = '☆';
 
+    // === half 半选模式：0.5 步进 ===
+    // 每颗星 = 底层空星字符 + 上层 on 遮罩（宽度 0/50/100% 裁剪实心字符）+ 左右两个热区 span，
+    // 点击/悬停按热区判半星；hidden 值支持 .5。
+    if (node.attrs.half !== undefined) {
+      var hCurrent = parseFloat(node.attrs.v) || 0;
+      hCurrent = Math.round(hCurrent * 2) / 2;
+      if (hCurrent > max) hCurrent = max;
+      if (hCurrent < 0) hCurrent = 0;
+
+      var hField = el('div', { class: 'tokui-field' });
+      if (node.attrs.l) {
+        hField.appendChild(el('label', { class: 'tokui-label' + (node.attrs.req !== undefined ? ' tokui-label--req' : ''), for: node.attrs.id || '' }, node.attrs.l));
+      }
+      var hRate = el('div', { class: 'tokui-rate tokui-rate--half', role: 'radiogroup', 'aria-label': node.attrs.l || _t('rate.defaultLabel'), tabindex: '0' });
+      var hHidden = el('input', { type: 'hidden' });
+      if (node.attrs.id) hHidden.id = node.attrs.id;
+      if (node.attrs.n) hHidden.name = node.attrs.n;
+      else if (node.attrs.id) hHidden.name = node.attrs.id;
+
+      var hStars = [];
+      var hMasks = [];
+      for (var hi = 0; hi < max; hi++) {
+        var hStar = el('span', { class: 'tokui-rate__star', 'data-index': String(hi + 1), role: 'radio', 'aria-checked': 'false' });
+        hStar.appendChild(el('span', { class: 'tokui-rate__star__base' }, charOff));
+        var hMask = el('span', { class: 'tokui-rate__star__on' }, charOn);
+        hStar.appendChild(hMask);
+        hStar.appendChild(el('span', { class: 'tokui-rate__zone tokui-rate__zone--left' }));
+        hStar.appendChild(el('span', { class: 'tokui-rate__zone tokui-rate__zone--right' }));
+        hStars.push(hStar);
+        hMasks.push(hMask);
+        hRate.appendChild(hStar);
+      }
+      var hTextSpan = el('span', { class: 'tokui-rate__text' });
+      hRate.appendChild(hTextSpan);
+      hRate.appendChild(hHidden);
+
+      // 值变更上报：点击 / 键盘两条路径都走此处 report
+      var hReport = renderer.createReporter('rate', node.attrs, hField);
+
+      function paintHalf(v) {
+        for (var j = 0; j < max; j++) {
+          var fillPct = v >= j + 1 ? 100 : (v >= j + 0.5 ? 50 : 0);
+          hMasks[j].style.width = fillPct + '%';
+          // 不用 classList.toggle(cls, force)：显式 add/remove 兼容无 force 实现的 DOM 环境
+          if (fillPct > 0) hStars[j].classList.add('tokui-rate__star--active');
+          else hStars[j].classList.remove('tokui-rate__star--active');
+          if (fillPct === 50) hStars[j].classList.add('tokui-rate__star--half');
+          else hStars[j].classList.remove('tokui-rate__star--half');
+          hStars[j].setAttribute('aria-checked', String(v >= j + 1));
+        }
+        hTextSpan.textContent = v > 0 ? v + '/' + max : '';
+        hHidden.value = v;
+      }
+      // 热区 → 半星值：左半区 = idx - 0.5，右半区 = idx
+      function zoneValue(zone) {
+        var starEl = zone.closest('.tokui-rate__star');
+        if (!starEl) return null;
+        var idx = parseInt(starEl.getAttribute('data-index'));
+        return zone.classList.contains('tokui-rate__zone--left') ? idx - 0.5 : idx;
+      }
+
+      if (node.attrs.ro !== undefined) {
+        hRate.classList.add('tokui-rate--readonly');
+      } else if (node.attrs.dis === undefined) {
+        hRate.addEventListener('mouseover', function(e) {
+          var zone = e.target.closest ? e.target.closest('.tokui-rate__zone') : null;
+          if (!zone) return;
+          paintHalf(zoneValue(zone));
+        });
+        hRate.addEventListener('mouseout', function() {
+          paintHalf(hCurrent);
+        });
+        hRate.addEventListener('click', function(e) {
+          var zone = e.target.closest ? e.target.closest('.tokui-rate__zone') : null;
+          if (!zone) return;
+          var v = zoneValue(zone);
+          hCurrent = (hCurrent === v) ? 0 : v; // 同值再点清零（与整星模式一致）
+          paintHalf(hCurrent);
+          if (node.attrs.clk) {
+            var handler = renderer.eventBus ? renderer.eventBus.getHandler(node.attrs.clk) : null;
+            if (handler) handler({ value: hCurrent, max: max, id: node.attrs.id });
+          }
+          hReport('change', { value: hCurrent, name: node.attrs.n || undefined });
+        });
+        // 键盘导航：ArrowRight/Up +0.5，ArrowLeft/Down -0.5
+        hRate.addEventListener('keydown', function(e) {
+          if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            hCurrent = Math.min(hCurrent + 0.5, max);
+          } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            hCurrent = Math.max(hCurrent - 0.5, 0);
+          } else {
+            return;
+          }
+          paintHalf(hCurrent);
+          hReport('change', { value: hCurrent, name: node.attrs.n || undefined });
+        });
+      } else {
+        hRate.classList.add('tokui-rate--disabled');
+      }
+      paintHalf(hCurrent);
+
+      hField._update = function(uAttrs) {
+        if (uAttrs.v !== undefined) {
+          hCurrent = parseFloat(uAttrs.v) || 0;
+          hCurrent = Math.round(hCurrent * 2) / 2;
+          if (hCurrent > max) hCurrent = max;
+          if (hCurrent < 0) hCurrent = 0;
+          paintHalf(hCurrent);
+        }
+        if (uAttrs.dis === true || uAttrs.dis === 'true') {
+          hRate.classList.add('tokui-rate--disabled');
+        } else if (uAttrs.dis === false || uAttrs.dis === 'false') {
+          hRate.classList.remove('tokui-rate--disabled');
+        }
+      };
+      var hRateInit = hCurrent;
+      hField.setAttribute('data-tokui-resettable', '');
+      hField._tokuiReset = function () {
+        hCurrent = hRateInit;
+        paintHalf(hCurrent);
+      };
+      hRate._variantTarget = hRate;
+      hField.appendChild(hRate);
+      return hField;
+    }
+
     var field = el('div', { class: 'tokui-field' });
     if (node.attrs.l) {
-      field.appendChild(el('label', { class: 'tokui-label', for: node.attrs.id || '' }, node.attrs.l));
+      field.appendChild(el('label', { class: 'tokui-label' + (node.attrs.req !== undefined ? ' tokui-label--req' : ''), for: node.attrs.id || '' }, node.attrs.l));
     }
 
     var rate = el('div', { class: 'tokui-rate', role: 'radiogroup', 'aria-label': node.attrs.l || _t('rate.defaultLabel'), tabindex: '0' });
@@ -1545,7 +2005,7 @@ function registerFormComponents(renderer) {
   renderer.register('transfer', (node, rc) => {
     var field = el('div', { class: 'tokui-field' });
     if (node.attrs.l) {
-      field.appendChild(el('label', { class: 'tokui-label' }, node.attrs.l));
+      field.appendChild(el('label', { class: 'tokui-label' + (node.attrs.req !== undefined ? ' tokui-label--req' : '') }, node.attrs.l));
     }
 
     var transfer = el('div', { class: 'tokui-transfer' });
@@ -1776,7 +2236,7 @@ function registerFormComponents(renderer) {
 
     var field = el('div', { class: 'tokui-field' });
     if (node.attrs.l) {
-      field.appendChild(el('label', { class: 'tokui-label' }, node.attrs.l));
+      field.appendChild(el('label', { class: 'tokui-label' + (node.attrs.req !== undefined ? ' tokui-label--req' : '') }, node.attrs.l));
     }
 
     var wrapper = el('div', { class: 'tokui-numinput' + (isDisabled ? ' tokui-numinput--disabled' : '') });
@@ -2029,7 +2489,7 @@ function registerFormComponents(renderer) {
 
     var field = el('div', { class: 'tokui-field' });
     if (node.attrs.l) {
-      field.appendChild(el('label', { class: 'tokui-label' }, node.attrs.l));
+      field.appendChild(el('label', { class: 'tokui-label' + (node.attrs.req !== undefined ? ' tokui-label--req' : '') }, node.attrs.l));
     }
     if (node.attrs.id) field.id = node.attrs.id;
 
@@ -2295,10 +2755,22 @@ function registerFormComponents(renderer) {
     var maxFiles = parseInt(node.attrs.max) || 0;
     var placeholder = node.attrs.ph || _t('upload.hint');
     var accept = node.attrs.accept || '';
+    // 传输层：u: 上传地址。仅接受 http(s) 绝对地址或 / 开头的相对路径，
+    // 其余协议（javascript: 等）warn 拒绝并退化为纯本地选择（与无 u 行为一致）
+    var uploadUrl = '';
+    if (node.attrs.u) {
+      if (/^(https?:\/\/|\/)/i.test(node.attrs.u)) {
+        uploadUrl = node.attrs.u;
+      } else {
+        console.warn('TokUI: upload u: 仅支持 http(s) 或以 / 开头的路径，已忽略: ' + node.attrs.u);
+      }
+    }
+    var uploadMethod = (node.attrs.mtd || 'POST').toUpperCase();
+    var uploadFieldName = node.attrs.n || 'file';
 
     var field = el('div', { class: 'tokui-field' });
     if (node.attrs.l) {
-      field.appendChild(el('label', { class: 'tokui-label' }, node.attrs.l));
+      field.appendChild(el('label', { class: 'tokui-label' + (node.attrs.req !== undefined ? ' tokui-label--req' : '') }, node.attrs.l));
     }
     if (node.attrs.id) field.id = node.attrs.id;
 
@@ -2367,6 +2839,24 @@ function registerFormComponents(renderer) {
         var size = el('span', { class: 'tokui-upload-file-size' });
         size.textContent = formatSize(f.size);
         item.appendChild(size);
+        // 传输层三态 UI（仅 u: 模式下 entry 带 status）：上传中进度条 / 成功 ✓ / 失败 ✗ + 重试
+        if (f.status === 'uploading') {
+          var prog = el('div', { class: 'tokui-upload__progress', role: 'progressbar', title: _t('upload.uploading') });
+          var bar = el('div', { class: 'tokui-upload__progress-bar' });
+          bar.style.width = (f.percent || 0) + '%';
+          prog.appendChild(bar);
+          item.appendChild(prog);
+          var pct = el('span', { class: 'tokui-upload__percent' });
+          pct.textContent = (f.percent || 0) + '%';
+          item.appendChild(pct);
+        } else if (f.status === 'done') {
+          item.appendChild(el('span', { class: 'tokui-upload__status tokui-upload__status--done', title: _t('upload.done') }, '✓'));
+        } else if (f.status === 'error') {
+          item.appendChild(el('span', { class: 'tokui-upload__status tokui-upload__status--error', title: _t('upload.failed') }, '✗'));
+          var retry = el('button', { class: 'tokui-upload__retry', type: 'button' }, _t('upload.retry'));
+          retry.setAttribute('data-idx', idx);
+          item.appendChild(retry);
+        }
         var remove = el('span', { class: 'tokui-upload-file-remove' });
         remove.textContent = '✕';
         remove.setAttribute('data-idx', idx);
@@ -2376,10 +2866,64 @@ function registerFormComponents(renderer) {
       hidden.value = selectedFiles.map(function(f) { return f.name; }).join(',');
     }
 
+    /**
+     * XHR 上传单个文件（逐文件一个请求，便于 per-file 进度/重试）。
+     * 用 XHR 而非 fetch：需要 upload.onprogress 上传进度事件。
+     * 能力检测：无 XMLHttpRequest 的环境（Node 测试）静默跳过传输。
+     */
+    function uploadFile(entry) {
+      if (typeof XMLHttpRequest === 'undefined') {
+        entry.status = undefined;
+        renderFileList();
+        return;
+      }
+      entry.status = 'uploading';
+      entry.percent = 0;
+      renderFileList();
+      var xhr = new XMLHttpRequest();
+      xhr.open(uploadMethod, uploadUrl, true);
+      var fd = new FormData();
+      fd.append(uploadFieldName, entry.file, entry.name);
+      if (xhr.upload && typeof xhr.upload.addEventListener === 'function') {
+        xhr.upload.addEventListener('progress', function(e) {
+          var percent = (e && e.total) ? Math.round((e.loaded / e.total) * 100) : 0;
+          entry.percent = percent;
+          renderFileList();
+          report('progress', { file: entry.name, percent: percent });
+        });
+      }
+      xhr.onload = function() {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          entry.status = 'done';
+          renderFileList();
+          report('success', { file: entry.name, response: xhr.responseText });
+        } else {
+          entry.status = 'error';
+          renderFileList();
+          report('error', { file: entry.name, error: 'HTTP ' + xhr.status });
+        }
+      };
+      xhr.onerror = function() {
+        entry.status = 'error';
+        renderFileList();
+        report('error', { file: entry.name, error: 'network error' });
+      };
+      xhr.send(fd);
+    }
+
     function addFiles(files) {
+      var newEntries = [];
       for (var i = 0; i < files.length; i++) {
         if (maxFiles && selectedFiles.length >= maxFiles) break;
-        selectedFiles.push({ name: files[i].name, size: files[i].size, type: files[i].type });
+        var entry = { name: files[i].name, size: files[i].size, type: files[i].type };
+        // u: 传输模式：保留 File 引用供 XHR 发送，并标记初始上传态
+        if (uploadUrl) {
+          entry.file = files[i];
+          entry.status = 'uploading';
+          entry.percent = 0;
+          newEntries.push(entry);
+        }
+        selectedFiles.push(entry);
       }
       renderFileList();
       if (node.attrs.clk) {
@@ -2387,6 +2931,8 @@ function registerFormComponents(renderer) {
         if (handler) handler({ id: node.attrs.id, files: selectedFiles });
       }
       reportFiles();
+      // 选中后自动逐个上传（change 上报先行，传输事件随后）
+      for (var j = 0; j < newEntries.length; j++) uploadFile(newEntries[j]);
     }
 
     if (!isDisabled) {
@@ -2425,8 +2971,16 @@ function registerFormComponents(renderer) {
         }
       });
 
-      // 删除文件
+      // 删除文件 / 重试上传（事件委托）
       fileList.addEventListener('click', function(e) {
+        var retryBtn = e.target.closest('.tokui-upload__retry');
+        if (retryBtn) {
+          var ridx = parseInt(retryBtn.getAttribute('data-idx'));
+          if (!isNaN(ridx) && ridx >= 0 && ridx < selectedFiles.length) {
+            uploadFile(selectedFiles[ridx]);
+          }
+          return;
+        }
         var removeBtn = e.target.closest('.tokui-upload-file-remove');
         if (!removeBtn) return;
         var idx = parseInt(removeBtn.getAttribute('data-idx'));
@@ -2666,9 +3220,10 @@ function registerFormComponents(renderer) {
    * @param {Date} selectedDate - 已选日期
    * @param {Date} now - 当前时间
    * @param {HTMLElement} container - 要追加到的容器
+   * @param {{start: Date|null, end: Date|null}|null} [rangeSel] - range 模式已选起止（可无）
    * @returns {{ prevBtn: HTMLElement, nextBtn: HTMLElement }}
    */
-  function renderCalendarGrid(year, month, selectedDate, now, container) {
+  function renderCalendarGrid(year, month, selectedDate, now, container, rangeSel) {
     // 头部导航
     var header = el('div', { class: 'tokui-datepicker-header' });
     var prevBtn = el('button', { class: 'tokui-datepicker-nav tokui-datepicker-nav--prev', type: 'button' });
@@ -2708,6 +3263,17 @@ function registerFormComponents(renderer) {
       if (selectedDate && selectedDate.getFullYear() === year && selectedDate.getMonth() === month && selectedDate.getDate() === d) {
         dayClasses.push('tokui-datepicker-day--selected');
       }
+      // range 模式：起止日强调 + 区间内日期高亮
+      if (rangeSel && (rangeSel.start || rangeSel.end)) {
+        var dayTime = new Date(year, month, d).getTime();
+        var rsTime = rangeSel.start ? rangeSel.start.getTime() : null;
+        var reTime = rangeSel.end ? rangeSel.end.getTime() : null;
+        if (rsTime !== null && dayTime === rsTime) dayClasses.push('tokui-datepicker-day--range-start');
+        if (reTime !== null && dayTime === reTime) dayClasses.push('tokui-datepicker-day--range-end');
+        if (rsTime !== null && reTime !== null && dayTime > rsTime && dayTime < reTime) {
+          dayClasses.push('tokui-datepicker-day--in-range');
+        }
+      }
       var dayEl = el('span', { class: dayClasses.join(' '), 'data-day': String(d) }, String(d));
       grid.appendChild(dayEl);
     }
@@ -2731,12 +3297,24 @@ function registerFormComponents(renderer) {
     var attrs = node.attrs || {};
     var isDisabled = attrs.dis !== undefined;
     var fmt = attrs.fmt || 'YYYY-MM-DD';
-    var placeholder = attrs.ph || fmt;
+    // range 范围模式：日历内选起止两天；fmt 仅单日生效，range 固定 YYYY-MM-DD
+    var isRange = attrs.range !== undefined;
+    var placeholder = attrs.ph || (isRange ? 'YYYY-MM-DD ~ YYYY-MM-DD' : fmt);
     var value = attrs.v || '';
+    // range 初始值解析："YYYY-MM-DD ~ YYYY-MM-DD"（end<start 自动交换）
+    var rangeStart = null, rangeEnd = null;
+    if (isRange && value) {
+      var rParts = String(value).split(' ~ ');
+      rangeStart = parseDateValue(rParts[0]);
+      rangeEnd = rParts.length > 1 ? parseDateValue(rParts[1]) : null;
+      if (rangeStart && rangeEnd && rangeEnd.getTime() < rangeStart.getTime()) {
+        var tD = rangeStart; rangeStart = rangeEnd; rangeEnd = tD;
+      }
+    }
 
     var field = el('div', { class: 'tokui-field' });
     if (attrs.l) {
-      field.appendChild(el('label', { class: 'tokui-label' }, attrs.l));
+      field.appendChild(el('label', { class: 'tokui-label' + (attrs.req !== undefined ? ' tokui-label--req' : '') }, attrs.l));
     }
 
     var classes = ['tokui-datepicker'];
@@ -2794,7 +3372,8 @@ function registerFormComponents(renderer) {
     // 渲染日历
     function renderCalendar(year, month) {
       dropdown.innerHTML = '';
-      var nav = renderCalendarGrid(year, month, selectedDate, now, dropdown);
+      var nav = renderCalendarGrid(year, month, selectedDate, now, dropdown,
+        isRange ? { start: rangeStart, end: rangeEnd } : null);
 
       // 月份导航事件
       nav.prevBtn.addEventListener('click', function(e) {
@@ -2854,6 +3433,33 @@ function registerFormComponents(renderer) {
         var dayEl = e.target.closest('.tokui-datepicker-day');
         if (!dayEl || dayEl.classList.contains('tokui-datepicker-day--other')) return;
         var day = parseInt(dayEl.getAttribute('data-day'));
+        if (isRange) {
+          // range 选段：第一次设 start，第二次设 end（end<start 自动交换），第三次重选
+          var picked = new Date(currentYear, currentMonth, day);
+          if (!rangeStart || (rangeStart && rangeEnd)) {
+            rangeStart = picked;
+            rangeEnd = null;
+          } else if (picked.getTime() < rangeStart.getTime()) {
+            rangeEnd = rangeStart;
+            rangeStart = picked;
+          } else {
+            rangeEnd = picked;
+          }
+          if (rangeStart && rangeEnd) {
+            var rangeText = formatDate(rangeStart, 'YYYY-MM-DD') + ' ~ ' + formatDate(rangeEnd, 'YYYY-MM-DD');
+            input.value = rangeText;
+            hidden.value = rangeText;
+            closePanel();
+            if (attrs.clk) {
+              var rHandler = renderer.eventBus ? renderer.eventBus.getHandler(attrs.clk) : null;
+              if (rHandler) rHandler({ value: rangeText, start: rangeStart, end: rangeEnd, id: attrs.id });
+            }
+            report('change', { value: rangeText, name: attrs.n || undefined });
+          }
+          // 只选了 start 时面板保持打开，重绘以呈现 start 强调
+          renderCalendar(currentYear, currentMonth);
+          return;
+        }
         selectedDate = new Date(currentYear, currentMonth, day);
         var formatted = formatDate(selectedDate, fmt);
         input.value = formatted;
@@ -2892,7 +3498,7 @@ function registerFormComponents(renderer) {
 
     var field = el('div', { class: 'tokui-field' });
     if (attrs.l) {
-      field.appendChild(el('label', { class: 'tokui-label' }, attrs.l));
+      field.appendChild(el('label', { class: 'tokui-label' + (attrs.req !== undefined ? ' tokui-label--req' : '') }, attrs.l));
     }
 
     var classes = ['tokui-timepicker'];
@@ -3045,7 +3651,7 @@ function registerFormComponents(renderer) {
 
     var field = el('div', { class: 'tokui-field' });
     if (attrs.l) {
-      field.appendChild(el('label', { class: 'tokui-label' }, attrs.l));
+      field.appendChild(el('label', { class: 'tokui-label' + (attrs.req !== undefined ? ' tokui-label--req' : '') }, attrs.l));
     }
 
     var classes = ['tokui-datetimepicker'];

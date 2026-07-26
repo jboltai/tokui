@@ -1202,6 +1202,68 @@ test('流式：原始内容块字面 \\n 跨 chunk 解码', () => {
   assert.ok(texts.every(t => !t.includes('\\n')), '字面 \\n 应解码为真换行，不残留');
 });
 
+test('katex 块：豁免转义解码，LaTeX 命令原样保留（\\nabla/\\times/\\to/\\right 不被误吃）', () => {
+  const nodes = [];
+  new TokUIParser((n) => nodes.push(n)).parse(
+    '[katex]\\nabla \\times \\mathbf{B} = \\mu_0 \\left( \\mathbf{J} + \\varepsilon_0 \\frac{\\partial \\mathbf{E}}{\\partial t} \\right)[/katex]'
+  );
+  const katex = nodes[0];
+  assert.strictEqual(katex.type, 'katex');
+  assert.strictEqual(
+    katex.children[0].content,
+    '\\nabla \\times \\mathbf{B} = \\mu_0 \\left( \\mathbf{J} + \\varepsilon_0 \\frac{\\partial \\mathbf{E}}{\\partial t} \\right)',
+    'katex 内容应原样保留反斜杠'
+  );
+  const nodes2 = [];
+  new TokUIParser((n) => nodes2.push(n)).parse('[katex]\\lim_{x \\to \\infty} \\left(1 + \\frac{1}{x}\\right)^x = e[/katex]');
+  assert.strictEqual(nodes2[0].children[0].content, '\\lim_{x \\to \\infty} \\left(1 + \\frac{1}{x}\\right)^x = e');
+});
+
+test('katex 块：流式跨 chunk 同样豁免解码', () => {
+  const events = [];
+  const parser = new TokUIParser((n) => events.push(n), { streaming: true });
+  parser.feed('[katex]a \\ti');
+  parser.feed('mes b \\to c[/katex]');
+  const texts = events.filter(e => e.type === '_text').map(e => e.content).join('');
+  assert.strictEqual(texts, 'a \\times b \\to c', '流式 katex 内容应原样保留反斜杠');
+});
+
+test('mermaid 块：不豁免，\\n 仍解码为换行（文档约定的单行写法依赖此行为）', () => {
+  const nodes = [];
+  new TokUIParser((n) => nodes.push(n)).parse('[mermaid]flowchart LR\\n  A --> B[/mermaid]');
+  assert.strictEqual(nodes[0].children[0].content, 'flowchart LR\n  A --> B');
+});
+
+test('md 块：豁免转义解码，$$公式$$ 内 LaTeX 命令原样保留', () => {
+  const nodes = [];
+  new TokUIParser((n) => nodes.push(n)).parse('[md]公式 $$\\nabla \\times \\mathbf{B}$$ 与 $\\to$ 完[/md]');
+  const md = nodes[0];
+  assert.strictEqual(md.type, 'md');
+  assert.strictEqual(
+    md.children[0].content,
+    '公式 $$\\nabla \\times \\mathbf{B}$$ 与 $\\to$ 完',
+    'md 内容应原样保留反斜杠（$$公式$$ 内的 \\nabla/\\times/\\to 不被误吃）'
+  );
+});
+
+test('md 块：字面 \\n 不再解码（豁免后行为变化：换行须写真换行）', () => {
+  const nodes = [];
+  new TokUIParser((n) => nodes.push(n)).parse('[md]a\\nb[/md]');
+  assert.strictEqual(nodes[0].children[0].content, 'a\\nb');
+  const nodes2 = [];
+  new TokUIParser((n) => nodes2.push(n)).parse('[md]a\nb[/md]');
+  assert.strictEqual(nodes2[0].children[0].content, 'a\nb', '真换行不受影响');
+});
+
+test('md 块：流式跨 chunk 同样豁免解码', () => {
+  const events = [];
+  const parser = new TokUIParser((n) => events.push(n), { streaming: true });
+  parser.feed('[md]$\\na');
+  parser.feed('bla$ x[/md]');
+  const texts = events.filter(e => e.type === '_text').map(e => e.content).join('');
+  assert.strictEqual(texts, '$\\nabla$ x', '流式 md 内容应原样保留反斜杠');
+});
+
 // ===== 变体吸收（v: 后空格分隔的裸变体名智能并入 v）=====
 test('变体吸收：v: 后空格分隔的已知变体并入 v，不进正文', () => {
   setVariantHints({ p: new Set(['left', 'center', 'right', 'muted', 'bold', 'sm', 'lg']) });

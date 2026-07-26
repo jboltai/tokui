@@ -299,7 +299,21 @@ One-click copy button, self-closing. `id` points to the target element to copy, 
 
 Markdown rendering container. Supports common syntax: headings, lists, blockquotes, code, tables, links, and more.
 
+> **Optional plugin enhancement**: `` ```mermaid `` fences and `$$formula$$` / `$formula$` are enhanced automatically when the host loads the `window.mermaid` / `window.katex` globals; without the plugins they fall back to source display (zero-dependency behavior is unaffected, and currency amounts like `$5 $6` are not mis-parsed).
+
 <Playground dsl='[md]## Markdown 渲染支持 **加粗**、*斜体*、`行内代码`、[链接](#)。- 无序列表项一- 无序列表项二> 引用块文字。[/md]' />
+
+## Formula `katex` / Diagram `mermaid`
+
+Standalone component aliases for the md plugin pipeline — declared directly instead of writing md text:
+
+- `[katex]O(n) = \sum_{i=1}^{n} t_i[/katex]` — container, block formula
+- `[katex f:"E = mc^2"]` — `f:` attribute, inline formula
+- `[mermaid]flowchart LR\n  A --> B[/mermaid]` — container, diagram source (raw content; inner `[` is not parsed)
+
+Without katex/mermaid loaded they fall back to source / code block. katex content is exempt from raw escape decoding — write LaTeX commands like `\nabla`/`\times`/`\to` verbatim.
+
+<Playground dsl='[katex f:"E = mc^2"]' />
 
 ## Code Block `code`
 

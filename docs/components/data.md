@@ -124,6 +124,22 @@ cell 尾缀覆盖列级：同格 cell 级生效，列级 align/color 让位。
 
 <Playground dsl='[table stripe][thead][tcol n:月份][tcol n:销售额][tcol n:环比][/thead][tbody][tr 1月,120万,+12%][tr 2月,190万,+18%][/tbody][/table]' />
 
+### 客户端排序 / 筛选 / 分页
+
+`table` 支持纯客户端的排序、筛选、分页，三个能力可自由组合（先筛后分）：
+
+| 属性 | 含义 | 示例 |
+|------|------|------|
+| `sortable` | 客户端排序（点表头 asc/desc 切换，数值感知） | `sortable` |
+| `filter` | 客户端筛选（表头下筛选行，子串匹配、多列 AND，300ms 防抖） | `filter` |
+| `pagination` | 客户端分页 | `pagination` |
+| `ps` | 每页条数（默认 10） | `ps:20` |
+
+- 交互上报：排序 `sort` `{column, dir}`、筛选 `filter` `{filters}`、翻页 `page` `{value: 页码}`（`on:"sort:h,filter:h2,page:h3"` 或统一出口）。
+- **流式行为**：流式推送中的新行自动按当前筛选 / 分页显隐；`sortable` 排序激活时新行不重排（保持当前顺序追加）。
+
+<Playground dsl='[table stripe sortable filter pagination ps:5][thead cols:"姓名,年龄,城市,状态"][tbody][tr 张三,25,北京,在职][tr 李四,30,上海,休假][tr 王五,28,深圳,在职][tr 赵六,35,北京,在职][tr 钱七,26,上海,休假][tr 孙八,33,深圳,在职][tr 周九,29,北京,休假][/tbody][/table]' />
+
 ## 描述列表 `desc` / `desc-item`
 
 键值对形式的结构化展示，常用于详情页。`desc` 容器，子节点 `desc-item`（`l` 标签、`tx` 值、`span` 列跨距）。`desc` 的子节点也可直接写 `[item]`——在 `desc` 内自动按描述项渲染（与 `list` 内的 `[item]` 同名不同义，按父级区分）。

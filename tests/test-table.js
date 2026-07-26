@@ -27,13 +27,13 @@ function test(name, fn) {
   tests.push({ name, fn });
 }
 
-/** 运行所有测试用例并输出结果 */
-function run() {
+/** 运行所有测试用例并输出结果（await 兼容 async 用例，如防抖断言） */
+async function run() {
   passed = 0;
   failed = 0;
   for (const t of tests) {
     try {
-      t.fn();
+      await t.fn();
       passed++;
       console.log(`  ✓ ${t.name}`);
     } catch (e) {
@@ -671,6 +671,161 @@ test('col spec: 单段 /danger（仅 color，无 align）→ th 染 danger', () 
   const ths = dom.querySelectorAll('th');
   assert.ok(ths[1].className.indexOf('tokui-text--danger') >= 0, 'col spec 单段 /danger 应染 danger');
   assert.strictEqual(ths[1].textContent, '金额');
+});
+
+// ===== table sortable / filter / pagination 客户端数据态测试 =====
+
+// 构造带 2 列（Name,Age）表头 + rows 数据的表格；events 收集 onComponentEvent 统一出口事件
+function renderDataTable(attrs, rows) {
+  const rc = new TokUIRenderer();
+  registerTableComponents(rc);
+  const events = [];
+  rc._onComponentEvent = (evt) => events.push(evt);
+  const node = {
+    type: 'table',
+    attrs: attrs || {},
+    children: [
+      { type: 'thead', attrs: { cols: 'Name,Age' }, children: [] },
+      { type: 'tbody', children: rows.map(r => ({ type: 'tr', content: r, children: [] })) }
+    ]
+  };
+  const dom = rc.render(node);
+  return { rc, dom, events };
+}
+
+// 当前可见行（display 非 none）的首列文本
+function visibleFirstCells(dom) {
+  return Array.prototype.slice.call(dom.querySelector('tbody').querySelectorAll('tr'))
+    .filter(tr => tr.style.display !== 'none')
+    .map(tr => tr.querySelectorAll('td')[0].textContent);
+}
+
+// 全部行（含隐藏）的首列文本，按当前 DOM 序
+function allFirstCells(dom) {
+  return Array.prototype.slice.call(dom.querySelector('tbody').querySelectorAll('tr'))
+    .map(tr => tr.querySelectorAll('td')[0].textContent);
+}
+
+// 测试：sortable - 点表头两次，行序 asc→desc 切换，sort 事件上报
+test('table sortable - click header toggles asc→desc and reports sort', () => {
+  const { dom, events } = renderDataTable({ sortable: true }, ['Charlie,30', 'Alice,25', 'Bob,20']);
+  const th = dom.querySelectorAll('th')[0];
+  assert.ok(th.classList.contains('tokui-table__th--sortable'), 'th missing sortable class');
+  const icon = th.querySelector('.tokui-table__sort-icon');
+  assert.ok(icon, 'missing sort icon');
+  // 第一次点击：升序
+  (th._events.click || []).forEach(fn => fn({}));
+  assert.deepStrictEqual(allFirstCells(dom), ['Alice', 'Bob', 'Charlie'], 'asc after first click');
+  assert.strictEqual(icon.textContent, '▲');
+  assert.ok(icon.classList.contains('tokui-table__sort-icon--asc'));
+  // 第二次点击：反向（降序）
+  (th._events.click || []).forEach(fn => fn({}));
+  assert.deepStrictEqual(allFirstCells(dom), ['Charlie', 'Bob', 'Alice'], 'desc after second click');
+  assert.strictEqual(icon.textContent, '▼');
+  // sort 事件上报
+  assert.strictEqual(events.length, 2);
+  assert.strictEqual(events[0].type, 'table');
+  assert.strictEqual(events[0].event, 'sort');
+  assert.deepStrictEqual(events[0].detail, { column: 0, dir: 'asc' });
+  assert.deepStrictEqual(events[1].detail, { column: 0, dir: 'desc' });
+});
+
+// 测试：sortable 数值感知 - 纯数字列按数值排序（字符串序会是 100,20,9）
+test('table sortable - numeric-aware compare on number column', () => {
+  const { dom } = renderDataTable({ sortable: true }, ['a,9', 'b,100', 'c,20']);
+  const ageTh = dom.querySelectorAll('th')[1];
+  (ageTh._events.click || []).forEach(fn => fn({}));
+  const ages = Array.prototype.slice.call(dom.querySelector('tbody').querySelectorAll('tr'))
+    .map(tr => tr.querySelectorAll('td')[1].textContent);
+  assert.deepStrictEqual(ages, ['9', '20', '100'], 'numeric asc order expected');
+});
+
+// 测试：filter - 输入关键字即时过滤（子串、大小写不敏感），filter 事件防抖后上报
+test('table filter - input filters rows and reports debounced filter event', async () => {
+  const { dom, events } = renderDataTable({ filter: true }, ['Alice,30', 'Bob,25', 'alice2,20']);
+  const filterRow = dom.querySelector('.tokui-table__filter-row');
+  assert.ok(filterRow, 'missing filter row');
+  const inputs = filterRow.querySelectorAll('.tokui-table__filter-input');
+  assert.strictEqual(inputs.length, 2, 'one filter input per column');
+  assert.strictEqual(inputs[0].getAttribute('placeholder'), 'Name', 'placeholder uses column name');
+  inputs[0].value = 'ALI';
+  (inputs[0]._events.input || []).forEach(fn => fn({}));
+  // 输入即过滤（不等防抖）
+  assert.deepStrictEqual(visibleFirstCells(dom), ['Alice', 'alice2'], 'case-insensitive substring match');
+  assert.strictEqual(events.length, 0, 'report should be debounced');
+  // 防抖 300ms 后上报
+  await new Promise(r => setTimeout(r, 350));
+  assert.strictEqual(events.length, 1);
+  assert.strictEqual(events[0].event, 'filter');
+  assert.deepStrictEqual(events[0].detail, { filters: { 0: 'ALI' } });
+});
+
+// 测试：filter 多列 AND + 清空恢复
+test('table filter - multi-column AND and clearing restores rows', () => {
+  const { dom } = renderDataTable({ filter: true }, ['Alice,30', 'Alice,25', 'Bob,30']);
+  const inputs = dom.querySelector('.tokui-table__filter-row').querySelectorAll('.tokui-table__filter-input');
+  inputs[0].value = 'alice';
+  (inputs[0]._events.input || []).forEach(fn => fn({}));
+  inputs[1].value = '30';
+  (inputs[1]._events.input || []).forEach(fn => fn({}));
+  assert.deepStrictEqual(visibleFirstCells(dom), ['Alice'], 'AND: only Alice,30 visible');
+  inputs[1].value = '';
+  (inputs[1]._events.input || []).forEach(fn => fn({}));
+  assert.deepStrictEqual(visibleFirstCells(dom), ['Alice', 'Alice'], 'clearing one filter restores');
+});
+
+// 测试：pagination ps:2 - 3 行数据 → 第 1 页 2 行 + 总数显示，翻第 2 页 1 行 + page 事件
+test('table pagination ps:2 - slices rows, shows total, reports page event', () => {
+  const { dom, events } = renderDataTable({ pagination: true, ps: '2' }, ['a,1', 'b,2', 'c,3']);
+  assert.deepStrictEqual(visibleFirstCells(dom), ['a', 'b'], 'page 1 shows 2 rows');
+  const pager = dom.querySelector('.tokui-table__pager');
+  assert.ok(pager, 'missing pager');
+  assert.strictEqual(pager.querySelector('.tokui-table__pager-total').textContent, '共3条');
+  const pages = pager.querySelectorAll('.tokui-table__pager-page');
+  assert.strictEqual(pages.length, 2, '2 page buttons');
+  assert.ok(pages[0].classList.contains('tokui-table__pager-page--active'), 'page 1 active');
+  // 翻到第 2 页
+  (pages[1]._events.click || []).forEach(fn => fn({}));
+  assert.deepStrictEqual(visibleFirstCells(dom), ['c'], 'page 2 shows 1 row');
+  assert.strictEqual(events.length, 1);
+  assert.strictEqual(events[0].event, 'page');
+  assert.deepStrictEqual(events[0].detail, { value: 2 });
+});
+
+// 测试：pagination 流式兼容 - 新行到达维持在当前页、计入总数
+test('table pagination streaming - new row keeps current page and updates total', () => {
+  const { rc, dom } = renderDataTable({ pagination: true, ps: '2' }, ['a,1', 'b,2']);
+  const tbody = dom.querySelector('tbody');
+  const newRow = rc.render({ type: 'tr', content: 'c,3', children: [] });
+  tbody.appendChild(newRow);
+  assert.deepStrictEqual(visibleFirstCells(dom), ['a', 'b'], 'still on page 1');
+  assert.strictEqual(dom.querySelector('.tokui-table__pager-total').textContent, '共3条', 'total updated');
+});
+
+// 测试：filter + pagination 组合 - 先 filter 后 paginate
+test('table filter+pagination combo - filter first, then paginate', () => {
+  const { dom } = renderDataTable({ filter: true, pagination: true, ps: '2' },
+    ['apple,1', 'banana,2', 'apple2,3', 'apple3,4']);
+  const inputs = dom.querySelector('.tokui-table__filter-row').querySelectorAll('.tokui-table__filter-input');
+  inputs[0].value = 'apple';
+  (inputs[0]._events.input || []).forEach(fn => fn({}));
+  assert.deepStrictEqual(visibleFirstCells(dom), ['apple', 'apple2'], 'filtered page 1');
+  assert.strictEqual(dom.querySelector('.tokui-table__pager-total').textContent, '共3条', 'total counts filtered rows');
+  const pages = dom.querySelector('.tokui-table__pager').querySelectorAll('.tokui-table__pager-page');
+  assert.strictEqual(pages.length, 2, 'filtered rows make 2 pages');
+  (pages[1]._events.click || []).forEach(fn => fn({}));
+  assert.deepStrictEqual(visibleFirstCells(dom), ['apple3'], 'filtered page 2');
+});
+
+// 测试：无属性时零侵入 - 不产生排序/筛选/分页任何痕迹
+test('table without data attrs - zero intrusion', () => {
+  const { dom } = renderDataTable({}, ['a,1', 'b,2']);
+  assert.strictEqual(dom.querySelector('.tokui-table__pager'), null, 'no pager');
+  assert.strictEqual(dom.querySelector('.tokui-table__filter-row'), null, 'no filter row');
+  const th = dom.querySelector('th');
+  assert.ok(!th.classList.contains('tokui-table__th--sortable'), 'no sortable class');
+  assert.strictEqual(th.querySelector('.tokui-table__sort-icon'), null, 'no sort icon');
+  assert.deepStrictEqual(visibleFirstCells(dom), ['a', 'b'], 'all rows visible');
 });
 
 run();

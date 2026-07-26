@@ -13,6 +13,12 @@
  */
 'use strict';
 
+// i18n 取串（筛选/分页条 chrome 文案）。浏览器经 window.TokUI._internal.t，Node 经 require。
+var _t = (typeof require === 'function')
+  ? require('../core/i18n').t
+  : (window.TokUI && window.TokUI._internal && window.TokUI._internal.t)
+    || function (key) { return key; };
+
 /**
  * 解析操作列按钮语法：btn:文本 clk:handler v:variant key:value|btn:...
  * 以 | 分隔多个按钮，空格分隔属性
@@ -159,6 +165,245 @@ function registerTableComponents(renderer) {
     all.indeterminate = checked.length > 0 && checked.length < rows.length;
   }
 
+  // === 客户端排序 / 筛选 / 分页（sortable / filter / pagination ps:N，声明式开启，默认全关零侵入） ===
+  // 状态挂在 table 元素 _tokuiData 上；显隐应用顺序恒为 先 filter 后 paginate（sort 只改 DOM 序）。
+  // 合并单元格（=cN/=rN）行参与排序/筛选时按「覆盖该列的首个 td 文本」取值，结构不动（边缘行为）。
+
+  // 取行的数据 td 列表（真实 DOM 的 children 是 HTMLCollection，统一转数组）
+  function _tableDataTds(row) {
+    return Array.prototype.slice.call(row.children).filter(function (c) { return c.tagName === 'TD'; });
+  }
+
+  // 取 row 在列 colIdx 的文本：按 colspan 累计定位覆盖该列的 td（合并格取首格文本）
+  function _tableCellTextAt(row, colIdx) {
+    var tds = _tableDataTds(row);
+    var col = 0;
+    for (var i = 0; i < tds.length; i++) {
+      var span = parseInt(tds[i].getAttribute('colspan'), 10) || 1;
+      if (colIdx >= col && colIdx < col + span) return (tds[i].textContent || '').trim();
+      col += span;
+    }
+    return '';
+  }
+
+  // 数值感知比较：两侧均为纯数字按数值比，否则按字符串 localeCompare
+  function _tableCompare(a, b) {
+    var na = /^-?\d+(\.\d+)?$/.test(a) ? parseFloat(a) : NaN;
+    var nb = /^-?\d+(\.\d+)?$/.test(b) ? parseFloat(b) : NaN;
+    if (!isNaN(na) && !isNaN(nb)) return na - nb;
+    return String(a).localeCompare(String(b));
+  }
+
+  // 末行表头的叶子 th 及其列位（按 colspan 累计；rowspan 表头边缘场景按可见格近似）
+  function _tableLeafThs(thead) {
+    var rows = Array.prototype.slice.call(thead.children).filter(function (c) {
+      return c.tagName === 'TR' && !c.classList.contains('tokui-table__filter-row');
+    });
+    var lastRow = rows[rows.length - 1];
+    if (!lastRow) return [];
+    var out = [];
+    var col = 0;
+    Array.prototype.slice.call(lastRow.children).forEach(function (th) {
+      if (th.tagName !== 'TH') return;
+      out.push({ th: th, col: col });
+      col += parseInt(th.getAttribute('colspan'), 10) || 1;
+    });
+    return out;
+  }
+
+  // 渐进增强入口：table / thead / tbody 任一渲染完成时调用（流式下三者分批到达），各部件幂等自检
+  function enhanceTable(table, part, partEl) {
+    if (!table || !table._tokuiDataCfg) return;
+    var cfg = table._tokuiDataCfg;
+    var state = table._tokuiData;
+    if (!state) {
+      state = {
+        sortCol: -1, sortDir: '',   // 当前排序列 / 方向（'' 未排序）
+        filters: {},                // 列索引 → 筛选关键字（空值删除）
+        page: 1,                    // 当前页（1 起）
+        pageSize: cfg.pageSize,
+        thead: null, tbody: null, pager: null,
+        sortWired: false, filterBuilt: false, tbodyHooked: false,
+        _applying: false            // 内部重排标记：防 append 钩子递归
+      };
+      table._tokuiData = state;
+    }
+    if (part === 'thead') state.thead = partEl;
+    if (part === 'tbody') state.tbody = partEl;
+
+    function allRows() {
+      if (!state.tbody) return [];
+      return Array.prototype.slice.call(state.tbody.children).filter(function (c) { return c.tagName === 'TR'; });
+    }
+
+    // 多列 AND：每列关键字（子串、大小写不敏感）都得命中
+    function rowMatchesFilters(row) {
+      for (var col in state.filters) {
+        if (!Object.prototype.hasOwnProperty.call(state.filters, col)) continue;
+        if (_tableCellTextAt(row, parseInt(col, 10)).toLowerCase().indexOf(String(state.filters[col]).toLowerCase()) === -1) return false;
+      }
+      return true;
+    }
+
+    function visibleRows() { return allRows().filter(rowMatchesFilters); }
+
+    // 排序重排：仅改 DOM 序，不参与显隐（filter/paginate 由 applyTableState 负责）
+    function resortRows() {
+      if (!state.tbody || state.sortCol < 0 || !state.sortDir) return;
+      var rows = allRows();
+      var dir = state.sortDir === 'desc' ? -1 : 1;
+      var col = state.sortCol;
+      rows.sort(function (ra, rb) { return dir * _tableCompare(_tableCellTextAt(ra, col), _tableCellTextAt(rb, col)); });
+      state._applying = true;
+      rows.forEach(function (r) { state.tbody.insertBefore(r, null); });  // insertBefore(x, null) = 末尾重挂（移动语义）
+      state._applying = false;
+    }
+    state.resort = resortRows;   // 流式新行不自动重排（见下方钩子注释），保留此入口供手动重排
+
+    // 显隐应用：顺序恒为 先 filter 后 paginate
+    function applyTableState() {
+      if (!state.tbody) return;
+      var visible = [];
+      allRows().forEach(function (row) {
+        if (rowMatchesFilters(row)) visible.push(row);
+        else row.style.display = 'none';
+      });
+      if (cfg.pagination) {
+        var pages = Math.max(1, Math.ceil(visible.length / state.pageSize));
+        if (state.page > pages) state.page = pages;   // 筛选收窄时回收到末页
+        var start = (state.page - 1) * state.pageSize;
+        var end = start + state.pageSize;
+        visible.forEach(function (row, i) { row.style.display = (i >= start && i < end) ? '' : 'none'; });
+        renderPager(visible.length);
+      } else {
+        visible.forEach(function (row) { row.style.display = ''; });
+      }
+    }
+
+    function gotoPage(p) {
+      var pages = Math.max(1, Math.ceil(visibleRows().length / state.pageSize));
+      if (p < 1 || p > pages || p === state.page) return;
+      state.page = p;
+      applyTableState();
+      if (table._tokuiReport) table._tokuiReport('page', { value: p });
+    }
+
+    // 分页条（上一页/页码/下一页/共N条），每次整排重建（页数通常个位数，重建最简）
+    function renderPager(total) {
+      if (!state.pager) return;
+      var pages = Math.max(1, Math.ceil(total / state.pageSize));
+      var pager = state.pager;
+      pager.innerHTML = '';
+      var totalEl = el('span', { class: 'tokui-table__pager-total' });
+      totalEl.textContent = _t('pagination.totalCount', { count: total });
+      pager.appendChild(totalEl);
+      var prev = el('button', { type: 'button', class: 'tokui-table__pager-btn' + (state.page <= 1 ? ' tokui-table__pager-btn--disabled' : '') });
+      prev.textContent = '\u2039';
+      prev.addEventListener('click', function () { gotoPage(state.page - 1); });
+      pager.appendChild(prev);
+      for (var p = 1; p <= pages; p++) {
+        (function (pn) {
+          var pb = el('button', { type: 'button', class: 'tokui-table__pager-page' + (pn === state.page ? ' tokui-table__pager-page--active' : '') });
+          pb.textContent = String(pn);
+          pb.addEventListener('click', function () { gotoPage(pn); });
+          pager.appendChild(pb);
+        })(p);
+      }
+      var next = el('button', { type: 'button', class: 'tokui-table__pager-btn' + (state.page >= pages ? ' tokui-table__pager-btn--disabled' : '') });
+      next.textContent = '\u203a';
+      next.addEventListener('click', function () { gotoPage(state.page + 1); });
+      pager.appendChild(next);
+    }
+
+    // 筛选上报防抖（300ms）：输入即过滤（UI 即时），上报聚合，避免逐字符打到后端
+    var debouncedFilterReport = renderer.debounce(function () {
+      if (table._tokuiReport) table._tokuiReport('filter', { filters: Object.assign({}, state.filters) });
+    }, 300);
+
+    // —— 排序：末行表头 th 点击在 升序→降序 间切换（chk 勾选列除外）——
+    if (cfg.sortable && state.thead && !state.sortWired) {
+      state.sortWired = true;
+      _tableLeafThs(state.thead).forEach(function (item) {
+        var th = item.th;
+        if (th.classList.contains('tokui-col-chk')) return;
+        var colIdx = item.col;
+        th.classList.add('tokui-table__th--sortable');
+        var icon = el('span', { class: 'tokui-table__sort-icon' });
+        th.appendChild(icon);
+        th.addEventListener('click', function () {
+          state.sortDir = (state.sortCol === colIdx && state.sortDir === 'asc') ? 'desc' : 'asc';
+          state.sortCol = colIdx;
+          Array.prototype.slice.call(state.thead.querySelectorAll('.tokui-table__sort-icon')).forEach(function (ic) {
+            ic.textContent = '';
+            ic.classList.remove('tokui-table__sort-icon--asc');
+            ic.classList.remove('tokui-table__sort-icon--desc');
+          });
+          icon.textContent = state.sortDir === 'asc' ? '\u25b2' : '\u25bc';
+          icon.classList.add('tokui-table__sort-icon--' + state.sortDir);
+          resortRows();
+          applyTableState();
+          if (table._tokuiReport) table._tokuiReport('sort', { column: colIdx, dir: state.sortDir });
+        });
+      });
+    }
+
+    // —— 筛选：表头末行后插入筛选输入行（每列一个 input，placeholder 用列名）——
+    if (cfg.filter && state.thead && !state.filterBuilt) {
+      state.filterBuilt = true;
+      var filterTr = el('tr', { class: 'tokui-table__filter-row' });
+      _tableLeafThs(state.thead).forEach(function (item) {
+        var colIdx = item.col;
+        var td = el('td', { class: 'tokui-table__filter-cell' });
+        var input = el('input', { type: 'text', class: 'tokui-table__filter-input', placeholder: (item.th.textContent || '').trim() });
+        input.addEventListener('input', function () {
+          var v = (input.value || '').trim();
+          if (v) state.filters[colIdx] = v; else delete state.filters[colIdx];
+          state.page = 1;   // 筛选条件变化回第一页
+          applyTableState();
+          debouncedFilterReport();
+        });
+        td.appendChild(input);
+        filterTr.appendChild(td);
+      });
+      state.thead.appendChild(filterTr);
+    }
+
+    // —— 流式钩子：tbody append/insert 捕获流式新行 → 重应用 filter+paginate ——
+    // sort 激活时新行到达不重排（流式中排序跳动太乱）；排序状态保留在 state.sortCol/sortDir，
+    // 需对含新行全集重排时手动 state.resort()（或再次点击表头）。
+    if (state.tbody && !state.tbodyHooked) {
+      state.tbodyHooked = true;
+      var tbodyEl = state.tbody;
+      var origAppend = tbodyEl.appendChild;
+      var origInsert = tbodyEl.insertBefore;
+      var onRowArrived = function (child) {
+        if (state._applying || !child || child.tagName !== 'TR') return;
+        // 包一层 cell 级 reconcile：流式 cell 填满后同样重应用
+        // （占位行首到时无文本，filter 下可能先隐后显，属预期）
+        if (child._tokuiTrReconcile && !child._tokuiDataPatched) {
+          child._tokuiDataPatched = true;
+          var origRec = child._tokuiTrReconcile;
+          child._tokuiTrReconcile = function (content, finalized, attrs) {
+            origRec.call(child, content, finalized, attrs);
+            applyTableState();
+          };
+        }
+        applyTableState();
+      };
+      tbodyEl.appendChild = function (child) { var r = origAppend.call(tbodyEl, child); onRowArrived(child); return r; };
+      tbodyEl.insertBefore = function (child, ref) { var r = origInsert.call(tbodyEl, child, ref); onRowArrived(child); return r; };
+    }
+
+    // —— 分页条：挂到表尾（wrapper 内 table 之后）——
+    if (cfg.pagination && !state.pager && table.parentNode) {
+      var pager = el('div', { class: 'tokui-table__pager', role: 'navigation', 'aria-label': _t('pagination.aria') });
+      table.parentNode.appendChild(pager);
+      state.pager = pager;
+    }
+
+    applyTableState();
+  }
+
   // === 表格容器 ===
   renderer.register('table', (node, rc) => {
     const attrs = { class: 'tokui-table', role: 'table' };
@@ -178,12 +423,29 @@ function registerTableComponents(renderer) {
     // 记录当前 table 元素：thead 渲染器据此设响应式 min-width（流式下 thead 到达时才有列数）
     _lastTableEl = table;
 
+    // 客户端排序/筛选/分页配置（声明式开启，默认全关）。
+    // 注：pagination 未入 parser BOOLEAN_ATTRS（parser 不在本次改动范围），
+    // 裸写 [table pagination] 会漏进 content，故兼容 content 兜底识别。
+    var _pgOn = node.attrs.pagination !== undefined
+      || (typeof node.content === 'string' && /(?:^|\s)pagination(?:\s|$)/.test(node.content));
+    if (node.attrs.sortable !== undefined || node.attrs.filter !== undefined || _pgOn) {
+      var _ps = parseInt(node.attrs.ps, 10);
+      table._tokuiDataCfg = {
+        sortable: node.attrs.sortable !== undefined,
+        filter: node.attrs.filter !== undefined,
+        pagination: !!_pgOn,
+        pageSize: _ps > 0 ? _ps : 10
+      };
+      table._tokuiReport = renderer.createReporter('table', node.attrs, wrapper);
+    }
+
     rc(node.children).forEach(child => {
       if (child && child.nodeType) table.appendChild(child);
     });
     wrapper.appendChild(table);
     wrapper._slot = table;
     wrapper._tokuiType = 'table';
+    enhanceTable(table);
     return wrapper;
   });
 
@@ -271,6 +533,7 @@ function registerTableComponents(renderer) {
 
     thead._slot = thead.lastChild || thead;
     thead._tokuiType = 'thead';
+    enhanceTable(_lastTableEl, 'thead', thead);
     return thead;
   });
 
@@ -325,6 +588,7 @@ function registerTableComponents(renderer) {
     });
     tbody._slot = tbody;
     tbody._tokuiType = 'tbody';
+    enhanceTable(_lastTableEl, 'tbody', tbody);
     return tbody;
   });
 

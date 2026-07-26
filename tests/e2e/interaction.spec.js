@@ -56,10 +56,14 @@ test('demo-interaction 交互回路全链路', async ({ page }) => {
   await expect(page.locator('.msg--system').last()).toContainText('"value": true');
 
   // --- chat-input streaming：停止钮可见/发送钮隐藏，点击上报 stop ---
-  const stopBtn = page.locator('.tokui-chat-input__stop');
-  await expect(stopBtn).toBeVisible();
-  await expect(page.locator('.tokui-chat-input__send')).toBeHidden();
-  await stopBtn.click();
+  // 限定 --streaming 容器：页面另有 mention 演示的第二个 chat-input。
+  // JS 点击：演示页动效下 Playwright 稳定性检查（stable）可能长等
+  const streamingInput = page.locator('.tokui-chat-input--streaming');
+  await expect(streamingInput.locator('.tokui-chat-input__stop')).toBeVisible();
+  await expect(streamingInput.locator('.tokui-chat-input__send')).toBeHidden();
+  await page.evaluate(() => {
+    document.querySelector('.tokui-chat-input--streaming .tokui-chat-input__stop').click();
+  });
   await expect(page.locator('.msg--system').last()).toContainText('停止生成');
 
   // --- dialog：打开 → × 关闭 → close 事件上报 ---

@@ -175,6 +175,64 @@ function debounce(fn, ms) {
 }
 
 /**
+ * DSL 校验规则求值（rule:"required|email|len:8|min:2|max:10|re:^...$"）
+ * 按序求值，返回首个失败规则 { name, n }，全部通过返回 null。
+ * 空值跳过非 required 规则（与 HTML5 同语义：空且非必填 = 合法）。
+ *
+ * @param {*} value - 字段值
+ * @param {string} ruleStr - 管道分隔规则串
+ * @returns {{name: string, n?: number}|null}
+ */
+function evaluateRules(value, ruleStr) {
+  var v = String(value == null ? '' : value);
+  var empty = v.trim() === '';
+  var rules = String(ruleStr || '').split('|').map(function (s) { return s.trim(); }).filter(Boolean);
+  for (var i = 0; i < rules.length; i++) {
+    var rule = rules[i];
+    var colon = rule.indexOf(':');
+    var name = colon === -1 ? rule : rule.slice(0, colon);
+    var arg = colon === -1 ? '' : rule.slice(colon + 1);
+    if (empty && name !== 'required') continue;
+    switch (name) {
+      case 'required':
+        if (empty) return { name: 'required' };
+        break;
+      case 'email':
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return { name: 'email' };
+        break;
+      case 'url':
+        if (!/^https?:\/\/\S+$/.test(v)) return { name: 'url' };
+        break;
+      case 'number':
+        if (isNaN(Number(v))) return { name: 'number' };
+        break;
+      case 'len': {
+        var ln = parseInt(arg, 10);
+        if (ln > 0 && v.length !== ln) return { name: 'len', n: ln };
+        break;
+      }
+      case 'min': {
+        var mn = parseInt(arg, 10);
+        if (mn > 0 && v.length < mn) return { name: 'min', n: mn };
+        break;
+      }
+      case 'max': {
+        var mx = parseInt(arg, 10);
+        if (mx > 0 && v.length > mx) return { name: 'max', n: mx };
+        break;
+      }
+      case 're':
+        try { if (arg && !(new RegExp(arg)).test(v)) return { name: 're' }; }
+        catch (e) { console.warn('TokUI: 非法校验正则 "' + arg + '"，已跳过'); }
+        break;
+      default:
+        console.warn('TokUI: 未知校验规则 "' + name + '"，已跳过');
+    }
+  }
+  return null;
+}
+
+/**
  * 组件变体白名单
  * key = 组件类型, value = 允许的变体名 Set
  * DSL: v:variant1,variant2 → CSS: tokui-{type}--{variant}
@@ -800,6 +858,37 @@ class TokUIRenderer {
   }
 
   /**
+   * DSL 规则校验闸门：扫描 form 内带 data-tokui-rule 的字段容器，
+   * 调组件自实现的 _tokuiValidate()（读值 + 规则求值 + 错误态绘制），
+   * 首个失败字段聚焦。全部通过返回 true。
+   */
+  _validateRuleFields(form) {
+    if (!form || typeof form.querySelectorAll !== 'function') return true;
+    var firstBad = null;
+    form.querySelectorAll('[data-tokui-rule]').forEach(function (f) {
+      if (typeof f._tokuiValidate !== 'function') return;
+      var err = f._tokuiValidate();
+      if (err && !firstBad) firstBad = f;
+    });
+    if (firstBad) {
+      var focusable = firstBad.querySelector('input, textarea, select');
+      if (focusable && typeof focusable.focus === 'function') {
+        try { focusable.focus(); } catch (e) { /* noop */ }
+      }
+    }
+    return !firstBad;
+  }
+
+  /**
+   * 提交前统一校验：DSL 规则优先（错误提示更具体），原生校验兜底。
+   * submit 三条路径（form 原生提交 / submit 按钮 / form 外提交按钮）共用。
+   */
+  _checkFormValidity(form) {
+    if (!this._validateRuleFields(form)) return false;
+    return this._reportValidity(form);
+  }
+
+  /**
    * 从 DOM 元素获取其 TokUI 组件类型
    * 优先读取 _tokuiType 标记，其次从 CSS 类名中提取。
    */
@@ -875,7 +964,7 @@ class TokUIRenderer {
         e.preventDefault();
         // 提交按钮在 form 外：用附近 form 的 sub handler 处理
         if (nearbyFormForSubmit) {
-          if (!self._reportValidity(nearbyFormForSubmit)) return;
+          if (!self._checkFormValidity(nearbyFormForSubmit)) return;
           const subName = nearbyFormForSubmit.getAttribute('data-tokui-sub');
           const handler = subName ? self.eventBus.getHandler(subName) : null;
           if (handler) {
@@ -891,8 +980,8 @@ class TokUIRenderer {
             const formId = element.getAttribute('data-tokui-form');
             if (formId) form = resolveTargetForm(element, formId);
           }
-          // submit 型按钮提交前过原生校验（普通 clk 按钮不触发）
-          if (form && element.getAttribute('type') === 'submit' && !self._reportValidity(form)) return;
+          // submit 型按钮提交前过统一校验（DSL 规则 + 原生；普通 clk 按钮不触发）
+          if (form && element.getAttribute('type') === 'submit' && !self._checkFormValidity(form)) return;
           const data = form ? self._collectFormData(form) : null;
           handler(data, e, element);
         } else {
@@ -914,7 +1003,7 @@ class TokUIRenderer {
       if (!handlerName) return;
       var submitFn = function (e) {
         e.preventDefault();
-        if (!self._reportValidity(form)) return;
+        if (!self._checkFormValidity(form)) return;
         const handler = self.eventBus.getHandler(handlerName);
         if (handler) {
           const data = self._collectFormData(form);
@@ -984,7 +1073,7 @@ class TokUIRenderer {
       }
       return;
     }
-    if (!this._reportValidity(form)) return;
+    if (!this._checkFormValidity(form)) return;
     // 按钮未指名 handler 时回退到表单自身的 sub/clk（[form sub:H] + [btn t:submit] 组合）
     if (!handlerName) handlerName = form.getAttribute('data-tokui-sub') || form.getAttribute('data-tokui-clk');
     if (handlerName) {
@@ -1112,7 +1201,8 @@ if (typeof window !== 'undefined') {
   window.TokUI._internal.broadcastTokuiReset = broadcastTokuiReset;
   window.TokUI._internal.parseOnSpec = parseOnSpec;
   window.TokUI._internal.debounce = debounce;
+  window.TokUI._internal.evaluateRules = evaluateRules;
 }
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { el, TokUIRenderer, VARIANTS, resolveButtonAction, resolveTargetForm, resolvePrintScope, broadcastTokuiReset, parseOnSpec, debounce };
+  module.exports = { el, TokUIRenderer, VARIANTS, resolveButtonAction, resolveTargetForm, resolvePrintScope, broadcastTokuiReset, parseOnSpec, debounce, evaluateRules };
 }

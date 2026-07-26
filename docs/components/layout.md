@@ -179,10 +179,13 @@
 | `leaf` | 叶节点 | `tn` | `leaf` |
 | `open` | 默认展开 | `tn` | `open` |
 | `chk` / `dis` | 选中 / 禁用 | `tn` | `chk` |
+| `load` | 懒加载数据 handler | `tn` | `load:loadChildren` |
 
 <Playground dsl='[tree l:项目结构][tn tx:src open][tn tx:components leaf][tn tx:core leaf][tn tx:styles leaf][/tn][tn tx:tests open][tn tx:test-parser.js leaf][tn tx:test-renderer.js leaf][/tn][tn tx:package.json leaf][/tree]' />
 
 > **选中与复选上报**：声明 `on:"change:h"` 后选中节点上报 `{value, id}`；复选框模式（`chk`）下声明 `on:"check:h"`，复选变化上报 `{value: 选中值数组}`。
+
+> **懒加载（load）**：`tn` 声明 `load:数据handler名` 后，首次展开该节点调用 `fn({id, value})`（返回子节点对象数组或 Promise），展开时显示 loading 态；已加载的节点不重复请求，返回的子节点可继续带 `load` 递归懒加载。加载完成上报 `load` 事件 `{value, count}`。
 
 ## 菜单 `menu` / `menu-item`
 
@@ -239,8 +242,12 @@
 | `h` | 高度 | `h:160` |
 | `w` | 宽度 | `w:100%` |
 | `id` | 标识 | `id:myScroll` |
+| `virtual` | 虚拟滚动（均匀行高模式） | `virtual` |
+| `ih` | 行高（px，默认 36） | `ih:40` |
 
 <Playground dsl='[scroll-area h:180][p 第一段：滚动区域内可放任意长内容，超出部分出现自定义滚动条。][p 第二段：固定高度 180px，自动纵向滚动。][p 第三段：常用于侧边栏长列表、聊天记录区、日志面板。][p 第四段：配合 row/col 可做多栏滚动。][p 第五段：滚动到底部。][/scroll-area]' />
+
+> **虚拟滚动与触底加载**：`virtual` 仅把可视窗口 + buffer 的行挂入 DOM（均匀行高模式，不等高行不适用）；滚动到 80% 阈值触底时上报 `loadmore` 事件（`on:"loadmore:h"`，detail `{}`）——长列表 / 对话历史加载更多用。
 
 ## 侧边栏 `sidebar`
 
