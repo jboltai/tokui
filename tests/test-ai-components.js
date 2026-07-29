@@ -4,6 +4,7 @@ const { setupDOM, teardownDOM } = require('./helpers/dom-mock');
 setupDOM();
 
 const { TokUIRenderer } = require('../src/core/renderer');
+const { TokUIParser } = require('../src/core/parser');
 const { registerBasicComponents } = require('../src/components/basic');
 
 const tests = [];
@@ -179,6 +180,71 @@ test('diff line numbers increment correctly', () => {
   assert.strictEqual(String(nums[0].textContent), '1'); // old line 1
   assert.strictEqual(String(nums[1].textContent), '1'); // new line 1
   assert.strictEqual(String(nums[2].textContent), '2'); // old+new line 2
+});
+
+// diff 行序列序列化（class|行号|代码文本），供流式 vs 一次性渲染结构比对
+function serializeDiff(dom) {
+  var lines = dom.querySelectorAll('.tokui-diff__line');
+  var out = [];
+  for (var i = 0; i < lines.length; i++) {
+    out.push(lines[i].className + '|' +
+      lines[i].querySelector('.tokui-diff__num').textContent + '|' +
+      lines[i].querySelector('.tokui-diff__code').textContent);
+  }
+  return out.join('\n');
+}
+
+test('diff 流式多 chunk feed → 行渐增、首行 class、末行生长', () => {
+  const rc = makeRenderer();
+  const root = document.createElement('div');
+  const parser = new TokUIParser((n) => rc.mountStreaming(n, root), { streaming: true });
+  parser.startStream();
+  parser.feed('[diff]');
+  parser.feed('- old li');
+  parser.feed('ne\n+ new line\n');
+  parser.feed('  context');
+  var contentEl = root.querySelector('.tokui-diff__content');
+  var lines = contentEl.querySelectorAll('.tokui-diff__line');
+  assert.strictEqual(lines.length, 3, '两个 \\n → 2 冻结行 + 1 生长行');
+  assert.ok(lines[0].className.indexOf('tokui-diff__line--remove') !== -1, '首行 remove class');
+  assert.strictEqual(lines[0].querySelector('.tokui-diff__code').textContent, '- old line');
+  assert.ok(lines[1].className.indexOf('tokui-diff__line--add') !== -1, '次行 add class');
+  // 末行是生长行，文本随 chunk 原地增长，不新增行
+  assert.strictEqual(lines[2].querySelector('.tokui-diff__code').textContent, '  context');
+  var frozenFirst = lines[0];
+  parser.feed(' tail');
+  lines = contentEl.querySelectorAll('.tokui-diff__line');
+  assert.strictEqual(lines.length, 3, '无 \\n 不新增行');
+  assert.strictEqual(lines[2].querySelector('.tokui-diff__code').textContent, '  context tail');
+  // 已冻结行元素不被重建（纯 append 增量的核心断言）
+  assert.strictEqual(lines[0], frozenFirst, '冻结行元素引用不变');
+  parser.feed('\n+ another');
+  lines = contentEl.querySelectorAll('.tokui-diff__line');
+  assert.strictEqual(lines.length, 4, '新 \\n 冻结一行，新增生长行');
+  assert.strictEqual(lines[0], frozenFirst, '冻结行仍不被触碰');
+  parser.endStream();
+});
+
+test('diff 流式 close 后 DOM 与一次性渲染完全一致', () => {
+  const raw = '- removed\n+ added\n  same\n+ added2';
+  // 一次性渲染
+  const oneShot = makeRenderer().render({ type: 'diff', attrs: {}, content: raw, children: [] });
+  // 流式渲染（碎片 chunk + close 收尾）
+  const rc = makeRenderer();
+  const root = document.createElement('div');
+  const parser = new TokUIParser((n) => rc.mountStreaming(n, root), { streaming: true });
+  parser.startStream();
+  parser.feed('[diff]');
+  parser.feed('- remo');
+  parser.feed('ved\n+ ad');
+  parser.feed('ded\n  same\n');
+  parser.feed('+ added2');
+  parser.feed('[/diff]');
+  parser.endStream();
+  const streamed = root.querySelector('.tokui-diff');
+  assert.ok(streamed, '流式 diff 应渲染');
+  assert.strictEqual(serializeDiff(streamed), serializeDiff(oneShot),
+    'close 后行数/class/行号/文本与一次性渲染逐字节一致');
 });
 
 // =============================================

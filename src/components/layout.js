@@ -889,12 +889,25 @@ function registerLayoutComponents(renderer) {
 
   // 监听 desc 子项增减（流式逐 item 追加），每次重算末行边框；wrapper 卸载自断开。
   // 同步首标（计数法立即正确）+ rAF/observer 测量精修（span/动态 cols）。
+  // observer 回调 rAF 合帧：流式逐 item 到达一帧多次变化只测一次（无 rAF 同步兜底，与项目降级一致）。
   function _watchDescRows(wrapper) {
     _markDescLastRow(wrapper); // 同步首次：计数法兜底，渲染返回时即可正确（不等布局）
     if (typeof MutationObserver === 'undefined') return;
+    var markScheduled = false;
+    function scheduleMark() {
+      if (markScheduled) return;
+      markScheduled = true;
+      var run = (typeof requestAnimationFrame === 'function')
+        ? requestAnimationFrame
+        : function (fn) { fn(); };
+      run(function () {
+        markScheduled = false;
+        if (wrapper.isConnected) _markDescLastRow(wrapper);
+      });
+    }
     var obs = new MutationObserver(function () {
       if (!wrapper.isConnected) { obs.disconnect(); return; }
-      _markDescLastRow(wrapper);
+      scheduleMark();
     });
     obs.observe(wrapper, { childList: true });
     if (typeof requestAnimationFrame === 'function') {
@@ -1199,28 +1212,40 @@ function registerLayoutComponents(renderer) {
       // 拖动/滑动切换
       var dragStartX = 0;
       var dragDelta = 0;
+      var dragWidth = 0;   // 拖拽起点缓存的 wrapper 宽（拖拽全程恒定，move 不再读 offsetWidth）
       var isDragging = false;
+      var moveRaf = 0;     // rAF 合帧：多次 mousemove 合并为每帧一次 transform 写
+      var pendingX = null;
+      var dragRaf = (typeof window !== 'undefined' && window.requestAnimationFrame)
+        ? function(cb) { window.requestAnimationFrame(cb); }
+        : function(cb) { cb(); }; // 无 rAF 环境同步兜底（与项目既有降级一致）
 
-      track.addEventListener('mousedown', function(e) {
+      function applyMove(clientX) {
+        dragDelta = clientX - dragStartX;
+        var offset = -(currentIndex * dragWidth) + dragDelta;
+        track.style.transform = 'translateX(' + offset + 'px)';
+      }
+      function onDragStart(clientX) {
         isDragging = true;
-        dragStartX = e.clientX;
+        dragStartX = clientX;
         dragDelta = 0;
+        pendingX = null;
+        dragWidth = wrapper.offsetWidth; // 每次拖拽开始读一次（resize 后首次拖拽自然刷新）
         track.style.transition = 'none';
         resetAuto();
-      });
-      track.addEventListener('touchstart', function(e) {
-        isDragging = true;
-        dragStartX = e.touches[0].clientX;
-        dragDelta = 0;
-        track.style.transition = 'none';
-        resetAuto();
-      }, { passive: true });
+      }
+      track.addEventListener('mousedown', function(e) { onDragStart(e.clientX); });
+      track.addEventListener('touchstart', function(e) { onDragStart(e.touches[0].clientX); }, { passive: true });
 
       function onMove(clientX) {
         if (!isDragging) return;
-        dragDelta = clientX - dragStartX;
-        var offset = -(currentIndex * wrapper.offsetWidth) + dragDelta;
-        track.style.transform = 'translateX(' + offset + 'px)';
+        pendingX = clientX;
+        if (moveRaf) return;
+        moveRaf = 1;
+        dragRaf(function() {
+          moveRaf = 0;
+          if (isDragging && pendingX !== null) applyMove(pendingX);
+        });
       }
       if (typeof document !== 'undefined' && document.addEventListener) {
         document.addEventListener('mousemove', function(e) { onMove(e.clientX); });
@@ -1230,8 +1255,10 @@ function registerLayoutComponents(renderer) {
       function onEnd() {
         if (!isDragging) return;
         isDragging = false;
+        // flush：rAF 未执行的末帧位移先补上（dragDelta 是阈值判定依据，最终位移与现状一致）
+        if (pendingX !== null) { applyMove(pendingX); pendingX = null; }
         track.style.transition = '';
-        var threshold = wrapper.offsetWidth * 0.2;
+        var threshold = dragWidth * 0.2;
         if (dragDelta < -threshold) {
           goTo(currentIndex + 1, true);
         } else if (dragDelta > threshold) {

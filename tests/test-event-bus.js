@@ -141,4 +141,39 @@ test('registerHandler rejects dangerous names', () => {
   TokUIEventBus.clearAll();
 });
 
+// 测试：emit 按名触发 handler，签名 (data, event, element)，后两参为 null
+test('emit invokes registered handler with (data, null, null)', () => {
+  TokUIEventBus.clearAll();
+  let received = null;
+  TokUIEventBus.registerHandler('onEmit', function (data, event, element) {
+    received = { data, event, element };
+  });
+  TokUIEventBus.emit('onEmit', { ok: 1 });
+  assert.deepStrictEqual(received, { data: { ok: 1 }, event: null, element: null });
+  // 无 data 时第一参为 null
+  received = undefined;
+  TokUIEventBus.emit('onEmit');
+  assert.deepStrictEqual(received, { data: null, event: null, element: null });
+  TokUIEventBus.clearAll();
+});
+
+// 测试：emit 未注册名称不抛错（console.warn 是预期的），事件静默丢弃
+test('emit unknown name does not throw', () => {
+  TokUIEventBus.clearAll();
+  assert.doesNotThrow(() => {
+    TokUIEventBus.emit('neverRegistered');
+  });
+  TokUIEventBus.clearAll();
+});
+
+// 测试：emit 同样拒绝危险名称（注册即被拦，emit 找不到 handler）
+test('emit dangerous names are blocked at registration', () => {
+  TokUIEventBus.clearAll();
+  assert.doesNotThrow(() => {
+    TokUIEventBus.registerHandler('__proto__', () => {});
+    TokUIEventBus.emit('__proto__');
+  });
+  TokUIEventBus.clearAll();
+});
+
 run();

@@ -323,7 +323,7 @@ const I18N = {
   eventPanelClear: { zh: '清空', en: 'Clear' },
   editClicked:    { zh: '编辑按钮被点击', en: 'Edit button clicked' },
   deleteClicked:  { zh: '删除按钮被点击', en: 'Delete button clicked' },
-  footerVer:      { zh: '当前版本:v0.1.9', en: 'Version: v0.1.9' },
+  footerVer:      { zh: '当前版本:v0.2.0', en: 'Version: v0.2.0' },
   footerCopy:     { zh: '零依赖 · 流式UI描述与渲染框架', en: 'Zero Deps · Streaming UI Framework' },
   dslRef:         { zh: 'DSL 语法速查', en: 'DSL Syntax Ref' },
   clearBtn:       { zh: '清空', en: 'Clear' },
@@ -572,6 +572,35 @@ TokUI.registerHandler('p3TreeSource', (q) => {
 });
 TokUI.registerHandler('handleValid', (data) => addSystemMessage('校验通过', JSON.stringify(data, null, 2)));
 TokUI.registerHandler('handleDrawerForm', (data) => addSystemMessage('抽屉表单提交', JSON.stringify(data, null, 2)));
+
+// === Popconfirm 确认气泡（demo-popconfirm）handler：确认钮 clk 回显 ===
+[
+  ['confirmSubmit', '确认提交'], ['confirmRefresh', '确认刷新'],
+  ['confirmDelUser', '确认删除用户'], ['confirmClear', '确认清空数据'],
+  ['popTop', '确认（pos:top）'], ['popBottom', '确认（pos:bottom）'],
+  ['popLeft', '确认（pos:left）'], ['popRight', '确认（pos:right）'],
+  ['shipOrder', '确认发货'], ['delOrder', '确认删除订单'], ['restoreOrder', '确认恢复订单']
+].forEach(([name, label]) => {
+  TokUI.registerHandler(name, () => addSystemMessage('Popconfirm 确认', label));
+});
+
+// === Command 命令面板（demo-command）handler：命令项选中回显 ===
+[
+  ['newChat', '新建对话'], ['clearHistory', '清空历史'], ['exportChat', '导出对话'],
+  ['goHome', '回到首页'], ['goSettings', '用户设置'], ['goHelp', '帮助中心'],
+  ['toggleTheme', '切换主题'], ['toggleLang', '切换语言'], ['toggleFullscreen', '全屏模式'],
+  ['toolTerminal', '终端'], ['toolSearch', '文件搜索'], ['toolGit', 'Git 管理']
+].forEach(([name, label]) => {
+  TokUI.registerHandler(name, () => addSystemMessage('Command 选中', label));
+});
+
+// === Conversations 会话列表（demo-conversations）handler：会话选中回显 ===
+TokUI.registerHandler('onConvSelect', (data) => addSystemMessage('会话选中', JSON.stringify(data || {}, null, 2)));
+
+// === Command 根级回调（demo-command 根级案例）+ 项目面板命令项 ===
+TokUI.registerHandler('cmdRootSelect', (data) => addSystemMessage('Command 根级回调', JSON.stringify(data || {}, null, 2)));
+TokUI.registerHandler('newProject', () => addSystemMessage('Command 选中', '新建项目'));
+TokUI.registerHandler('moreSettings', () => addSystemMessage('Command 选中', '项目设置'));
 
 // === 交互回路（demo-interaction）handler：on:"事件:处理器" 上报在此回显 ===
 TokUI.registerHandler('iaApproval', (data) => addSystemMessage('HITL 审批结果', JSON.stringify(data, null, 2)));

@@ -264,7 +264,7 @@ resizable canvas canvas-content chart p
 | `latency` | 自闭合 | `v` `t` | 延迟指标。`t:thinking`/`generating`/`total` |
 | `video` | 自闭合 | `s` `poster` `ratio` `w` `h` `fit` | 视频。`ratio:16:9`/`4:3`/`1:1`/`21:9`；`fit:cover`/`contain`/`fill`；poster 与画面共用同一比例盒 |
 | `audio` | 自闭合 | `s` `tt` `duration` `w` | 音频播放器 |
-| `conversations` | 容器 | `clk` `act` | 会话列表；子项 `conv`；按 `time` 自动分组 今天/昨天/更早 |
+| `conversations` | 容器 | `clk` `act` | 会话列表；子项 `conv`；按 `time` 自动分组 今天/昨天/更早。`clk` 选中回调 emit `{tt, time, act}`（流式同样生效） |
 | `conv` | 自闭合 | `tt` `time` `active` `act` | 会话项 |
 | `welcome` | 容器 | `tt` `st` `bd` `hd` `ft` | 欢迎页。`st` 副标题、`bd` 能力徽标（逗号）、`hd` 卡分区标题、`ft` 页脚引导语；子项 `welcome-feature`/`feature` |
 | `welcome-feature` / `feature` | 容器/自闭合 | `tt` `tx` `i` `clk` | 欢迎特性卡片。`i:code`/`chart`/`doc`/`dashboard`/`print`/`chat`/`table`/`form`；推荐简写 `feature`（自闭合） |
@@ -273,9 +273,9 @@ resizable canvas canvas-content chart p
 | `artifact` | 容器 | `tt` `lang` `pos` `w` | Artifact 侧边预览。`pos:left`/`right`，`w` 百分比；子项 `artifact-code` + `artifact-preview` |
 | `artifact-code` | 容器·原始 | — | Artifact 代码槽 |
 | `artifact-preview` | 容器 | — | Artifact 预览槽 |
-| `command` | 容器 | `ph` `clk` `id` `hotkey` | 命令面板。`hotkey` 启用 Cmd/Ctrl+K（页面只应一个）；按钮唤起 `clk:openCommand data-target:"<id>"`；子项 `command-group` |
+| `command` | 容器 | `ph` `clk` `id` `hotkey` | 命令面板。`hotkey` 启用 Cmd/Ctrl+K（页面只应一个）；按钮唤起 `clk:openCommand data-target:"<id>"`；子项 `command-group`。选中项时根 `clk` 回调 emit `{value, text, clk}`；点面板空白不触发 |
 | `command-group` | 容器 | `tt` | 命令分组；子项 `command-item` 或 `item`（等价，推荐 `item`） |
-| `command-item` | 自闭合 | `tx` `v` `clk` `shortcut` | 命令项；推荐改用 `item`（command-group 内行为一致） |
+| `command-item` | 自闭合 | `tx` `v` `clk` `shortcut` | 命令项，`clk` 选中回调 emit `{value, text}`；推荐改用 `item`（command-group 内行为一致） |
 | `canvas` | 容器 | `tt` `pos` `w` `tx` `open` `closable` | 画布面板。`pos:left`/`right`，`w` px；子项 `canvas-content` |
 | `canvas-content` | 容器 | — | 画布内容（透传） |
 

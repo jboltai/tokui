@@ -351,6 +351,7 @@ A back-to-top button that appears after a page or container scrolls past a thres
 | `shortcut` | Shortcut hint | `item` / `command-item` | `shortcut:⌘N` |
 
 > The palette is hidden by default and triggered by a button: the trigger uses `clk:openCommand data-target:"<the command's id>"`, and the matching `[command id:...]` carries the same id. Use `hotkey` to opt into `Cmd/Ctrl+K` (only one hotkey instance per page).
+> When an item is selected: the item-level `clk` handler receives `{ value, text }`; if the `command` root also has `clk`, a root-level callback fires with `{ value, text, clk }` (`clk` = the item's handler name). Clicking the panel backdrop / search box fires nothing.
 
 <Playground dsl='[btn tx:⌘ 打开命令面板 clk:openCommand data-target:demoCmd v:primary][command ph:输入命令或搜索... clk:onCommand id:demoCmd][command-group tt:常用操作][item tx:新建文件 clk:cmdNew shortcut:⌘N][item tx:打开项目 clk:cmdOpen shortcut:⌘O][item tx:搜索替换 clk:cmdSearch shortcut:⌘F][/command-group][command-group tt:导航][item tx:跳到行 clk:cmdGoto][item tx:切换主题 clk:cmdTheme][/command-group][/command]' />
 

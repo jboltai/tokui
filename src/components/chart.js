@@ -131,6 +131,50 @@ function bandHeight(w, h, maxRatio, hCap) {
 
 // === Tooltip 顶层系统 ===
 
+// tooltip 行宽估算（中文 10 / 西文 5.5），createTipMgr 与流式增量 append 共用
+function tipLineW(str) {
+  var w = 0;
+  for (var i = 0; i < str.length; i++) {
+    w += (str.charCodeAt(i) > 127) ? 10 : 5.5;
+  }
+  return w;
+}
+
+// 向 tips 层追加一条 tooltip（createTipMgr.add 与流式增量 append 共用同一构造，保证同属性）
+function appendTipToLayer(layer, svgW, svgH, id, group, text, x, y) {
+  group.setAttribute('data-tip-id', id);
+  var lines = text.split('  ');
+  var lineH = 14, padX = 8, padY = 4;
+  var maxLW = 0;
+  lines.forEach(function (l) { maxLW = Math.max(maxLW, tipLineW(l)); });
+  var tw = maxLW + padX * 2;
+  var th = lines.length * lineH + padY * 2;
+  var rx = x - tw / 2;
+  var ry = y - th - 6;
+  if (rx < 2) rx = 2;
+  if (rx + tw > svgW - 2) rx = svgW - tw - 2;
+  if (ry < 2) ry = y + 10;
+  if (ry + th > svgH - 2) ry = svgH - th - 2;
+  var tipG = svgEl('g', { class: 'tokui-chart-tip', 'data-tip-id': id });
+  // 锚点（数据点坐标）：挂载后整组 transform 缩放时围绕它，rect+text 同步缩、不错位。
+  tipG.setAttribute('data-tx', x);
+  tipG.setAttribute('data-ty', y);
+  tipG.appendChild(svgEl('rect', {
+    x: rx, y: ry, width: tw, height: th,
+    rx: 4, fill: 'rgba(0,0,0,0.78)'
+  }));
+  lines.forEach(function (line, li) {
+    var t = svgEl('text', {
+      x: rx + tw / 2, y: ry + padY + (li + 0.5) * lineH,
+      'text-anchor': 'middle', 'dominant-baseline': 'central',
+      fill: '#fff', 'font-size': '10'
+    });
+    t.textContent = line;
+    tipG.appendChild(t);
+  });
+  layer.appendChild(tipG);
+}
+
 /**
  * 创建 tooltip 管理器（所有 tooltip 放独立层，渲染在 SVG 最上层）
  * svgW/svgH: SVG 尺寸，用于边界 clamp
@@ -138,87 +182,56 @@ function bandHeight(w, h, maxRatio, hCap) {
 function createTipMgr(svgW, svgH) {
   var idx = 0;
   var layer = svgEl('g', { class: 'tokui-chart-tips-layer' });
-  function lineW(str) {
-    var w = 0;
-    for (var i = 0; i < str.length; i++) {
-      w += (str.charCodeAt(i) > 127) ? 10 : 5.5;
-    }
-    return w;
-  }
   return {
     layer: layer,
     add: function (group, text, x, y) {
-      var id = String(idx++);
-      group.setAttribute('data-tip-id', id);
-      var lines = text.split('  ');
-      var lineH = 14, padX = 8, padY = 4;
-      var maxLW = 0;
-      lines.forEach(function (l) { maxLW = Math.max(maxLW, lineW(l)); });
-      var tw = maxLW + padX * 2;
-      var th = lines.length * lineH + padY * 2;
-      var rx = x - tw / 2;
-      var ry = y - th - 6;
-      if (rx < 2) rx = 2;
-      if (rx + tw > svgW - 2) rx = svgW - tw - 2;
-      if (ry < 2) ry = y + 10;
-      if (ry + th > svgH - 2) ry = svgH - th - 2;
-      var tipG = svgEl('g', { class: 'tokui-chart-tip', 'data-tip-id': id });
-      // 锚点（数据点坐标）：挂载后整组 transform 缩放时围绕它，rect+text 同步缩、不错位。
-      tipG.setAttribute('data-tx', x);
-      tipG.setAttribute('data-ty', y);
-      tipG.appendChild(svgEl('rect', {
-        x: rx, y: ry, width: tw, height: th,
-        rx: 4, fill: 'rgba(0,0,0,0.78)'
-      }));
-      lines.forEach(function (line, li) {
-        var t = svgEl('text', {
-          x: rx + tw / 2, y: ry + padY + (li + 0.5) * lineH,
-          'text-anchor': 'middle', 'dominant-baseline': 'central',
-          fill: '#fff', 'font-size': '10'
-        });
-        t.textContent = line;
-        tipG.appendChild(t);
-      });
-      layer.appendChild(tipG);
+      appendTipToLayer(layer, svgW, svgH, String(idx++), group, text, x, y);
     }
   };
 }
 
-/**
- * 绑定 hover 事件：tip-group enter/leave → 控制顶层 tooltip 显隐
- */
-function bindTooltips(svg) {
-  var groups = svg.querySelectorAll('.tokui-chart-tip-group');
-  groups.forEach(function (g) {
-    g.addEventListener('mouseenter', function () {
-      var id = g.getAttribute('data-tip-id');
-      var tip = svg.querySelector('.tokui-chart-tips-layer [data-tip-id="' + id + '"]');
-      if (tip) tip.style.opacity = '1';
-    });
-    g.addEventListener('mouseleave', function () {
-      var id = g.getAttribute('data-tip-id');
-      var tip = svg.querySelector('.tokui-chart-tips-layer [data-tip-id="' + id + '"]');
-      if (tip) tip.style.opacity = '';
-    });
-  });
+// 按 data-tip-id 在 tips 层找 tooltip（不用后代选择器：dom-mock 不支持，逐子节点比对最稳）
+function findTipById(svg, id) {
+  var layer = svg.querySelector('.tokui-chart-tips-layer');
+  if (!layer) return null;
+  for (var i = 0; i < layer.childNodes.length; i++) {
+    var c = layer.childNodes[i];
+    if (c.getAttribute && c.getAttribute('data-tip-id') === id) return c;
+  }
+  return null;
 }
 
-// 局部（容器内）绑定 tooltip hover，跳过已绑节点（data-tip-bound）。
-// dataZoom redraw 后 plotG 内柱重建，需重绑 hover；guard 防与 bindTooltips 重复绑。
-function bindTipsScoped(container, svg) {
-  var gs = container.querySelectorAll('.tokui-chart-tip-group:not([data-tip-bound])');
-  gs.forEach(function (g) {
-    g.setAttribute('data-tip-bound', '1');
-    g.addEventListener('mouseenter', function () {
-      var id = g.getAttribute('data-tip-id');
-      var tip = svg.querySelector('.tokui-chart-tips-layer [data-tip-id="' + id + '"]');
-      if (tip) tip.style.opacity = '1';
-    });
-    g.addEventListener('mouseleave', function () {
-      var id = g.getAttribute('data-tip-id');
-      var tip = svg.querySelector('.tokui-chart-tips-layer [data-tip-id="' + id + '"]');
-      if (tip) tip.style.opacity = '';
-    });
+/**
+ * 绑定 hover tooltip：事件委托替代逐 tip-group 绑 mouseenter/mouseleave。
+ * mouseover/mouseout 可冒泡（mouseenter 不可），委托绑在 svg 上一次（_tokuiTipsDelegated 守卫）：
+ *   - 全量 redraw 换新 svg → 渲染器构建时调用本函数即绑好（每次仅 2 个监听器，与点数无关）；
+ *   - dataZoom 只重建 svg 内部柱/点 → 委托天然覆盖，无需重绑（取代原 bindTipsScoped）。
+ * relatedTarget 仍在同 group 内 → 子元素间移动不重复触发（等价 mouseenter/leave 语义）。
+ */
+function bindTooltips(svg) {
+  if (svg._tokuiTipsDelegated) return;
+  svg._tokuiTipsDelegated = true;
+  function findGroup(node) {
+    while (node && node !== svg) {
+      // SVG 元素 className 是 SVGAnimatedString，须用 getAttribute('class') 判
+      if (node.getAttribute && (node.getAttribute('class') || '').indexOf('tokui-chart-tip-group') !== -1) return node;
+      node = node.parentNode;
+    }
+    return null;
+  }
+  function setTip(g, on) {
+    var tip = findTipById(svg, g.getAttribute('data-tip-id'));
+    if (tip) tip.style.opacity = on ? '1' : '';
+  }
+  svg.addEventListener('mouseover', function (e) {
+    var g = findGroup(e.target);
+    if (!g || findGroup(e.relatedTarget) === g) return;
+    setTip(g, true);
+  });
+  svg.addEventListener('mouseout', function (e) {
+    var g = findGroup(e.target);
+    if (!g || findGroup(e.relatedTarget) === g) return;
+    setTip(g, false);
   });
 }
 
@@ -1068,7 +1081,7 @@ function renderBar(data, labels, colors, attrs) {
       for (var k = 0; k < wn; k++) positions.push(padL + k * gw + gw / 2);
       appendXLabels(plotG, labels.slice(s, e + 1), positions, xLabelBaseY(h, padB, xl.rotate, !!attrs.xl), gw, xl.rotate, xl.interval);
       bumpZoomTextFs(plotG, svg); // 重建标签/vals 回基础字号 → 抬回保底字号（防 zoom 后字变小）
-      if (withTips && zoomOn) bindTipsScoped(plotG, svg); // zoom redraw 后重绑 hover；非 zoom 交 footer bindTooltips
+      // zoom redraw 重建的柱/点由 svg 级事件委托自动覆盖，无需重绑 hover
     }
     drawWindow(0, n - 1, true);
     // 池化柱 hover 绑定（一次）：按 winState 动态映射算 tooltip 文本 + 定位
@@ -1197,7 +1210,9 @@ function renderBar(data, labels, colors, attrs) {
     appendLegend(svg, legendEntries, w, h + 6);
   }
   svg.appendChild(tips.layer);
-  if (!zoomOn) bindTooltips(svg); // zoom 模式 plotG 内柱由 bindTipsScoped 重绑（redraw 后）
+  // 事件委托（mouseover/mouseout）：zoom/非 zoom 都绑——委托在 svg 上一次，
+  // zoom redraw 重建 plotG 内柱无需重绑（取代原 zoom 路径的 bindTipsScoped）
+  bindTooltips(svg);
   return svg;
 }
 
@@ -1831,6 +1846,22 @@ function renderRadar(data, labels, colors, attrs) {
 
 // === Scatter 散点图 ===
 
+// 单个散点构造（renderScatter 全量与流式增量 append 共用，保证同坐标同属性同 class）。
+// geom: { padL, padT, cw, ch, xMin, xRange, yMin, yRange, colors, xLabel, yLabel }
+// addTip(group, text, x, y)：全量 = tips.add；增量 = 续号 appendTipToLayer。
+// 返回 [tipGroup, valTxt]（与全量渲染的 append 顺序一致）。
+function scatterPointEls(p, i, geom, addTip) {
+  var px = geom.padL + ((p.x - geom.xMin) / geom.xRange) * geom.cw;
+  var py = geom.padT + geom.ch * (1 - (p.y - geom.yMin) / geom.yRange);
+  var g = svgEl('g', { class: 'tokui-chart-tip-group' });
+  g.appendChild(svgEl('circle', { cx: px, cy: py, r: 8, fill: 'transparent', stroke: 'none' }));
+  g.appendChild(svgEl('circle', { cx: px, cy: py, r: 5, fill: geom.colors[i % geom.colors.length], opacity: '0.7', class: 'tokui-chart-point' }));
+  addTip(g, geom.xLabel + ': ' + p.x + '  ' + geom.yLabel + ': ' + p.y, px, py);
+  var valTxt = svgEl('text', { x: px + 6, y: py - 4, fill: 'var(--tokui-chart-text, #666)', 'font-size': '7' });
+  valTxt.textContent = p.x + ',' + p.y;
+  return [g, valTxt];
+}
+
 function renderScatter(data, labels, colors, attrs) {
   var points = parseScatterData(attrs.d);
   if (!points.length) return emptyChartSvg(parseInt(attrs.w) || 400, parseInt(attrs.h) || 200);
@@ -1858,18 +1889,12 @@ function renderScatter(data, labels, colors, attrs) {
     svg.appendChild(svgEl('line', { x1: padL, y1: gy, x2: w - padR, y2: gy, stroke: 'var(--tokui-chart-grid, #e8e8e8)', 'stroke-width': 1 }));
     svg.appendChild(svgEl('text', { x: padL - 4, y: gy + 4, 'text-anchor': 'end', fill: 'var(--tokui-chart-text, #999)', 'font-size': '9' })).textContent = Math.round(yMin + yRange * g / 4);
   }
-  // dots + values
+  // dots + values（per-point 构造与流式增量 append 共用 scatterPointEls）
+  var geom = { padL: padL, padT: padT, cw: cw, ch: ch, xMin: xMin, xRange: xRange, yMin: yMin, yRange: yRange, colors: colors, xLabel: xLabel, yLabel: yLabel };
   points.forEach(function (p, i) {
-    var px = padL + ((p.x - xMin) / xRange) * cw;
-    var py = padT + ch * (1 - (p.y - yMin) / yRange);
-    var g = svgEl('g', { class: 'tokui-chart-tip-group' });
-    g.appendChild(svgEl('circle', { cx: px, cy: py, r: 8, fill: 'transparent', stroke: 'none' }));
-    g.appendChild(svgEl('circle', { cx: px, cy: py, r: 5, fill: colors[i % colors.length], opacity: '0.7', class: 'tokui-chart-point' }));
-    tips.add(g, xLabel + ': ' + p.x + '  ' + yLabel + ': ' + p.y, px, py);
-    svg.appendChild(g);
-    var valTxt = svgEl('text', { x: px + 6, y: py - 4, fill: 'var(--tokui-chart-text, #666)', 'font-size': '7' });
-    valTxt.textContent = p.x + ',' + p.y;
-    svg.appendChild(valTxt);
+    var els = scatterPointEls(p, i, geom, tips.add);
+    svg.appendChild(els[0]);
+    svg.appendChild(els[1]);
   });
   svg.appendChild(tips.layer);
   bindTooltips(svg);
@@ -2253,6 +2278,21 @@ function parseBubbleData(d) {
     return { x: p[0] || 0, y: p[1] || 0, s: p[2] || 0 };
   });
 }
+// 单个气泡点构造（renderBubble 全量与流式增量 append 共用）。
+// geom 同 scatterPointEls，另需 sMax / attrs（tooltip 文案取 attrs.xl/yl/sl）。
+// 返回 tipGroup（bubble 无 valTxt）。
+function bubblePointEls(p, i, geom, addTip) {
+  var px = geom.padL + ((p.x - geom.xMin) / geom.xRange) * geom.cw;
+  var py = geom.padT + geom.ch * (1 - (p.y - geom.yMin) / geom.yRange);
+  var r = 4 + (p.s / geom.sMax) * 16;
+  var color = geom.colors[i % geom.colors.length];
+  var grp = svgEl('g', { class: 'tokui-chart-tip-group' });
+  grp.appendChild(svgEl('circle', { cx: px, cy: py, r: 8, fill: 'transparent' }));
+  grp.appendChild(svgEl('circle', { cx: px, cy: py, r: r, fill: color, opacity: '0.5', stroke: color, 'stroke-width': 1.5, class: 'tokui-chart-point' }));
+  addTip(grp, (geom.attrs.xl || 'X') + ': ' + p.x + '  ' + (geom.attrs.yl || 'Y') + ': ' + p.y + '  ' + (geom.attrs.sl || 'size') + ': ' + p.s, px, py);
+  return grp;
+}
+
 function renderBubble(data, labels, colors, attrs) {
   var points = parseBubbleData(attrs.d);
   if (!points.length) return emptyChartSvg(parseInt(attrs.w) || 400, parseInt(attrs.h) || 200);
@@ -2275,15 +2315,9 @@ function renderBubble(data, labels, colors, attrs) {
     svg.appendChild(svgEl('line', { x1: padL, y1: gy, x2: w - padR, y2: gy, stroke: 'var(--tokui-chart-grid, #e8e8e8)', 'stroke-width': 1 }));
     svg.appendChild(svgEl('text', { x: padL - 4, y: gy + 4, 'text-anchor': 'end', fill: 'var(--tokui-chart-text, #999)', 'font-size': '9' })).textContent = Math.round(yMin + yRange * g / 4);
   }
+  var geom = { padL: padL, padT: padT, cw: cw, ch: ch, xMin: xMin, xRange: xRange, yMin: yMin, yRange: yRange, sMax: sMax, colors: colors, attrs: attrs };
   points.forEach(function (p, i) {
-    var px = padL + ((p.x - xMin) / xRange) * cw;
-    var py = padT + ch * (1 - (p.y - yMin) / yRange);
-    var r = 4 + (p.s / sMax) * 16;
-    var grp = svgEl('g', { class: 'tokui-chart-tip-group' });
-    grp.appendChild(svgEl('circle', { cx: px, cy: py, r: 8, fill: 'transparent' }));
-    grp.appendChild(svgEl('circle', { cx: px, cy: py, r: r, fill: colors[i % colors.length], opacity: '0.5', stroke: colors[i % colors.length], 'stroke-width': 1.5, class: 'tokui-chart-point' }));
-    tips.add(grp, (attrs.xl || 'X') + ': ' + p.x + '  ' + (attrs.yl || 'Y') + ': ' + p.y + '  ' + (attrs.sl || 'size') + ': ' + p.s, px, py);
-    svg.appendChild(grp);
+    svg.appendChild(bubblePointEls(p, i, geom, tips.add));
   });
   svg.appendChild(tips.layer);
   bindTooltips(svg);
@@ -2843,15 +2877,106 @@ function registerChartComponents(renderer) {
     }
   }
 
+  // ===== 流式增量重绘（scatter/bubble 加点）=====
+  // 核心原则：坐标轴域不变 → 只 append 新点（已画元素/事件不动）；任一条件不满足 →
+  // 回退全量 redraw（保守优先，正确性 > 增量率）。
+  // bar/line 不做增量：点数 n 驱动 groupW=cw/n 与 viewBox 宽（autoSize(w,n)），
+  //   新点到 → 全部已画元素坐标与画布尺寸都变，不存在「域不变」；
+  // gantt 不做增量：行 y 虽按索引固定，但 viewBox totalH 随任务数增长（轴网格线
+  //   y2=bottomY 变），且时间域 tMax 随新任务扩张；
+  // pie/donut/radar/funnel/gauge 不做增量：新增点重分配角度/占比，已有元素几何必变。
+
+  // 快照 attrs（排除 d 与渲染期注入的 _ 前缀键），供逐帧一致性比对
+  function snapChartAttrs(attrs) {
+    var s = {};
+    Object.keys(attrs).forEach(function (k) {
+      if (k === 'd' || k.charAt(0) === '_') return;
+      s[k] = attrs[k];
+    });
+    return s;
+  }
+  function chartAttrsMatch(snap, attrs) {
+    var k;
+    for (k in snap) { if (snap.hasOwnProperty(k) && attrs[k] !== snap[k]) return false; }
+    var keys = Object.keys(attrs);
+    for (var i = 0; i < keys.length; i++) {
+      k = keys[i];
+      if (k === 'd' || k.charAt(0) === '_') continue;
+      if (!snap.hasOwnProperty(k)) return false; // 出现新的非数据键 → 回退全量
+    }
+    return true;
+  }
+
+  // 增量判定 + 执行：仅数据点前缀增长、轴域/画布/其余 attrs 全不变时返回 true（已 append）
+  function tryAppendXYPoints(wrapper, attrs, type) {
+    var inc = wrapper._xyInc;
+    if (!inc || inc.type !== type) return false;
+    if (!inc.svg || inc.svg.parentNode !== wrapper) return false;
+    var d = String(attrs.d || '');
+    if (d.length <= inc.d.length || d.indexOf(inc.d) !== 0) return false; // 必须严格前缀增长
+    if (!chartAttrsMatch(inc.attrs, attrs)) return false;
+    var points = type === 'bubble' ? parseBubbleData(d) : parseScatterData(d);
+    if (points.length <= inc.count) return false;
+    // 自闭合预览路径末尾半成品点会随 chunk 改写：校验上帧末点未变（容器模式点只 append，恒等）
+    var lp = inc.lastPt, nlp = points[inc.count - 1];
+    if (!nlp || nlp.x !== lp.x || nlp.y !== lp.y || (type === 'bubble' && nlp.s !== lp.s)) return false;
+    // 画布尺寸随点数变（autoSize/bandHeight）→ 变则回退全量
+    var w = autoSize(attrs, 'w', points.length, 50, 22, 360, 2400);
+    var h = bandHeight(w, parseInt(attrs.h) || 200, 4, 560);
+    if (w !== inc.w || h !== inc.totalH) return false;
+    // 新点必须全部落在已缓存轴域内（bubble 含 s 维）→ 轴刻度/网格/已画点坐标全不变
+    for (var i = inc.count; i < points.length; i++) {
+      var p = points[i];
+      if (p.x < inc.xMin || p.x > inc.xMax || p.y < inc.yMin || p.y > inc.yMax) return false;
+      if (type === 'bubble' && p.s > inc.sMax) return false;
+    }
+    // 现存 svg 的 tips 层（新点插到层之前，保持与全量渲染相同的 DOM 顺序）
+    var layer = null;
+    for (var ci = 0; ci < inc.svg.childNodes.length; ci++) {
+      var c = inc.svg.childNodes[ci];
+      if (c.getAttribute && (c.getAttribute('class') || '').indexOf('tokui-chart-tips-layer') !== -1) { layer = c; break; }
+    }
+    if (!layer) return false;
+    var geom = {
+      padL: 40, padT: 18, cw: w - 50, ch: h - 48,
+      xMin: inc.xMin, xRange: inc.xMax - inc.xMin || 1,
+      yMin: inc.yMin, yRange: inc.yMax - inc.yMin || 1,
+      sMax: inc.sMax || 1, colors: getColors(attrs),
+      xLabel: attrs.xl || 'X', yLabel: attrs.yl || 'Y', attrs: attrs
+    };
+    var addTip = function (group, text, x, y) {
+      appendTipToLayer(layer, w, h, String(inc.tipIdx++), group, text, x, y);
+    };
+    for (var j = inc.count; j < points.length; j++) {
+      if (type === 'bubble') {
+        inc.svg.insertBefore(bubblePointEls(points[j], j, geom, addTip), layer);
+      } else {
+        var els = scatterPointEls(points[j], j, geom, addTip);
+        inc.svg.insertBefore(els[0], layer);
+        inc.svg.insertBefore(els[1], layer);
+      }
+    }
+    inc.count = points.length;
+    inc.d = d;
+    inc.lastPt = points[points.length - 1];
+    return true;
+  }
+
   // redrawChart：清空旧 svg（保留 title div），用 attrs 重画整张图（容器/自闭合共用）
   function redrawChart(wrapper, attrs) {
+    var type = attrs.t || 'bar';
+    // scatter/bubble 流式增量：仅数据点前缀增长且轴域/画布/attrs 不变 → 只 append 新点
+    if ((type === 'scatter' || type === 'bubble') && tryAppendXYPoints(wrapper, attrs, type)) {
+      scheduleAdjust(wrapper); // 新点文字保底字号与全量路径一致
+      return;
+    }
+    wrapper._xyInc = null; // 全量路径：旧增量记录失效（scatter/bubble 在末尾重建）
     var olds = [];
     for (var i = 0; i < wrapper.childNodes.length; i++) {
       var c = wrapper.childNodes[i];
       if ((c.tagName || '').toLowerCase() === 'svg') olds.push(c);
     }
     olds.forEach(function (s) { wrapper.removeChild(s); });
-    var type = attrs.t || 'bar';
     var data = parseData(attrs.d);
     var labels = parseLabels(attrs.l);
     var colors = getColors(attrs);
@@ -2972,6 +3097,26 @@ function registerChartComponents(renderer) {
       wrapper.appendChild(svg);
       // 记录渲染所用数据/标签/属性，供挂载后字号保底（pie 闭环重渲染）取用
       wrapper._tokuiChartSpec = { type: type, data: data, labels: labels, colors: colors, attrs: attrs };
+      // scatter/bubble：记录本帧渲染上下文，供下一帧 tryAppendXYPoints 增量判定
+      if (type === 'scatter' || type === 'bubble') {
+        var iPts = type === 'bubble' ? parseBubbleData(attrs.d) : parseScatterData(attrs.d);
+        if (iPts.length) {
+          var iW = autoSize(attrs, 'w', iPts.length, 50, 22, 360, 2400);
+          var iH = bandHeight(iW, parseInt(attrs.h) || 200, 4, 560);
+          wrapper._xyInc = {
+            type: type, svg: svg, d: String(attrs.d || ''), count: iPts.length,
+            w: iW, totalH: iH,
+            xMin: axisBound(attrs, 'xmin', '_xMin', minOf(iPts.map(function (p) { return p.x; }))),
+            xMax: axisBound(attrs, 'xmax', '_xMax', maxOf(iPts.map(function (p) { return p.x; }))),
+            yMin: axisBound(attrs, 'ymin', '_yMin', minOf(iPts.map(function (p) { return p.y; }))),
+            yMax: axisBound(attrs, 'ymax', '_yMax', maxOf(iPts.map(function (p) { return p.y; }))),
+            sMax: type === 'bubble' ? (attrs._sMax !== undefined ? +attrs._sMax : (maxOf(iPts.map(function (p) { return p.s; })) || 1)) : 0,
+            lastPt: iPts[iPts.length - 1],
+            tipIdx: iPts.length,
+            attrs: snapChartAttrs(attrs)
+          };
+        }
+      }
       scheduleAdjust(wrapper);
     } else {
       var fb = document.createElement('div');
@@ -3015,6 +3160,24 @@ function registerChartComponents(renderer) {
     run(function () {
       wrapper._rafScheduled = false;
       chartRebuild(wrapper);
+    });
+  }
+
+  // scheduleFullRedraw：adjustChartFs 字号保底触发的整图重绘走 dirty 合并——
+  // 同帧多次调用合并为最后一次（后写 attrs 覆盖先写），一帧最多一次 redraw，
+  // 避免「流式重画 + 字号保底重画」一帧双画。无 rAF 环境同步兜底（dom-mock）。
+  function scheduleFullRedraw(wrapper, attrs) {
+    wrapper._pendingRedrawAttrs = attrs;
+    if (wrapper._redrawScheduled) return;
+    wrapper._redrawScheduled = true;
+    var run = (typeof window !== 'undefined' && window.requestAnimationFrame)
+      ? function (fn) { window.requestAnimationFrame(fn); }
+      : function (fn) { fn(); };
+    run(function () {
+      wrapper._redrawScheduled = false;
+      var a = wrapper._pendingRedrawAttrs;
+      wrapper._pendingRedrawAttrs = null;
+      if (a) redrawChart(wrapper, a);
     });
   }
 
@@ -3073,7 +3236,7 @@ function registerChartComponents(renderer) {
       if (fsStar > 7 + 0.05 && fsStar > prev + 0.05) {
         wrapper._tokuiFsApplied = fsStar;
         var newAttrs = Object.assign({}, spec.attrs, { _pieFs: fsStar });
-        redrawChart(wrapper, newAttrs); // 重渲染会再次 scheduleAdjust → 复算同值 → 跳过，收敛
+        scheduleFullRedraw(wrapper, newAttrs); // dirty 合并：一帧最多一次 redraw；重渲染会再次 scheduleAdjust → 复算同值 → 跳过，收敛
       }
       return;
     }
@@ -3104,7 +3267,7 @@ function registerChartComponents(renderer) {
         if (type === 'boxplot' || type === 'candlestick' || type === 'waterfall') _basePadL = 44;
         if (Math.abs(_need - _basePadL) > 2) { // 显著偏离基础值才 redraw（避免无谓重渲染）
           wrapper._tokuiPadL = _need;
-          redrawChart(wrapper, Object.assign({}, spec.attrs, { _padL: _need }));
+          scheduleFullRedraw(wrapper, Object.assign({}, spec.attrs, { _padL: _need })); // dirty 合并：一帧最多一次 redraw
           return;
         }
       }
@@ -3384,12 +3547,12 @@ function registerChartComponents(renderer) {
         chartAppendChild(wrapper, childNode);
         scheduleRebuild(wrapper);
       };
-      // 流式关闭时强制刷出最终态（防 rAF 漏最后一批）
+      // 流式关闭时强制全量重画最终态（防 rAF 漏最后一批；_xyInc 置空 → 必走全量，
+      // 保证终态与一次性渲染逐字节一致，与 diff/code 的 close 策略一致）
       wrapper._streamCloseHook = function () {
-        if (wrapper._rafScheduled) {
-          wrapper._rafScheduled = false;
-          chartRebuild(wrapper);
-        }
+        wrapper._rafScheduled = false;
+        wrapper._xyInc = null;
+        chartRebuild(wrapper);
       };
       // 全量 parse：children 已就绪，一次性收集渲染
       if (node.children && node.children.length) {
@@ -3400,8 +3563,12 @@ function registerChartComponents(renderer) {
     }
     // 自闭合旧路径（有 d/tasks 内联数据）
     redrawChart(wrapper, attrs);
-    // 挂流式更新钩子：parser 自闭合 chart 预览时，半成品 attrs 到达即 rebuild 渐增
-    wrapper._tokuiChartUpdate = function (newAttrs) { redrawChart(wrapper, newAttrs); };
+    // 挂流式更新钩子：parser 自闭合 chart 预览时，半成品 attrs 到达即 rebuild 渐增；
+    // isFinal（] 闭合 finalize）时清增量记录 → 全量重画兜底，终态与一次性渲染一致
+    wrapper._tokuiChartUpdate = function (newAttrs, isFinal) {
+      if (isFinal) wrapper._xyInc = null;
+      redrawChart(wrapper, newAttrs);
+    };
     return wrapper;
   });
 }

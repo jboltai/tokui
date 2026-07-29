@@ -41,6 +41,9 @@ function createLightbox(doc) {
   var images = [];
   var onKeyHandler = null;
   var triggerElement = null;
+  // buildDOM 时缓存的元素引用：applyTransform/updateView/open 不再重复 querySelector
+  var elImg = null, elScale = null, elCounter = null;
+  var elPrev = null, elNext = null, elFile = null, elClose = null;
 
   // 图片变换状态
   var scale = 1;
@@ -56,7 +59,7 @@ function createLightbox(doc) {
   }
 
   function applyTransform() {
-    var img = overlay.querySelector('.tokui-lightbox__img');
+    var img = elImg;
     var transforms = [];
     transforms.push('scale(' + scale + ')');
     transforms.push('rotate(' + rotation + 'deg)');
@@ -71,8 +74,7 @@ function createLightbox(doc) {
 
   function updateToolbarState() {
     if (!overlay) return;
-    var scaleDisplay = overlay.querySelector('.tokui-lightbox__scale');
-    if (scaleDisplay) scaleDisplay.textContent = Math.round(scale * 100) + '%';
+    if (elScale) elScale.textContent = Math.round(scale * 100) + '%';
   }
 
   function buildDOM() {
@@ -85,6 +87,7 @@ function createLightbox(doc) {
     var img = doc.createElement('img');
     img.className = 'tokui-lightbox__img';
     overlay.appendChild(img);
+    elImg = img;
 
     // 工具栏
     var toolbar = doc.createElement('div');
@@ -99,6 +102,7 @@ function createLightbox(doc) {
     var scaleDisplay = doc.createElement('span');
     scaleDisplay.className = 'tokui-lightbox__scale';
     scaleDisplay.textContent = '100%';
+    elScale = scaleDisplay;
 
     var btnZoomOut = doc.createElement('button');
     btnZoomOut.className = 'tokui-lightbox__tool';
@@ -142,6 +146,7 @@ function createLightbox(doc) {
 
     var counter = doc.createElement('span');
     counter.className = 'tokui-lightbox__counter';
+    elCounter = counter;
 
     toolbar.appendChild(btnZoomOut);
     toolbar.appendChild(scaleDisplay);
@@ -160,6 +165,7 @@ function createLightbox(doc) {
     var fileName = doc.createElement('div');
     fileName.className = 'tokui-lightbox__filename';
     overlay.appendChild(fileName);
+    elFile = fileName;
 
     // 左右切换按钮
     var prevBtn = doc.createElement('button');
@@ -167,12 +173,14 @@ function createLightbox(doc) {
     prevBtn.textContent = '‹';
     prevBtn.setAttribute('aria-label', 'Previous');
     overlay.appendChild(prevBtn);
+    elPrev = prevBtn;
 
     var nextBtn = doc.createElement('button');
     nextBtn.className = 'tokui-lightbox__next';
     nextBtn.textContent = '›';
     nextBtn.setAttribute('aria-label', 'Next');
     overlay.appendChild(nextBtn);
+    elNext = nextBtn;
 
     // 关闭按钮
     var closeBtn = doc.createElement('button');
@@ -181,6 +189,7 @@ function createLightbox(doc) {
     closeBtn.setAttribute('aria-label', _t('common.close'));
     closeBtn.addEventListener('click', function (e) { e.stopPropagation(); close(); });
     overlay.appendChild(closeBtn);
+    elClose = closeBtn;
 
     // 鼠标滚轮缩放
     overlay.addEventListener('wheel', function (e) {
@@ -231,11 +240,11 @@ function createLightbox(doc) {
   }
 
   function updateView() {
-    var img = overlay.querySelector('.tokui-lightbox__img');
-    var counter = overlay.querySelector('.tokui-lightbox__counter');
-    var prevBtn = overlay.querySelector('.tokui-lightbox__prev');
-    var nextBtn = overlay.querySelector('.tokui-lightbox__next');
-    var fileName = overlay.querySelector('.tokui-lightbox__filename');
+    var img = elImg;
+    var counter = elCounter;
+    var prevBtn = elPrev;
+    var nextBtn = elNext;
+    var fileName = elFile;
 
     img.src = images[currentIndex];
     counter.textContent = images.length > 1
@@ -297,8 +306,7 @@ function createLightbox(doc) {
     updateView();
     doc.addEventListener('keydown', onKeyDown);
     onKeyHandler = onKeyDown;
-    var closeBtn = overlay.querySelector('.tokui-lightbox__close');
-    if (closeBtn) closeBtn.focus();
+    if (elClose) elClose.focus();
   }
 
   function close() {

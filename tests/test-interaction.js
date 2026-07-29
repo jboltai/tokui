@@ -895,6 +895,27 @@ test('conversations 选中上报 change、删除上报 delete', () => {
   assert.ok(evts.some(e => e.event === 'change' && e.detail.value === 'c1'), 'change 上报会话标识');
 });
 
+// 流式路径：conversations 开标签时无 children（走空容器分支），conv 经 _streamChild 逐个到达，
+// 须由父容器 _renderConvChild 统一渲染，点击上报与一次性路径一致
+test('conversations 流式路径 conv 点击同样上报 change', () => {
+  cleanupHandlers();
+  const rc = makeRenderer();
+  const evts = [];
+  rc._onComponentEvent = (e) => evts.push(e);
+  const { TokUIParser } = require('../src/core/parser');
+  const root = createElement('div');
+  const parser = new TokUIParser((node) => rc.mountStreaming(node, root), { streaming: true });
+  parser.startStream();
+  parser.feed('[conversations clk:onConv]');
+  parser.feed('[conv tt:会话A id:c1 time:10:30]');
+  parser.feed('[/conversations]');
+  parser.endStream();
+  const conv = root.querySelector('.tokui-conv');
+  assert.ok(conv, '流式 conv 项存在');
+  fire(conv, 'click', { target: conv });
+  assert.ok(evts.some(e => e.event === 'change' && e.detail.value === 'c1'), '流式 change 上报会话标识');
+});
+
 test('upload 文件选择上报 change、act:clear 程序化不报', () => {
   cleanupHandlers();
   const rc = makeRenderer();

@@ -475,7 +475,7 @@ class TokUIRenderer {
     this._mountRoot = targetContainer; // 供 upd 指令做容器内 id 作用域查找
     const dom = this.render(node);
     if (dom.nodeType === 1) {
-      dom.style.animation = 'tokuiFadeIn 0.3s ease';
+      dom.classList.add('tokui-fade-in');
     }
     targetContainer.appendChild(dom);
     this.bindEvents(dom);
@@ -543,7 +543,7 @@ class TokUIRenderer {
     const dom = this.render(node);
     const parentEntry = this.slotStack.length > 0 ? this.slotStack[this.slotStack.length - 1] : null;
     const target = parentEntry ? parentEntry.slot : rootContainer;
-    if (dom.nodeType === 1) dom.style.animation = 'tokuiFadeIn 0.3s ease';
+    if (dom.nodeType === 1) dom.classList.add('tokui-fade-in');
     target.appendChild(dom);
     this._pendingCharts[key] = dom;
     return dom;
@@ -555,7 +555,7 @@ class TokUIRenderer {
     const key = node._previewKey;
     const pending = this._pendingCharts[key];
     if (pending) {
-      if (pending._tokuiChartUpdate) pending._tokuiChartUpdate(node.attrs);
+      if (pending._tokuiChartUpdate) pending._tokuiChartUpdate(node.attrs, true); // isFinal：全量兜底
       delete this._pendingCharts[key];
       return pending;
     }
@@ -570,7 +570,7 @@ class TokUIRenderer {
     // 传 tbody 元素给 tr（列位追踪状态 _tokuiOccupancy 在其上），用于 rowspan 偏移修正的按列对齐
     if (_pe && _pe.el) node._tbodyEl = _pe.el;
     var dom = this.render(node, _pe ? _pe.containerType : undefined);
-    if (dom && dom.nodeType === 1) dom.style.animation = 'tokuiFadeIn 0.3s ease';
+    if (dom && dom.nodeType === 1) dom.classList.add('tokui-fade-in');
     var parentSlot = _pe ? _pe.slot : rootContainer;
     parentSlot.appendChild(dom);
     this._trRegistry = this._trRegistry || {};
@@ -604,7 +604,7 @@ class TokUIRenderer {
     var parentEntry = this.slotStack.length > 0 ? this.slotStack[this.slotStack.length - 1] : null;
     var target = parentEntry ? parentEntry.slot : rootContainer;
     var skel = this._buildSkeleton(node.type);
-    if (skel && skel.nodeType === 1) skel.style.animation = 'tokuiFadeIn 0.3s ease';
+    if (skel && skel.nodeType === 1) skel.classList.add('tokui-fade-in');
     if (target) target.appendChild(skel);
     this._pendingSkeletons[node._skelKey] = skel;
     return skel;
@@ -651,7 +651,7 @@ class TokUIRenderer {
     if (dom && dom.nodeType === 1) dom._tokuiStreamActive = true;
     // 跳过隐藏元素的 fadeIn 动画（如 hover-content 临时容器）
     if (dom.nodeType === 1 && !dom.classList.contains('tokui-hover-card__content-temp')) {
-      dom.style.animation = 'tokuiFadeIn 0.3s ease';
+      dom.classList.add('tokui-fade-in');
     }
     // 确定父级插槽：栈顶的 slot 或根容器
     let parentSlot = this.slotStack.length > 0
@@ -773,7 +773,7 @@ class TokUIRenderer {
         var radioInput = radioLabel.querySelector('input[type=radio]');
         if (radioInput) radioInput.name = radioName;
       }
-      if (radioLabel.nodeType === 1) radioLabel.style.animation = 'tokuiFadeIn 0.3s ease';
+      if (radioLabel.nodeType === 1) radioLabel.classList.add('tokui-fade-in');
       target.appendChild(radioLabel);
       return radioLabel;
     }
@@ -786,7 +786,7 @@ class TokUIRenderer {
         var cbInput = cbLabel.querySelector('input[type=checkbox]');
         if (cbInput) cbInput.name = cbName;
       }
-      if (cbLabel.nodeType === 1) cbLabel.style.animation = 'tokuiFadeIn 0.3s ease';
+      if (cbLabel.nodeType === 1) cbLabel.classList.add('tokui-fade-in');
       target.appendChild(cbLabel);
       return cbLabel;
     }
@@ -795,7 +795,7 @@ class TokUIRenderer {
     if (node.type === 'opt' && parentEntry && parentEntry.containerType === 'picker') {
       var pickerDropdown = parentEntry.slot;
       var optLi = this.render(node, 'picker');
-      if (optLi.nodeType === 1) optLi.style.animation = 'tokuiFadeIn 0.3s ease';
+      if (optLi.nodeType === 1) optLi.classList.add('tokui-fade-in');
       var emptyTip = pickerDropdown.querySelector('.tokui-picker-empty');
       if (emptyTip) {
         pickerDropdown.insertBefore(optLi, emptyTip);
@@ -808,13 +808,22 @@ class TokUIRenderer {
     // 特殊处理：opt 在 transfer 内 → 立即追加为穿梭项到对应栏（真流式，边收边显）
     if (node.type === 'opt' && parentEntry && parentEntry.containerType === 'transfer' && parentEntry.el._tokuiTransferAppend) {
       var transferItem = parentEntry.el._tokuiTransferAppend(node);
-      if (transferItem && transferItem.nodeType === 1) transferItem.style.animation = 'tokuiFadeIn 0.3s ease';
+      if (transferItem && transferItem.nodeType === 1) transferItem.classList.add('tokui-fade-in');
       return null; // 不进 staging，避免重复
+    }
+
+    // 特殊处理：conv 在 conversations 内 → 交回父容器统一渲染（_renderConvChild），
+    // 保证流式下 conv 点击的 clk emit + report 上报与一次性渲染路径行为一致
+    if (node.type === 'conv' && parentEntry && parentEntry.el && typeof parentEntry.el._renderConvChild === 'function') {
+      var convEl = parentEntry.el._renderConvChild(node);
+      if (convEl && convEl.nodeType === 1) convEl.classList.add('tokui-fade-in');
+      target.appendChild(convEl);
+      return convEl;
     }
 
     var dom = this.render(node, parentType);
     if (dom.nodeType === 1) {
-      dom.style.animation = 'tokuiFadeIn 0.3s ease';
+      dom.classList.add('tokui-fade-in');
     }
     target.appendChild(dom);
     // 原始内容容器（code 等）流式逐字追加子文本时，同步触发增量重绘 hook

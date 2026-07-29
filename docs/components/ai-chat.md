@@ -308,6 +308,7 @@ Git 提交信息卡片，自闭合。
 | `act` | 单条动作 | `conv` | `act:conv-2` |
 
 > `tt`/`time` 含空格必须双引号，否则在第一个空格处截断。
+> `clk` 触发时 handler 第一参为 `{ tt, time, act }`（被选中会话的属性快照）；流式渲染下同样生效。
 
 <Playground dsl='[conversations][conv tt:"如何接入 SSE" time:"刚刚" active][conv tt:"DSL 语法学习" time:"今天 14:20"][conv tt:"主题定制方案" time:"昨天"][conv tt:"表格组件用法" time:"3 天前"][/conversations]' />
 
@@ -408,11 +409,13 @@ Git 提交信息卡片，自闭合。
 
 | 属性 | 含义 | 示例 |
 |------|------|------|
-| `t` | 类型（`like` / `dislike`） | `t:like` |
+| `t` | 类型（`up` / `down`） | `t:up` |
 | `clk` | 点击处理器 | `clk:onLike` |
 | `v` | 状态/数值 | `v:12` |
 
-<Playground dsl='[toolbar][thumb t:like v:12 clk:onLike][thumb t:dislike clk:onDislike][/toolbar]' />
+> `clk` 触发时 handler 第一参为 `{ direction: 'up' | 'down', active: boolean }`（点击后自动切换激活态）。
+
+<Playground dsl='[toolbar][thumb t:up v:12 clk:onLike][thumb t:down clk:onDislike][/toolbar]' />
 
 ## 综合示例：一段真实 AI 回复
 

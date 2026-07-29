@@ -208,6 +208,101 @@ function highlightCode(code, lang) {
 }
 
 /**
+ * 轻量行级词法状态扫描器（流式增量高亮用）
+ * 只判断「行尾是否处于未闭合的跨行构造」，供 code 组件决定冻结线能否推进。
+ *
+ * highlightCode 实际会跨行染色的构造只有两类（其余正则均为行内）：
+ *   1. 块注释 /\/\*[\s\S]*?\*\// —— 跨行，惰性闭合于首个 *／
+ *   2. 反引号模板串 /`(?:[^`\\]|\\.)*`/ —— [^`\\] 可吞 \n，跨行
+ * 单/双引号串在 highlightCode 中是行内的（. 不匹配 \n）不会跨行，只影响
+ * 「哪些反引号/注释标记可见」。扫描器按 highlightCode 的正则替换优先级模拟可见性：
+ *   同行引号对（闭合才消耗，未闭合引号字符保持可见）→ 反引号跨度 →
+ *   行注释（// 全语言；-- 仅 sql；# 除 css/html）→ 块注释跨度。
+ * 推论出的状态机规则：
+ *   - default 模式：行注释标记只屏蔽本行后续的 /*（引号/反引号提取先于行注释，
+ *     故行注释后的引号对、反引号仍参与配对）；
+ *   - comment 模式：行注释标记吞噬至行尾（含本行的 *／——行注释正则先于块注释执行）；
+ *     反引号跨度内的 *／ 不闭合注释（反引号提取先于块注释）；
+ *   - backtick 模式带 returnTo：闭合后回到进入时的模式（default 或 comment）；
+ *   - 引号/反引号的闭合符识别 \ 转义：奇数个连续 \ 后的字符被转义（对应正则 \\.）。
+ * 拿不准的一律不冻结（留在易变尾重扫）——正确性优先，最坏退化为现状全量重扫。
+ *
+ * @param {string} lang - 语言标识（与 highlightCode 同一套注释规则）
+ * @returns {{ st: {mode: string, returnTo: string}, feed: function(string) }}
+ *   st.mode ∈ default / backtick / comment；feed(line) 喂入一个完成行（不含 \n）
+ */
+function createCodeLexScanner(lang) {
+  var sqlLine = lang === 'sql';                    // -- 行注释（与 highlightCode 一致仅限 sql）
+  var hashLine = lang !== 'css' && lang !== 'html'; // # 行注释（highlightCode 对 css/html 豁免）
+  var st = { mode: 'default', returnTo: 'default' };
+
+  // 跳过同行引号对：返回闭合引号后一位；未闭合返回 -1（引号字符保持可见，仅跳过自身）
+  function skipQuotePair(line, i) {
+    var q = line[i];
+    var j = i + 1;
+    while (j < line.length) {
+      var cj = line[j];
+      if (cj === '\\') {
+        var k = 0;
+        while (j + k < line.length && line[j + k] === '\\') k++;
+        // 奇数个 \ → 下一字符被转义（对应正则 \\.）；偶数 → \ 两两自转义，后续字符正常参与
+        j += (k % 2 === 1) ? k + 1 : k;
+        continue;
+      }
+      if (cj === q) return j + 1;
+      j++;
+    }
+    return -1;
+  }
+
+  function feed(line) {
+    var i = 0, n = line.length;
+    var lineCommentSeen = false; // 仅 default 模式用：屏蔽本行后续的 /*
+    while (i < n) {
+      var c = line[i];
+      if (st.mode === 'backtick') {
+        if (c === '\\') {
+          var k = 0;
+          while (i + k < n && line[i + k] === '\\') k++;
+          // 对应正则 \\.：奇数个 \ → 下一字符被转义一并跳过；偶数 → \ 两两自转义，
+          // 下一字符正常参与（如 \\` 的 ` 仍闭合跨度）
+          i += (k % 2 === 1) ? k + 1 : k;
+          continue;
+        }
+        if (c === '`') st.mode = st.returnTo;
+        i++;
+        continue;
+      }
+      // default / comment 共用：同行引号对最先消耗（引号提取优先级最高）
+      if (c === '"' || c === "'") {
+        var after = skipQuotePair(line, i);
+        i = after >= 0 ? after : i + 1;
+        continue;
+      }
+      if (st.mode === 'comment') {
+        if (c === '`') { st.mode = 'backtick'; st.returnTo = 'comment'; i++; continue; }
+        // 行注释吞噬至行尾（含本行可能的 */），块注释保持开启
+        if (c === '/' && line[i + 1] === '/') return;
+        if (sqlLine && c === '-' && line[i + 1] === '-') return;
+        if (hashLine && c === '#') return;
+        if (c === '*' && line[i + 1] === '/') { st.mode = 'default'; i += 2; continue; }
+        i++;
+        continue;
+      }
+      // default 模式
+      if (c === '`') { st.mode = 'backtick'; st.returnTo = 'default'; i++; continue; }
+      if (!lineCommentSeen && c === '/' && line[i + 1] === '*') { st.mode = 'comment'; i += 2; continue; }
+      if (c === '/' && line[i + 1] === '/') { lineCommentSeen = true; i += 2; continue; }
+      if (sqlLine && c === '-' && line[i + 1] === '-') { lineCommentSeen = true; i += 2; continue; }
+      if (hashLine && c === '#') { lineCommentSeen = true; i += 1; continue; }
+      i++;
+    }
+  }
+
+  return { st: st, feed: feed };
+}
+
+/**
  * 注册基础组件到渲染器
  * @param {TokUIRenderer} renderer - 渲染器实例
  */
@@ -215,6 +310,16 @@ function registerBasicComponents(renderer) {
   const { el } = (typeof require === 'function')
     ? require('../core/renderer')
     : window.TokUI._internal;
+
+  // 浮层定位用：量出「渲染框 - 布局框」的固定偏移（面板 transform scale 等产生）。
+  // 同一 transform 下该偏移平移不变 → 定位修正可按「计划写入值 + k」推算，
+  // 免去「写完再 gBCR 复测」的第二次强制布局（tooltip/popover/hover-card/popconfirm 共用）。
+  function _overlayOffset(panel, rect) {
+    if (rect && typeof panel.offsetLeft === 'number') {
+      return { kx: rect.left - panel.offsetLeft, ky: rect.top - panel.offsetTop };
+    }
+    return { kx: 0, ky: 0 };
+  }
 
   // === 标题组件 h1 ~ h6 ===
   ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].forEach((tag) => {
@@ -877,13 +982,22 @@ function registerBasicComponents(renderer) {
 
   // mermaid 增强：md 渲染后若宿主已引入 window.mermaid，把 .tokui-md__mermaid 源码块渲染为 SVG。
   // 兼容 v10/v11 的 run API 与 v9 及以前的 init API；任何失败均静默回退为源码展示（div 内嵌 pre 代码块）。
-  function runMdMermaid(container) {
+  // mdSrc：调用方持有 markdown 源码时传入，探测直接扫源码，免 innerHTML 整树序列化（O(子树)）。
+  function runMdMermaid(container, mdSrc) {
     var mermaid = _getHostPlugin('mermaid');
     if (!mermaid || !container) return;
-    // 先用 innerHTML 标记判断是否含 mermaid 块（无则直接返回，不打扰插件）；
-    // 组件路径（el() 构建的 DOM，mock 的 innerHTML 不解析）回退 querySelector 检测
-    var hasBlock = String(container.innerHTML || '').indexOf('tokui-md__mermaid') !== -1
-      || (typeof container.querySelector === 'function' && !!container.querySelector('.tokui-md__mermaid'));
+    // 探测有无 mermaid 块：
+    //   给了源码 → /```mermaid\n/ 判定（与 simpleMarkdown 围栏提取正则 /```(\w*)\n([\s\S]*?)```/
+    //   的 lang === 'mermaid' 分支等价），阴性再补一次廉价 querySelector（防嵌套围栏边角）；
+    //   没给源码（外部手动调用，如 runMdMermaid(document.body)）→ 原 innerHTML/querySelector 探测。
+    var hasBlock;
+    if (typeof mdSrc === 'string') {
+      hasBlock = /```mermaid\n/.test(mdSrc)
+        || (typeof container.querySelector === 'function' && !!container.querySelector('.tokui-md__mermaid'));
+    } else {
+      hasBlock = String(container.innerHTML || '').indexOf('tokui-md__mermaid') !== -1
+        || (typeof container.querySelector === 'function' && !!container.querySelector('.tokui-md__mermaid'));
+    }
     if (!hasBlock) return;
     var nodes = (typeof container.querySelectorAll === 'function')
       ? Array.prototype.slice.call(container.querySelectorAll('.tokui-md__mermaid'))
@@ -935,7 +1049,7 @@ function registerBasicComponents(renderer) {
       div._rawMd = text; // 留档原始 Markdown：插件懒加载晚到时按需补渲染（KaTeX/mermaid）
       div.innerHTML = simpleMarkdown(text);
       bindMdLightbox(div);
-      runMdMermaid(div);
+      runMdMermaid(div, text);
     }
     // 流式模式关闭钩子：收集所有子文本节点，重新用 Markdown 渲染。
     // 仅在有文本节点（流式累积）时重渲；一次性渲染后 div 已是 HTML 元素（无文本节点），
@@ -951,7 +1065,7 @@ function registerBasicComponents(renderer) {
         div._rawMd = raw; // 流式累积的最终稿同步留档
         div.innerHTML = simpleMarkdown(raw);
         bindMdLightbox(div);
-        runMdMermaid(div);
+        runMdMermaid(div, raw);
       }
     };
     div._tokuiType = 'md';
@@ -1059,17 +1173,77 @@ function registerBasicComponents(renderer) {
     }
     // 语法高亮 + 行号包裹。raw 取自闭包累积变量 rawAcc，【不】从 DOM childNodes 反读——
     // wrapLines 会把 \n 去掉（join('')），DOM round-trip 会丢换行 → 多块流式后塌成一行。
+    var hl = lang !== 'text' && HL_LANGS[lang];
     function applyHighlight() {
-      if (lang !== 'text' && HL_LANGS[lang]) {
-        code.innerHTML = wrapLines(highlightCode(rawAcc, lang));
-      } else {
-        code.innerHTML = wrapLines(escapeHtml(rawAcc));
-      }
+      code.innerHTML = hl ? wrapLines(highlightCode(rawAcc, lang)) : wrapLines(escapeHtml(rawAcc));
+      code._codeLineEls = null; // 全量重绘后行元素句柄失效（close 后不再 append，防御性复位）
     }
     applyHighlight();
     pre.appendChild(code);
     pre._slot = code;       // 插槽指向 code 元素（流式内容追加目标）
     pre._tokuiType = 'code';  // 标记组件类型
+    // ---- 流式增量高亮（冻结线 + 易变尾）----
+    // 冻结线：行尾词法状态回到 default（不在块注释/反引号跨度内）→ 该行及之前冻结，
+    // 其 code-line 元素永不重建。易变尾 = 冻结线之后所有行，每 chunk 只对易变尾重扫：
+    // 冻结线处状态干净，从冻结线起以干净状态跑 highlightCode 与全量对应段逐字节一致。
+    var scanner = createCodeLexScanner(lang);
+    var scanIdx = 0;      // 扫描器已喂入的完成行数
+    var frozenCount = 0;  // 冻结线（行数）：[0, frozenCount) 永不触碰
+    var fullMode = false; // 易变尾出现跨行 span（多行反引号串）→ 退化整页重写（= 旧行为），不再回增量
+    function appendCodeLines() {
+      if (fullMode) { applyHighlight(); return; }
+      var lines = rawAcc.split('\n');
+      var completeCount = lines.length - 1; // 末行是生长行，不喂扫描器
+      // 渲染起点用【旧】冻结线：本 chunk 可能带着闭合符（如 */）使一批行首次获得
+      // 最终着色，必须把它们包含在本次重扫内，渲染完成后才推进冻结线。
+      var oldFrozen = frozenCount;
+      while (scanIdx < completeCount) {
+        scanner.feed(lines[scanIdx]);
+        scanIdx++;
+        if (scanner.st.mode === 'default') frozenCount = scanIdx;
+      }
+      // highlightCode/escapeHtml 均不改变 \n 数量 → 高亮结果按 \n 切与行一一对应
+      var tailRaw = lines.slice(oldFrozen).join('\n');
+      var tailHtml = hl ? highlightCode(tailRaw, lang) : escapeHtml(tailRaw);
+      var frags = tailHtml.split('\n');
+      if (frags.length !== lines.length - oldFrozen) { fullMode = true; applyHighlight(); return; }
+      // 跨行 span 检查：多行反引号模板串的 tok-str span 内含字面 \n，切行后标签不配对，
+      // 逐行 innerHTML 会被浏览器自动修补 → 与全量解析视觉不同。保守退化为整页重写
+      //（= 旧实现），close 时全量兜底终态一致。
+      for (var f = 0; f < frags.length; f++) {
+        var opens = frags[f].split('<span').length - 1;
+        var closes = frags[f].split('</span>').length - 1;
+        if (opens !== closes) { fullMode = true; applyHighlight(); return; }
+      }
+      // 首次进入增量路径：清掉 applyHighlight 写的整段 innerHTML，换成行元素
+      if (!code._codeLineEls) {
+        code.innerHTML = '';
+        code._codeLineEls = [];
+      }
+      // renderer mountStreaming 在触发本 hook 前已把 _text 文本节点 append 进 code（_slot）；
+      // 旧整页路径靠 innerHTML='' 顺带清掉，增量路径需先摘除行元素后的游离文本节点，
+      // 再补新行元素（否则新行会插到文本节点之后，顺序错乱）。
+      var cn = code.childNodes;
+      while (cn.length > 0) {
+        var last = cn[cn.length - 1];
+        if (!last || last.nodeType !== 3) break;
+        code.removeChild(last);
+      }
+      var els = code._codeLineEls;
+      // 行数只增不减：缺几行补几个 code-line span（追加在末尾）
+      while (els.length < lines.length) {
+        var lineEl = el('span', { class: 'code-line' });
+        els.push(lineEl);
+        code.appendChild(lineEl);
+      }
+      // 冻结行元素绝不触碰；[oldFrozen, frozenCount) 是本 chunk 新冻结的行，随本次
+      // 渲染获得最终着色后冻结；[frozenCount, end) 是易变尾，逐行就地更新 innerHTML
+      //（空行与 wrapLines 一致补空格）
+      for (var v = oldFrozen; v < lines.length; v++) {
+        var frag = frags[v - oldFrozen];
+        els[v].innerHTML = frag === '' ? ' ' : frag;
+      }
+    }
     // 复制按钮：复制原始累积文本（含换行），不用 textContent（已被 wrapLines 去换行）
     var copyBtn = el('button', { class: 'tokui-code__copy', type: 'button' });
     copyBtn.textContent = _t('common.copy');
@@ -1085,14 +1259,15 @@ function registerBasicComponents(renderer) {
       }, 2000);
     });
     pre.appendChild(copyBtn);
-    // 真流式：每块 _text 到达即累积到 rawAcc 并整体重高亮 + 重排行号。
-    // 行号 / 语法色随 AI 输出逐块增长，不再等到 [/code] 才渲染。
+    // 真流式：每块 _text 到达即累积到 rawAcc 并增量重绘——冻结线之前的行只 append
+    // 不重建，仅易变尾逐行更新（行号/语法色随 AI 输出逐块增长），不再每块全量 innerHTML 重写。
     pre._streamAppendHook = function (childNode) {
       if (childNode && childNode.type === '_text' && childNode.content) {
         rawAcc += childNode.content;
-        applyHighlight();
+        appendCodeLines();
       }
     };
+    // close 收尾走全量路径：保证最终 DOM 与一次性渲染结果逐字节一致
     pre._streamCloseHook = applyHighlight;
     return pre;
   });
@@ -1341,7 +1516,8 @@ function registerBasicComponents(renderer) {
         }
       }
     });
-    if (attrs.clk) btn.setAttribute('data-tokui-clk', attrs.clk);
+    // 注意：不设 data-tokui-clk——bindEvents 会再绑一次 clickFn 导致 handler 双发。
+    // thumb 的点击回调统一走上方内部 emit（payload 含 direction/active，比 bindEvents 的表单数据语义更贴切）
     return btn;
   });
 
@@ -1651,6 +1827,9 @@ function registerBasicComponents(renderer) {
   // === Toast 轻提示（自闭合） ===
   // attrs.id = 标识, attrs.t = success/error/warning/info
   // attrs.tx = 文本, attrs.duration = 持续时间(ms), attrs.pos = top/bottom
+  // 容器单例缓存：每条消息不再 document.querySelector；容器可能被外部移除，
+  // 取时校验 parentNode，失效重建。
+  var _toastContainer = null;
   renderer.register('toast', (node) => {
     var attrs = node.attrs || {};
     var id = attrs.id || '';
@@ -1659,11 +1838,14 @@ function registerBasicComponents(renderer) {
     var duration = parseInt(attrs.duration, 10) || 2000;
     var pos = attrs.pos || 'top';
     // 确保全局容器存在
-    var container = document.querySelector('.tokui-toast-container');
-    if (!container) {
-      container = el('div', { class: 'tokui-toast-container' });
-      document.body.appendChild(container);
+    if (!_toastContainer || !_toastContainer.parentNode) {
+      _toastContainer = document.querySelector('.tokui-toast-container');
+      if (!_toastContainer) {
+        _toastContainer = el('div', { class: 'tokui-toast-container' });
+        document.body.appendChild(_toastContainer);
+      }
     }
+    var container = _toastContainer;
     var toastEl = el('div', {
       class: 'tokui-toast tokui-toast--' + type + (pos === 'bottom' ? ' tokui-toast--bottom' : ''),
       role: 'alert',
@@ -1798,25 +1980,29 @@ function registerBasicComponents(renderer) {
       var tipRect = tip.getBoundingClientRect();
       var gap = 8;
 
+      // 读齐 rect 后 JS 算好（含视口修正）一次写完；不写后复读（_overlayOffset 见文件头注释）
+      var L, T;
       if (pos === 'top') {
-        tip.style.left = (rect.left + rect.width / 2 - tipRect.width / 2) + 'px';
-        tip.style.top = (rect.top - tipRect.height - gap) + 'px';
+        L = rect.left + rect.width / 2 - tipRect.width / 2;
+        T = rect.top - tipRect.height - gap;
       } else if (pos === 'bottom') {
-        tip.style.left = (rect.left + rect.width / 2 - tipRect.width / 2) + 'px';
-        tip.style.top = (rect.bottom + gap) + 'px';
+        L = rect.left + rect.width / 2 - tipRect.width / 2;
+        T = rect.bottom + gap;
       } else if (pos === 'left') {
-        tip.style.left = (rect.left - tipRect.width - gap) + 'px';
-        tip.style.top = (rect.top + rect.height / 2 - tipRect.height / 2) + 'px';
+        L = rect.left - tipRect.width - gap;
+        T = rect.top + rect.height / 2 - tipRect.height / 2;
       } else if (pos === 'right') {
-        tip.style.left = (rect.right + gap) + 'px';
-        tip.style.top = (rect.top + rect.height / 2 - tipRect.height / 2) + 'px';
+        L = rect.right + gap;
+        T = rect.top + rect.height / 2 - tipRect.height / 2;
       }
 
-      // 视口边界修正
-      var finalRect = tip.getBoundingClientRect();
-      if (finalRect.left < 4) tip.style.left = '4px';
-      if (finalRect.right > window.innerWidth - 4) tip.style.left = (window.innerWidth - finalRect.width - 4) + 'px';
-      if (finalRect.top < 4) tip.style.top = (rect.bottom + gap) + 'px';
+      // 视口边界修正（与旧「写完再测 finalRect」逐像素一致：finalLeft = L + kx，finalWidth 不变）
+      var off = _overlayOffset(tip, tipRect);
+      if (L + off.kx < 4) L = 4;
+      if (L + off.kx + tipRect.width > window.innerWidth - 4) L = window.innerWidth - tipRect.width - 4;
+      if (T + off.ky < 4) T = rect.bottom + gap;
+      tip.style.left = L + 'px';
+      tip.style.top = T + 'px';
 
       tip.classList.add('tokui-tooltip__popup--visible');
       wrapper._tooltipEl = tip;
@@ -2311,25 +2497,29 @@ function registerBasicComponents(renderer) {
       var panelRect = panel.getBoundingClientRect();
       var gap = 10;
 
+      // 读齐 rect 后 JS 算好（含视口修正）一次写完；不写后复读（_overlayOffset 见文件头注释）
+      var L, T;
       if (pos === 'top') {
-        panel.style.left = (rect.left + rect.width / 2 - panelRect.width / 2) + 'px';
-        panel.style.top = (rect.top - panelRect.height - gap) + 'px';
+        L = rect.left + rect.width / 2 - panelRect.width / 2;
+        T = rect.top - panelRect.height - gap;
       } else if (pos === 'bottom') {
-        panel.style.left = (rect.left + rect.width / 2 - panelRect.width / 2) + 'px';
-        panel.style.top = (rect.bottom + gap) + 'px';
+        L = rect.left + rect.width / 2 - panelRect.width / 2;
+        T = rect.bottom + gap;
       } else if (pos === 'left') {
-        panel.style.left = (rect.left - panelRect.width - gap) + 'px';
-        panel.style.top = (rect.top + rect.height / 2 - panelRect.height / 2) + 'px';
+        L = rect.left - panelRect.width - gap;
+        T = rect.top + rect.height / 2 - panelRect.height / 2;
       } else if (pos === 'right') {
-        panel.style.left = (rect.right + gap) + 'px';
-        panel.style.top = (rect.top + rect.height / 2 - panelRect.height / 2) + 'px';
+        L = rect.right + gap;
+        T = rect.top + rect.height / 2 - panelRect.height / 2;
       }
 
-      // 视口边界修正
-      var finalRect = panel.getBoundingClientRect();
-      if (finalRect.left < 4) panel.style.left = '4px';
-      if (finalRect.right > window.innerWidth - 4) panel.style.left = (window.innerWidth - finalRect.width - 4) + 'px';
-      if (finalRect.top < 4) panel.style.top = (rect.bottom + gap) + 'px';
+      // 视口边界修正（同旧 finalRect 判定：finalLeft = L + kx，finalWidth 不变）
+      var off = _overlayOffset(panel, panelRect);
+      if (L + off.kx < 4) L = 4;
+      if (L + off.kx + panelRect.width > window.innerWidth - 4) L = window.innerWidth - panelRect.width - 4;
+      if (T + off.ky < 4) T = rect.bottom + gap;
+      panel.style.left = L + 'px';
+      panel.style.top = T + 'px';
     }
 
     function openPanel() {
@@ -2458,24 +2648,28 @@ function registerBasicComponents(renderer) {
       var pRect = panel.getBoundingClientRect();
       var gap = 8;
 
+      // 读齐 rect 后 JS 算好（含视口修正）一次写完；不写后复读（_overlayOffset 见文件头注释）
+      var L, T;
       if (pos === 'bottom') {
-        panel.style.left = (rect.left + rect.width / 2 - pRect.width / 2) + 'px';
-        panel.style.top = (rect.bottom + gap) + 'px';
+        L = rect.left + rect.width / 2 - pRect.width / 2;
+        T = rect.bottom + gap;
       } else if (pos === 'top') {
-        panel.style.left = (rect.left + rect.width / 2 - pRect.width / 2) + 'px';
-        panel.style.top = (rect.top - pRect.height - gap) + 'px';
+        L = rect.left + rect.width / 2 - pRect.width / 2;
+        T = rect.top - pRect.height - gap;
       } else if (pos === 'left') {
-        panel.style.left = (rect.left - pRect.width - gap) + 'px';
-        panel.style.top = (rect.top + rect.height / 2 - pRect.height / 2) + 'px';
+        L = rect.left - pRect.width - gap;
+        T = rect.top + rect.height / 2 - pRect.height / 2;
       } else if (pos === 'right') {
-        panel.style.left = (rect.right + gap) + 'px';
-        panel.style.top = (rect.top + rect.height / 2 - pRect.height / 2) + 'px';
+        L = rect.right + gap;
+        T = rect.top + rect.height / 2 - pRect.height / 2;
       }
-      // 视口边界修正
-      var fRect = panel.getBoundingClientRect();
-      if (fRect.left < 4) panel.style.left = '4px';
-      if (fRect.right > window.innerWidth - 4) panel.style.left = (window.innerWidth - fRect.width - 4) + 'px';
-      if (fRect.top < 4) panel.style.top = (rect.bottom + gap) + 'px';
+      // 视口边界修正（同旧 fRect 判定：finalLeft = L + kx，finalWidth 不变）
+      var off = _overlayOffset(panel, pRect);
+      if (L + off.kx < 4) L = 4;
+      if (L + off.kx + pRect.width > window.innerWidth - 4) L = window.innerWidth - pRect.width - 4;
+      if (T + off.ky < 4) T = rect.bottom + gap;
+      panel.style.left = L + 'px';
+      panel.style.top = T + 'px';
     }
 
     // Hover behavior
@@ -2924,27 +3118,29 @@ function registerBasicComponents(renderer) {
           var popupRect = popup.getBoundingClientRect();
           var gap = 8;
 
+          // 读齐 rect 后 JS 算好（含视口修正）一次写完；不写后复读（_overlayOffset 见文件头注释）
+          var L, T;
           if (pos === 'top') {
-            popup.style.left = (rect.left + rect.width / 2 - popupRect.width / 2) + 'px';
-            popup.style.top = (rect.top - popupRect.height - gap) + 'px';
+            L = rect.left + rect.width / 2 - popupRect.width / 2;
+            T = rect.top - popupRect.height - gap;
           } else if (pos === 'bottom') {
-            popup.style.left = (rect.left + rect.width / 2 - popupRect.width / 2) + 'px';
-            popup.style.top = (rect.bottom + gap) + 'px';
+            L = rect.left + rect.width / 2 - popupRect.width / 2;
+            T = rect.bottom + gap;
           } else if (pos === 'left') {
-            popup.style.left = (rect.left - popupRect.width - gap) + 'px';
-            popup.style.top = (rect.top + rect.height / 2 - popupRect.height / 2) + 'px';
+            L = rect.left - popupRect.width - gap;
+            T = rect.top + rect.height / 2 - popupRect.height / 2;
           } else if (pos === 'right') {
-            popup.style.left = (rect.right + gap) + 'px';
-            popup.style.top = (rect.top + rect.height / 2 - popupRect.height / 2) + 'px';
+            L = rect.right + gap;
+            T = rect.top + rect.height / 2 - popupRect.height / 2;
           }
 
-          // 视口边界修正
-          if (popup.getBoundingClientRect) {
-            var finalRect = popup.getBoundingClientRect();
-            if (finalRect.left < 4) popup.style.left = '4px';
-            if (finalRect.right > window.innerWidth - 4) popup.style.left = (window.innerWidth - finalRect.width - 4) + 'px';
-            if (finalRect.top < 4) popup.style.top = (rect.bottom + gap) + 'px';
-          }
+          // 视口边界修正（同旧 finalRect 判定：finalLeft = L + kx，finalWidth 不变）
+          var off = _overlayOffset(popup, popupRect);
+          if (L + off.kx < 4) L = 4;
+          if (L + off.kx + popupRect.width > window.innerWidth - 4) L = window.innerWidth - popupRect.width - 4;
+          if (T + off.ky < 4) T = rect.bottom + gap;
+          popup.style.left = L + 'px';
+          popup.style.top = T + 'px';
         }
 
         popup.classList.add('tokui-popconfirm__popup--visible');
@@ -3117,9 +3313,20 @@ function registerBasicComponents(renderer) {
             btn.classList.remove('tokui-backtop--visible');
           }
         };
-        scrollEl.addEventListener('scroll', checkScroll);
+        // scroll 高频触发 → rAF 节流合帧（一帧最多读一次 scrollTop、写一次 class），
+        // passive 监听不阻塞滚动；无 rAF 环境（如 Node 测试）同步兜底，语义不退化。
+        var scrollTicking = false;
+        var onScroll = function () {
+          if (scrollTicking) return;
+          scrollTicking = true;
+          var run = (typeof window !== 'undefined' && window.requestAnimationFrame)
+            ? function (fn) { window.requestAnimationFrame(fn); }
+            : function (fn) { fn(); };
+          run(function () { scrollTicking = false; checkScroll(); });
+        };
+        scrollEl.addEventListener('scroll', onScroll, { passive: true });
         checkScroll();
-        btn._backtopCleanup = function () { scrollEl.removeEventListener('scroll', checkScroll); };
+        btn._backtopCleanup = function () { scrollEl.removeEventListener('scroll', onScroll); };
       });
     }
 
@@ -3345,15 +3552,20 @@ function registerBasicComponents(renderer) {
       content.appendChild(actionBtn);
     }
 
-    // 创建全局容器的辅助函数
+    // 创建全局容器的辅助函数（按 position 缓存单例：每条通知不再 document.querySelector；
+    // 容器可能被外部移除，取时校验 parentNode，失效重建）
+    var _notifContainers = {};
     function getContainer(position) {
       if (typeof document === 'undefined' || !document.body) return null;
+      var cached = _notifContainers[position];
+      if (cached && cached.parentNode) return cached;
       var cls = 'tokui-notification-container--' + position;
       var container = document.querySelector('.' + cls);
       if (!container) {
         container = el('div', { class: 'tokui-notification-container ' + cls });
         document.body.appendChild(container);
       }
+      _notifContainers[position] = container;
       return container;
     }
 
@@ -4036,36 +4248,90 @@ function registerBasicComponents(renderer) {
     return wrapper;
   });
 
+  // diff 单行构造：raw 单行文本 → 行 DOM（行号 span + 代码 span + add/remove/context class）。
+  // state = { oldLine, newLine } 跨行累计行号，函数内推进；全量 / 增量两条路径共用本函数，
+  // 保证两条路径输出逐字节一致（流式与一次性渲染视觉等价的根本保证）。
+  function createDiffLine(line, state) {
+    var lineEl = el('div', { class: 'tokui-diff__line' });
+    var numEl = el('span', { class: 'tokui-diff__num' });
+    var codeEl = el('span', { class: 'tokui-diff__code' });
+    if (line.startsWith('+')) {
+      lineEl.classList.add('tokui-diff__line--add');
+      state.newLine++;
+      numEl.textContent = state.newLine;
+      codeEl.textContent = line;
+    } else if (line.startsWith('-')) {
+      lineEl.classList.add('tokui-diff__line--remove');
+      state.oldLine++;
+      numEl.textContent = state.oldLine;
+      codeEl.textContent = line;
+    } else {
+      lineEl.classList.add('tokui-diff__line--context');
+      state.oldLine++;
+      state.newLine++;
+      numEl.textContent = state.oldLine;
+      codeEl.textContent = line || ' ';
+    }
+    lineEl.appendChild(numEl);
+    lineEl.appendChild(codeEl);
+    return lineEl;
+  }
+
+  // 全量渲染：清空后逐行重建（一次性渲染 / 流式 close 收尾用）。
+  // 同时把增量状态挂到 contentEl 上（项目惯例 _xxx 字段）：
+  //   _diffFrozenCount 已冻结行数（\n 即冻结，末行是生长行，不含在内）
+  //   _diffState       冻结行走完后的行号计数（生长行用副本渲染，不提前消费计数）
+  //   _diffGrowingEl   当前生长行元素（增量路径原地替换的目标）
   function renderDiffLines(contentEl, raw) {
     contentEl.innerHTML = '';
     var lines = raw.split('\n');
-    var oldLine = 0;
-    var newLine = 0;
-    lines.forEach(function (line) {
-      var lineEl = el('div', { class: 'tokui-diff__line' });
-      var numEl = el('span', { class: 'tokui-diff__num' });
-      var codeEl = el('span', { class: 'tokui-diff__code' });
-      if (line.startsWith('+')) {
-        lineEl.classList.add('tokui-diff__line--add');
-        newLine++;
-        numEl.textContent = newLine;
-        codeEl.textContent = line;
-      } else if (line.startsWith('-')) {
-        lineEl.classList.add('tokui-diff__line--remove');
-        oldLine++;
-        numEl.textContent = oldLine;
-        codeEl.textContent = line;
-      } else {
-        lineEl.classList.add('tokui-diff__line--context');
-        oldLine++;
-        newLine++;
-        numEl.textContent = oldLine;
-        codeEl.textContent = line || ' ';
-      }
-      lineEl.appendChild(numEl);
-      lineEl.appendChild(codeEl);
-      contentEl.appendChild(lineEl);
-    });
+    var frozenCount = lines.length - 1;
+    var state = { oldLine: 0, newLine: 0 };
+    for (var i = 0; i < frozenCount; i++) {
+      contentEl.appendChild(createDiffLine(lines[i], state));
+    }
+    var growingEl = createDiffLine(lines[frozenCount], { oldLine: state.oldLine, newLine: state.newLine });
+    contentEl.appendChild(growingEl);
+    contentEl._diffFrozenCount = frozenCount;
+    contentEl._diffState = state;
+    contentEl._diffGrowingEl = growingEl;
+  }
+
+  // 增量渲染：diff 染色只看行首前缀（+/-/context），无跨行 token，\n 即冻结。
+  // 已冻结行绝不触碰，只 append 新完成行；末行 fragment 是生长中行，原地替换（O(行长)）。
+  function appendDiffLines(contentEl, raw) {
+    // 增量状态缺失（异常路径）时退化为全量重绘，保证正确性
+    if (typeof contentEl._diffFrozenCount !== 'number' || !contentEl._diffState) {
+      renderDiffLines(contentEl, raw);
+      return;
+    }
+    var lines = raw.split('\n');
+    var completeCount = lines.length - 1;
+    var state = contentEl._diffState;
+    var growingEl = contentEl._diffGrowingEl;
+    // 新冻结的行插到生长行之前（生长行始终保持在行序列末尾）
+    for (var i = contentEl._diffFrozenCount; i < completeCount; i++) {
+      contentEl.insertBefore(createDiffLine(lines[i], state), growingEl || null);
+    }
+    contentEl._diffFrozenCount = completeCount;
+    // 生长行原地更新：用同一单行函数重建末行并替换旧生长行
+    var newGrowing = createDiffLine(lines[completeCount], { oldLine: state.oldLine, newLine: state.newLine });
+    if (growingEl && growingEl.parentNode === contentEl) {
+      contentEl.insertBefore(newGrowing, growingEl);
+      contentEl.removeChild(growingEl);
+    } else {
+      contentEl.appendChild(newGrowing);
+    }
+    contentEl._diffGrowingEl = newGrowing;
+    // renderer mountStreaming 在触发 _streamAppendHook 前会把 _text 文本节点 append 进
+    // slot（contentEl）；旧全量路径靠 innerHTML='' 顺带清掉，增量路径不整体重建，
+    // 需摘掉行序列末尾的游离文本节点，否则原始文本碎片会残留在 diff 行之后。
+    var cn = contentEl.childNodes;
+    while (cn.length > 0) {
+      var last = cn[cn.length - 1];
+      if (last === newGrowing || !last || last.nodeType !== 3) break;
+      contentEl.removeChild(last);
+    }
   }
 
   renderer.register('diff', (node, rc) => {
@@ -4100,14 +4366,15 @@ function registerBasicComponents(renderer) {
     wrapper.appendChild(content);
     wrapper._slot = content;
     wrapper._tokuiType = 'diff';
-    // 真流式：每块 _text 到达即累积到 rawAcc 并整体重渲染（行号/红绿着色逐块增长），
-    // 不再等到 [/diff] 才出 diff 行。与 code 块 _streamAppendHook 同套路。
+    // 真流式：每块 _text 到达即累积到 rawAcc 并增量重绘——已冻结行（\n 结尾）只 append
+    // 不重建，仅末行生长行原地更新（行号/红绿着色逐块增长），不再每块全量 innerHTML 重建。
     wrapper._streamAppendHook = function (childNode) {
       if (childNode && childNode.type === '_text' && childNode.content) {
         rawAcc += childNode.content;
-        applyDiff();
+        appendDiffLines(content, rawAcc);
       }
     };
+    // close 收尾走全量路径：保证最终 DOM 与一次性渲染结果完全一致
     wrapper._streamCloseHook = applyDiff;
     return wrapper;
   });
@@ -4671,6 +4938,11 @@ function registerBasicComponents(renderer) {
       wrapper._tokuiType = 'conversations';
       wrapper._convHandlerName = handlerName;
       wrapper._convActiveAct = activeAct;
+      // 流式路径：conv 子节点经 renderer._streamChild 逐个到达（一次性路径在下方自带 children 渲染）。
+      // 交回父容器统一渲染，保证流式下 conv 点击的 clk emit + report 上报与一次性路径行为一致
+      wrapper._renderConvChild = function (convNode) {
+        return renderConvItem(convNode, handlerName, activeAct, wrapper, report);
+      };
       wrapper._streamCloseHook = function () {
         var hasConv = wrapper.querySelector('.tokui-conv');
         if (hasConv && emptyEl && emptyEl.parentNode) {
@@ -4826,9 +5098,8 @@ function registerBasicComponents(renderer) {
       if (report) report('delete', { value: convKey });
     });
 
-    // clk 数据属性
-    if (handlerName) item.setAttribute('data-tokui-clk', handlerName);
-
+    // 注意：不设 data-tokui-clk——bindEvents 会再绑一次 clickFn 导致 handler 双发。
+    // conv 的点击回调统一走上方内部 listener 的 bus.emit（含 active 切换 + report 上报）
     return item;
   }
 
@@ -5394,7 +5665,10 @@ function registerBasicComponents(renderer) {
     // 外层容器（fixed overlay）
     var wrapper = el('div', { class: 'tokui-command' });
     if (attrs.id) wrapper.id = attrs.id;
-    if (attrs.clk) wrapper.setAttribute('data-tokui-clk', attrs.clk);
+    // 存 data-tokui-cmd-clk 而非 data-tokui-clk：根 clk 语义是「命令项被选中时回调」
+    // （由 selectItem / item click 内部 emit），若用 data-tokui-clk 会被 bindEvents 绑到根上，
+    // 点击面板任意处（含搜索框）都冒泡触发、且与内部 emit 双发
+    if (attrs.clk) wrapper.setAttribute('data-tokui-cmd-clk', attrs.clk);
 
     // 遮罩层
     var overlay = el('div', { class: 'tokui-command__overlay' });
@@ -5546,7 +5820,7 @@ function registerBasicComponents(renderer) {
 
     function selectItem(item) {
       if (!item) return;
-      var handlerName = item.getAttribute('data-tokui-clk');
+      var handlerName = item.getAttribute('data-tokui-cmd-clk');
       // dispatch via event bus
       if (handlerName) {
         var bus = (typeof window !== 'undefined' && window.TokUI && window.TokUI._internal)
@@ -5556,7 +5830,7 @@ function registerBasicComponents(renderer) {
         }
       }
       // also emit command-level clk
-      var rootClk = wrapper.getAttribute('data-tokui-clk');
+      var rootClk = wrapper.getAttribute('data-tokui-cmd-clk');
       if (rootClk) {
         var bus2 = (typeof window !== 'undefined' && window.TokUI && window.TokUI._internal)
           ? window.TokUI._internal.eventBus : null;
@@ -5598,7 +5872,16 @@ function registerBasicComponents(renderer) {
       collectItems();
       filterItems(input.value || '');
       wrapper.classList.add('tokui-command--open');
-      input.focus();
+      // 焦点延到下一帧：wrapper CSS 有 visibility 0.15s transition（tokui.css），
+      // 同帧 focus 时计算值仍是 hidden（visibility:hidden 不可聚焦，focus 静默失败），
+      // 下一帧 transition 进行中、hidden→visible 已翻转，可正常聚焦
+      var doFocus = function () {
+        if (wrapper.classList.contains('tokui-command--open') && typeof input.focus === 'function') {
+          input.focus();
+        }
+      };
+      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(doFocus);
+      else setTimeout(doFocus, 0);
     }
 
     function closeCommand() {
@@ -5657,7 +5940,9 @@ function registerBasicComponents(renderer) {
       'aria-selected': 'false',
       'data-tokui-tag': node.type
     });
-    if (attrs.clk) item.setAttribute('data-tokui-clk', attrs.clk);
+    // 存 data-tokui-cmd-clk 而非 data-tokui-clk：本组件点击/键盘统一走内部 emit（点击见下方
+    // listener、键盘见 selectItem），若用 data-tokui-clk 会被 bindEvents 再绑一次导致 handler 双发
+    if (attrs.clk) item.setAttribute('data-tokui-cmd-clk', attrs.clk);
 
     var textSpan = el('span', { class: 'tokui-command__item-text' });
     textSpan.textContent = text;
@@ -5676,7 +5961,7 @@ function registerBasicComponents(renderer) {
       var cmd = item.closest ? item.closest('.tokui-command') : null;
       if (cmd && cmd._closeCommand) {
         // 触发事件
-        var handlerName = item.getAttribute('data-tokui-clk');
+        var handlerName = item.getAttribute('data-tokui-cmd-clk');
         if (handlerName) {
           var bus = (typeof window !== 'undefined' && window.TokUI && window.TokUI._internal)
             ? window.TokUI._internal.eventBus : null;
@@ -5685,7 +5970,7 @@ function registerBasicComponents(renderer) {
           }
         }
         // command-level clk
-        var rootClk = cmd.getAttribute('data-tokui-clk');
+        var rootClk = cmd.getAttribute('data-tokui-cmd-clk');
         if (rootClk) {
           var bus2 = (typeof window !== 'undefined' && window.TokUI && window.TokUI._internal)
             ? window.TokUI._internal.eventBus : null;

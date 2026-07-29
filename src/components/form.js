@@ -131,6 +131,9 @@ function registerFormComponents(renderer) {
   const iconSvg = (typeof require === 'function')
     ? require('./icons').iconSvg
     : window.TokUI._internal.iconSvg;
+  const iconEl = (typeof require === 'function')
+    ? require('./icons').iconEl
+    : window.TokUI._internal.iconEl;
   const _t = (typeof require === 'function')
     ? require('../core/i18n').t
     : window.TokUI._internal.t;
@@ -464,6 +467,26 @@ function registerFormComponents(renderer) {
     return wrapper;
   });
 
+  // 眼睛 SVG 节点缓存：每次切换 innerHTML 会重复解析同一字符串，
+  // 改为首用解析一次建节点、后续 cloneNode；dom-mock（innerHTML 不解析）回退字符串路径。
+  var _pwdEyeCache = {};
+  function _setPwdEye(btn, which, svg) {
+    if (typeof document !== 'undefined' && document.createElement) {
+      if (!(which in _pwdEyeCache)) {
+        var tmp = document.createElement('span');
+        tmp.innerHTML = svg;
+        _pwdEyeCache[which] = tmp.firstChild || false;
+      }
+      var cached = _pwdEyeCache[which];
+      if (cached && cached.cloneNode) {
+        btn.innerHTML = '';
+        btn.appendChild(cached.cloneNode(true));
+        return;
+      }
+    }
+    btn.innerHTML = svg; // 兜底（原行为）
+  }
+
   // === 密码输入框组件 ===
   // 与 input 类似，但 type 固定为 password
   // 支持 v:inline/error/success/sm/lg/underline, pre/app/prebtn/appbtn input-group
@@ -504,11 +527,11 @@ function registerFormComponents(renderer) {
       var svgEyeOpen = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
       // 闭眼 SVG（密码隐藏）
       var svgEyeClosed = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/></svg>';
-      toggleBtn.innerHTML = svgEyeClosed; // 默认隐藏密码
+      _setPwdEye(toggleBtn, 'closed', svgEyeClosed); // 默认隐藏密码
       toggleBtn.addEventListener('click', function() {
         var isPassword = inputEl.type === 'password';
         inputEl.type = isPassword ? 'text' : 'password';
-        toggleBtn.innerHTML = isPassword ? svgEyeOpen : svgEyeClosed;
+        _setPwdEye(toggleBtn, isPassword ? 'open' : 'closed', isPassword ? svgEyeOpen : svgEyeClosed);
         toggleBtn.classList.toggle('tokui-pwd-toggle--active', isPassword);
       });
     }
@@ -604,26 +627,37 @@ function registerFormComponents(renderer) {
       var maxPx = 0;
       function autoResize() {
         if (!minPx) {
-          // 首次：用 rows 计算最小高度，用 maxrows 计算最大高度
+          // 首次：rows=1/rows=2 两测求差得真实单行高（差值消掉 padding/border）。
+          // 必须先清零 min-height：CSS 上 textarea.tokui-input 有 min-height:80px，
+          // scrollHeight 不小于 clientHeight（被 min-height 钳到 80px），
+          // rows=1 直接测会把单行高读成 80px → maxPx = 80*maxRows 虚高约 4 倍
+          // （maxrows:8 实际 ~32 行才封顶即此因）。
           var savedRows = ta.getAttribute('rows');
+          var savedMinH = ta.style.minHeight;
+          ta.style.minHeight = '0';
           ta.setAttribute('rows', '1');
-          var lineH = ta.scrollHeight;
-          minPx = lineH * defaultRows;
-          maxPx = maxRows > 0 ? lineH * maxRows : 0;
+          var h1 = ta.scrollHeight;             // 读 1：一行内容 + 上下 padding
+          ta.setAttribute('rows', '2');
+          var h2 = ta.scrollHeight;             // 读 2：两行内容 + 上下 padding
           ta.setAttribute('rows', savedRows);
-          // 考虑 padding/border 差异，用实际 scrollHeight 校准
+          ta.style.minHeight = savedMinH;
+          var lineH = h2 - h1;                  // 真实单行高（padding/border 已消）
+          var padH = h1 - lineH;                // 上下 padding（scrollHeight 不含 border，差 2px 可忽略）
           ta.style.height = 'auto';
-          var emptyH = ta.scrollHeight;
-          minPx = Math.max(minPx, emptyH);
-          ta.style.height = minPx + 'px';
+          var emptyH = ta.scrollHeight;         // 读 3：自然最小高（含 CSS min-height 作下限）
+          minPx = Math.max(padH + lineH * defaultRows, emptyH);
+          maxPx = (maxRows > 0 && lineH > 0) ? padH + lineH * maxRows : 0;
         }
         ta.style.height = 'auto';
-        var newH = ta.scrollHeight;
-        newH = Math.max(newH, minPx);
+        var contentH = ta.scrollHeight;         // 每次输入仅此 1 次强制布局读（旧实现 2 次）
+        var newH = Math.max(contentH, minPx);
         if (maxPx > 0) newH = Math.min(newH, maxPx);
         ta.style.height = newH + 'px';
-        // 超过最大高度时出现滚动条
-        ta.style.overflow = (maxPx > 0 && ta.scrollHeight > maxPx) ? 'auto' : 'hidden';
+        // 超过最大高度时出现滚动条。旧实现定高后再读一次 scrollHeight > maxPx 判定，
+        // 代数等价：定高 newH 后 scrollHeight = max(contentH, newH)，
+        // contentH > maxPx 时 newH=maxPx → 判定真；contentH ≤ maxPx 时 newH ∈ [contentH, maxPx]
+        // → max(contentH, newH) = newH ≤ maxPx → 判定假。故直接用 contentH > maxPx，省去二次读。
+        ta.style.overflow = (maxPx > 0 && contentH > maxPx) ? 'auto' : 'hidden';
       }
       if (ta.addEventListener) {
         ta.addEventListener('input', autoResize);
@@ -2420,9 +2454,12 @@ function registerFormComponents(renderer) {
     }
 
     // 注图标 span（SVG 优先，否则 emoji；icon 属性存在即建 span，未知名留空不崩）
+    // 浏览器走 iconEl 节点缓存（cloneNode 免重复解析）；dom-mock/无 DOM 回退字符串（原行为）
     if (iconName) {
       const iconSpan = el('span', { class: 'tokui-btn__icon' });
-      iconSpan.innerHTML = iconHtml;
+      const iconNode = iconEl ? iconEl(iconName, 16) : null;
+      if (iconNode) iconSpan.appendChild(iconNode);
+      else iconSpan.innerHTML = iconHtml;
       btn.appendChild(iconSpan);
       btn.classList.add('tokui-btn--has-icon');
     } else if (emoji) {
@@ -3063,17 +3100,19 @@ function registerFormComponents(renderer) {
    */
   /**
    * 只更新高亮项（滚动中调用：只读，绝不写 scrollTop → 不与手势/原生 snap 打架）
+   * 增量 class 更新：记上次高亮下标 col._tpHl，只写新/旧两项，不再全量 toggle
    */
   function highlightColumn(col, index) {
-    var list = col.querySelector('.tokui-timepicker-column-list');
-    if (!list) return;
-    var items = list.querySelectorAll('.tokui-timepicker-column-item');
-    if (!items.length) return;
+    var items = col._tpItems;
+    if (!items || !items.length) return;
     if (index < 0) index = 0;
     if (index > items.length - 1) index = items.length - 1;
-    items.forEach(function(item, i) {
-      item.classList.toggle('tokui-timepicker-column-item--selected', i === index);
-    });
+    if (col._tpHl === index) return; // 同项不重写（滚动路径零无效 DOM 写）
+    if (col._tpHl >= 0 && items[col._tpHl]) {
+      items[col._tpHl].classList.remove('tokui-timepicker-column-item--selected');
+    }
+    items[index].classList.add('tokui-timepicker-column-item--selected');
+    col._tpHl = index;
   }
 
   /**
@@ -3084,10 +3123,9 @@ function registerFormComponents(renderer) {
    */
   function setColumnSelected(col, index) {
     highlightColumn(col, index);
-    var list = col.querySelector('.tokui-timepicker-column-list');
-    if (!list) return;
-    var items = list.querySelectorAll('.tokui-timepicker-column-item');
-    if (!items.length) return;
+    var list = col._tpList;
+    var items = col._tpItems;
+    if (!list || !items || !items.length) return;
     if (index < 0) index = 0;
     if (index > items.length - 1) index = items.length - 1;
     var item = items[index];
@@ -3100,34 +3138,55 @@ function registerFormComponents(renderer) {
   }
 
   /**
+   * 列几何惰性测量（首次滚动时）：项高恒定（CSS 固定 32px 行高），
+   * 把 gBCR「最接近可视中线项」判定折算为纯算术 i = round((scrollTop - base) / itemH)。
+   * 等价推导：itemCenter_i(S) - center = base + i*itemH - S（S=scrollTop），
+   * 旧逻辑对每项取 |·| 最小，与此式同解；一次测量缓存，滚动路径零布局读。
+   * 面板隐藏时 gBCR 全 0 → 返回 null 走兜底（下次滚动再量，可见后自然测准）。
+   */
+  function measureTpGeom(col) {
+    if (col._tpGeom) return col._tpGeom;
+    var list = col._tpList, items = col._tpItems;
+    if (!list || !items || !items.length) return null;
+    if (items[0].getBoundingClientRect && list.getBoundingClientRect) {
+      var lc = list.getBoundingClientRect();
+      var r0 = items[0].getBoundingClientRect();
+      var itemH = items.length > 1
+        ? items[1].getBoundingClientRect().top - r0.top
+        : (r0.height || items[0].offsetHeight || 32);
+      if (itemH > 0 && lc.height > 0) {
+        col._tpGeom = {
+          itemH: itemH,
+          base: (r0.top + r0.height / 2) - (lc.top + lc.height / 2) + (list.scrollTop || 0)
+        };
+        return col._tpGeom;
+      }
+    }
+    return null;
+  }
+
+  /**
    * 读取列当前居中项索引（基于几何，自适应 padding/高度）
    */
   function getColumnIndex(col) {
-    var list = col.querySelector('.tokui-timepicker-column-list');
-    if (!list) return 0;
-    var items = list.querySelectorAll('.tokui-timepicker-column-item');
-    if (!items.length) return 0;
-    // 优先几何法：找最接近列表可视中线的 item（精确，含所有几何）
-    if (items[0].getBoundingClientRect && list.getBoundingClientRect) {
-      var lc = list.getBoundingClientRect();
-      var center = lc.top + lc.height / 2;
-      var best = 0, bestDist = Infinity;
-      for (var i = 0; i < items.length; i++) {
-        var r = items[i].getBoundingClientRect();
-        var d = Math.abs((r.top + r.height / 2) - center);
-        if (d < bestDist) { bestDist = d; best = i; }
-      }
-      return best;
+    var list = col._tpList, items = col._tpItems;
+    if (!list || !items || !items.length) return 0;
+    // 算术法：与逐项 gBCR 找中线最近项同解（-1e-6 复现旧实现平局取下标较小项）
+    var g = measureTpGeom(col);
+    if (g) {
+      var idx = Math.round(((list.scrollTop || 0) - g.base) / g.itemH - 1e-6);
+      return Math.max(0, Math.min(idx, items.length - 1));
     }
-    // 兜底（Node 测试环境无几何）：按 scrollTop 估算
+    // 兜底（Node 测试环境无几何 / 面板隐藏未测量）：按 scrollTop 估算（公式保持旧实现）
     var itemHeight = items[0].offsetHeight || 32;
-    var idx = Math.round((list.scrollTop + (list.clientHeight || 192) / 2) / itemHeight) - 0;
-    return Math.max(0, Math.min(idx, items.length - 1));
+    var idx2 = Math.round(((list.scrollTop || 0) + (list.clientHeight || 192) / 2) / itemHeight);
+    return Math.max(0, Math.min(idx2, items.length - 1));
   }
 
   function buildTimeColumn(label, count, selected) {
     var col = el('div', { class: 'tokui-timepicker-column' });
     var list = el('div', { class: 'tokui-timepicker-column-list' });
+    var itemsArr = [];
     for (var i = 0; i < count; i++) {
       var item = el('div', {
         class: 'tokui-timepicker-column-item' + (i === selected ? ' tokui-timepicker-column-item--selected' : ''),
@@ -3140,8 +3199,13 @@ function registerFormComponents(renderer) {
         setColumnSelected(col, idx);
       });
       list.appendChild(item);
+      itemsArr.push(item);
     }
     col.appendChild(list);
+    // 列几何/DOM 缓存：滚动路径不再 querySelectorAll、不逐项 gBCR（项数恒定，静态缓存）
+    col._tpList = list;
+    col._tpItems = itemsArr;
+    col._tpHl = selected; // 当前高亮下标（增量 class 更新基准）
     // 滚动时（滚轮/拖拽）实时同步高亮项
     var scrollRaf = 0;
     var raf = (typeof window !== 'undefined' && window.requestAnimationFrame)
@@ -3162,8 +3226,7 @@ function registerFormComponents(renderer) {
   function getSelectedValue(col) {
     var index = getColumnIndex(col);
     highlightColumn(col, index);
-    var list = col.querySelector('.tokui-timepicker-column-list');
-    var items = list.querySelectorAll('.tokui-timepicker-column-item');
+    var items = col._tpItems;
     return parseInt(items[index].getAttribute('data-value')) || 0;
   }
 
@@ -3403,15 +3466,17 @@ function registerFormComponents(renderer) {
       isOpen = true;
       dropdown.style.display = '';
       picker.classList.add('tokui-datepicker--open');
+      // 读齐（display 已开，仅 1 次布局）算好一次写完；不写后复读。
+      // offsetWidth 与写 left/top/width 无关（CSS 未设 width，'auto' 写入为恒等），与旧逻辑同值。
       var rect = control.getBoundingClientRect();
-      dropdown.style.left = rect.left + 'px';
+      var dw = dropdown.offsetWidth;
+      var vw = getViewportWidth();
+      var dLeft = rect.left;
+      if (rect.left + dw > vw - 8) dLeft = Math.max(8, vw - dw - 8);
+      dropdown.style.left = dLeft + 'px';
       dropdown.style.top = (rect.bottom + 4) + 'px';
       // 宽度不跟随输入框：内容自适应，最小宽度由 CSS（300px）兜底
       dropdown.style.width = 'auto';
-      var vw = getViewportWidth();
-      if (rect.left + dropdown.offsetWidth > vw - 8) {
-        dropdown.style.left = Math.max(8, vw - dropdown.offsetWidth - 8) + 'px';
-      }
     }
 
     function closePanel() {
@@ -3580,15 +3645,16 @@ function registerFormComponents(renderer) {
       isOpen = true;
       dropdown.style.display = '';
       picker.classList.add('tokui-timepicker--open');
+      // 读齐（display 已开，仅 1 次布局）算好一次写完；不写后复读（同 datepicker 注释）
       var rect = control.getBoundingClientRect();
-      dropdown.style.left = rect.left + 'px';
+      var dw = dropdown.offsetWidth;
+      var vw = getViewportWidth();
+      var dLeft = rect.left;
+      if (rect.left + dw > vw - 8) dLeft = Math.max(8, vw - dw - 8);
+      dropdown.style.left = dLeft + 'px';
       dropdown.style.top = (rect.bottom + 4) + 'px';
       // 宽度不跟随输入框：内容自适应，最小宽度由 CSS（300px）兜底
       dropdown.style.width = 'auto';
-      var vw = getViewportWidth();
-      if (rect.left + dropdown.offsetWidth > vw - 8) {
-        dropdown.style.left = Math.max(8, vw - dropdown.offsetWidth - 8) + 'px';
-      }
       // 滚动到当前值
       scrollToSelected(hourCol, currentHour);
       scrollToSelected(minuteCol, currentMinute);
@@ -3770,17 +3836,17 @@ function registerFormComponents(renderer) {
       isOpen = true;
       dropdown.style.display = '';
       picker.classList.add('tokui-datetimepicker--open');
+      // 读齐（display 已开，仅 1 次布局）算好一次写完；不写后复读（同 datepicker 注释）
       var rect = control.getBoundingClientRect();
-      dropdown.style.left = rect.left + 'px';
+      var dw = dropdown.offsetWidth;
+      var vw = getViewportWidth();
+      var dLeft = rect.left;
+      // 右溢出保护：贴右边则左移
+      if (rect.left + dw > vw - 8) dLeft = Math.max(8, vw - dw - 8);
+      dropdown.style.left = dLeft + 'px';
       dropdown.style.top = (rect.bottom + 4) + 'px';
       // 宽度不跟随输入框：由内容自适应（日期+时间横排），最小宽度由 CSS（300px）兜底
       dropdown.style.width = 'auto';
-      // 右溢出保护：贴右边则左移
-      var dw = dropdown.offsetWidth;
-      var vw = getViewportWidth();
-      if (rect.left + dw > vw - 8) {
-        dropdown.style.left = Math.max(8, vw - dw - 8) + 'px';
-      }
       scrollToSelected(hourCol, currentHour);
       scrollToSelected(minuteCol, currentMinute);
       if (showSeconds && secondCol) scrollToSelected(secondCol, currentSecond);

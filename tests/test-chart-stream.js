@@ -439,4 +439,122 @@ test('自闭合 histogram 显式 ymax 锁纵坐标（绝对零跳）', () => {
   assert.ok(dom.querySelectorAll('.tokui-chart-bar').length >= 3, '显式 ymax 不崩');
 });
 
+// === scatter/bubble 流式增量重绘（域不变 → 只 append 新点）===
+
+// 递归序列化 SVG（tag + 排序属性 + 文本），供流式终态 vs 一次性渲染逐字节比对
+function serializeSvg(node) {
+  if (node.nodeType === 3) return '#t:' + node.textContent;
+  var s = '<' + (node._rawTag || node.tagName);
+  var keys = Object.keys(node.attributes || {}).sort();
+  keys.forEach(function (k) { s += ' ' + k + '="' + node.attributes[k] + '"'; });
+  s += '>';
+  for (var i = 0; i < node.childNodes.length; i++) s += serializeSvg(node.childNodes[i]);
+  return s;
+}
+
+test('容器 scatter 域内喂点 → 增量 append：svg 与已画点元素引用不变', () => {
+  const dom = newRenderer().render(chartOpen('scatter'));
+  dom._tokuiChartAppend(pt('1,10'));
+  dom._tokuiChartAppend(pt('5,90'));
+  const svg1 = dom.querySelector('svg');
+  const dots1 = dom.querySelectorAll('.tokui-chart-point');
+  assert.strictEqual(dots1.length, 2);
+  // 域内喂第 3、4 点 → 应走增量：svg 不换、已画点元素不换
+  dom._tokuiChartAppend(pt('2,20'));
+  const svg2 = dom.querySelector('svg');
+  assert.strictEqual(svg2, svg1, '域内加点不应整图重画（svg 引用不变）');
+  const dots2 = dom.querySelectorAll('.tokui-chart-point');
+  assert.strictEqual(dots2.length, 3, '新增 1 点');
+  assert.strictEqual(dots2[0], dots1[0], '已画点 0 元素引用不变');
+  assert.strictEqual(dots2[1], dots1[1], '已画点 1 元素引用不变');
+  dom._tokuiChartAppend(pt('3,30'));
+  const dots3 = dom.querySelectorAll('.tokui-chart-point');
+  assert.strictEqual(dots3.length, 4, '再增 1 点');
+  assert.strictEqual(dots3[2], dots2[2], '上一轮新点同样冻结');
+  assert.strictEqual(dom.querySelector('svg'), svg1, '连续增量 svg 仍不换');
+  // tooltip 条目同步增长（续号，不重建）
+  const tips = dom.querySelectorAll('.tokui-chart-tip');
+  assert.strictEqual(tips.length, 4, '4 点 → 4 条 tooltip');
+  dom._streamCloseHook();
+});
+
+test('容器 scatter 流式 close 后 SVG 结构与一次性渲染逐字节一致', () => {
+  const d = '1,10;5,90;2,20;3,30';
+  const oneShot = newRenderer().render({ type: 'chart', attrs: { t: 'scatter', d: d }, content: '', children: [] });
+  const dom = newRenderer().render(chartOpen('scatter'));
+  ['1,10', '5,90', '2,20', '3,30'].forEach(function (v) { dom._tokuiChartAppend(pt(v)); });
+  dom._streamCloseHook(); // close 全量兜底
+  const sSvg = dom.querySelector('svg');
+  const oSvg = oneShot.querySelector('svg');
+  assert.strictEqual(serializeSvg(sSvg), serializeSvg(oSvg), '终态 SVG 结构/属性/文本逐字节一致');
+});
+
+test('容器 scatter 新点越域 → 回退全量重画（svg 元素换新、点坐标正确）', () => {
+  const dom = newRenderer().render(chartOpen('scatter'));
+  dom._tokuiChartAppend(pt('1,10'));
+  dom._tokuiChartAppend(pt('2,20'));
+  const svg1 = dom.querySelector('svg');
+  dom._tokuiChartAppend(pt('9,99')); // 越出已缓存轴域 → 域变 → 回退全量
+  const svg2 = dom.querySelector('svg');
+  assert.notStrictEqual(svg2, svg1, '域变必须整图重画（svg 换新）');
+  assert.strictEqual(dom.querySelectorAll('.tokui-chart-point').length, 3, '3 点全在');
+  dom._streamCloseHook();
+  // 终态与一次性渲染一致
+  const oneShot = newRenderer().render({ type: 'chart', attrs: { t: 'scatter', d: '1,10;2,20;9,99' }, content: '', children: [] });
+  assert.strictEqual(serializeSvg(dom.querySelector('svg')), serializeSvg(oneShot.querySelector('svg')));
+});
+
+test('容器 bubble 域内喂点 → 增量 append + close 终态一致', () => {
+  const d = '1,10,5;5,90,10;2,20,3;3,30,8';
+  const oneShot = newRenderer().render({ type: 'chart', attrs: { t: 'bubble', d: d }, content: '', children: [] });
+  const dom = newRenderer().render(chartOpen('bubble'));
+  dom._tokuiChartAppend(pt('1,10,5'));
+  dom._tokuiChartAppend(pt('5,90,10'));
+  const svg1 = dom.querySelector('svg');
+  dom._tokuiChartAppend(pt('2,20,3'));
+  assert.strictEqual(dom.querySelector('svg'), svg1, 'bubble 域内加点走增量');
+  dom._tokuiChartAppend(pt('3,30,8'));
+  assert.strictEqual(dom.querySelectorAll('.tokui-chart-point').length, 4);
+  dom._streamCloseHook();
+  assert.strictEqual(serializeSvg(dom.querySelector('svg')), serializeSvg(oneShot.querySelector('svg')));
+});
+
+// === tooltip 事件委托 ===
+
+test('tooltip 事件委托：mouseover/mouseout 显隐，数据点无逐元素监听', () => {
+  const dom = newRenderer().render({ type: 'chart', attrs: { t: 'scatter', d: '1,10;5,90' }, content: '', children: [] });
+  const svg = dom.querySelector('svg');
+  const grp = dom.querySelector('.tokui-chart-tip-group');
+  const tip = dom.querySelector('.tokui-chart-tip');
+  assert.ok(svg && grp && tip);
+  // 委托：监听绑在 svg 上（mouseover/mouseout 各一），数据点元素自身无 mouseenter/leave
+  assert.ok(svg._events['mouseover'] && svg._events['mouseover'].length === 1, 'svg 应有委托 mouseover');
+  assert.ok(svg._events['mouseout'] && svg._events['mouseout'].length === 1, 'svg 应有委托 mouseout');
+  assert.ok(!grp._events['mouseenter'] && !grp._events['mouseleave'], '数据点不应有逐元素监听');
+  const over = svg._events['mouseover'][0];
+  const out = svg._events['mouseout'][0];
+  // hover 进入 → tooltip 显示
+  over({ target: grp, relatedTarget: null });
+  assert.strictEqual(tip.style.opacity, '1', 'mouseover 应显示 tooltip');
+  // 同 group 内子元素间移动（relatedTarget 仍同 group）→ 不重复触发（保持显示）
+  const circle = grp.childNodes[1];
+  over({ target: circle, relatedTarget: grp });
+  assert.strictEqual(tip.style.opacity, '1', '同 group 内移动不应闪烁');
+  // 离开 → 隐藏
+  out({ target: grp, relatedTarget: null });
+  assert.strictEqual(tip.style.opacity, '', 'mouseout 应隐藏 tooltip');
+});
+
+test('tooltip 委托在 bar（非 zoom）同样生效', () => {
+  const dom = newRenderer().render({ type: 'chart', attrs: { t: 'bar', d: '3,5,2', l: 'A,B,C' }, content: '', children: [] });
+  const svg = dom.querySelector('svg');
+  const grp = dom.querySelector('.tokui-chart-tip-group');
+  const tip = dom.querySelector('.tokui-chart-tip');
+  assert.ok(svg._events['mouseover'], 'bar svg 应有委托');
+  svg._events['mouseover'][0]({ target: grp, relatedTarget: null });
+  assert.strictEqual(tip.style.opacity, '1');
+  svg._events['mouseout'][0]({ target: grp, relatedTarget: null });
+  assert.strictEqual(tip.style.opacity, '');
+});
+
 run();

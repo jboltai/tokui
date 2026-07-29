@@ -11,6 +11,9 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* 流式/挂载元素统一淡入类（renderer 加此类，替代逐元素内联 style.animation） */
+.tokui-fade-in { animation: tokuiFadeIn 0.3s ease; }
+
 /* === 主题容器基础样式 === */
 [data-tokui-theme] {
   color: var(--tokui-text);
@@ -5132,12 +5135,16 @@ a.tokui-source__title:hover { text-decoration: underline; }
   pointer-events: none;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.15s ease, visibility 0.15s ease;
+  /* 关闭：opacity 淡出结束后 visibility 才翻 hidden（保 fade-out）；
+     打开（--open 覆盖 transition）：visibility 立即翻 visible，
+     否则同帧 focus 输入框时计算值仍 hidden → focus 静默失败 */
+  transition: opacity 0.15s ease, visibility 0s linear 0.15s;
 }
 .tokui-command--open {
   pointer-events: auto;
   opacity: 1;
   visibility: visible;
+  transition: opacity 0.15s ease, visibility 0s;
 }
 .tokui-command__overlay {
   position: absolute;

@@ -306,6 +306,7 @@ A sidebar conversation-history container; child `conv` nodes are individual conv
 | `act` | Single-item action | `conv` | `act:conv-2` |
 
 > `tt`/`time` with spaces must be double-quoted, otherwise truncated at the first space.
+> When `clk` fires, the handler's first argument is `{ tt, time, act }` (attribute snapshot of the selected conversation); works in streaming mode too.
 
 <Playground dsl='[conversations][conv tt:"如何接入 SSE" time:"刚刚" active][conv tt:"DSL 语法学习" time:"今天 14:20"][conv tt:"主题定制方案" time:"昨天"][conv tt:"表格组件用法" time:"3 天前"][/conversations]' />
 
@@ -403,11 +404,13 @@ A like / dislike button, self-closing. `t` decides the variant.
 
 | Prop | Meaning | Example |
 |------|---------|---------|
-| `t` | Type (`like` / `dislike`) | `t:like` |
+| `t` | Type (`up` / `down`) | `t:up` |
 | `clk` | Click handler | `clk:onLike` |
 | `v` | State / value | `v:12` |
 
-<Playground dsl='[toolbar][thumb t:like v:12 clk:onLike][thumb t:dislike clk:onDislike][/toolbar]' />
+> When `clk` fires, the handler's first argument is `{ direction: 'up' | 'down', active: boolean }` (active state toggles on click).
+
+<Playground dsl='[toolbar][thumb t:up v:12 clk:onLike][thumb t:down clk:onDislike][/toolbar]' />
 
 ## Comprehensive Example: A Real AI Reply
 

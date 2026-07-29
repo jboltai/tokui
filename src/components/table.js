@@ -280,6 +280,20 @@ function registerTableComponents(renderer) {
       }
     }
 
+    // 合帧调度：流式行/单元格到达时合并同帧多次 applyTableState（N 行流式 O(N²) → 每帧一次）。
+    // 参照 chart.js scheduleRebuild：有 rAF 走 rAF，无 rAF 环境（如 Node 测试）同步兜底，语义不退化。
+    function scheduleApplyState() {
+      if (state._applyScheduled) return;
+      state._applyScheduled = true;
+      var run = (typeof window !== 'undefined' && window.requestAnimationFrame)
+        ? function (fn) { window.requestAnimationFrame(fn); }
+        : function (fn) { fn(); };
+      run(function () {
+        state._applyScheduled = false;
+        applyTableState();
+      });
+    }
+
     function gotoPage(p) {
       var pages = Math.max(1, Math.ceil(visibleRows().length / state.pageSize));
       if (p < 1 || p > pages || p === state.page) return;
@@ -288,11 +302,34 @@ function registerTableComponents(renderer) {
       if (table._tokuiReport) table._tokuiReport('page', { value: p });
     }
 
-    // 分页条（上一页/页码/下一页/共N条），每次整排重建（页数通常个位数，重建最简）
+    // 分页条（上一页/页码/下一页/共N条）。
+    // 页数变化时整排重建（含按钮 click 绑定）；页数不变时就地更新 总数/active/disabled，
+    // 避免流式逐行到达时反复 innerHTML 重建 + 逐按钮重绑（配合 scheduleApplyState 合帧）。
     function renderPager(total) {
       if (!state.pager) return;
       var pages = Math.max(1, Math.ceil(total / state.pageSize));
       var pager = state.pager;
+      if (state.pagerPages === pages) {
+        // 页数未变：就地刷新，保留已有按钮与其 click 绑定
+        var totalSpan = pager.querySelector('.tokui-table__pager-total');
+        if (totalSpan) totalSpan.textContent = _t('pagination.totalCount', { count: total });
+        var pageBtns = pager.querySelectorAll('.tokui-table__pager-page');
+        for (var bi = 0; bi < pageBtns.length; bi++) {
+          if (bi + 1 === state.page) pageBtns[bi].classList.add('tokui-table__pager-page--active');
+          else pageBtns[bi].classList.remove('tokui-table__pager-page--active');
+        }
+        var navBtns = pager.querySelectorAll('.tokui-table__pager-btn');
+        if (navBtns[0]) {
+          if (state.page <= 1) navBtns[0].classList.add('tokui-table__pager-btn--disabled');
+          else navBtns[0].classList.remove('tokui-table__pager-btn--disabled');
+        }
+        if (navBtns[1]) {
+          if (state.page >= pages) navBtns[1].classList.add('tokui-table__pager-btn--disabled');
+          else navBtns[1].classList.remove('tokui-table__pager-btn--disabled');
+        }
+        return;
+      }
+      state.pagerPages = pages;
       pager.innerHTML = '';
       var totalEl = el('span', { class: 'tokui-table__pager-total' });
       totalEl.textContent = _t('pagination.totalCount', { count: total });
@@ -385,10 +422,10 @@ function registerTableComponents(renderer) {
           var origRec = child._tokuiTrReconcile;
           child._tokuiTrReconcile = function (content, finalized, attrs) {
             origRec.call(child, content, finalized, attrs);
-            applyTableState();
+            scheduleApplyState();
           };
         }
-        applyTableState();
+        scheduleApplyState();
       };
       tbodyEl.appendChild = function (child) { var r = origAppend.call(tbodyEl, child); onRowArrived(child); return r; };
       tbodyEl.insertBefore = function (child, ref) { var r = origInsert.call(tbodyEl, child, ref); onRowArrived(child); return r; };

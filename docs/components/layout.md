@@ -352,6 +352,7 @@
 | `shortcut` | 快捷键提示 | `item` / `command-item` | `shortcut:⌘N` |
 
 > 命令面板默认隐藏，由按钮触发：触发按钮写 `clk:openCommand data-target:"<command 的 id>"`，对应 `[command id:...]` 带相同 id。需要 `Cmd/Ctrl+K` 时显式写 `hotkey`（页面只应有一个 hotkey 实例）。
+> 选中命令项时：项级 `clk` 的 handler 第一参为 `{ value, text }`；若 `command` 根也设了 `clk`，会再触发一次根级回调，第一参为 `{ value, text, clk }`（`clk` 为该项的项级回调名）。点击面板空白 / 搜索框不触发任何回调。
 
 <Playground dsl='[btn tx:⌘ 打开命令面板 clk:openCommand data-target:demoCmd v:primary][command ph:输入命令或搜索... clk:onCommand id:demoCmd][command-group tt:常用操作][item tx:新建文件 clk:cmdNew shortcut:⌘N][item tx:打开项目 clk:cmdOpen shortcut:⌘O][item tx:搜索替换 clk:cmdSearch shortcut:⌘F][/command-group][command-group tt:导航][item tx:跳到行 clk:cmdGoto][item tx:切换主题 clk:cmdTheme][/command-group][/command]' />
 

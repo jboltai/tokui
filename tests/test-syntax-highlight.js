@@ -153,4 +153,77 @@ test('Bash: # comment highlighted', () => {
   assert.ok(html.indexOf('tok-cmt') !== -1, 'Should contain tok-cmt for # comment');
 });
 
+// === code 流式增量高亮（冻结线 + 易变尾）===
+
+const { TokUIParser } = require('../src/core/parser');
+
+// 流式 feed code 块，返回 { root, codeEl, parser }
+function streamCode(chunks) {
+  const rc = makeRenderer();
+  const root = document.createElement('div');
+  const parser = new TokUIParser((n) => rc.mountStreaming(n, root), { streaming: true });
+  parser.startStream();
+  chunks.forEach(c => parser.feed(c));
+  return { root, codeEl: root.querySelector('code'), parser };
+}
+
+test('code 流式多 chunk（含跨行 /* */）→ 冻结行元素引用不变、注释着色', () => {
+  const s = streamCode([
+    '[code lang:js]',
+    'const a = 1;\n',
+    '/* comment start\n',
+    'still comment\n',
+    'end */\n',
+    'const b = 2;'
+  ]);
+  const els = s.codeEl._codeLineEls;
+  assert.ok(els, '增量路径应建立行元素句柄');
+  assert.strictEqual(els.length, 5, '4 个完成行 + 1 生长行');
+  // 注释闭合后，注释行已冻结且着色（tok-cmt）
+  assert.ok(els[1].innerHTML.indexOf('tok-cmt') !== -1, '块注释行应着色 tok-cmt');
+  const frozen0 = els[0], frozen1 = els[1], frozen3 = els[3];
+  // 再喂 chunk（先无 \n 生长末行，再带 \n 冻结一行）：冻结行元素引用不变
+  s.parser.feed(' + 3;');
+  s.parser.feed('\nconst c = 3;');
+  const els2 = s.codeEl._codeLineEls;
+  assert.strictEqual(els2.length, 6, '新 \\n 冻结一行，新增生长行');
+  assert.strictEqual(els2[0], frozen0, '冻结行 0 元素引用不变');
+  assert.strictEqual(els2[1], frozen1, '注释行 1 元素引用不变');
+  assert.strictEqual(els2[3], frozen3, '注释行 3 元素引用不变');
+  // 生长行内容随 chunk 增长
+  assert.ok(els2[5].textContent.indexOf('const c = 3;') !== -1, '末行为生长行');
+  s.parser.endStream();
+});
+
+test('code 流式 close 后 innerHTML 与一次性渲染逐字节一致', () => {
+  const raw = 'const a = 1;\n/* multi\nline\ncomment */\nconst b = "str";\n// tail comment';
+  const oneShot = makeRenderer().render({ type: 'code', attrs: { lang: 'js' }, content: raw, children: [] });
+  const s = streamCode([
+    '[code lang:js]',
+    'const a = 1;\n/* mul',
+    'ti\nline\ncomm',
+    'ent */\nconst b = "s',
+    'tr";\n// tail comment',
+    '[/code]'
+  ]);
+  s.parser.endStream();
+  assert.strictEqual(s.codeEl.innerHTML, oneShot.querySelector('code').innerHTML,
+    'close 全量收尾 → 与一次性渲染逐字节一致');
+});
+
+test('code 流式多行反引号模板串 → 退化整页重写不崩，close 与一次性一致', () => {
+  const raw = 'const t = `line1\nline2`;\nx = 1;';
+  const oneShot = makeRenderer().render({ type: 'code', attrs: { lang: 'js' }, content: raw, children: [] });
+  const s = streamCode([
+    '[code lang:js]',
+    'const t = `li',
+    'ne1\nline',
+    '2`;\nx = 1;',
+    '[/code]'
+  ]);
+  s.parser.endStream();
+  assert.strictEqual(s.codeEl.innerHTML, oneShot.querySelector('code').innerHTML,
+    '跨行 span 退化路径 close 后仍与一次性渲染一致');
+});
+
 run();

@@ -49,13 +49,37 @@ function iconSvg(name, size) {
     + 'class="tokui-icon tokui-icon--' + name + '">' + p + '</svg>';
 }
 
+/**
+ * 生成图标 SVG 元素（节点缓存版）：浏览器首用 innerHTML 解析一次建节点，后续 cloneNode(true)，
+ * 避免同一 SVG 字符串反复 HTML 解析（btn icon 等批量渲染场景）。
+ * Node / dom-mock 的 innerHTML 不解析（无子节点）→ 返回 null，消费方回退 iconSvg 字符串路径。
+ * @param {string} name - ICONS 注册表键名
+ * @param {number} [size=16] - 宽高（px）
+ * @returns {Element|null} 克隆的 svg 节点；未知 name / 无 DOM / 环境不解析 innerHTML 返回 null
+ */
+var _iconNodeCache = {};
+function iconEl(name, size) {
+  if (typeof document === 'undefined' || !document.createElement) return null;
+  var key = name + '@' + (size || 16);
+  if (!(key in _iconNodeCache)) {
+    var svg = iconSvg(name, size);
+    if (!svg) { _iconNodeCache[key] = null; return null; }
+    var tmp = document.createElement('span');
+    tmp.innerHTML = svg;
+    _iconNodeCache[key] = tmp.firstChild || false; // false = 环境不解析 innerHTML（mock）
+  }
+  var cached = _iconNodeCache[key];
+  return (cached && cached.cloneNode) ? cached.cloneNode(true) : null;
+}
+
 // UMD 双模式导出
 if (typeof window !== 'undefined') {
   window.TokUI = window.TokUI || {};
   window.TokUI._internal = window.TokUI._internal || {};
   window.TokUI._internal.ICONS = ICONS;
   window.TokUI._internal.iconSvg = iconSvg;
+  window.TokUI._internal.iconEl = iconEl;
 }
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { ICONS: ICONS, iconSvg: iconSvg };
+  module.exports = { ICONS: ICONS, iconSvg: iconSvg, iconEl: iconEl };
 }

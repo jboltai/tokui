@@ -560,7 +560,7 @@ test('conversations delete action exists', function() {
   assert.notStrictEqual(actions, null);
 });
 
-test('conversations clk data attr on items', function() {
+test('conversations conv 项点击单路径：无 data-tokui-clk（内部 emit 统一回调）', function() {
   var rc = makeRenderer();
   var dom = rc.render({
     type: 'conversations',
@@ -570,7 +570,9 @@ test('conversations clk data attr on items', function() {
     ]
   });
   var item = dom.querySelector('.tokui-conv');
-  assert.strictEqual(item.getAttribute('data-tokui-clk'), 'onSelectConv');
+  // 不设 data-tokui-clk：避免 bindEvents clickFn 与内部 emit 双发；点击回调走内部 listener
+  assert.strictEqual(item.getAttribute('data-tokui-clk'), null);
+  assert.ok(item._events && item._events.click && item._events.click.length > 0, '内部 click listener 存在');
 });
 
 test('conversations time grouping - header appears for multiple groups', function() {
@@ -1142,7 +1144,8 @@ test('command basic render - div.tokui-command with overlay, input, and list', f
   var itemText = item.querySelector('.tokui-command__item-text');
   assert.notStrictEqual(itemText, null);
   assert.strictEqual(itemText.textContent, '新建对话');
-  assert.strictEqual(item.getAttribute('data-tokui-clk'), 'newChat');
+  // command item 的 clk 存 data-tokui-cmd-clk（不走 bindEvents，防与内部 emit 双发）
+  assert.strictEqual(item.getAttribute('data-tokui-cmd-clk'), 'newChat');
 });
 
 test('command-group renders heading and items', function() {
@@ -1173,7 +1176,8 @@ test('command-item render with text and clk handler', function() {
   var textSpan = dom.querySelector('.tokui-command__item-text');
   assert.notStrictEqual(textSpan, null);
   assert.strictEqual(textSpan.textContent, '复制');
-  assert.strictEqual(dom.getAttribute('data-tokui-clk'), 'copyCmd');
+  // command item 的 clk 存 data-tokui-cmd-clk（不走 bindEvents，防与内部 emit 双发）
+  assert.strictEqual(dom.getAttribute('data-tokui-cmd-clk'), 'copyCmd');
 });
 
 test('command-item has role option and tabindex', function() {
@@ -1194,7 +1198,10 @@ test('command with clk attr on root triggers event bus', function() {
     attrs: { clk: 'onCommand' },
     children: []
   });
-  assert.strictEqual(dom.getAttribute('data-tokui-clk'), 'onCommand');
+  // 根 clk 存 data-tokui-cmd-clk：选中命令项时由内部 emit 触发；
+  // 不用 data-tokui-clk（会被 bindEvents 绑根，点面板任意处冒泡误触发 + 双发）
+  assert.strictEqual(dom.getAttribute('data-tokui-cmd-clk'), 'onCommand');
+  assert.strictEqual(dom.getAttribute('data-tokui-clk'), null);
 });
 
 test('command empty state shows when no items match', function() {
