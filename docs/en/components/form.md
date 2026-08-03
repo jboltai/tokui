@@ -412,4 +412,69 @@ Press Enter to add a tag, click a tag's `×` to remove it. `tags` for initial ta
 
 <Playground dsl='[input-tag l:技术栈 ph:"输入后回车添加" max:8 tags:"JavaScript,Python,Go"][input-tag l:极简自闭合 tags:"React,Vue"][input-tag l:空容器 ph:"无初始标签，手动添加"][/input-tag][input-tag l:禁用态 tags:"只读模式" dis]' />
 
+## Segmented `segmented`
+
+A lightweight single-choice switcher (the form-control counterpart of `tabs`). Two forms: the `opt` shorthand (atomic self-closing) or container mode with `opt` children (icons, per-option disabled).
+
+| Prop | Meaning | Example |
+|------|---------|---------|
+| `opt` | Shorthand option string `v:label;...` (**double quotes required**) | `opt:"list:列表;grid:宫格"` |
+| `v` | Currently selected value (combinable with shape variants) | `v:"sm,grid"` |
+| `n` | Field name | `n:view` |
+| `l` | Label | `l:视图` |
+| `dis` | Disable the whole group | `dis` |
+| `on` | change reports `{value,name}` | `on:"change:h"` |
+| `id` | Element ID | `id:view` |
+
+**Variants**: `sm` / `lg` / `block` (full width) / `pill` (rounded) / `vertical`.
+
+**Container-mode `opt` children** (fine-grained per-option control):
+
+| Prop | Meaning | Example |
+|------|---------|---------|
+| `v` | Option value | `v:grid` |
+| `tx` | Display text | `tx:宫格` |
+| `i` | Icon character (emoji/symbol) | `i:📊` |
+| `chk` | Checked by default (`v` match wins) | `chk` |
+| `dis` | Disable this option | `dis` |
+
+> The server can switch programmatically with `[upd id:view v:grid]`; a form reset restores the initial value.
+
+<Playground dsl='[segmented l:视图 v:grid opt:"list:列表;grid:宫格;table:表格"][segmented v:"pill,day" opt:"day:日;week:周;month:月"][segmented n:perm v:read][opt v:read tx:只读][opt v:write tx:读写][opt v:admin tx:管理员 dis][/segmented]' />
+
+## Color Picker `color-picker`
+
+Self-closing. The picker panel combines a saturation/brightness pick area, a hue slider, a hex input, preset swatches, and a clear action. `presets` configures the preset colors. When opened, the panel portals to `document.body` with fixed positioning so it is never clipped by a parent container's overflow; it repositions to follow the anchor on scroll and closes on outside click or Escape.
+
+| Prop | Meaning | Example |
+|------|---------|---------|
+| `v` | Initial color (`#rrggbb`, defaults to `#1677ff`) | `v:#1677ff` |
+| `presets` | Preset colors (comma-separated hex) | `presets:"#f5222d,#fa8c16"` |
+| `n` | Field name | `n:color` |
+| `l` | Label | `l:主题色` |
+| `dis` | Disabled | `dis` |
+| `on` | change reports `{value,name}` | `on:"change:h"` |
+| `id` | Element ID | `id:color` |
+
+> The server can recolor programmatically with `[upd id:color v:#hex]` and re-enable with `[upd id:color dis:false]`; a form reset restores the initial value.
+
+<Playground dsl='[color-picker l:主题色 v:#1677ff presets:"#f5222d,#fa8c16,#52c41a,#1677ff,#722ed1"]' />
+
+## Editable `editable`
+
+Self-closing inline element. The text carries a dashed underline marking it as editable; clicking enters the editing state: Enter/blur commits, Escape restores (no report).
+
+| Prop | Meaning | Example |
+|------|---------|---------|
+| `tx` / `v` | Initial text | `tx:小木屋` |
+| `ph` | Placeholder when empty | `ph:点击填写` |
+| `n` | Field name | `n:nick` |
+| `dis` | Disabled | `dis` |
+| `on` | Commit (value changed) reports `{value,name}` | `on:"change:h"` |
+| `id` | Element ID | `id:ed1` |
+
+> The server can rewrite programmatically with `[upd id:ed1 tx:新值]` (silent) and unlock with `[upd id:ed1 dis:false]`.
+
+<Playground dsl='[p 昵称：[editable tx:小木屋 n:nick]][p 签名：[editable ph:点击填写 n:sign]]' />
+
 > For the full DSL syntax (prop shorthands, variant whitelist, streaming render constraints, etc.), see [DSL Syntax](/guide/dsl-syntax).

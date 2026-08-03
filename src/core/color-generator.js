@@ -312,7 +312,12 @@ function generateThemeTokens(seedColors, options) {
 
 var ColorGenerator = {
   generatePalette: generatePalette,
-  generateThemeTokens: generateThemeTokens
+  generateThemeTokens: generateThemeTokens,
+  // 颜色转换工具（color-picker 等组件复用）
+  hexToRgb: hexToRgb,
+  rgbToHex: rgbToHex,
+  rgbToHsv: rgbToHsv,
+  hsvToRgb: hsvToRgb
 };
 
 // 兼容浏览器和 Node.js 环境导出
@@ -322,6 +327,10 @@ if (typeof window !== 'undefined') {
   window.TokUI._internal.generatePalette = generatePalette;
   window.TokUI._internal.generateThemeTokens = generateThemeTokens;
   window.TokUI._internal.ColorGenerator = ColorGenerator;
+  window.TokUI._internal.hexToRgb = hexToRgb;
+  window.TokUI._internal.rgbToHex = rgbToHex;
+  window.TokUI._internal.rgbToHsv = rgbToHsv;
+  window.TokUI._internal.hsvToRgb = hsvToRgb;
 }
 
 if (typeof module !== 'undefined' && module.exports) {

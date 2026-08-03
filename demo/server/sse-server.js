@@ -451,7 +451,7 @@ const DEMOS = [
             .h2('H2 Success', { v: 'ribbon', bg: 'success' })
             .h3('H3 Danger', { v: 'ribbon', bg: 'danger' })
             .h4('H4 Warning', { v: 'ribbon', bg: 'warning' })
-            .h3('自定义橙', { v: 'ribbon', bg: 'FF8C00', fc: 'FFFFFF' })
+            .h3('自定义橙', { v: 'ribbon', bg: 'FF8C00' })
           .end()
         .end()
         .col_layout({ span: 3 })
@@ -468,7 +468,7 @@ const DEMOS = [
             .h1('H1 Primary', { v: 'badge', bg: 'primary' })
             .h2('H2 Danger', { v: 'badge', bg: 'danger' })
             .h3('H3 Success', { v: 'badge', bg: 'success' })
-            .h4('H4 深蓝', { v: 'badge', bg: '1E3A5F', fc: 'FFFFFF' })
+            .h4('H4 深蓝', { v: 'badge', bg: '1E3A5F' })
             .h5('H5 Info', { v: 'badge', bg: 'info' })
           .end()
         .end()
@@ -482,7 +482,7 @@ const DEMOS = [
             .h2('H2 Success', { v: 'pill', bg: 'success' })
             .h3('H3 浅色', { v: 'pill', bg: 'light', fc: 'dark' })
             .h4('H4 Warning', { v: 'pill', bg: 'warning' })
-            .h5('H5 自定义粉', { v: 'pill', bg: 'EC4899', fc: 'FFFFFF' })
+            .h5('H5 自定义粉', { v: 'pill', bg: 'EC4899' })
           .end()
         .end()
         .col_layout({ span: 3 })
@@ -497,10 +497,10 @@ const DEMOS = [
             .h4('Primary', { v: 'underline', bg: 'primary' })
             .h4('Success', { v: 'underline', bg: 'success' })
             .h4('Danger', { v: 'underline', bg: 'danger' })
-            .h5('FF8C00 橙', { v: 'ribbon', bg: 'FF8C00', fc: 'FFFFFF' })
-            .h5('7C3AED 紫', { v: 'pill', bg: '7C3AED', fc: 'FFFFFF' })
-            .h5('EC4899 粉', { v: 'badge', bg: 'EC4899', fc: 'FFFFFF' })
-            .h5('14B8A6 青', { v: 'ribbon', bg: '14B8A6', fc: 'FFFFFF' })
+            .h5('FF8C00 橙', { v: 'ribbon', bg: 'FF8C00' })
+            .h5('7C3AED 紫', { v: 'pill', bg: '7C3AED' })
+            .h5('EC4899 粉', { v: 'badge', bg: 'EC4899' })
+            .h5('14B8A6 青', { v: 'ribbon', bg: '14B8A6' })
             .h6('浅色底线', { v: 'underline', bg: 'light', fc: 'dark' })
           .end()
         .end()
@@ -553,10 +553,10 @@ const DEMOS = [
         .col_layout({ span: 4 })
           .card({ tt: '自定义颜色与宽度' })
             .p('自定义背景色 (bg:)：')
-            .btn({ tx: '橙色按钮', bg: 'FF8C00', fc: 'FFFFFF' })
-            .btn({ tx: '紫色按钮', bg: '7C3AED', fc: 'FFFFFF' })
+            .btn({ tx: '橙色按钮', bg: 'FF8C00' })
+            .btn({ tx: '紫色按钮', bg: '7C3AED' })
             .btn({ tx: '语义色按钮', bg: 'info' })
-            .btn({ tx: '暗色按钮', bg: 'dark', fc: 'FFFFFF' })
+            .btn({ tx: '暗色按钮', bg: 'dark' })
             .p('自定义文字色 (fc:)：')
             .btn({ tx: '红色文字', fc: 'danger' })
             .btn({ tx: '成功色文字', fc: 'success' })
@@ -1371,7 +1371,7 @@ const DEMOS = [
             .cardTx('快捷操作', '点击左侧导航选择更多组件示例。')
           .end()
           .col_layout({ span: 6 })
-            .cardTx('版本更新', 'TokUI v0.2.0 已发布，支持卡片自闭合模式。')
+            .cardTx('版本更新', 'TokUI v0.2.1 已发布，支持卡片自闭合模式。')
           .end()
         .end()
         .hr()
@@ -1404,7 +1404,7 @@ const DEMOS = [
         .row_layout()
           .col_layout({ span: 6 })
             .card({ tt: 'Pill 药丸标题', ht: 'pill' })
-              .p('标题文字带主题色背景药丸，活泼醒目。')
+              .p('标题文字带浅主色底药丸，轻盈醒目。')
             .end()
           .end()
           .col_layout({ span: 6 })
@@ -1421,7 +1421,7 @@ const DEMOS = [
           .end()
           .col_layout({ span: 6 })
             .card({ tt: 'Fill 填充标题', ht: 'fill' })
-              .p('主题色背景 + 白色文字，强视觉冲击。')
+              .p('浅主色底 + 主色文字 + 淡描边，柔和填充。')
               .ft()
                 .btn({ tx: '查看详情', v: 'primary', clk: 'handleDetail' })
               .end()
@@ -1561,7 +1561,7 @@ const DEMOS = [
                 .a({ tx: '帮助文档', u: '/docs' })
                 .p(' | ')
                 .a({ tx: '联系我们', u: '/contact' })
-                .p('版本 v0.2.0')
+                .p('版本 v0.2.1')
               .end()
             .end()
           .end()
@@ -2438,10 +2438,10 @@ const DEMOS = [
           .end()
           .col_layout({ span: 3 })
             .card({ tt: '自定义颜色' })
-              .tag('自定义背景', { bg: 'FF6600', fc: 'FFFFFF' })
+              .tag('自定义背景', { bg: 'FF6600' })
               .tag('主题色', { bg: 'primary' })
-              .tag('成功色', { bg: 'success', fc: 'FFFFFF' })
-              .tag('危险色', { bg: 'danger', fc: 'FFFFFF' })
+              .tag('成功色', { bg: 'success' })
+              .tag('危险色', { bg: 'danger' })
             .end()
           .end()
           .col_layout({ span: 3 })
@@ -5349,7 +5349,7 @@ const DEMOS = [
       b.card({ tt: '自定义颜色' })
         .p('bg 背景色 + fc 字色，支持语义色和 HEX：')
         .avatar({ tx: 'VIP', bg: 'danger', fc: 'FFFFFF', size: 'lg' })
-        .avatar({ tx: 'Ad', bg: 'success', fc: 'FFFFFF' })
+        .avatar({ tx: 'Ad', bg: 'success' })
         .avatar({ tx: 'Pro', bg: 'primary', fc: 'FFFFFF', size: 'lg' })
         .avatar({ tx: 'OK', bg: '1a1a2e', fc: 'e0e0e0' })
       .end();
@@ -10322,6 +10322,303 @@ const DEMOS = [
             .end()
           .end()
         .end();
+      return b;
+    }
+  },
+  // ===== Phase 4 新组件：segmented / color-picker / affix / anchor / tour / modal.confirm / preview-group =====
+  {
+    trigger: 'demo-segmented',
+    title: 'Segmented 分段控制器',
+    desc: '图标选项/单项禁用/尺寸胶囊垂直形态，change 事件回显',
+    build() {
+      const b = new TokUIBuilder();
+      b.card({ tt: 'Segmented 分段控制器' })
+        .p('基础用法：切换分段项，change 事件携带 {value, name} 上报：', { v: 'muted' })
+        .segmented({ n: 'view', v: 'grid', opt: 'list:列表;grid:宫格;table:表格', on: 'change:handleSegChange' })
+        .p('图标选项（opt 子节点 i: 属性，容器模式）：', { v: 'muted' })
+        ._open('segmented', { n: 'iconView', v: 'card', on: 'change:handleSegChange' })
+          ._selfClosing('opt', null, { v: 'card', tx: '卡片', i: '🃏' })
+          ._selfClosing('opt', null, { v: 'list', tx: '列表', i: '☰' })
+          ._selfClosing('opt', null, { v: 'chart', tx: '图表', i: '📊' })
+        .end()
+        .p('单项禁用（opt 子节点 dis，第三项不可选）：', { v: 'muted' })
+        ._open('segmented', { n: 'perm', v: 'read', on: 'change:handleSegChange' })
+          ._selfClosing('opt', null, { v: 'read', tx: '只读' })
+          ._selfClosing('opt', null, { v: 'write', tx: '读写' })
+          ._selfClosing('opt', null, { v: 'admin', tx: '管理员', dis: true })
+        .end()
+        .p('形态变体：sm 小尺寸 / lg 大尺寸 / pill 胶囊 / block 撑满 / vertical 垂直：', { v: 'muted' })
+        .segmented({ n: 'sizeSm', v: 'sm,one', opt: 'one:小一号;two:选项二' })
+        .segmented({ n: 'sizeLg', v: 'lg,one', opt: 'one:大一号;two:选项二' })
+        .segmented({ n: 'shape', v: 'pill,day', opt: 'day:日;week:周;month:月;year:年', on: 'change:handleSegChange' })
+        .segmented({ n: 'full', v: 'block,left', opt: 'left:左对齐;center:居中;right:右对齐' })
+        .segmented({ n: 'side', v: 'vertical,all', opt: 'all:全部;unread:未读;star:星标' })
+      .end();
+      return b;
+    }
+  },
+  {
+    trigger: 'demo-color-picker',
+    title: 'ColorPicker 颜色选择器',
+    desc: '预设色板/取色面板/表单收集/程序化改色，change 事件回显',
+    build() {
+      const b = new TokUIBuilder();
+      b.card({ tt: 'ColorPicker 颜色选择器' })
+        .p('面板 fixed 定位挂 body：卡片内点开不会被边缘裁切，滚动跟随重定位，外点/Esc 关闭。', { v: 'muted' })
+        .p('基础：预设色板 + 饱和明度取色区 + 色相滑条 + hex 输入，change 携带 {value, name} 上报：', { v: 'muted' })
+        .colorPicker({ l: '主题色', n: 'color', v: '#1677ff', presets: '#f5222d,#fa8c16,#52c41a,#1677ff,#722ed1', on: 'change:handleColorChange' })
+        .p('无预设纯取色（不同初始色）：', { v: 'muted' })
+        .colorPicker({ l: '强调色', n: 'accent', v: '#f5222d', on: 'change:handleColorChange' })
+        .p('禁用态（dis）：', { v: 'muted' })
+        .colorPicker({ l: '锁定主题色', n: 'colorLocked', v: '#8c8c8c', dis: true })
+        .p('程序化改色（upd v:#hex 推送到 id:cp1）：', { v: 'muted' })
+        .colorPicker({ l: '远程可控', n: 'remote', id: 'cp1', v: '#1677ff', on: 'change:handleColorChange' })
+        .btngroup()
+          .btn({ tx: '改成品牌绿', v: 'sm', clk: 'cpSetGreen' })
+          .btn({ tx: '改成警示红', v: 'sm', clk: 'cpSetRed' })
+        .end()
+        .p('表单收集：选完色点提交，FormData 含全部色值字段：', { v: 'muted' })
+        .form({ id: 'themeForm', sub: 'handleColorSubmit' })
+          .colorPicker({ l: '主色', n: 'primary', v: '#1677ff', presets: '#f5222d,#fa8c16,#52c41a,#1677ff,#722ed1' })
+          .colorPicker({ l: '辅色', n: 'secondary', v: '#52c41a' })
+          .btn({ tx: '提交主题', t: 'submit', v: 'primary' })
+        .end()
+      .end();
+      return b;
+    }
+  },
+  {
+    trigger: 'demo-affix',
+    title: 'Affix 固钉',
+    desc: '固顶/固底/嵌套滚动容器，change 事件回显',
+    build() {
+      const b = new TokUIBuilder();
+      b.card({ tt: 'Affix 固钉 · 固顶' })
+        .p('向下滚动对话区域，工具条越过 top:8 偏移后固定在可视区顶部，滚回自动复原；固定状态切换经 change 事件上报：', { v: 'muted' })
+        .affix({ top: 8, on: 'change:handleAffixChange' })
+          .btngroup()
+            .btn({ tx: '固定工具条', t: 'primary' })
+            .btn({ tx: '保存', clk: 'handleSave' })
+            .btn({ tx: '导出', clk: 'handleExport' })
+          .end()
+        .end()
+        .p('固顶常用于列表页筛选条、详情页操作栏等需要常驻可见的区域。')
+        .p('top 属性指定距离可视区顶部的偏移量(px)，缺省 top:0。')
+        .p('固定期间原位置保留占位，页面布局不会抖动塌陷。');
+      for (let i = 1; i <= 40; i++) {
+        b.p('填充段落 ' + i + '：用于撑出滚动高度，观察工具条越过顶线后的固定效果。');
+      }
+      b.end();
+      b.card({ tt: 'Affix 固钉 · 固底（bottom）' })
+        .p('bottom:8 语义与 top 对称：元素位于底线之下时先固定于可视区底部，滚动经过后释放。AI 场景可固定「采纳 / 重试」结果操作条。', { v: 'muted' });
+      for (let i = 1; i <= 30; i++) {
+        b.p('固底填充 ' + i + '：向下滚动，操作条会先钉在底部，经过其原始位置后释放回文档流。');
+      }
+      b.affix({ bottom: 8, on: 'change:handleAffixChange' })
+        .btngroup()
+          .btn({ tx: '✓ 采纳', t: 'primary', clk: 'handleSave' })
+          .btn({ tx: '↻ 重试', clk: 'handleRetry' })
+          .btn({ tx: '✗ 丢弃', clk: 'handleDelete' })
+        .end()
+      .end()
+      .end();
+      b.card({ tt: 'Affix 固钉 · 嵌套滚动容器' })
+        .p('无需 target：自动探测最近可滚动祖先（此处为内嵌 scroll-area，h:260 自带滚动条），固钉只在小滚动区内生效：', { v: 'muted' })
+        .scrollArea({ h: '260' })
+          .p('scroll-area 顶部说明文字。')
+          .affix({ top: 4 })
+            .btn({ tx: '📌 区内固钉', v: 'sm', t: 'primary' })
+          .end();
+      for (let i = 1; i <= 20; i++) {
+        b.p('区内段落 ' + i + '：滚动左侧小区域，固钉只在该区域内固定。');
+      }
+      b.end().end();
+      return b;
+    }
+  },
+  {
+    trigger: 'demo-anchor',
+    title: 'Anchor 锚点导航',
+    desc: '层级锚点/横向模式/spy 偏移，点击平滑滚动+滚动高亮',
+    build() {
+      const b = new TokUIBuilder();
+      // —— 组 1：层级锚点（容器模式 lk，d 深度缩进）——
+      b.card({ tt: 'Anchor 锚点导航 · 层级模式' })
+        .p('容器模式 lk 子项支持二级锚点（d:1 缩进）；top:20 指定 spy 激活偏移。点击平滑滚动，滚动自动高亮，change 上报 {value}：', { v: 'muted' })
+        .anchor({ top: 20, on: 'change:handleAnchorChange' })
+          .lk({ h: 'ch1', tx: '第一章 快速开始' })
+          .lk({ h: 'ch1-1', tx: '安装', d: 1 })
+          .lk({ h: 'ch1-2', tx: '首次渲染', d: 1 })
+          .lk({ h: 'ch2', tx: '第二章 核心概念' })
+          .lk({ h: 'ch2-1', tx: 'DSL 语法', d: 1 })
+          .lk({ h: 'ch3', tx: '第三章 流式渲染' })
+        .end()
+        .h2('第一章 快速开始', { id: 'ch1' })
+        .h3('安装', { id: 'ch1-1' });
+      for (let i = 1; i <= 6; i++) b.p('通过 npm 安装 @jboltai/tokui 后即可在前端引入，也可以直接用 script 标签加载 UMD 产物。（' + i + '）');
+      b.h3('首次渲染', { id: 'ch1-2' });
+      for (let i = 1; i <= 6; i++) b.p('调用 new TokUI({ container }) 创建实例，render() 一次性渲染或 startStream() 加 feed() 流式渲染。（' + i + '）');
+      b.h2('第二章 核心概念', { id: 'ch2' })
+        .h3('DSL 语法', { id: 'ch2-1' });
+      for (let i = 1; i <= 8; i++) b.p('TokUI DSL 以 [组件 属性:值 内容] 描述界面，容器组件用 [/组件] 闭合，支持嵌套与流式增量解析。（' + i + '）');
+      b.h2('第三章 流式渲染', { id: 'ch3' });
+      for (let i = 1; i <= 8; i++) b.p('SSE 推送的每个 chunk 到达即渲染，长文档逐段浮现；锚点高亮会随滚动自动跟随当前章节。（' + i + '）');
+      b.end();
+      // —— 组 2：横向锚点（v:horizontal，opt 简写）——
+      b.card({ tt: 'Anchor 锚点导航 · 横向模式' })
+        .p('v:horizontal 切换横向排列（适合章节较少的页内导航），opt 简写同构：', { v: 'muted' })
+        .anchor({ v: 'horizontal', opt: 'hx1:概览;hx2:规格;hx3:评价', on: 'change:handleAnchorChange' })
+        .h2('概览', { id: 'hx1' });
+      for (let i = 1; i <= 8; i++) b.p('横向锚点常用于商品详情、文档页头等场景的轻量页内导航。（' + i + '）');
+      b.h2('规格', { id: 'hx2' });
+      for (let i = 1; i <= 8; i++) b.p('规格参数章节内容，滚动经过时横向锚点同步高亮。（' + i + '）');
+      b.h2('评价', { id: 'hx3' });
+      for (let i = 1; i <= 8; i++) b.p('用户评价章节内容，点击锚点平滑滚动并 suppress spy 抢高亮。（' + i + '）');
+      b.end();
+      return b;
+    }
+  },
+  {
+    trigger: 'demo-tour',
+    title: 'Tour 漫游式引导',
+    desc: 'open 自动开启/tgt 指向目标/无目标居中步骤',
+    build() {
+      const b = new TokUIBuilder();
+      b.card({ tt: 'Tour 漫游式引导' })
+        .p('"tour 带 open 属性时容器闭合后自动开启引导；tour-step 用 tgt 指向元素 id 作高亮目标，缺省 tgt 时步骤居中展示："', { v: 'muted' })
+        .btngroup()
+          .btn({ tx: '功能入口 A', id: 'tour-target-a', t: 'primary' })
+          .btn({ tx: '功能入口 B', id: 'tour-target-b' })
+        .end()
+        .tour({ open: true, id: 'tour1' })
+          .tourStep({ tgt: '#tour-target-a', tt: '第一步', tx: '这是主要功能入口，从这里开始你的操作。' })
+          .tourStep({ tgt: '#tour-target-b', tt: '第二步', tx: '辅助功能在这里，可按需使用。' })
+          .tourStep({ tt: '引导完成', tx: '没有 tgt 的步骤会居中展示，通常用于开场或收尾说明。' })
+        .end()
+        .btn({ tx: '重播引导', clk: 'replayTour' })
+      .end();
+      return b;
+    }
+  },
+  {
+    trigger: 'demo-modal',
+    title: 'Modal 命令式确认框',
+    desc: 'TokUI.confirm() 命令式调用，返回 Promise<boolean>',
+    build() {
+      const b = new TokUIBuilder();
+      b.card({ tt: 'Modal 确认对话框' })
+        .p('modal.confirm 是命令式 JS API 而非 DSL 组件：TokUI.confirm(opts) 返回 Promise<boolean>，点确认 resolve true、取消 resolve false。', { v: 'muted' })
+        .btngroup()
+          .btn({ tx: '删除文件', v: 'danger', clk: 'askDelete' })
+          .btn({ tx: '普通确认', clk: 'askNormal' })
+        .end()
+      .end();
+      return b;
+    }
+  },
+  {
+    trigger: 'demo-preview-group',
+    title: 'PreviewGroup 图片预览组',
+    desc: '整组灯箱预览：缩放/旋转/左右切换',
+    build() {
+      const b = new TokUIBuilder();
+      b.card({ tt: 'PreviewGroup 图片预览组' })
+        .p('点击任意图片打开灯箱，并携带整组图片列表，支持缩放/旋转/左右切换：', { v: 'muted' })
+        .previewGroup()
+          .img({ s: 'https://picsum.photos/seed/pg1/400/400', alt: '预览图 1' })
+          .img({ s: 'https://picsum.photos/seed/pg2/400/400', alt: '预览图 2' })
+          .img({ s: 'https://picsum.photos/seed/pg3/400/400', alt: '预览图 3' })
+        .end()
+      .end();
+      return b;
+    }
+  },
+
+  // ===== P2 组件：kbd / editable / float-button / masonry =====
+  {
+    trigger: 'demo-kbd',
+    title: 'Kbd 键盘按键',
+    desc: '行内键帽样式，快捷键说明必备',
+    build() {
+      const b = new TokUIBuilder();
+      b.card({ tt: 'Kbd 键盘按键' })
+        .p('行内键帽样式，适合快捷键与操作说明文档；支持 sm/lg 尺寸变体：', { v: 'muted' })
+        ._open('p').text('全局搜索：')._selfClosing('kbd', 'Ctrl').text(' + ')._selfClosing('kbd', 'K').end()
+        ._open('p').text('保存文件：')._selfClosing('kbd', '⌘').text(' + ')._selfClosing('kbd', 'S').end()
+        ._open('p').text('取消操作：')._selfClosing('kbd', 'Esc').text('　确认：')._selfClosing('kbd', 'Enter', { v: 'lg' }).end()
+        ._open('p').text('方向切换：')._selfClosing('kbd', '↑', { v: 'sm' })._selfClosing('kbd', '↓', { v: 'sm' })._selfClosing('kbd', '←', { v: 'sm' })._selfClosing('kbd', '→', { v: 'sm' }).end()
+      .end();
+      return b;
+    }
+  },
+  {
+    trigger: 'demo-editable',
+    title: 'Editable 行内编辑',
+    desc: '点击即编辑/Enter提交/Esc还原/upd 改值',
+    build() {
+      const b = new TokUIBuilder();
+      b.card({ tt: 'Editable 行内编辑' })
+        .p('点击虚线文本进入编辑态，Enter 或失焦提交（change 上报 {value, name}），Esc 还原不上报：', { v: 'muted' })
+        ._open('p').text('昵称：')._selfClosing('editable', null, { tx: '小木屋', n: 'nick', on: 'change:handleEditChange' }).end()
+        ._open('p').text('签名：')._selfClosing('editable', null, { ph: '点击填写签名', n: 'sign', on: 'change:handleEditChange' }).end()
+        ._open('p').text('锁定项：')._selfClosing('editable', null, { tx: '不可编辑', dis: true }).end()
+        .p('程序化改值（upd tx 推送到 id:ed1，silent 不上报）：', { v: 'muted' })
+        ._open('p').text('标题：')._selfClosing('editable', null, { tx: '旧标题', id: 'ed1', on: 'change:handleEditChange' }).end()
+        .btn({ tx: '改成新标题', v: 'sm', clk: 'edUpdate' })
+      .end();
+      return b;
+    }
+  },
+  {
+    trigger: 'demo-float-button',
+    title: 'FloatButton 浮动按钮组',
+    desc: '右下角固位悬浮组：backtop/客服/点赞',
+    build() {
+      const b = new TokUIBuilder();
+      b.card({ tt: 'FloatButton 浮动按钮组' })
+        .p('视口右下角已挂载浮动组（回到顶部 + 客服 + 点赞），offset:80 避开页面自带按钮。pos 支持 right-bottom/right-top/left-bottom/left-top 四角，子组件自动圆形悬浮化：', { v: 'muted' })
+        .p('滚动本对话区，悬浮组始终固位；点击 💬 与 ❤ 查看事件回显。', { v: 'muted' })
+        .floatButton({ pos: 'right-bottom', offset: '80' })
+          .backtop()
+          .btn({ tx: '💬', clk: 'floatChat' })
+          .btn({ tx: '❤', clk: 'floatLike' })
+        .end()
+      .end();
+      return b;
+    }
+  },
+  {
+    trigger: 'demo-masonry',
+    title: 'Masonry 瀑布流',
+    desc: '图表/表格/图片/代码/标签等多类型混排 + minw 自动列',
+    build() {
+      const b = new TokUIBuilder();
+      b.card({ tt: 'Masonry 瀑布流 · 固定列（多类型混排）' })
+        .p('cols:3 + gap:10，不同高度/类型的子项自动分列平衡、break-inside 不截断：', { v: 'muted' })
+        .masonry({ cols: '3', gap: '10' })
+          .card({ tt: '图表' }).chart({ t: 'bar', d: '120,200,150,80,250', l: 'Q1,Q2,Q3,Q4,Q5', h: '140' }).end()
+          .card({ tt: '图片' }).img({ s: 'https://picsum.photos/seed/ms1/300/200' }).end()
+          .card({ tt: '表格' }).table({ stripe: true }).theadCols('指标,数值').tbody().row('曝光', '12.4万').row('点击', '8,421').row('转化', '1,077').end().end().end()
+          .card({ tt: '提示' }).callout({ t: 'success', tx: '瀑布流适合高度不一的卡片流，列高由浏览器自动平衡。' }).end()
+          .card({ tt: '代码' }).code({ lang: 'js' }, 'const m = [1,2,3]\n  .map(x => x * 2);').end()
+          .card({ tt: '统计' }).stat({ l: '活跃用户', v: '8,421' }).stat({ l: '转化率', v: '12.8%' }).end()
+          .card({ tt: '图片二' }).img({ s: 'https://picsum.photos/seed/ms2/300/260' }).end()
+          .card({ tt: '标签' }).tag('瀑布流', { t: 'primary' }).text(' ').tag('零依赖', { t: 'success' }).text(' ').tag('多类型', { t: 'warning' }).end()
+          .card({ tt: '描述' }).desc({ cols: 1 }).descItem({ l: '列数', tx: '3' }).descItem({ l: '间距', tx: '10px' }).descItem({ l: '实现', tx: 'CSS columns' }).end()
+        .end()
+        .end()
+      .end();
+      b.card({ tt: 'Masonry 瀑布流 · minw 自动列' })
+        .p('minw:200 指定子项最小宽度，列数随容器宽度自适应（拖动窗口试试），无需写死列数：', { v: 'muted' })
+        .masonry({ minw: '200', gap: '10' })
+          .card({ tt: '自适应 A' }).p('列数随宽度自动增减。').end()
+          .card({ tt: '自适应 B' }).p('宽屏多列。').p('窄屏少列。').end()
+          .card({ tt: '自适应 C' }).img({ s: 'https://picsum.photos/seed/ms3/300/180' }).end()
+          .card({ tt: '自适应 D' }).p('minw 优先于 cols。').p('非法 minw 回退 cols 模式。').end()
+          .card({ tt: '自适应 E' }).callout({ t: 'info', tx: '响应式布局零媒体查询。' }).end()
+          .card({ tt: '自适应 F' }).stat({ l: '渲染耗时', v: '0ms' }).end()
+        .end()
+      .end();
       return b;
     }
   }

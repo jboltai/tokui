@@ -877,23 +877,23 @@ textarea.tokui-textarea--auto { resize: none !important; }
 .tokui-card-header--line { border-bottom: 1px solid var(--tokui-border); }
 /* accent: 左侧主题色竖条 + 无背景 */
 .tokui-card-header--accent { border-left: 4px solid var(--tokui-primary); padding-left: 12px; }
-/* pill: 标题文字带主题色背景药丸 */
-.tokui-card-header--pill { display: inline-flex; margin: 4px 0; padding: 4px 14px; border-radius: 99px; background: var(--tokui-primary); color: #fff; font-size: 0.9rem; }
+/* pill: 标题文字带浅主色底药丸（浅底深字 + 淡描边） */
+.tokui-card-header--pill { display: inline-flex; margin: 4px 0; padding: 4px 14px; border-radius: 99px; background: color-mix(in srgb, var(--tokui-primary) 10%, transparent); color: var(--tokui-primary); border: 1px solid color-mix(in srgb, var(--tokui-primary) 22%, transparent); font-size: 0.9rem; }
 /* underline: 标题文字下方主题色短线 */
 .tokui-card-header--underline { border-bottom: none; position: relative; padding-bottom: 10px; margin-bottom: 2px; }
 .tokui-card-header--underline::after { content: ''; position: absolute; bottom: 0; left: 0; width: 40px; height: 3px; border-radius: 2px; background: var(--tokui-card-header-underline-color, var(--tokui-primary)); }
 /* dot: 标题前圆点装饰 */
 .tokui-card-header--dot::before { content: ''; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--tokui-card-header-dot-color, var(--tokui-primary)); margin-right: 8px; vertical-align: middle; }
-/* fill: 主题色背景 + 白色文字 */
-.tokui-card-header--fill { background: var(--tokui-primary); color: #fff; }
+/* fill: 浅主色底 + 主色文字 + 淡底边（color-mix 派生，深浅主题自适应） */
+.tokui-card-header--fill { background: color-mix(in srgb, var(--tokui-primary) 10%, transparent); color: var(--tokui-primary); border-bottom: 1px solid color-mix(in srgb, var(--tokui-primary) 22%, transparent); }
 
 /* card header 配色 — hc 属性覆盖 */
-/* fill 配色变体 */
-.tokui-card-header--fill--danger { background: var(--tokui-danger); color: #fff; }
-.tokui-card-header--fill--success { background: var(--tokui-success); color: #fff; }
-.tokui-card-header--fill--warning { background: var(--tokui-warning); color: var(--tokui-btn-warning-text, #78350f); }
-.tokui-card-header--fill--info { background: var(--tokui-info); color: #fff; }
-.tokui-card-header--fill--dark { background: var(--tokui-dark); color: #fff; }
+/* fill 配色变体（浅底深字） */
+.tokui-card-header--fill--danger { background: color-mix(in srgb, var(--tokui-danger) 10%, transparent); color: var(--tokui-danger); border-bottom-color: color-mix(in srgb, var(--tokui-danger) 22%, transparent); }
+.tokui-card-header--fill--success { background: color-mix(in srgb, var(--tokui-success) 10%, transparent); color: var(--tokui-success); border-bottom-color: color-mix(in srgb, var(--tokui-success) 22%, transparent); }
+.tokui-card-header--fill--warning { background: color-mix(in srgb, var(--tokui-warning) 12%, transparent); color: color-mix(in srgb, var(--tokui-warning) 78%, #78350f); border-bottom-color: color-mix(in srgb, var(--tokui-warning) 26%, transparent); }
+.tokui-card-header--fill--info { background: color-mix(in srgb, var(--tokui-info) 10%, transparent); color: var(--tokui-info); border-bottom-color: color-mix(in srgb, var(--tokui-info) 22%, transparent); }
+.tokui-card-header--fill--dark { background: color-mix(in srgb, var(--tokui-dark) 8%, transparent); color: var(--tokui-dark); border-bottom-color: color-mix(in srgb, var(--tokui-dark) 18%, transparent); }
 /* accent 配色变体 */
 .tokui-card-header--accent--danger { border-left-color: var(--tokui-danger); }
 .tokui-card-header--accent--success { border-left-color: var(--tokui-success); }
@@ -912,12 +912,12 @@ textarea.tokui-textarea--auto { resize: none !important; }
 .tokui-card-header--dot--warning::before { background: var(--tokui-warning); }
 .tokui-card-header--dot--info::before { background: var(--tokui-info); }
 .tokui-card-header--dot--dark::before { background: var(--tokui-dark); }
-/* pill 配色变体 */
-.tokui-card-header--pill--danger { background: var(--tokui-danger); }
-.tokui-card-header--pill--success { background: var(--tokui-success); }
-.tokui-card-header--pill--warning { background: var(--tokui-warning); color: var(--tokui-btn-warning-text, #78350f); }
-.tokui-card-header--pill--info { background: var(--tokui-info); }
-.tokui-card-header--pill--dark { background: var(--tokui-dark); }
+/* pill 配色变体（浅底深字 + 淡描边） */
+.tokui-card-header--pill--danger { background: color-mix(in srgb, var(--tokui-danger) 10%, transparent); color: var(--tokui-danger); border-color: color-mix(in srgb, var(--tokui-danger) 22%, transparent); }
+.tokui-card-header--pill--success { background: color-mix(in srgb, var(--tokui-success) 10%, transparent); color: var(--tokui-success); border-color: color-mix(in srgb, var(--tokui-success) 22%, transparent); }
+.tokui-card-header--pill--warning { background: color-mix(in srgb, var(--tokui-warning) 12%, transparent); color: color-mix(in srgb, var(--tokui-warning) 78%, #78350f); border-color: color-mix(in srgb, var(--tokui-warning) 26%, transparent); }
+.tokui-card-header--pill--info { background: color-mix(in srgb, var(--tokui-info) 10%, transparent); color: var(--tokui-info); border-color: color-mix(in srgb, var(--tokui-info) 22%, transparent); }
+.tokui-card-header--pill--dark { background: color-mix(in srgb, var(--tokui-dark) 8%, transparent); color: var(--tokui-dark); border-color: color-mix(in srgb, var(--tokui-dark) 18%, transparent); }
 
 /* btn 变体 */
 .tokui-btn--primary { background: var(--tokui-primary); color: var(--tokui-btn-text-inverse); border-color: var(--tokui-primary); }
@@ -1132,15 +1132,16 @@ textarea.tokui-textarea--auto { resize: none !important; }
 
 /* === 标题装饰风格 === */
 
-/* Ribbon: 缎带风格 — 背景色 + 左侧暗条 + 底部折角 */
+/* Ribbon: 缎带风格 — 浅主色底 + 左侧主色 accent 条 + 底部折角
+   配色经 --tokui-title-bg（缺省 --tokui-primary）+ color-mix 派生：10% 浅底、主色文字；
+   accent 条与折角同为主色本身；深浅主题自适应，无需暗色覆盖块 */
 .tokui-h1--ribbon, .tokui-h2--ribbon, .tokui-h3--ribbon,
 .tokui-h4--ribbon, .tokui-h5--ribbon, .tokui-h6--ribbon {
   position: relative;
   width: fit-content;
   padding: 0.25em 1em 0.3em 0.9em;
-  background: var(--tokui-primary);
-  color: #fff;
-  box-shadow: 3px 3px 8px rgba(0, 0, 0, 0.18);
+  background: color-mix(in srgb, var(--tokui-title-bg, var(--tokui-primary)) 10%, transparent);
+  color: var(--tokui-title-bg, var(--tokui-primary));
   border-radius: 0 3px 3px 0;
 }
 .tokui-h1--ribbon::before, .tokui-h2--ribbon::before, .tokui-h3--ribbon::before,
@@ -1151,7 +1152,7 @@ textarea.tokui-textarea--auto { resize: none !important; }
   left: -6px;
   width: 6px;
   height: 100%;
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--tokui-title-bg, var(--tokui-primary));
   border-radius: 3px 0 0 0;
 }
 .tokui-h1--ribbon::after, .tokui-h2--ribbon::after, .tokui-h3--ribbon::after,
@@ -1163,53 +1164,9 @@ textarea.tokui-textarea--auto { resize: none !important; }
   width: 0;
   height: 0;
   border-style: solid;
-  border-width: 8px 8px 0 0;
-  border-color: rgba(0, 0, 0, 0.18) transparent transparent transparent;
-}
-
-/* Ribbon 暗色适配：::before/::after 落在缎带外的暗色页面区，黑色半透叠层不可见，
-   改为深 primary 折叠色（不透明）+ 加深投影，使其在暗背景上仍可辨 */
-[data-tokui-theme="dark"] .tokui-h1--ribbon,
-[data-tokui-theme="dark"] .tokui-h2--ribbon,
-[data-tokui-theme="dark"] .tokui-h3--ribbon,
-[data-tokui-theme="dark"] .tokui-h4--ribbon,
-[data-tokui-theme="dark"] .tokui-h5--ribbon,
-[data-tokui-theme="dark"] .tokui-h6--ribbon,
-[data-tokui-theme="modern-dark"] .tokui-h1--ribbon,
-[data-tokui-theme="modern-dark"] .tokui-h2--ribbon,
-[data-tokui-theme="modern-dark"] .tokui-h3--ribbon,
-[data-tokui-theme="modern-dark"] .tokui-h4--ribbon,
-[data-tokui-theme="modern-dark"] .tokui-h5--ribbon,
-[data-tokui-theme="modern-dark"] .tokui-h6--ribbon {
-  box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.45);
-}
-[data-tokui-theme="dark"] .tokui-h1--ribbon::before,
-[data-tokui-theme="dark"] .tokui-h2--ribbon::before,
-[data-tokui-theme="dark"] .tokui-h3--ribbon::before,
-[data-tokui-theme="dark"] .tokui-h4--ribbon::before,
-[data-tokui-theme="dark"] .tokui-h5--ribbon::before,
-[data-tokui-theme="dark"] .tokui-h6--ribbon::before,
-[data-tokui-theme="modern-dark"] .tokui-h1--ribbon::before,
-[data-tokui-theme="modern-dark"] .tokui-h2--ribbon::before,
-[data-tokui-theme="modern-dark"] .tokui-h3--ribbon::before,
-[data-tokui-theme="modern-dark"] .tokui-h4--ribbon::before,
-[data-tokui-theme="modern-dark"] .tokui-h5--ribbon::before,
-[data-tokui-theme="modern-dark"] .tokui-h6--ribbon::before {
-  background: color-mix(in srgb, var(--tokui-primary) 70%, #000);
-}
-[data-tokui-theme="dark"] .tokui-h1--ribbon::after,
-[data-tokui-theme="dark"] .tokui-h2--ribbon::after,
-[data-tokui-theme="dark"] .tokui-h3--ribbon::after,
-[data-tokui-theme="dark"] .tokui-h4--ribbon::after,
-[data-tokui-theme="dark"] .tokui-h5--ribbon::after,
-[data-tokui-theme="dark"] .tokui-h6--ribbon::after,
-[data-tokui-theme="modern-dark"] .tokui-h1--ribbon::after,
-[data-tokui-theme="modern-dark"] .tokui-h2--ribbon::after,
-[data-tokui-theme="modern-dark"] .tokui-h3--ribbon::after,
-[data-tokui-theme="modern-dark"] .tokui-h4--ribbon::after,
-[data-tokui-theme="modern-dark"] .tokui-h5--ribbon::after,
-[data-tokui-theme="modern-dark"] .tokui-h6--ribbon::after {
-  border-color: color-mix(in srgb, var(--tokui-primary) 70%, #000) transparent transparent transparent;
+  border-width: 8px 6px 0 0;
+  /* 折角与左侧 accent 条同色（主色本身，非混合色） */
+  border-color: var(--tokui-title-bg, var(--tokui-primary)) transparent transparent transparent;
 }
 
 /* Underline: 底线风格 — 背景色块式高亮（记号笔效果） */
@@ -1239,25 +1196,48 @@ textarea.tokui-textarea--auto { resize: none !important; }
   z-index: -1;
 }
 
-/* Badge: 徽章风格 — 背景色 + 右下角斜切 + 阴影 */
+/* Badge: 徽章风格 — 浅主色底 + 主色文字 + 淡描边 + 右下角斜切 */
 .tokui-h1--badge, .tokui-h2--badge, .tokui-h3--badge,
 .tokui-h4--badge, .tokui-h5--badge, .tokui-h6--badge {
   width: fit-content;
   padding: 0.3em 0.9em 0.3em 0.7em;
-  background: var(--tokui-primary);
-  color: #fff;
+  background: color-mix(in srgb, var(--tokui-title-bg, var(--tokui-primary)) 10%, transparent);
+  color: var(--tokui-title-bg, var(--tokui-primary));
+  border: 1px solid color-mix(in srgb, var(--tokui-title-bg, var(--tokui-primary)) 22%, transparent);
   clip-path: polygon(0 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%);
 }
 
-/* Pill: 胶囊风格 — 不对称圆角 + 阴影 */
+/* Pill: 胶囊风格 — 浅主色底 + 主色文字 + 淡描边 + 不对称圆角 */
 .tokui-h1--pill, .tokui-h2--pill, .tokui-h3--pill,
 .tokui-h4--pill, .tokui-h5--pill, .tokui-h6--pill {
   width: fit-content;
   padding: 0.25em 1.1em 0.3em;
-  background: var(--tokui-primary);
-  color: #fff;
+  background: color-mix(in srgb, var(--tokui-title-bg, var(--tokui-primary)) 10%, transparent);
+  color: var(--tokui-title-bg, var(--tokui-primary));
+  border: 1px solid color-mix(in srgb, var(--tokui-title-bg, var(--tokui-primary)) 22%, transparent);
   border-radius: 999px 999px 999px 6px;
-  box-shadow: 3px 3px 6px rgba(0, 0, 0, 0.15);
+}
+
+/* 暗色主题：文字混白 45% 提亮（自定义深色 bg 在暗底下不可读的兜底） */
+[data-tokui-theme="dark"] .tokui-h1--ribbon, [data-tokui-theme="dark"] .tokui-h2--ribbon,
+[data-tokui-theme="dark"] .tokui-h3--ribbon, [data-tokui-theme="dark"] .tokui-h4--ribbon,
+[data-tokui-theme="dark"] .tokui-h5--ribbon, [data-tokui-theme="dark"] .tokui-h6--ribbon,
+[data-tokui-theme="dark"] .tokui-h1--badge, [data-tokui-theme="dark"] .tokui-h2--badge,
+[data-tokui-theme="dark"] .tokui-h3--badge, [data-tokui-theme="dark"] .tokui-h4--badge,
+[data-tokui-theme="dark"] .tokui-h5--badge, [data-tokui-theme="dark"] .tokui-h6--badge,
+[data-tokui-theme="dark"] .tokui-h1--pill, [data-tokui-theme="dark"] .tokui-h2--pill,
+[data-tokui-theme="dark"] .tokui-h3--pill, [data-tokui-theme="dark"] .tokui-h4--pill,
+[data-tokui-theme="dark"] .tokui-h5--pill, [data-tokui-theme="dark"] .tokui-h6--pill,
+[data-tokui-theme="modern-dark"] .tokui-h1--ribbon, [data-tokui-theme="modern-dark"] .tokui-h2--ribbon,
+[data-tokui-theme="modern-dark"] .tokui-h3--ribbon, [data-tokui-theme="modern-dark"] .tokui-h4--ribbon,
+[data-tokui-theme="modern-dark"] .tokui-h5--ribbon, [data-tokui-theme="modern-dark"] .tokui-h6--ribbon,
+[data-tokui-theme="modern-dark"] .tokui-h1--badge, [data-tokui-theme="modern-dark"] .tokui-h2--badge,
+[data-tokui-theme="modern-dark"] .tokui-h3--badge, [data-tokui-theme="modern-dark"] .tokui-h4--badge,
+[data-tokui-theme="modern-dark"] .tokui-h5--badge, [data-tokui-theme="modern-dark"] .tokui-h6--badge,
+[data-tokui-theme="modern-dark"] .tokui-h1--pill, [data-tokui-theme="modern-dark"] .tokui-h2--pill,
+[data-tokui-theme="modern-dark"] .tokui-h3--pill, [data-tokui-theme="modern-dark"] .tokui-h4--pill,
+[data-tokui-theme="modern-dark"] .tokui-h5--pill, [data-tokui-theme="modern-dark"] .tokui-h6--pill {
+  color: color-mix(in srgb, var(--tokui-title-bg, var(--tokui-primary)) 55%, #fff);
 }
 
 /* === Timeline 时间轴 === */
@@ -2067,9 +2047,10 @@ textarea.tokui-textarea--auto { resize: none !important; }
 }
 .tokui-file:hover { border-color: var(--tokui-primary); box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
 .tokui-file__icon {
-  flex-shrink: 0; width: 40px; height: 40px; border-radius: 6px;
+  flex-shrink: 0; width: 40px; height: 40px; border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
-  color: #fff; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.5px;
+  font-size: 0.68rem; font-weight: 600; letter-spacing: 0.3px;
+  /* 配色内联注入：浅底（主色 10%）+ 深字（主色）+ 淡描边（主色 15%） */
 }
 .tokui-file__info { flex: 1; min-width: 0; }
 .tokui-file__name {
@@ -5831,3 +5812,512 @@ a.tokui-source__title:hover { text-decoration: underline; }
 .tokui-agent--danger .tokui-agent__status { color: var(--tokui-danger, #ef4444); background: rgba(239,68,68,0.1); }
 .tokui-terminal--danger .tokui-terminal__content { border-left-color: var(--tokui-danger, #ef4444); }
 [data-tokui-theme="dark"] .tokui-terminal--danger .tokui-terminal__content { border-left-color: var(--tokui-danger); }
+
+
+/* ====== Phase 4 新组件：segmented / color-picker / affix / anchor / preview-group / modal / tour ====== */
+
+/* --- Segmented 分段控制器 --- */
+.tokui-segmented {
+  display: inline-flex;
+  align-items: stretch;
+  gap: 2px;
+  padding: 2px;
+  background: var(--tokui-stripe);
+  border-radius: var(--tokui-radius);
+}
+.tokui-segmented__item {
+  position: relative;
+  display: inline-flex;
+  cursor: pointer;
+}
+.tokui-segmented__input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.tokui-segmented__text {
+  display: inline-block;
+  padding: 4px 12px;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--tokui-text-secondary);
+  border-radius: calc(var(--tokui-radius) - 1px);
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+  white-space: nowrap;
+  user-select: none;
+}
+.tokui-segmented__item:hover .tokui-segmented__text { color: var(--tokui-text); }
+.tokui-segmented__input:checked + .tokui-segmented__text {
+  background: var(--tokui-bg);
+  color: var(--tokui-text);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+.tokui-segmented__input:focus-visible + .tokui-segmented__text {
+  outline: 2px solid var(--tokui-primary-focus);
+  outline-offset: 1px;
+}
+.tokui-segmented--disabled,
+.tokui-segmented--disabled .tokui-segmented__item { cursor: not-allowed; opacity: 0.55; }
+.tokui-segmented--sm .tokui-segmented__text { padding: 2px 8px; font-size: 12px; line-height: 18px; }
+.tokui-segmented--lg .tokui-segmented__text { padding: 6px 16px; font-size: 14px; line-height: 22px; }
+.tokui-segmented--block { display: flex; width: 100%; }
+.tokui-segmented--block .tokui-segmented__item { flex: 1; }
+.tokui-segmented--block .tokui-segmented__text { display: block; text-align: center; }
+.tokui-segmented--pill { border-radius: 999px; }
+.tokui-segmented--pill .tokui-segmented__text { border-radius: 999px; }
+.tokui-segmented--vertical { flex-direction: column; align-items: stretch; }
+.tokui-segmented--vertical .tokui-segmented__text { display: block; text-align: center; }
+.tokui-segmented__icon { margin-right: 4px; line-height: inherit; }
+.tokui-segmented__item--disabled { cursor: not-allowed; }
+.tokui-segmented__item--disabled .tokui-segmented__text,
+.tokui-segmented__item--disabled:hover .tokui-segmented__text {
+  color: var(--tokui-text-disabled);
+  background: transparent;
+  box-shadow: none;
+}
+
+/* --- Color Picker 颜色选择器 --- */
+.tokui-color-picker { position: relative; display: inline-block; }
+.tokui-color-picker__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  background: var(--tokui-bg);
+  border: 1px solid var(--tokui-border);
+  border-radius: var(--tokui-radius);
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--tokui-text);
+}
+.tokui-color-picker__trigger:hover { border-color: var(--tokui-primary-border); }
+.tokui-color-picker__trigger:disabled { cursor: not-allowed; opacity: 0.55; }
+.tokui-color-picker__swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 3px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  flex: none;
+}
+.tokui-color-picker__hex { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.tokui-color-picker__panel {
+  position: fixed; /* portal 到 body：免父容器 overflow 裁切/层叠遮挡 */
+  z-index: 1000;
+  width: 232px;
+  padding: 10px;
+  background: var(--tokui-bg);
+  border-radius: var(--tokui-radius);
+  box-shadow: var(--tokui-overlay-shadow);
+}
+.tokui-color-picker__sb {
+  position: relative;
+  height: 140px;
+  border-radius: calc(var(--tokui-radius) - 1px);
+  cursor: crosshair;
+  overflow: hidden;
+}
+.tokui-color-picker__sb::before,
+.tokui-color-picker__sb::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.tokui-color-picker__sb::before { background: linear-gradient(to right, #fff, rgba(255, 255, 255, 0)); }
+.tokui-color-picker__sb::after { background: linear-gradient(to top, #000, rgba(0, 0, 0, 0)); }
+.tokui-color-picker__sb-cursor {
+  position: absolute;
+  z-index: 1;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.tokui-color-picker__hue {
+  width: 100%;
+  margin: 10px 0 0;
+  height: 12px;
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: 6px;
+  background: linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%);
+  outline: none;
+  cursor: pointer;
+}
+.tokui-color-picker__hue::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.tokui-color-picker__hue::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid rgba(0, 0, 0, 0.2);
+}
+.tokui-color-picker__hex-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+.tokui-color-picker__hex-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--tokui-text);
+  background: var(--tokui-bg);
+  border: 1px solid var(--tokui-border);
+  border-radius: var(--tokui-radius);
+}
+.tokui-color-picker__hex-input:focus { border-color: var(--tokui-primary); outline: none; }
+.tokui-color-picker__clear {
+  padding: 4px 10px;
+  font-size: 12px;
+  color: var(--tokui-text-secondary);
+  background: transparent;
+  border: 1px solid var(--tokui-border);
+  border-radius: var(--tokui-radius);
+  cursor: pointer;
+}
+.tokui-color-picker__clear:hover { color: var(--tokui-danger); border-color: var(--tokui-danger-border); }
+.tokui-color-picker__presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.tokui-color-picker__preset {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 3px;
+  cursor: pointer;
+}
+.tokui-color-picker__preset:hover { transform: scale(1.15); }
+.tokui-color-picker--disabled .tokui-color-picker__trigger { cursor: not-allowed; }
+
+/* --- Affix 固钉 --- */
+.tokui-affix { position: relative; }
+.tokui-affix--fixed {
+  position: fixed;
+  z-index: 100;
+  /* 固定态铺底：避免与下方滚动内容叠影 */
+  background: var(--tokui-bg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border-radius: var(--tokui-radius);
+}
+.tokui-affix__placeholder { visibility: hidden; pointer-events: none; }
+
+/* --- Anchor 锚点导航 --- */
+.tokui-anchor {
+  display: flex;
+  flex-direction: column;
+  padding-left: 2px;
+  border-left: 2px solid var(--tokui-border);
+}
+.tokui-anchor__item {
+  position: relative;
+  padding: 4px 0 4px 12px;
+  margin-left: -2px;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--tokui-text-secondary);
+  border-left: 2px solid transparent;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.tokui-anchor__item:hover { color: var(--tokui-primary); }
+.tokui-anchor__item--active {
+  color: var(--tokui-primary);
+  border-left-color: var(--tokui-primary);
+  font-weight: 500;
+}
+.tokui-anchor__item:focus-visible {
+  outline: 2px solid var(--tokui-primary-focus);
+  outline-offset: 1px;
+}
+/* 层级子项（lk d:1-3） */
+.tokui-anchor__item--depth-1 { padding-left: 24px; font-size: 12px; }
+.tokui-anchor__item--depth-2 { padding-left: 36px; font-size: 12px; }
+.tokui-anchor__item--depth-3 { padding-left: 48px; font-size: 12px; }
+/* 横向模式（v:horizontal） */
+.tokui-anchor--horizontal {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-left: 0;
+  border-left: none;
+  border-bottom: 2px solid var(--tokui-border);
+}
+.tokui-anchor--horizontal .tokui-anchor__item {
+  padding: 6px 12px;
+  margin-left: 0;
+  margin-bottom: -2px;
+  border-left: none;
+  border-bottom: 2px solid transparent;
+}
+.tokui-anchor--horizontal .tokui-anchor__item--depth-1,
+.tokui-anchor--horizontal .tokui-anchor__item--depth-2,
+.tokui-anchor--horizontal .tokui-anchor__item--depth-3 { padding-left: 12px; }
+.tokui-anchor--horizontal .tokui-anchor__item--active {
+  border-left-color: transparent;
+  border-bottom-color: var(--tokui-primary);
+}
+
+/* --- Preview Group 图片预览组 --- */
+.tokui-preview-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.tokui-preview-group .tokui-img {
+  border-radius: var(--tokui-radius);
+  transition: opacity 0.15s;
+}
+.tokui-preview-group .tokui-img:hover { opacity: 0.85; }
+
+/* --- Modal 命令式确认对话框 --- */
+.tokui-modal__overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1002;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--tokui-mask-bg);
+  animation: tokuiFadeIn 0.15s ease;
+}
+.tokui-modal__panel {
+  width: 400px;
+  max-width: calc(100vw - 32px);
+  background: var(--tokui-bg);
+  border-radius: var(--tokui-radius);
+  box-shadow: var(--tokui-overlay-shadow-lg);
+  animation: tokuiDialogIn 0.2s ease;
+}
+.tokui-modal__header {
+  padding: 14px 16px 0;
+}
+.tokui-modal__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--tokui-text);
+}
+.tokui-modal__body {
+  padding: 10px 16px 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--tokui-text-secondary);
+}
+.tokui-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 16px;
+}
+
+/* --- Tour 漫游引导 --- */
+.tokui-tour { display: none; }
+.tokui-tour-step { display: none; }
+.tokui-tour__layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1001;
+}
+.tokui-tour__highlight {
+  position: fixed;
+  border-radius: var(--tokui-radius);
+  transition: left 0.2s, top 0.2s, width 0.2s, height 0.2s;
+  pointer-events: none;
+}
+.tokui-tour__highlight--mask {
+  box-shadow: 0 0 0 9999px var(--tokui-mask-bg);
+}
+.tokui-tour__panel {
+  position: fixed;
+  width: 280px;
+  padding: 14px 16px;
+  background: var(--tokui-bg);
+  border-radius: var(--tokui-radius);
+  box-shadow: var(--tokui-overlay-shadow-lg);
+  transition: left 0.2s, top 0.2s;
+}
+.tokui-tour__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.tokui-tour__title {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--tokui-text);
+}
+.tokui-tour__counter {
+  font-size: 12px;
+  color: var(--tokui-text-muted);
+  flex: none;
+}
+.tokui-tour__close {
+  flex: none;
+  padding: 0 4px;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--tokui-text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.tokui-tour__close:hover { color: var(--tokui-text); }
+.tokui-tour__body {
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--tokui-text-secondary);
+}
+.tokui-tour__footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+.tokui-tour__skip {
+  margin-right: auto;
+  padding: 0;
+  font-size: 12px;
+  color: var(--tokui-text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+.tokui-tour__skip:hover { color: var(--tokui-text); }
+.tokui-tour__prev,
+.tokui-tour__next {
+  padding: 4px 14px;
+  font-size: 13px;
+  border-radius: var(--tokui-radius);
+  cursor: pointer;
+}
+.tokui-tour__prev {
+  color: var(--tokui-text);
+  background: var(--tokui-bg);
+  border: 1px solid var(--tokui-border);
+}
+.tokui-tour__prev:disabled { opacity: 0.45; cursor: not-allowed; }
+.tokui-tour__next {
+  color: #fff;
+  background: var(--tokui-primary);
+  border: 1px solid var(--tokui-primary);
+}
+.tokui-tour__next:hover { background: var(--tokui-primary-hover); }
+
+
+/* ====== P2 组件：kbd / editable / float-button / masonry ====== */
+
+/* --- Kbd 键盘按键 --- */
+.tokui-kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  margin: 0 2px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.82em;
+  line-height: 1.6;
+  color: var(--tokui-text);
+  background: var(--tokui-bg);
+  border: 1px solid var(--tokui-border);
+  border-bottom-width: 2px;
+  border-radius: var(--tokui-radius);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+  vertical-align: baseline;
+  white-space: nowrap;
+}
+.tokui-kbd--sm { padding: 0 4px; font-size: 0.72em; }
+.tokui-kbd--lg { padding: 2px 10px; font-size: 0.95em; }
+
+/* --- Editable 行内编辑 --- */
+.tokui-editable { display: inline-block; }
+.tokui-editable__text {
+  display: inline-block;
+  padding: 1px 4px;
+  margin: -1px -4px;
+  border-radius: var(--tokui-radius);
+  cursor: text;
+  border-bottom: 1px dashed var(--tokui-border);
+  transition: background 0.15s;
+}
+.tokui-editable__text:hover { background: var(--tokui-stripe); }
+.tokui-editable__text:focus-visible {
+  outline: 2px solid var(--tokui-primary-focus);
+  outline-offset: 1px;
+}
+.tokui-editable__text--ph { color: var(--tokui-text-muted); }
+.tokui-editable__input {
+  font: inherit;
+  color: var(--tokui-text);
+  padding: 1px 4px;
+  margin: -1px -4px;
+  border: 1px solid var(--tokui-primary);
+  border-radius: var(--tokui-radius);
+  outline: none;
+  background: var(--tokui-bg);
+  min-width: 120px;
+}
+.tokui-editable--disabled .tokui-editable__text {
+  cursor: not-allowed;
+  color: var(--tokui-text-disabled);
+  border-bottom-color: transparent;
+}
+.tokui-editable--disabled .tokui-editable__text:hover { background: transparent; }
+
+/* --- Float Button 浮动按钮组 --- */
+.tokui-float-button {
+  position: fixed;
+  z-index: 99;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.tokui-float-button--right-bottom { right: var(--tokui-float-offset, 24px); bottom: var(--tokui-float-offset, 24px); }
+.tokui-float-button--right-top { right: var(--tokui-float-offset, 24px); top: var(--tokui-float-offset, 24px); }
+.tokui-float-button--left-bottom { left: var(--tokui-float-offset, 24px); bottom: var(--tokui-float-offset, 24px); }
+.tokui-float-button--left-top { left: var(--tokui-float-offset, 24px); top: var(--tokui-float-offset, 24px); }
+/* 子按钮悬浮化：圆形 + 投影 */
+.tokui-float-button .tokui-btn {
+  border-radius: 50%;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--tokui-overlay-shadow);
+  font-size: 18px;
+}
+.tokui-float-button .tokui-backtop {
+  position: static;
+  width: 44px;
+  height: 44px;
+  box-shadow: var(--tokui-overlay-shadow);
+}
+
+/* --- Masonry 瀑布流 --- */
+.tokui-masonry { width: 100%; }
+.tokui-masonry > * {
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  margin-bottom: var(--tokui-masonry-gap, 8px);
+}

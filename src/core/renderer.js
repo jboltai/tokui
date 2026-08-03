@@ -271,6 +271,9 @@ const VARIANTS = {
   cascader: new Set(['error', 'success']),
   upload:   new Set(['sm', 'lg']),
   tree:     new Set(['sm', 'lg']),
+  segmented: new Set(['sm', 'lg', 'block', 'pill', 'vertical']),
+  anchor: new Set(['horizontal']),
+  kbd: new Set(['sm', 'lg']),
 };
 
 /**
@@ -789,6 +792,19 @@ class TokUIRenderer {
       if (cbLabel.nodeType === 1) cbLabel.classList.add('tokui-fade-in');
       target.appendChild(cbLabel);
       return cbLabel;
+    }
+
+    // 特殊处理：opt 在 segmented 内（容器模式）→ 渲染为分段选项并注入共享 name
+    if (node.type === 'opt' && parentEntry && parentEntry.el._slot && parentEntry.el._slot._segmentedName) {
+      var segName2 = parentEntry.el._slot._segmentedName;
+      var segLabel = this.render(node, 'segmented');
+      if (segName2 && segLabel.querySelector) {
+        var segInput = segLabel.querySelector('input[type=radio]');
+        if (segInput) segInput.name = segName2;
+      }
+      if (segLabel.nodeType === 1) segLabel.classList.add('tokui-fade-in');
+      target.appendChild(segLabel);
+      return segLabel;
     }
 
     // 特殊处理：opt 在 picker 内 → 渲染为 li 并追加到 dropdown

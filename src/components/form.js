@@ -1319,6 +1319,8 @@ function registerFormComponents(renderer) {
   // === 选项组件 ===
   // 根据父级类型自动适配：
   // - 在 radio 内 → 渲染为 radio 选项
+  // - 在 checkbox 内 → 渲染为 checkbox 选项
+  // - 在 segmented 内 → 渲染为分段选项
   // - 在 picker 内 → 渲染为 picker 选项 li
   // - 在 select 内 → 渲染为 <option>
   renderer.register('opt', (node, rc, parentType) => {
@@ -1327,6 +1329,10 @@ function registerFormComponents(renderer) {
     }
     if (parentType === 'checkbox') {
       return _renderCheckboxOpt(node, '');
+    }
+    if (parentType === 'segmented') {
+      // 共享 name 由 renderer.js 流式特判注入；chk/curValue 语义由 opt 自身属性承担
+      return _renderSegmentedOpt(node, '', null, false);
     }
     if (parentType === 'picker') {
       return _renderPickerOpt(node);
@@ -1427,6 +1433,101 @@ function registerFormComponents(renderer) {
     };
     return wrapper;
   });
+
+  // === 分段控制器组件（双模式，同 radio 先例）===
+  // 简写：[segmented n:view v:grid opt:"list:列表;grid:宫格"]（原子自闭合）
+  // 容器：[segmented n:view v:grid][opt v:list tx:列表][opt v:grid tx:宫格 dis][/segmented]
+  // attrs.v = 当前值（可与变体组合 v:"sm,grid"）, attrs.n = 表单字段名, attrs.l = 标签
+  // attrs.dis = 整组禁用, attrs.on = 事件上报（change）；变体 sm/lg/block/pill/vertical
+  // opt 子节点支持：v（值）、tx（显示文本）、i（图标字符）、chk（默认选中）、dis（单项禁用）
+  renderer.register('segmented', (node) => {
+    node = _expandOptChildren(node);
+    const wrapper = el('div', { class: 'tokui-field' });
+    if (node.attrs.l) {
+      wrapper.appendChild(el('div', { class: 'tokui-label' + (node.attrs.req !== undefined ? ' tokui-label--req' : '') }, node.attrs.l));
+    }
+    const group = el('div', { class: 'tokui-segmented', role: 'radiogroup' });
+    if (node.attrs.id) group.id = node.attrs.id;
+    const segName = node.attrs.n || node.attrs.id || 'segmented';
+    group._segmentedName = segName; // 存储共享 name，供流式 opt 渲染时读取（同 radio._radioName）
+    // v 同时承载「当前值」与「形态变体」（同 switch 先例）：逗号分隔的 token 中，
+    // 首个非变体 token 视为当前值；变体 token 由 renderer VARIANTS 白名单落类。
+    const vTokens = node.attrs.v !== undefined ? String(node.attrs.v).split(',').map(function (s) { return s.trim(); }).filter(Boolean) : [];
+    const VARIANT_TOKENS = ['sm', 'lg', 'block', 'pill', 'vertical'];
+    const curValue = (function () {
+      for (var i = 0; i < vTokens.length; i++) {
+        if (VARIANT_TOKENS.indexOf(vTokens[i]) === -1) return vTokens[i];
+      }
+      return null;
+    })();
+    const isDisabled = node.attrs.dis !== undefined;
+    // 统一遍历 opt 子节点（简写合成的 + 容器真实的；流式路径由 renderer.js 特判挂载）
+    (node.children || []).forEach(function (optNode) {
+      group.appendChild(_renderSegmentedOpt(optNode, segName, curValue, isDisabled));
+    });
+    if (isDisabled) group.classList.add('tokui-segmented--disabled');
+    wrapper.appendChild(group);
+    wrapper._slot = group;
+    wrapper._tokuiType = 'segmented';
+    // 值变更上报：组级委托（原生 radio change 冒泡）
+    var report = renderer.createReporter('segmented', node.attrs, wrapper);
+    group.addEventListener('change', function (e) {
+      var t = e.target;
+      if (t && t.type === 'radio' && t.checked) {
+        report('change', { value: t.value, name: node.attrs.n || undefined });
+      }
+    });
+    // upd v:value → 程序化选中（原生赋值不触发 change，天然免误报）
+    wrapper._update = function (uAttrs) {
+      if (uAttrs.v !== undefined) {
+        var target = String(uAttrs.v);
+        group.querySelectorAll('input[type=radio]').forEach(function (inp) {
+          inp.checked = String(inp.value) === target;
+        });
+      }
+      if (uAttrs.dis === true || uAttrs.dis === 'true' || uAttrs.dis === false || uAttrs.dis === 'false') {
+        var dis = (uAttrs.dis === true || uAttrs.dis === 'true');
+        group.querySelectorAll('input[type=radio]').forEach(function (inp) { inp.disabled = dis; });
+        group.classList.toggle('tokui-segmented--disabled', dis);
+      }
+    };
+    // form reset 契约：恢复初始值
+    var segInit = curValue;
+    wrapper.setAttribute('data-tokui-resettable', '');
+    wrapper._tokuiReset = function () {
+      group.querySelectorAll('input[type=radio]').forEach(function (inp) {
+        inp.checked = segInit !== null && String(inp.value) === segInit;
+      });
+    };
+    return wrapper;
+  });
+
+  /**
+   * 渲染单个 segmented 选项
+   * @param {Object} optNode - opt 节点 { attrs: { v, tx, i, chk, dis } }
+   * @param {string} segName - 共享 radio name（容器流式路径由 renderer.js 注入）
+   * @param {string|null} curValue - 当前值（命中则 checked；null 时回退 opt chk）
+   * @param {boolean} groupDisabled - 整组禁用
+   * @returns {HTMLElement} label 元素
+   */
+  function _renderSegmentedOpt(optNode, segName, curValue, groupDisabled) {
+    const oa = optNode.attrs || {};
+    const optVal = oa.v !== undefined ? String(oa.v) : '';
+    const optDisabled = groupDisabled || oa.dis !== undefined;
+    const item = el('label', { class: 'tokui-segmented__item' + (optDisabled ? ' tokui-segmented__item--disabled' : '') });
+    // opt 在 segmented 内不走 render()（需注入共享 name），手动补 data-tokui-tag 印章（同 radio）
+    item.setAttribute('data-tokui-tag', 'opt');
+    const inputAttrs = { type: 'radio', name: segName, class: 'tokui-segmented__input' };
+    inputAttrs.value = optVal;
+    if (curValue !== null && optVal === curValue) inputAttrs.checked = 'checked';
+    else if (curValue === null && oa.chk !== undefined) inputAttrs.checked = 'checked';
+    if (optDisabled) inputAttrs.disabled = 'disabled';
+    item.appendChild(el('input', inputAttrs));
+    // 图标字符（emoji/符号，同 menu-item 的 i 约定）
+    if (oa.i) item.appendChild(el('span', { class: 'tokui-segmented__icon' }, oa.i));
+    item.appendChild(el('span', { class: 'tokui-segmented__text' }, oa.tx || optVal));
+    return item;
+  }
 
   // === 开关组件 ===
   // attrs.l = 标签文本, attrs.chk = 默认选中, attrs.dis = 禁用
@@ -3902,6 +4003,266 @@ function registerFormComponents(renderer) {
 
     field.appendChild(picker);
     field._variantTarget = picker;
+    return field;
+  });
+
+  // === 颜色选择器组件（自闭合）===
+  // attrs.v = 初始色(#rrggbb，默认 #1677ff), attrs.n = 表单字段名, attrs.l = 标签
+  // attrs.presets = "#f5222d,#fa8c16,..." 预设色板, attrs.dis = 禁用, attrs.on = 事件上报(change)
+  // 面板：SB 取色区 + hue 滑条 + hex 输入 + 预设色 + 清除；HSV 转换复用 color-generator。
+  renderer.register('color-picker', (node) => {
+    var attrs = node.attrs || {};
+    var CG = (typeof require === 'function')
+      ? require('../core/color-generator')
+      : (window.TokUI && window.TokUI._internal) || {};
+
+    function _normHex(v) {
+      var s = String(v == null ? '' : v).trim();
+      if (/^#[0-9a-fA-F]{6}$/.test(s)) return s.toLowerCase();
+      if (/^[0-9a-fA-F]{6}$/.test(s)) return ('#' + s).toLowerCase();
+      return null;
+    }
+
+    var initial = _normHex(attrs.v) || '#1677ff';
+    var isDisabled = attrs.dis !== undefined;
+
+    var field = el('div', { class: 'tokui-field' });
+    if (attrs.l) {
+      field.appendChild(el('div', { class: 'tokui-label' + (attrs.req !== undefined ? ' tokui-label--req' : '') }, attrs.l));
+    }
+    var root = el('div', { class: 'tokui-color-picker' + (isDisabled ? ' tokui-color-picker--disabled' : '') });
+    if (attrs.id) root.id = attrs.id;
+
+    // 触发器：色块 + 当前 hex 文本
+    var trigger = el('button', { class: 'tokui-color-picker__trigger', type: 'button', 'aria-label': _t('colorPicker.aria') });
+    if (isDisabled) trigger.disabled = 'disabled';
+    var swatch = el('span', { class: 'tokui-color-picker__swatch' });
+    var hexText = el('span', { class: 'tokui-color-picker__hex' });
+    trigger.appendChild(swatch);
+    trigger.appendChild(hexText);
+    root.appendChild(trigger);
+
+    // 隐藏 input：FormData 收集
+    var hiddenAttrs = { type: 'hidden', class: 'tokui-color-picker__input' };
+    if (attrs.n) hiddenAttrs.name = attrs.n;
+    else if (attrs.id) hiddenAttrs.name = attrs.id;
+    var hidden = el('input', hiddenAttrs);
+    root.appendChild(hidden);
+
+    // 下拉面板
+    var panel = el('div', { class: 'tokui-color-picker__panel' });
+    panel.style.display = 'none';
+    // SB 取色区（背景色 = 当前 hue 纯色；白/黑渐变叠加由 CSS 伪元素负责）
+    var sb = el('div', { class: 'tokui-color-picker__sb' });
+    var sbCursor = el('span', { class: 'tokui-color-picker__sb-cursor' });
+    sb.appendChild(sbCursor);
+    panel.appendChild(sb);
+    // hue 滑条
+    var hue = el('input', { type: 'range', class: 'tokui-color-picker__hue', min: '0', max: '360', step: '1', 'aria-label': _t('colorPicker.hue') });
+    panel.appendChild(hue);
+    // hex 输入 + 清除
+    var hexRow = el('div', { class: 'tokui-color-picker__hex-row' });
+    var hexInput = el('input', { type: 'text', class: 'tokui-color-picker__hex-input', maxlength: '7', 'aria-label': _t('colorPicker.hex') });
+    var clearBtn = el('button', { class: 'tokui-color-picker__clear', type: 'button' }, _t('colorPicker.clear'));
+    hexRow.appendChild(hexInput);
+    hexRow.appendChild(clearBtn);
+    panel.appendChild(hexRow);
+    // 预设色板
+    var presetList = String(attrs.presets || '').split(',').map(function (s) { return _normHex(s); }).filter(Boolean);
+    if (presetList.length) {
+      var presetRow = el('div', { class: 'tokui-color-picker__presets', 'aria-label': _t('colorPicker.preset') });
+      presetList.forEach(function (c) {
+        var p = el('button', { class: 'tokui-color-picker__preset', type: 'button', 'data-color': c, 'aria-label': c });
+        p.style.backgroundColor = c;
+        presetRow.appendChild(p);
+      });
+      panel.appendChild(presetRow);
+    }
+    root.appendChild(panel);
+    field.appendChild(root);
+    field._tokuiType = 'color-picker';
+    field._slot = root;
+
+    // —— 状态与刷新 ——
+    var hsv = CG.rgbToHsv ? (function () { var rgb = CG.hexToRgb(initial); return CG.rgbToHsv(rgb.r, rgb.g, rgb.b); })() : { h: 220, s: 1, v: 1 };
+    var currentHex = initial;
+
+    function currentColor() {
+      if (!CG.hsvToRgb || !CG.rgbToHex) return currentHex;
+      var rgb = CG.hsvToRgb(hsv.h, hsv.s, hsv.v);
+      return CG.rgbToHex(rgb);
+    }
+
+    function refreshUI() {
+      currentHex = currentColor();
+      swatch.style.backgroundColor = currentHex;
+      hexText.textContent = currentHex;
+      hidden.value = currentHex;
+      sb.style.backgroundColor = CG.hsvToRgb && CG.rgbToHex ? CG.rgbToHex(CG.hsvToRgb(hsv.h, 1, 1)) : '#f00';
+      sbCursor.style.left = (hsv.s * 100) + '%';
+      sbCursor.style.top = ((1 - hsv.v) * 100) + '%';
+      hue.value = String(Math.round(hsv.h));
+      if (doc.activeElement !== hexInput) hexInput.value = currentHex;
+    }
+
+    var report = renderer.createReporter('color-picker', attrs, field);
+    function userSetHex(hex) {
+      var rgb = CG.hexToRgb(hex);
+      hsv = CG.rgbToHsv(rgb.r, rgb.g, rgb.b);
+      refreshUI();
+      report('change', { value: currentHex, name: attrs.n || undefined });
+    }
+
+    // —— 面板开关（portal：开时挂 document.body + fixed 定位，免被父容器 overflow 裁切/层叠遮挡）——
+    var isOpen = false;
+    function positionPanel() {
+      if (typeof trigger.getBoundingClientRect !== 'function' || typeof window === 'undefined') return;
+      var rect = trigger.getBoundingClientRect();
+      var pw = panel.offsetWidth || 232;
+      var ph = panel.offsetHeight || 260;
+      var vw = window.innerWidth || 1024;
+      var vh = window.innerHeight || 768;
+      var left = rect.left;
+      var top = rect.bottom + 4;
+      // 右/下溢出保护：贴边则反向（同 datetimepicker 注释）
+      if (left + pw > vw - 8) left = Math.max(8, vw - pw - 8);
+      if (top + ph > vh - 8) top = Math.max(8, rect.top - ph - 4);
+      panel.style.left = left + 'px';
+      panel.style.top = top + 'px';
+    }
+    function openPanel() {
+      if (isDisabled || isOpen) return;
+      isOpen = true;
+      if (doc && doc.body && panel.parentNode !== doc.body) doc.body.appendChild(panel);
+      panel.style.display = '';
+      positionPanel();
+      root.classList.add('tokui-color-picker--open');
+    }
+    function closePanel() {
+      if (!isOpen) return;
+      isOpen = false;
+      panel.style.display = 'none';
+      root.classList.remove('tokui-color-picker--open');
+    }
+    var doc = typeof document !== 'undefined' ? document : null;
+    if (doc) {
+      doc.addEventListener('click', function (e) {
+        // 面板已 portal 出 root：root 与 panel 都要算「内部」
+        if (isOpen && root.contains && !root.contains(e.target) && !(panel.contains && panel.contains(e.target))) closePanel();
+      });
+      doc.addEventListener('keydown', function (e) {
+        if (isOpen && e.key === 'Escape') closePanel();
+      });
+      // 滚动（含嵌套容器，capture 才能接到）→ 重定位跟随触发器，而非直接关闭
+      // （曾用「滚动即关」，demo 消息列表 smooth scroll 动画余波会瞬杀面板）；
+      // 组件被移除（重渲染/新消息）→ 关面板并从 body 摘除，防孤儿浮层
+      if (typeof window !== 'undefined' && window.addEventListener) {
+        window.addEventListener('scroll', function () {
+          if (!isOpen) return;
+          if (!doc.contains(root)) {
+            closePanel();
+            if (panel.parentNode) panel.parentNode.removeChild(panel);
+            return;
+          }
+          positionPanel();
+        }, { capture: true, passive: true });
+      }
+    }
+
+    // —— 交互 ——
+    trigger.addEventListener('click', function (e) {
+      if (typeof e.stopPropagation === 'function') e.stopPropagation();
+      if (isOpen) closePanel(); else openPanel();
+    });
+
+    // SB 区拖拽取色（pointer 或 mouse 退化）
+    function sbPick(e) {
+      if (typeof sb.getBoundingClientRect !== 'function') return;
+      var rect = sb.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      var x = (e.clientX != null ? e.clientX : 0) - rect.left;
+      var y = (e.clientY != null ? e.clientY : 0) - rect.top;
+      hsv.s = Math.max(0, Math.min(1, x / rect.width));
+      hsv.v = Math.max(0, Math.min(1, 1 - y / rect.height));
+      refreshUI();
+      report('change', { value: currentHex, name: attrs.n || undefined });
+    }
+    sb.addEventListener('pointerdown', function (e) {
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+      // 指针捕获：拖拽越出 SB/面板时事件仍归 SB（避免 pointerup/click 落外部触发外点关闭）
+      if (typeof sb.setPointerCapture === 'function' && e.pointerId != null) {
+        try { sb.setPointerCapture(e.pointerId); } catch (_) {}
+      }
+      sbPick(e);
+      var move = function (ev) { sbPick(ev); };
+      var up = function () {
+        if (doc) {
+          doc.removeEventListener('pointermove', move);
+          doc.removeEventListener('pointerup', up);
+        }
+      };
+      if (doc) {
+        doc.addEventListener('pointermove', move);
+        doc.addEventListener('pointerup', up);
+      }
+    });
+
+    hue.addEventListener('input', function () {
+      hsv.h = parseFloat(hue.value) || 0;
+      refreshUI();
+      report('change', { value: currentHex, name: attrs.n || undefined });
+    });
+
+    hexInput.addEventListener('change', function () {
+      var hex = _normHex(hexInput.value);
+      if (hex) userSetHex(hex);
+      else hexInput.value = currentHex; // 非法输入回退
+    });
+
+    if (presetList.length) {
+      panel.addEventListener('click', function (e) {
+        var t = e.target && e.target.closest ? e.target.closest('.tokui-color-picker__preset') : null;
+        if (t) userSetHex(t.getAttribute('data-color'));
+      });
+    }
+
+    clearBtn.addEventListener('click', function (e) {
+      if (typeof e.stopPropagation === 'function') e.stopPropagation();
+      currentHex = '';
+      swatch.style.backgroundColor = 'transparent';
+      hexText.textContent = '';
+      hidden.value = '';
+      hexInput.value = '';
+      report('change', { value: '', name: attrs.n || undefined });
+    });
+
+    // upd v:#hex → 程序化设置（silent 不上报）；dis:true/false → 禁用切换
+    field._update = function (uAttrs) {
+      if (uAttrs.v !== undefined) {
+        var hex = _normHex(uAttrs.v);
+        if (hex && CG.hexToRgb) {
+          var rgb = CG.hexToRgb(hex);
+          hsv = CG.rgbToHsv(rgb.r, rgb.g, rgb.b);
+          refreshUI();
+        }
+      }
+      if (uAttrs.dis === true || uAttrs.dis === 'true' || uAttrs.dis === false || uAttrs.dis === 'false') {
+        isDisabled = (uAttrs.dis === true || uAttrs.dis === 'true');
+        trigger.disabled = isDisabled;
+        root.classList.toggle('tokui-color-picker--disabled', isDisabled);
+        if (isDisabled) closePanel();
+      }
+    };
+
+    // form reset 契约
+    var initHsv = { h: hsv.h, s: hsv.s, v: hsv.v };
+    field.setAttribute('data-tokui-resettable', '');
+    field._tokuiReset = function () {
+      hsv = { h: initHsv.h, s: initHsv.s, v: initHsv.v };
+      refreshUI();
+    };
+
+    refreshUI();
     return field;
   });
 }

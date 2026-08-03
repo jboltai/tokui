@@ -93,7 +93,14 @@ const CONTAINERS = new Set([
   'ins',
   'katex',
   'mermaid',
-  'p'
+  'p',
+  'tour',
+  'affix',
+  'preview-group',
+  'segmented',
+  'anchor',
+  'float-button',
+  'masonry'
 ]);
 
 // chart 自闭合内联数据判定 —— 须与 builder.chart 的 hasInline、renderer 容器判定三处同步：
@@ -106,10 +113,11 @@ function chartHasInline(node) {
     (a.v !== undefined && (a.t === 'gauge' || a.t === 'progress')));
 }
 
-// radio/select/checkbox 带 opt:"..." 属性 → 原子自闭合简写（renderer 展开）。
+// radio/select/checkbox/segmented/anchor 带 opt:"..." 属性 → 原子自闭合简写（renderer 展开）。
 // 须与 _emitStreaming / _emitBuffered 两路同步：判定为自闭合即不入容器栈。
 function isOptShorthandSelfClosing(node) {
-  if (node.type !== 'radio' && node.type !== 'select' && node.type !== 'checkbox') return false;
+  if (node.type !== 'radio' && node.type !== 'select' && node.type !== 'checkbox' &&
+      node.type !== 'segmented' && node.type !== 'anchor') return false;
   return !!(node.attrs && node.attrs.opt);
 }
 // checkbox 在 CONTAINERS 内，但单布尔（无 multi 无 opt）须维持自闭合叶子，兼容 legacy。
@@ -132,7 +140,7 @@ const SKELETON_TYPE_RE = /^(stat|img|avatar|result|empty|video|audio|file|attach
 // p 的内联子节点白名单：只有这些类型可作为 p 的子节点（其余兄弟到达时自动闭合 p，
 // 保 [p 文本] / [p a][p b] 的自闭合兄弟语义，对标 HTML <p>）。
 const P_INLINE_CHILDREN = new Set([
-  'a', '_text', 'tag', 'b', 'i', 'code', 'spin', 'strong', 'em', 'mark', 'sub', 'sup'
+  'a', '_text', 'tag', 'b', 'i', 'code', 'spin', 'strong', 'em', 'mark', 'sub', 'sup', 'kbd'
 ]);
 
 /**
@@ -171,7 +179,8 @@ const BOOLEAN_ATTRS = new Set([
   'filter',
   'virtual',
   'lazy',
-  'pagination'
+  'pagination',
+  'mask'
 ]);
 
 // 变体提示（Variant hints）
@@ -195,7 +204,7 @@ var ATTR_KEYS = new Set([
   't', 'l', 'tx', 'tt', 'ph', 'u', 's', 'n', 'v', 'w', 'h',
   'clk', 'sub', 'act', 'mtd', 'dis', 'ro', 'req', 'chk', 'id',
   'bg', 'fc', 'cap', 'cols', 'span', 'min', 'max', 'step',
-  'alt', 'target', 'src', 'name', 'value', 'pre', 'pos'
+  'alt', 'target', 'src', 'name', 'value', 'pre', 'pos', 'tgt'
 ]);
 
 // 值尾部若粘连「<非ASCII><已知key>:」→ 拆成多对属性（修复 AI 漏空格）。
@@ -908,9 +917,9 @@ class TokUIParser {
     const isSelfClosing = isTxSelfClosing || isLeafSelfClosing || isTagsSelfClosing
       || isKatexInlineSelfClosing
       || isOptShorthandSelfClosing(node) || isCheckboxSingleSelfClosing(node);
-    // desc/suggestions use cols as layout attribute, not as self-closing trigger
+    // desc/suggestions/masonry use cols as layout attribute, not as self-closing trigger
     // chart 的 cols 是数据列标签（heatmap），非布局自闭合触发，须豁免（否则容器写法 [/chart] 报错）
-    const hasColsTrigger = node.attrs.cols && node.type !== 'desc' && node.type !== 'suggestions' && node.type !== 'chart';
+    const hasColsTrigger = node.attrs.cols && node.type !== 'desc' && node.type !== 'suggestions' && node.type !== 'chart' && node.type !== 'masonry';
   // chart 带 d/tasks 内联数据 → 自闭合（旧用法）；无内联数据 → 容器模式收 pt/task/ms 子节点（流式）
     const hasInlineData = chartHasInline(node);
     // 自闭合 chart 带 preview key，与流式预览配对（renderer finalize 复用 pending wrapper）
@@ -969,9 +978,9 @@ class TokUIParser {
     const isSelfClosing = isTxSelfClosing || isLeafSelfClosing || isTagsSelfClosing
       || isKatexInlineSelfClosing
       || isOptShorthandSelfClosing(node) || isCheckboxSingleSelfClosing(node);
-    // desc/suggestions use cols as layout attribute, not as self-closing trigger
+    // desc/suggestions/masonry use cols as layout attribute, not as self-closing trigger
     // chart 的 cols 是数据列标签（heatmap），非布局自闭合触发，须豁免（否则容器写法 [/chart] 报错）
-    const hasColsTrigger = node.attrs.cols && node.type !== 'desc' && node.type !== 'suggestions' && node.type !== 'chart';
+    const hasColsTrigger = node.attrs.cols && node.type !== 'desc' && node.type !== 'suggestions' && node.type !== 'chart' && node.type !== 'masonry';
   // chart 带 d/tasks 内联数据 → 自闭合（旧用法）；无内联数据 → 容器模式收 pt/task/ms 子节点（流式）
     const hasInlineData = chartHasInline(node);
     // 自闭合 chart 带 preview key，与流式预览配对（renderer finalize 复用 pending wrapper）

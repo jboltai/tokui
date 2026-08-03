@@ -274,12 +274,14 @@ test('VARIANTS: h1-h6 support ribbon/underline/badge/pill', () => {
 
 // ===== 标题组件 bg/fc 渲染测试 =====
 
-test('h1 with bg:primary sets inline style.background', () => {
+test('h1 ribbon with bg:primary sets --tokui-title-bg (not inline background)', () => {
   const rc = new TokUIRenderer(null);
   registerBasicComponents(rc);
   const node = { type: 'h1', content: 'Hello', attrs: { v: 'ribbon', bg: 'primary' }, children: [] };
   const dom = rc.render(node);
-  assert.strictEqual(dom.style.background, 'var(--tokui-primary)');
+  // ribbon/badge/pill：bg 注入 CSS 变量，由 color-mix 派生浅底（不设行内实底）
+  assert.strictEqual(dom.style.background, undefined);
+  assert.strictEqual(dom.style.getPropertyValue('--tokui-title-bg'), 'var(--tokui-primary)');
 });
 
 test('h2 underline uses CSS variable for bg, inline style for fc', () => {
@@ -292,13 +294,14 @@ test('h2 underline uses CSS variable for bg, inline style for fc', () => {
   assert.strictEqual(dom.style.color, 'var(--tokui-dark)');
 });
 
-test('h3 with hex bg FF0000 sets #FF0000', () => {
+test('h3 badge with hex bg FF0000 sets --tokui-title-bg', () => {
   const rc = new TokUIRenderer(null);
   registerBasicComponents(rc);
   const node = { type: 'h3', content: 'Badge', attrs: { v: 'badge', bg: 'FF0000', fc: 'FFFFFF' }, children: [] };
   const dom = rc.render(node);
-  assert.strictEqual(dom.style.background, '#FF0000');
-  assert.strictEqual(dom.style.color, '#FFFFFF');
+  assert.strictEqual(dom.style.background, undefined);
+  assert.strictEqual(dom.style.getPropertyValue('--tokui-title-bg'), '#FF0000');
+  assert.strictEqual(dom.style.color, '#FFFFFF'); // fc 行内覆盖仍生效
 });
 
 test('h4 without bg/fc has no inline style', () => {
@@ -326,7 +329,7 @@ test('h2 variant class applied with bg/fc', () => {
   const classes = dom.className.split(' ');
   assert.ok(classes.includes('tokui-h2'), 'missing tokui-h2');
   assert.ok(classes.includes('tokui-h2--pill'), 'missing tokui-h2--pill');
-  assert.strictEqual(dom.style.background, 'var(--tokui-primary)');
+  assert.strictEqual(dom.style.getPropertyValue('--tokui-title-bg'), 'var(--tokui-primary)');
 });
 
 // p 的 v:muted 变体应自动加 tokui-p--muted 类（白名单 + CSS 齐全，功能本就正常）

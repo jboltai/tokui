@@ -63,6 +63,8 @@ const NAV_DATA = [
       { trigger: 'demo-inline-format', name: { zh: '行内格式', en: 'Inline Format' }, desc: { zh: 'b/em/mark/del/sub/sup 混排', en: 'Inline b/em/mark/del/sub/sup' }, icon: 'B' },
       { trigger: 'demo-img', name: { zh: '图片组件', en: 'Image' }, desc: { zh: '单图/头像/圆角/边框', en: 'Single image variants' }, icon: '▣' },
       { trigger: 'demo-imgs', name: { zh: '多图九宫格', en: 'Image Grid' }, desc: { zh: '1-9图自适应网格', en: '1-9 image grid' }, icon: '⊞' },
+      { trigger: 'demo-preview-group', name: { zh: '图片预览组', en: 'Preview Group' }, desc: { zh: '整组灯箱/缩放/旋转/切换', en: 'Group lightbox/zoom/rotate/nav' }, icon: '🖼️' },
+      { trigger: 'demo-kbd', name: { zh: 'Kbd 键盘按键', en: 'Kbd' }, desc: { zh: '行内键帽/快捷键说明', en: 'Inline keycaps' }, icon: '⌨' },
       { trigger: 'demo-code', name: { zh: '代码块', en: 'Code Block' }, desc: { zh: '多语言语法高亮', en: 'Multi-language highlighting' }, icon: '⌘' },
       { trigger: 'demo-md', name: { zh: 'Markdown', en: 'Markdown' }, desc: { zh: '富文本Markdown渲染', en: 'Rich Markdown' }, icon: 'M' },
       { trigger: 'demo-align', name: { zh: '对齐方式', en: 'Alignment' }, desc: { zh: '文本/卡片/行对齐', en: 'Text/card/row align' }, icon: '≡' },
@@ -95,6 +97,9 @@ const NAV_DATA = [
       { trigger: 'demo-upload', name: { zh: '文件上传', en: 'Upload' }, desc: { zh: '拖拽/点击上传', en: 'Drag & click upload' }, icon: '⬆' },
       { trigger: 'demo-calendar', name: { zh: '日历', en: 'Calendar' }, desc: { zh: '月历视图/日期标记', en: 'Month view/date marks' }, icon: '📅' },
       { trigger: 'demo-datepicker', name: { zh: '日期/时间选择', en: 'DatePicker' }, desc: { zh: '日期/时间/日期时间选择器', en: 'Date/Time/DateTime picker' }, icon: '🕖' },
+      { trigger: 'demo-segmented', name: { zh: 'Segmented 分段控制器', en: 'Segmented' }, desc: { zh: '图标/单项禁用/胶囊垂直形态', en: 'Icons/disabled option/pill/vertical' }, icon: '🔘' },
+      { trigger: 'demo-color-picker', name: { zh: 'ColorPicker 颜色选择', en: 'ColorPicker' }, desc: { zh: '取色面板/表单收集/程序化改色', en: 'Picker panel/form submit/remote upd' }, icon: '🎨' },
+      { trigger: 'demo-editable', name: { zh: 'Editable 行内编辑', en: 'Editable' }, desc: { zh: '点击即编辑/Enter提交/Esc还原', en: 'Click-to-edit inline text' }, icon: '✏️' },
     ]
   },
   {
@@ -185,10 +190,16 @@ const NAV_DATA = [
       { trigger: 'demo-popconfirm', name: { zh: '确认气泡', en: 'Popconfirm' }, desc: { zh: '点击确认/取消', en: 'Click confirm/cancel' }, icon: '❓' },
       { trigger: 'demo-watermark', name: { zh: '水印', en: 'Watermark' }, desc: { zh: '内容叠加半透明水印', en: 'Overlay watermark on content' }, icon: '💧' },
       { trigger: 'demo-backtop', name: { zh: '回到顶部', en: 'Backtop' }, desc: { zh: '滚动出现/点击回顶', en: 'Scroll-to-top button' }, icon: '⬆' },
+      { trigger: 'demo-float-button', name: { zh: 'FloatButton 浮动按钮', en: 'Float Button' }, desc: { zh: '四角固位悬浮组', en: 'Fixed floating group' }, icon: '🎈' },
       { trigger: 'demo-menu', name: { zh: '菜单', en: 'Menu' }, desc: { zh: '纵横向导航菜单', en: 'Vertical/horizontal nav' }, icon: '📋' },
       { trigger: 'demo-breadcrumb', name: { zh: '面包屑', en: 'Breadcrumb' }, desc: { zh: '路径导航/分隔符', en: 'Path nav/separators' }, icon: '»' },
       { trigger: 'demo-command', name: { zh: '命令面板', en: 'Command' }, desc: { zh: '按钮唤起/搜索/键盘导航', en: 'Button-triggered search/nav' }, icon: '⌘' },
       { trigger: 'demo-tree', name: { zh: '树形控件', en: 'Tree' }, desc: { zh: '目录树/组织架构', en: 'Directory/org tree' }, icon: '🌲' },
+      { trigger: 'demo-anchor', name: { zh: 'Anchor 锚点导航', en: 'Anchor' }, desc: { zh: '层级锚点/横向模式/spy偏移', en: 'Nested/horizontal/spy offset' }, icon: '🔗' },
+      { trigger: 'demo-affix', name: { zh: 'Affix 固钉', en: 'Affix' }, desc: { zh: '固顶/固底/嵌套滚动容器', en: 'Top/bottom/nested scroll box' }, icon: '📌' },
+      { trigger: 'demo-masonry', name: { zh: 'Masonry 瀑布流', en: 'Masonry' }, desc: { zh: '多列卡片流自动平衡', en: 'Auto-balanced card columns' }, icon: '▦' },
+      { trigger: 'demo-tour', name: { zh: 'Tour 漫游式引导', en: 'Tour' }, desc: { zh: '分步引导/目标高亮', en: 'Step guide/target highlight' }, icon: '🧭' },
+      { trigger: 'demo-modal', name: { zh: 'Modal 确认框', en: 'Modal Confirm' }, desc: { zh: 'TokUI.confirm() 命令式确认', en: 'Imperative confirm promise' }, icon: '❓' },
     ]
   },
   {
@@ -323,7 +334,7 @@ const I18N = {
   eventPanelClear: { zh: '清空', en: 'Clear' },
   editClicked:    { zh: '编辑按钮被点击', en: 'Edit button clicked' },
   deleteClicked:  { zh: '删除按钮被点击', en: 'Delete button clicked' },
-  footerVer:      { zh: '当前版本:v0.2.0', en: 'Version: v0.2.0' },
+  footerVer:      { zh: '当前版本:v0.2.1', en: 'Version: v0.2.1' },
   footerCopy:     { zh: '零依赖 · 流式UI描述与渲染框架', en: 'Zero Deps · Streaming UI Framework' },
   dslRef:         { zh: 'DSL 语法速查', en: 'DSL Syntax Ref' },
   clearBtn:       { zh: '清空', en: 'Clear' },
@@ -904,6 +915,55 @@ TokUI.registerHandler('downloadReport', function (data) {
   addSystemMessage('下载报告', '正在下载: ' + (data.name || ''));
 });
 
+// === Phase 4 新组件 handler ===
+// segmented / color-picker / anchor change 事件回显（data 形如 {value, name}）
+TokUI.registerHandler('handleSegChange', (data) => addSystemMessage('Segmented 切换', JSON.stringify(data, null, 2)));
+TokUI.registerHandler('handleColorChange', (data) => addSystemMessage('ColorPicker 选色', JSON.stringify(data, null, 2)));
+// color-picker 程序化改色：upd v:#hex 推送到 id:cp1（silent 不上报）
+// id 挂在组件 root，_update 在 field 祖先——向上爬找（同 upd 指令语义）
+function _cpUpdate(hex) {
+  var el = document.getElementById('cp1');
+  while (el && typeof el._update !== 'function') el = el.parentElement;
+  if (el) el._update({ v: hex });
+}
+TokUI.registerHandler('cpSetGreen', function () {
+  _cpUpdate('#52c41a');
+  addSystemMessage('upd 改色', '#52c41a → cp1');
+});
+TokUI.registerHandler('cpSetRed', function () {
+  _cpUpdate('#f5222d');
+  addSystemMessage('upd 改色', '#f5222d → cp1');
+});
+TokUI.registerHandler('handleColorSubmit', (data) => addSystemMessage('主题表单提交', JSON.stringify(data, null, 2)));
+TokUI.registerHandler('handleAffixChange', (data) => addSystemMessage('Affix 状态', JSON.stringify(data)));
+TokUI.registerHandler('handleRetry', () => addSystemMessage(t('action'), '重试'));
+// === P2 组件 handler ===
+TokUI.registerHandler('handleEditChange', (data) => addSystemMessage('Editable 提交', JSON.stringify(data)));
+// editable 程序化改值：id 挂组件根，_update 直接可用（editable id 在根元素上）
+TokUI.registerHandler('edUpdate', function () {
+  var el = document.getElementById('ed1');
+  if (el && el._update) el._update({ tx: '新标题（服务器推送）' });
+});
+TokUI.registerHandler('floatChat', () => addSystemMessage('FloatButton', '💬 客服会话'));
+TokUI.registerHandler('floatLike', () => addSystemMessage('FloatButton', '❤ 已点赞'));
+TokUI.registerHandler('handleAnchorChange', (data) => addSystemMessage('Anchor 切换', JSON.stringify(data, null, 2)));
+// tour 重播：程序化重开 id:tour1 引导
+TokUI.registerHandler('replayTour', function () {
+  var t = document.getElementById('tour1');
+  if (t && t._update) t._update({ act: 'open' });
+});
+// modal.confirm 命令式确认框：Promise<boolean>
+TokUI.registerHandler('askDelete', function () {
+  TokUI.confirm({ tt: '删除文件', tx: '删除后不可恢复，确定继续吗？', t: 'danger', 'ok-text': '删除' }).then(function (ok) {
+    addSystemMessage('Modal 结果', ok ? '用户点击了确认' : '用户取消了');
+  });
+});
+TokUI.registerHandler('askNormal', function () {
+  TokUI.confirm({ tt: '确认操作', tx: '确定要执行该操作吗？' }).then(function (ok) {
+    addSystemMessage('Modal 结果', ok ? '用户点击了确认' : '用户取消了');
+  });
+});
+
 // ========================================
 // State
 // ========================================
@@ -915,6 +975,13 @@ let sending = false;
 let sendingName = '';
 let renderMode = 'stream';
 let activeNavId = null;
+
+// 发送状态镜像到 DOM（e2e/外部脚本可经 body[data-sending] 精确等待流结束，
+// 替代拍脑袋的固定 sleep——发送锁 sending 为闭包变量不可达）
+function _setSending(v) {
+  sending = v;
+  if (document.body) document.body.dataset.sending = v ? '1' : '0';
+}
 
 // ========================================
 // Render Navigation
@@ -1012,7 +1079,7 @@ function setActiveNav(trigger) {
 
 function sendPrompt(trigger, displayText) {
   if (sending) return;
-  sending = true;
+  _setSending(true);
   sendingName = displayText || trigger;
 
   const welcome = document.getElementById('welcome');
@@ -1045,14 +1112,14 @@ function sendPrompt(trigger, displayText) {
 
       function processChunk() {
         reader.read().then(({ done, value }) => {
-          if (done) { tokui.endStream(); sending = false; scrollToBottom(); return; }
+          if (done) { tokui.endStream(); _setSending(false); scrollToBottom(); return; }
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split('\n');
           buffer = lines.pop();
           for (const line of lines) {
             if (line.startsWith('data: ')) {
               const data = line.slice(6);
-              if (data === '[DONE]') { tokui.endStream(); sending = false; scrollToBottom(); return; }
+              if (data === '[DONE]') { tokui.endStream(); _setSending(false); scrollToBottom(); return; }
               try {
                 const parsed = JSON.parse(data);
                 if (parsed.tokui) {
@@ -1066,7 +1133,7 @@ function sendPrompt(trigger, displayText) {
             }
           }
           processChunk();
-        }).catch(() => { tokui.endStream(); sending = false; });
+        }).catch(() => { tokui.endStream(); _setSending(false); });
       }
       processChunk();
     } else {
@@ -1084,14 +1151,14 @@ function sendPrompt(trigger, displayText) {
 
       function processSourceChunk() {
         reader.read().then(({ done, value }) => {
-          if (done) { sending = false; scrollToBottom(); return; }
+          if (done) { _setSending(false); scrollToBottom(); return; }
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split('\n');
           buffer = lines.pop();
           for (const line of lines) {
             if (line.startsWith('data: ')) {
               const data = line.slice(6);
-              if (data === '[DONE]') { sending = false; scrollToBottom(); return; }
+              if (data === '[DONE]') { _setSending(false); scrollToBottom(); return; }
               try {
                 const parsed = JSON.parse(data);
                 if (parsed.tokui) {
@@ -1105,14 +1172,14 @@ function sendPrompt(trigger, displayText) {
             }
           }
           processSourceChunk();
-        }).catch(() => { sending = false; });
+        }).catch(() => { _setSending(false); });
       }
       processSourceChunk();
     }
   }).catch(err => {
     loadingEl.remove();
     addSystemMessage(t('error'), t('errorMsg', { msg: err.message }));
-    sending = false;
+    _setSending(false);
   });
 }
 
@@ -1925,7 +1992,10 @@ const DSL_REF = {
         { tag: 'avatar', desc: '头像 s:src tx:兜底 size bg fc', self: true },
         { tag: 'file', desc: '文件卡片 n:文件名 s:size t:type u:URL tt:描述', self: true },
         { tag: 'chat-input', desc: '对话输入框 容器 ph clk:send dis max auto rows', self: false },
-        { tag: 'msg-actions', desc: '消息操作栏 容器 clk copy regenerate like dislike visible', self: false }
+        { tag: 'msg-actions', desc: '消息操作栏 容器 clk copy regenerate like dislike visible', self: false },
+        { tag: 'tour', desc: '漫游引导 容器 open id；子 tour-step；open 时容器闭合后自动开启', self: false },
+        { tag: 'tour-step', desc: '引导步骤标记 tgt:"#目标id" tt:title tx:说明 pos:top/bottom/left/right，无 tgt 居中', self: true },
+        { tag: 'TokUI.confirm(opts)', desc: '命令式确认对话框，Promise<boolean>', self: true }
       ]
     },
     {
@@ -2016,7 +2086,14 @@ const DSL_REF = {
         { tag: 'scroll-area', desc: '滚动区域 容器 h w id', self: false },
         { tag: 'sidebar', desc: '侧边栏 容器 w pos collapsible tt bg fc', self: false },
         { tag: 'sidebar-content', desc: '侧边栏内容 容器', self: false },
-        { tag: 'sidebar-footer', desc: '侧边栏页脚 容器', self: false }
+        { tag: 'sidebar-footer', desc: '侧边栏页脚 容器', self: false },
+        { tag: 'anchor', desc: '锚点导航 opt 简写或容器 [lk h:目标 tx:标题 d:层级]；top:spy偏移 变体 horizontal', self: true },
+        { tag: 'affix', desc: '固钉 容器 top:固顶/bottom:固底/target:容器 on:"change:h"，滚动越过偏移即固定', self: false },
+        { tag: 'preview-group', desc: '图片预览组 容器；子 img，点击开整组灯箱（缩放/旋转/切换）', self: false },
+        { tag: 'masonry', desc: '瀑布流 容器 cols:固定列(1-6)/minw:自动列px gap:间距；CSS columns 自动分列', self: false },
+        { tag: 'float-button', desc: '浮动按钮组 容器 pos:right-bottom 等四角 offset:边距；子组件圆形悬浮化', self: false },
+        { tag: 'kbd', desc: '键盘按键 行内 [kbd Ctrl]；变体 sm/lg', self: true },
+        { tag: 'editable', desc: '行内编辑 tx:文本 ph:占位 on:"change:h" dis；点击编辑 Enter提交 Esc还原', self: true }
       ]
     },
     {
@@ -2043,7 +2120,9 @@ const DSL_REF = {
         { tag: 'datepicker', desc: '日期选择 l ph fmt v clk dis id/n', self: true },
         { tag: 'timepicker', desc: '时间选择 l ph fmt v clk dis id/n', self: true },
         { tag: 'datetimepicker', desc: '日期时间 l ph fmt v clk dis id/n', self: true },
-        { tag: 'transfer', desc: '穿梭框 容器 l tt/tt2 clk id dis n', self: false }
+        { tag: 'transfer', desc: '穿梭框 容器 l tt/tt2 clk id dis n', self: false },
+        { tag: 'segmented', desc: '分段控制器 opt:"v:label;…" 或容器 [opt v:值 tx:文 i:图标 dis]；变体 sm/lg/block/pill/vertical', self: true },
+        { tag: 'color-picker', desc: '颜色选择器 l n v:色值 presets:逗号色值 on:"change:handler" dis', self: true }
       ]
     },
     {

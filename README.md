@@ -39,7 +39,7 @@
 - **流式优先** —— 状态机增量解析，边收边渲染，首个字符到达即开始绘制 DOM。
 - **简洁 DSL** —— `[card tt:标题][p 内容][/card]` 一行描述一个组件，AI 易生成、人易读。
 - **框架无关** —— 原生 JS 可用，另提供 React / Vue / Svelte / Web Component 官方适配器。
-- **插件化组件** —— `renderer.register(type, fn)` 注册，开箱即用 30+ 组件（卡片、表格、表单、图表、Markdown、代码高亮等）。
+- **插件化组件** —— `renderer.register(type, fn)` 注册，开箱即用 150+ 组件（卡片、表格、表单、图表、Markdown、代码高亮等）。
 - **事件安全** —— 事件处理器为命名引用（`clk:`/`sub:`），需预先 `registerHandler` 注册，禁止注入可执行代码。
 - **主题驱动** —— CSS 变量 + `data-tokui-theme` 切换，内置 HSB 算法的 10 级色阶生成器。
 - **SSR 友好** —— `import` 不依赖 `window`/`document`，可在 Next.js / Nuxt / SvelteKit 等服务端导入（渲染在客户端进行）。
@@ -261,10 +261,10 @@ DSL 写 `v:primary`，渲染器生成 CSS 类 `tokui-btn--primary`。变体名�
 
 | 文件 | 组件 |
 |------|------|
-| `basic.js` | 标题 h1–h6、段落、链接、Markdown、代码块、代码高亮、徽标、按钮、提示、分隔线等 |
+| `basic.js` | 标题 h1–h6、段落、链接、Markdown、代码块、代码高亮、徽标、按钮、提示、分隔线、固钉（affix）等 |
 | `table.js` | 表格（`table` / `thead` / `tbody` / `tr` / `desc`） |
-| `form.js` | 表单、输入框、文本域、下拉、单选/复选、开关、日期选择器、标签输入等 |
-| `layout.js` | 卡片、栅格行/列、列表、图片集、描述列表等 |
+| `form.js` | 表单、输入框、文本域、下拉、单选/复选、开关、日期选择器、标签输入、分段控制器（segmented）、颜色选择（color-picker）等 |
+| `layout.js` | 卡片、栅格行/列、列表、图片集、描述列表、锚点导航（anchor）、漫游引导（tour）、图片预览组（preview-group）、命令式确认（modal.confirm，宿主侧 JS API）等 |
 | `chart.js` | 纯 SVG 零依赖图表：bar / line / pie / radar / donut / scatter / gantt / funnel |
 | `lightbox.js` | 图片灯箱预览 |
 
@@ -274,7 +274,7 @@ DSL 写 `v:primary`，渲染器生成 CSS 类 `tokui-btn--primary`。变体名�
 form table thead tbody card ft row col list select radio code imgs md textarea
 tabs tab accordion collapse dialog btngroup picker timeline steps drawer ol ul i
 item think bubble toolbar badge-box dropdown transfer cascader tree tn step desc
-carousel popover input-tag watermark menu
+carousel popover input-tag watermark menu tour affix preview-group float-button masonry
 ```
 
 ---

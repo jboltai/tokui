@@ -1,6 +1,6 @@
 # TokUI Demo
 
-> TokUI 零依赖流式 UI 渲染框架在线演示：后端用极简 DSL 描述组件，经 SSE 流式推送，前端实时增量解析渲染为真实 DOM，覆盖 80+ 组件。由 JBoltAI 团队开源。
+> TokUI 零依赖流式 UI 渲染框架在线演示：后端用极简 DSL 描述组件，经 SSE 流式推送，前端实时增量解析渲染为真实 DOM，覆盖 150+ 组件。由 JBoltAI 团队开源。
 
 ## Docs
 
@@ -18,10 +18,10 @@
 
 ## Key Facts
 
-- 项目: TokUI（当前演示版本 v0.2.0）
+- 项目: TokUI（当前演示版本 v0.2.1）
 - 定位: 零依赖的流式 UI 描述与渲染框架，核心场景为 AI 对话中的流式 UI 生成
 - 架构: 后端 TokUIBuilder 生成 DSL → SSE 流式推送 → 前端 TokUIParser 增量解析 → TokUIRenderer 渲染真实 DOM
-- 组件数: 80+，含表格、表单、图表（柱状/折线/饼图/雷达/散点/甘特/漏斗/仪表盘）、卡片、栅格、列表、AI 对话气泡、流式 Markdown、代码高亮、时间线、步骤条等
+- 组件数: 150+，含表格、表单、图表（柱状/折线/饼图/雷达/散点/甘特/漏斗/仪表盘）、卡片、栅格、列表、AI 对话气泡、流式 Markdown、代码高亮、时间线、步骤条等
 - 主题: default / dark / modern / modern-dark（CSS 变量驱动，data-tokui-theme 属性切换）
 - 语言: 中英双语（zh-CN / en）
 - 依赖: 零外部 npm 依赖，前后端均使用原生 API

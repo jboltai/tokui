@@ -97,7 +97,7 @@ v:"primary,sm"                               ;; 多变体用逗号分隔，渲�
 stripe  dis  ro  req  chk  multi  disabled  readonly  required  checked  multiple  striped
 auto  plain  round  closable  bordered  open  pill  dot  leaf  inline  rounded  container
 copy  regenerate  like  dislike  visible  delete  controls  active  collapsible  toggle
-search  thumb  reset  print  approval  streaming
+search  thumb  reset  print  approval  streaming  mask
 ```
 
 > `reset` / `print` 是按钮内置动作；`thumb`/`delete` 多用于 `msg-actions` 等生成默认按钮；`controls` 用于 `video` 显示原生控件栏；`leaf` 让 `tn` 自闭合；`collapsible` 用于 `sidebar`；`approval` 让 `tool-call` 进入人工审批模式（§6.4）；`streaming` 让 `chat-input` 显示停止生成按钮（§6.4）。
@@ -148,7 +148,7 @@ chat-input msg-actions tool-call diff quick-reply plan file-tree ft-folder
 terminal sandbox test-result quote toggle-group conversations welcome welcome-feature
 suggestions attachments artifact artifact-code artifact-preview scroll-area
 sidebar sidebar-content sidebar-footer command command-group hover-card hover-trigger hover-content
-resizable canvas canvas-content chart p
+resizable canvas canvas-content chart p tour affix preview-group segmented anchor float-button masonry
 ```
 
 **自闭合逃逸**（在容器清单内但特定条件下自动当自闭合叶子）：
@@ -173,9 +173,10 @@ resizable canvas canvas-content chart p
 | Tag | 类型 | 常用属性 | 说明 |
 |-----|------|----------|------|
 | `h1`~`h6` | 自闭合 | `tx`/裸内容 `v` `bg` `fc` | 标题。`v:underline` 时 bg 走 `::after` 下划线色；其余变体见 §4 |
-| `p` | 叶子/容器 | `v` 裸内容 | 段落，**双模**：有正文=叶子自闭合（内联白名单 `a`/`tag`/`b`/`strong`/`em`/`mark`/`spin`/`sub`/`sup`/`code`/`i`），遇块级兄弟自动闭合；无正文=容器 `[p]...[/p]` 放块级组件 |
+| `p` | 叶子/容器 | `v` 裸内容 | 段落，**双模**：有正文=叶子自闭合（内联白名单 `a`/`tag`/`b`/`strong`/`em`/`mark`/`spin`/`sub`/`sup`/`code`/`i`/`kbd`），遇块级兄弟自动闭合；无正文=容器 `[p]...[/p]` 放块级组件 |
 | `a` | 自闭合 | `u` `tx`/裸内容 `tt` `target` `dis` `v` | 链接。href 协议白名单 `http(s)`/`mailto`/`tel`/`/`/`#`，其余强制 `#` |
 | `img` | 自闭合 | `s` `alt` `w` `h` `tt` `v` | 图片，点击灯箱预览。变体 `avatar`/`rounded`/`bordered` |
+| `preview-group` | 容器 | `id` | 图片预览组。子项 `img` 共享灯箱预览会话（缩放/旋转/翻转/计数/前后切换），流式后到的图自动入组；与 `imgs`（九宫格简写布局）不同，是显式「一组图共享预览」语义，排版照旧 |
 | `hr` | 自闭合 | — | 水平分割线 |
 | `dv` | 自闭合 | `tx`/裸内容 `v` `vert` `size` `align` `bg` `th` `plain` | 带文本分割线。`vert` 垂直，`align` 对齐，`th` 边框宽度 |
 | `md` | 容器·原始 | — | Markdown 渲染（表格/列表/任务/引用/代码围栏/链接图片）。可选插件增强：` ```mermaid ` 围栏与 `$$公式$$`/`$公式$` 在宿主加载 mermaid/katex 全局对象时自动增强渲染，无插件回退源码展示（零依赖不受损） |
@@ -183,6 +184,7 @@ resizable canvas canvas-content chart p
 | `mermaid` | 容器·原始 | — | 独立图组件（md mermaid 管线别名）。`[mermaid]图源[/mermaid]`，宿主加载 mermaid 才渲染，无插件回退代码块 |
 | `code` | 容器·原始 | `lang` | 语法高亮代码块，带复制按钮 + 行号。`lang`：`js`/`ts`/`py`/`html`/`css`/`sql`/`json`/`java`/`go`/`rust`/`bash` 及别名 |
 | `tag` | 自闭合 | `tx` `t` `s` `round` `bordered` `closable` `dis` `bg` `fc` | 标签。颜色用 `t:`（`default`/`primary`/`success`/`warning`/`danger`/`info`），尺寸 `s:small`/`medium`/`large` |
+| `kbd` | 自闭合 | 裸内容/`tx` | 键盘按键（行内键帽）。变体 `sm`/`lg`；可作 `p` 行内子节点与文字混排 |
 | `b`/`strong`/`em`/`mark`/`del`/`sub`/`sup` | 自闭合 | 裸内容 | 行内格式（加粗/斜体/高亮/删除/上下标） |
 
 ### 6.2 状态、反馈与交互
@@ -227,6 +229,8 @@ resizable canvas canvas-content chart p
 | `file` | 自闭合 | `n` `s` `t` `u` `tt` | 文件卡片。`t:pdf`/`word`/`excel`/`ppt`/`image`/`zip`/`code`/`default` |
 | `chat-input` | 容器 | `ph` `clk` `dis` `max` `auto` `rows` `streaming` `mention` `on` | 对话输入框。Enter 发送/Shift+Enter 换行；Enter/发送按钮触发 clk handler，负载 `{value}`；`streaming` 显示停止生成按钮（`on:"stop:h"` 或默认断开 SSE，见 §8.4）；`mention:数据源handler名` 启用 @ 提及下拉（数据源 fn({value:查询词}) 返回数组或 Promise，项为字符串或 `{v,tx}`；↑↓ 导航 Enter 选定，选定上报 `mention` 事件） |
 | `msg-actions` | 容器 | `clk` `copy` `regenerate` `like`/`dislike` `delete` `visible` | 消息操作栏。布尔属性生成默认按钮 |
+| `tour` | 容器 | `open` `mask` `id` `on` | 漫游引导；子项 `tour-step`（自闭合标记：`tgt` 目标元素 id（可带 `#`）/`tt` 标题/`tx` 说明/`pos` 面板方位，默认 bottom；无 `tgt` 居中显示）。`open` 容器闭合后自动开启；`mask:false` 关遮罩（默认开）；键盘 Esc 关、←/→ 切步；事件 `change`（切步 `{index,target}`）/`finish`（完成）/`close`（跳过·✕·Esc）；upd 契约 `act:open`（`v` 可选起始步）/`act:goto v:N`/`act:close`，程序化均 silent 不上报 |
+| `modal.confirm` | 命令式 API | `TokUI.modal.confirm(opts)` / `TokUI.confirm(opts)` | 命令式确认对话框（宿主侧 JS API，非 DSL）。opts `{tt, tx, t:'danger'|'primary', 'ok-text', 'cancel-text', onOk, onCancel}` → `Promise<boolean>`；Esc/遮罩点击=取消；按钮与 aria 文案走 i18n（`common.ok`/`common.cancel`/`modal.aria`） |
 
 ### 6.3 思考与计划
 
@@ -312,6 +316,10 @@ resizable canvas canvas-content chart p
 | `scroll-area` | 容器 | `h` `w` `id` `virtual` `ih` | 自定义滚动区域。`virtual` 虚拟滚动（均匀行高模式，`ih:N` 行高默认 36px，仅可视窗口+buffer 挂 DOM）；滚动到底部阈值上报 `loadmore` 事件（长列表/对话历史加载更多用） |
 | `sidebar` | 容器 | `w` `pos` `collapsible` `tt` `bg` `fc` `id` | 侧边栏。`pos:left`/`right`；子项 `sidebar-content` / `sidebar-footer` |
 | `sidebar-content` / `sidebar-footer` | 容器 | — | 侧边栏内容区 / 页脚 |
+| `anchor` | 双模式 | `opt` `top` `on` `id` | 锚点导航。简写 `opt:"目标id:标题;…"` 原子自闭合；容器 `[lk h:目标 tx:标题 d:层级]` 支持二级锚点；`top` spy 激活偏移（缺省 12）；变体 `horizontal`；点击平滑滚动 + scroll-spy 高亮（目标需带 id）；`upd v:目标id` 程序化高亮（silent） |
+| `affix` | 容器 | `top` `bottom` `target` `on` | 固钉。滚动越过偏移即 `position:fixed` 固定：`top` 固顶（缺省 0）/ `bottom` 固底（经过原位置后释放）/ `target` 显式滚动容器；自动插占位防跳动；`change` 上报 `{fixed}`；监听 window 捕获阶段，嵌套滚动容器可感知 |
+| `masonry` | 容器 | `cols` `minw` `gap` | 瀑布流。`cols` 固定列数(1-6 缺省2)、`minw` 自动列（子项最小宽度 px，列数随宽度自适应，优先于 cols）、`gap` 间距(px 缺省8)；CSS columns 自动分列，子项 break-inside: avoid 不截断 |
+| `float-button` | 容器 | `pos` `offset` | 浮动按钮组。`pos` 四角固位(right-bottom 缺省/right-top/left-bottom/left-top)、`offset` 边距(px 缺省24)；子组件自动圆形悬浮化 |
 
 ### 6.6 表单组件
 
@@ -329,6 +337,9 @@ resizable canvas canvas-content chart p
 | `slider` | 自闭合 | `l` `min` `max` `step` `v` `dis` `clk` `id` `n` `range` `marks` | 滑块。`range` 双滑块（`v:"20,60"`，change 报 `{value:[min,max]}`）；`marks:"0:免费,50:标准,100:旗舰"` 刻度 |
 | `rate` | 自闭合 | `l` `v` `max` `tx` `ro` `dis` `clk` `id` `n` `half` | 评分。`max` 默认 5；`ro` 只读（报告/展示类必加）；`half` 半选（0.5 步进，同值再点清零） |
 | `numinput` | 自闭合 | `l` `v` `min` `max` `step` `dis` `id` `n` | 数字输入 |
+| `segmented` | 双模式 | `opt` `v` `n` `l` `dis` `on` `id` | 分段控制器。简写 `opt:"v:label;…"` 原子自闭合；容器 `[opt v:值 tx:文 i:图标 chk dis]` 支持图标/单项禁用；`v` 当前值（可与变体组合 `v:"sm,grid"`）；变体 `sm`/`lg`/`block`/`pill`/`vertical`；`upd v:值` 程序化切换；form reset 恢复 |
+| `editable` | 自闭合 | `tx` `v` `ph` `n` `dis` `on` `id` | 行内编辑。点击虚线文本进编辑态：Enter/失焦提交（`change` 上报 `{value,name}`）、Esc 还原不上报；`upd tx:值` 程序化改值（silent）、`upd dis:false` 解锁 |
+| `color-picker` | 自闭合 | `v` `presets` `n` `l` `dis` `on` `id` | 颜色选择。面板含饱和明度取色区 + hue 滑条 + hex 输入 + 预设色 + 清除，开启时 portal 到 body fixed 定位（不被父容器裁切，滚动跟随重定位，外点/Esc 关）；`v` 初始 `#rrggbb`（缺省 `#1677ff`）；`presets` 逗号分隔 hex；`upd v:#hex` / `upd dis:false`；form reset 恢复 |
 | `btn` | 自闭合 | `tx` `t` `sub` `clk` `id` `dis` `w` `bg` `fc` `radius` `icon` `i` `l`/`tt` `form` `reset` `print` | 按钮（见下方专节）。`t:submit` = 提交语义（渲染 `type=submit`，点击走 `_doSubmit` 校验闸门：`req`/`pat` 不过则拦截；`clk:H` 作提交 handler，缺省回退表单自身 `sub`；不在 form 内时退化为普通点击）。`w`/`radius` 仅接受 数字+px/%/em/rem/vw/vh，非法值静默丢弃 |
 | `btngroup` | 容器 | `id` `v` | 按钮组。`v:vertical`/`pill` |
 | `print-area` | 容器 | `id` `tt` | 打印区（配合 `[btn print:ID]` 1:1 打印） |
@@ -760,6 +771,8 @@ handler 签名 `(detail, event, element)`，`detail` 携带上下文（如 `{val
 > `chat-input` 停止按钮未声明 `on:"stop:…"` 时，默认行为是断开**该组件所属** TokUI 实例的 SSE 连接（`disconnect()`，幂等安全；多实例页面不会误停别的实例）。点击后输入框立即恢复发送态（乐观 UI，流未停时服务端可 `upd streaming:true` 恢复）。
 
 > `upd`/`del`/`ins` 指令执行后会向统一出口回报执行结果：`{type:'upd'|'del'|'ins', id, event:'applied', detail:{applied}}` / `{removed}` / `{moved}`——服务端可借此确认指令落地（目标不存在时 applied/removed 为 false、moved 为 0）。
+
+> 命令式确认 `TokUI.modal.confirm(opts)`（别名 `TokUI.confirm(opts)`）→ `Promise<boolean>`：宿主侧 JS API（非 DSL），opts `{tt, tx, t:'danger'|'primary', 'ok-text', 'cancel-text', onOk, onCancel}`，Esc/遮罩点击视为取消，按钮与 aria 文案走 i18n。Agent 需要「是/否」决策时可由宿主桥接此 API 再回传结果。
 
 ---
 

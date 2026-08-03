@@ -552,6 +552,35 @@ class TokUIBuilder {
   /** 菜单容器 */
   menu(attrs) { return this._open('menu', attrs); }
 
+  /** 分段控制器（自闭合，opt:"v:label;..."） */
+  segmented(attrs) { return this._selfClosing('segmented', null, attrs); }
+  /** 颜色选择器（自闭合） */
+  colorPicker(attrs) { return this._selfClosing('color-picker', null, attrs); }
+  /** 固钉容器 */
+  affix(attrs) { return this._open('affix', attrs); }
+  /** 锚点导航（带 opt 简写 → 原子自闭合；否则容器收 lk 子项） */
+  anchor(attrs) {
+    if (attrs && attrs.opt) return this._selfClosing('anchor', null, attrs);
+    return this._open('anchor', attrs);
+  }
+  /** 锚点子项（自闭合，anchor 容器模式用；d 为层级深度） */
+  lk(attrs) { return this._selfClosing('lk', null, attrs); }
+
+  /** 键盘按键（行内自闭合） */
+  kbd(content, attrs) { return this._selfClosing('kbd', content, attrs); }
+  /** 行内编辑（自闭合） */
+  editable(attrs) { return this._selfClosing('editable', null, attrs); }
+  /** 浮动按钮组容器 */
+  floatButton(attrs) { return this._open('float-button', attrs); }
+  /** 瀑布流容器 */
+  masonry(attrs) { return this._open('masonry', attrs); }
+  /** 漫游引导容器 */
+  tour(attrs) { return this._open('tour', attrs); }
+  /** 漫游引导步骤（自闭合标记） */
+  tourStep(attrs) { return this._selfClosing('tour-step', null, attrs); }
+  /** 图片预览组容器 */
+  previewGroup(attrs) { return this._open('preview-group', attrs); }
+
   /** 对话输入框（容器模式，支持自定义子节点） */
   chatInput(attrs) { return this._open('chat-input', attrs); }
 

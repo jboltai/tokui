@@ -464,4 +464,69 @@
 
 <Playground dsl='[input-tag l:技术栈 ph:"输入后回车添加" max:8 tags:"JavaScript,Python,Go"][input-tag l:极简自闭合 tags:"React,Vue"][input-tag l:空容器 ph:"无初始标签，手动添加"][/input-tag][input-tag l:禁用态 tags:"只读模式" dis]' />
 
+## 分段控制器 `segmented`
+
+一组互斥选项的轻量切换（`tabs` 的表单控件版）。两种写法：`opt` 简写（原子自闭合）或容器模式 `opt` 子节点（支持图标、单项禁用）。
+
+| 属性 | 含义 | 示例 |
+|------|------|------|
+| `opt` | 选项简写串 `v:label;...`（**必须双引号**） | `opt:"list:列表;grid:宫格"` |
+| `v` | 当前选中值（可与形态变体组合） | `v:"sm,grid"` |
+| `n` | 字段名 | `n:view` |
+| `l` | 标签 | `l:视图` |
+| `dis` | 整组禁用 | `dis` |
+| `on` | change 上报 `{value,name}` | `on:"change:h"` |
+| `id` | 元素 ID | `id:view` |
+
+**变体**：`sm` / `lg` / `block`（撑满）/ `pill`（胶囊）/ `vertical`（垂直）。
+
+**容器模式 `opt` 子节点**（逐项精细控制）：
+
+| 属性 | 含义 | 示例 |
+|------|------|------|
+| `v` | 选项值 | `v:grid` |
+| `tx` | 显示文本 | `tx:宫格` |
+| `i` | 图标字符（emoji/符号） | `i:📊` |
+| `chk` | 默认选中（`v` 命中优先） | `chk` |
+| `dis` | 单项禁用 | `dis` |
+
+> 服务端可用 `[upd id:view v:grid]` 程序化切换；form reset 恢复初始值。
+
+<Playground dsl='[segmented l:视图 v:grid opt:"list:列表;grid:宫格;table:表格"][segmented v:"pill,day" opt:"day:日;week:周;month:月"][segmented n:perm v:read][opt v:read tx:只读][opt v:write tx:读写][opt v:admin tx:管理员 dis][/segmented]' />
+
+## 颜色选择 `color-picker`
+
+自闭合。取色面板含饱和明度取色区 + hue 滑条 + hex 输入 + 预设色 + 清除，`presets` 配置预设色。面板开启时 portal 到 `body` 并 fixed 定位，不被父容器 overflow 裁切；滚动时跟随重定位，外点/Esc 关闭。
+
+| 属性 | 含义 | 示例 |
+|------|------|------|
+| `v` | 初始色（`#rrggbb`，缺省 `#1677ff`） | `v:#1677ff` |
+| `presets` | 预设色（逗号分隔 hex） | `presets:"#f5222d,#fa8c16"` |
+| `n` | 字段名 | `n:color` |
+| `l` | 标签 | `l:主题色` |
+| `dis` | 禁用 | `dis` |
+| `on` | change 上报 `{value,name}` | `on:"change:h"` |
+| `id` | 元素 ID | `id:color` |
+
+> 服务端可用 `[upd id:color v:#hex]` 程序化改色、`[upd id:color dis:false]` 解除禁用；form reset 恢复初始值。
+
+<Playground dsl='[color-picker l:主题色 v:#1677ff presets:"#f5222d,#fa8c16,#52c41a,#1677ff,#722ed1"]' />
+
+## 行内编辑 `editable`
+
+自闭合行内元素。文本带虚线下划线标识可编辑，点击进入编辑态：Enter/失焦提交，Esc 还原（不上报）。
+
+| 属性 | 含义 | 示例 |
+|------|------|------|
+| `tx` / `v` | 初始文本 | `tx:小木屋` |
+| `ph` | 空值占位 | `ph:点击填写` |
+| `n` | 字段名 | `n:nick` |
+| `dis` | 禁用 | `dis` |
+| `on` | 提交（值变化）上报 `{value,name}` | `on:"change:h"` |
+| `id` | 元素 ID | `id:ed1` |
+
+> 服务端可用 `[upd id:ed1 tx:新值]` 程序化改值（silent）、`[upd id:ed1 dis:false]` 解锁。
+
+<Playground dsl='[p 昵称：[editable tx:小木屋 n:nick]][p 签名：[editable ph:点击填写 n:sign]]' />
+
 > 完整 DSL 语法（属性简写、变体白名单、流式渲染约束等）见 [DSL 语法](/guide/dsl-syntax)。

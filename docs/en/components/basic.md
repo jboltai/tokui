@@ -11,7 +11,7 @@ Six-level headings, self-closing. `tx` is the text (optional — you can write t
 | `tx` | Text content (or write content inline) | `[h1 标题]` |
 | `v` | Variant | `v:underline` |
 
-**Variants**: `left` / `center` / `right` (alignment), `ribbon`, `underline`, `badge` / `pill`.
+**Variants**: `left` / `center` / `right` (alignment), `ribbon`, `underline`, `badge` / `pill`. The decorative variants (ribbon/badge/pill/underline) share a "tinted background + accent text" scheme: `bg:` sets the accent color and the 10% tint background and soft border are derived automatically, adapting to light and dark themes.
 
 <Playground dsl='[h1 v:underline TokUI 一级标题][h2 二级标题][h3 三级标题][h4 四级标题][h5 v:badge 五级带徽标][h6 六级标题]' />
 
@@ -76,6 +76,37 @@ Hyperlink, self-closing. `u` is the URL, `tx` is the text, and `target` controls
 `imgs` multiple images: pass comma-separated URLs via `s`, and they are arranged into a 1–9 cell grid automatically.
 
 <Playground dsl='[imgs s:"https://picsum.photos/seed/a/200,https://picsum.photos/seed/b/200,https://picsum.photos/seed/c/200,https://picsum.photos/seed/d/200"]' />
+
+## Preview Group `preview-group`
+
+Container. Binds a set of `img` children into a shared preview session: clicking any image opens the lightbox with the whole group's src list (the lightbox supports zoom / rotate / flip / counter / prev-next navigation). Images that arrive later during streaming join the group automatically.
+
+| Prop | Meaning | Example |
+|------|---------|---------|
+| `id` | Element ID | `id:gallery` |
+
+> Difference from `imgs`: `imgs` is a shorthand grid layout, while `preview-group` expresses the explicit semantics of "one group of images sharing a preview session" — the images keep their normal layout inside.
+
+<Playground dsl='[preview-group][img s:https://picsum.photos/seed/a/200][img s:https://picsum.photos/seed/b/200][/preview-group]' />
+
+## Kbd `kbd`
+
+Self-closing inline element. Keycap-styled text for shortcut/operation documentation; works as an inline child of `p` mixed with text.
+
+**Variants**: `sm` / `lg`.
+
+<Playground dsl='[p 全局搜索：[kbd Ctrl][kbd K]；取消：[kbd Esc]]' />
+
+## Float Button `float-button`
+
+Container. Pins a group of children (`btn` / `backtop`, etc.) to a viewport corner; children are automatically rounded into floating action buttons.
+
+| Prop | Meaning | Example |
+|------|---------|---------|
+| `pos` | Placement: `right-bottom` (default) / `right-top` / `left-bottom` / `left-top` | `pos:left-top` |
+| `offset` | Offset from the viewport edge (px, defaults to 24) | `offset:80` |
+
+<Playground dsl='[float-button pos:right-bottom offset:80][btn tx:💬][/float-button]' />
 
 ## Button `btn` / Button Group `btngroup`
 
@@ -281,7 +312,7 @@ Self-closing. Provide `target` as a target timestamp or `dur` as the countdown d
 
 **`result` types**: `success` / `error` / `warning` / `info`.
 
-<Playground dsl='[row][col span:6][card tt:空状态][empty tx:暂无数据][/card][/col][col span:6][card tt:结果页][result t:success tt:提交成功 tx:我们将在 3 个工作日内审核][/card][/col][/row]' />
+<Playground dsl='[row][col span:6][card tt:空状态][empty tx:暂无数据][/card][/col][col span:6][card tt:结果页][result t:success tt:提交成功 tx:我们将在3个工作日内审核][/card][/col][/row]' />
 
 ## Copy `copy`
 

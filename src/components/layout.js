@@ -20,6 +20,93 @@ var _t = (typeof require === 'function')
     || function (key) { return key; };
 
 /**
+ * modal.confirm 命令式确认对话框（宿主侧 JS API，不经 DSL）。
+ * 与 showNotification 同先例：组件模块把全局函数挂到 window.TokUI。
+ * TokUI.modal.confirm(opts) / TokUI.confirm(opts) → Promise<boolean>
+ * opts: { tt, tx, t('danger'|'primary'), 'ok-text', 'cancel-text', onOk, onCancel }
+ */
+function mountModalConfirm() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  window.TokUI = window.TokUI || {};
+  if (window.TokUI.modal && window.TokUI.modal.confirm) return;
+
+  function confirmModal(opts) {
+    opts = opts || {};
+    return new Promise(function (resolve) {
+      var doc = document;
+      var overlay = doc.createElement('div');
+      overlay.className = 'tokui-modal__overlay';
+      overlay.setAttribute('role', 'dialog');
+      overlay.setAttribute('aria-modal', 'true');
+      overlay.setAttribute('aria-label', opts.tt || _t('modal.aria'));
+
+      var panel = doc.createElement('div');
+      panel.className = 'tokui-modal__panel';
+
+      var header = doc.createElement('div');
+      header.className = 'tokui-modal__header';
+      var title = doc.createElement('div');
+      title.className = 'tokui-modal__title';
+      title.textContent = opts.tt || _t('modal.aria');
+      header.appendChild(title);
+      panel.appendChild(header);
+
+      if (opts.tx) {
+        var body = doc.createElement('div');
+        body.className = 'tokui-modal__body';
+        body.textContent = opts.tx;
+        panel.appendChild(body);
+      }
+
+      var footer = doc.createElement('div');
+      footer.className = 'tokui-modal__footer';
+      var cancelBtn = doc.createElement('button');
+      cancelBtn.type = 'button';
+      cancelBtn.className = 'tokui-btn tokui-modal__cancel';
+      cancelBtn.textContent = opts['cancel-text'] || _t('common.cancel');
+      var okBtn = doc.createElement('button');
+      okBtn.type = 'button';
+      okBtn.className = 'tokui-btn tokui-modal__ok' + (opts.t === 'danger' ? ' tokui-btn--danger' : ' tokui-btn--primary');
+      okBtn.textContent = opts['ok-text'] || _t('common.ok');
+      footer.appendChild(cancelBtn);
+      footer.appendChild(okBtn);
+      panel.appendChild(footer);
+      overlay.appendChild(panel);
+
+      var settled = false;
+      function cleanup() {
+        doc.removeEventListener('keydown', onKey, true);
+        if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+      }
+      function done(val) {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        var cb = val ? opts.onOk : opts.onCancel;
+        if (typeof cb === 'function') { try { cb(); } catch (_) {} }
+        resolve(val);
+      }
+      function onKey(e) {
+        if (e.key === 'Escape') {
+          if (typeof e.stopPropagation === 'function') e.stopPropagation();
+          done(false);
+        }
+      }
+      okBtn.addEventListener('click', function () { done(true); });
+      cancelBtn.addEventListener('click', function () { done(false); });
+      overlay.addEventListener('click', function (e) { if (e.target === overlay) done(false); });
+      doc.addEventListener('keydown', onKey, true);
+
+      if (doc.body) doc.body.appendChild(overlay);
+      if (typeof okBtn.focus === 'function') okBtn.focus();
+    });
+  }
+
+  window.TokUI.modal = { confirm: confirmModal };
+  if (!window.TokUI.confirm) window.TokUI.confirm = confirmModal;
+}
+
+/**
  * 注册布局组件到渲染器
  * @param {TokUIRenderer} renderer - 渲染器实例
  */
@@ -27,6 +114,9 @@ function registerLayoutComponents(renderer) {
   const { el } = (typeof require === 'function')
     ? require('../core/renderer')
     : window.TokUI._internal;
+
+  // 命令式确认对话框 API（幂等挂载）
+  mountModalConfirm();
 
   // === 卡片组件 ===
   // attrs.tt = 标题文本, attrs.tx = body文本（自闭合模式）, attrs.id = 标识
@@ -59,21 +149,27 @@ function registerLayoutComponents(renderer) {
         headerCls += ' tokui-card-header--' + node.attrs.ht + '--' + hc;
       }
       var headerEl = el('div', { class: headerCls, role: 'heading', 'aria-level': '3' }, node.attrs.tt);
-      // 自定义色值：inline style
+      // 自定义色值：inline style（fill/pill 同语义色体系浅化：10% 底 + 主色字 + 22% 描边）
       if (hc && ['primary','danger','success','warning','info','dark'].indexOf(hc) === -1) {
         var ht = node.attrs.ht || '';
-        if (ht === 'fill') {
-          headerEl.style.background = hc;
-          headerEl.style.color = '#fff';
+        // 色值白名单：#hex / rgb()/颜色名，防 color-mix 拼接注入
+        var hcSafe = /^(#[0-9a-fA-F]{3,8}|rgba?\([\d\s.,%]+\)|[a-zA-Z]+)$/.test(hc) ? hc : '';
+        if (ht === 'fill' || ht === 'pill') {
+          if (hcSafe) {
+            headerEl.style.background = 'color-mix(in srgb, ' + hcSafe + ' 10%, transparent)';
+            headerEl.style.color = hcSafe;
+            if (ht === 'fill') {
+              headerEl.style.borderBottom = '1px solid color-mix(in srgb, ' + hcSafe + ' 22%, transparent)';
+            } else {
+              headerEl.style.borderColor = 'color-mix(in srgb, ' + hcSafe + ' 22%, transparent)';
+            }
+          }
         } else if (ht === 'accent') {
           headerEl.style.borderLeftColor = hc;
         } else if (ht === 'underline') {
           headerEl.style.setProperty('--tokui-card-header-underline-color', hc);
         } else if (ht === 'dot') {
           headerEl.style.setProperty('--tokui-card-header-dot-color', hc);
-        } else if (ht === 'pill') {
-          headerEl.style.background = hc;
-          headerEl.style.color = '#fff';
         }
       }
       card.appendChild(headerEl);
@@ -596,6 +692,18 @@ function registerLayoutComponents(renderer) {
       imgEls.forEach((imgEl) => {
         if (imgEl._lbBound) return;
         imgEl._lbBound = true;
+        // cloneNode 不可用（Node 测试 mock）时退化为直接加监听
+        if (typeof imgEl.cloneNode !== 'function' || !imgEl.parentNode) {
+          imgEl.style.cursor = 'pointer';
+          imgEl.addEventListener('click', function () {
+            const { getLightbox } = (typeof require === 'function')
+              ? require('./lightbox')
+              : window.TokUI._internal;
+            const lb = getLightbox(typeof document !== 'undefined' ? document : undefined);
+            lb.open(imgEl.getAttribute('src'), srcList);
+          });
+          return;
+        }
         const cloned = imgEl.cloneNode(true);
         imgEl.parentNode.replaceChild(cloned, imgEl);
         cloned.style.cursor = 'pointer';
@@ -626,6 +734,228 @@ function registerLayoutComponents(renderer) {
     };
 
     return container;
+  });
+
+  // === Preview Group 图片预览组（容器）===
+  // 子节点为 img；点击任意图打开灯箱并带入整组 src 列表（左右切换/缩放/旋转/计数由 lightbox 提供）
+  // 与 imgs 的差别：imgs 是九宫格简写布局，preview-group 是显式「一组图共享预览会话」语义。
+  renderer.register('preview-group', (node, rc) => {
+    var attrs = node.attrs || {};
+    var container = el('div', { class: 'tokui-preview-group', role: 'group', 'aria-label': _t('previewGroup.aria') });
+    if (attrs.id) container.id = attrs.id;
+    var rendered = rc(node.children || []);
+    rendered.forEach(function (child) { if (child && child.nodeType) container.appendChild(child); });
+    container._slot = container;
+    container._tokuiType = 'preview-group';
+
+    // 绑定组内所有 img：整组 src 列表 + 点击开灯箱
+    function bindGroup(parent) {
+      var imgEls = parent.querySelectorAll('.tokui-img');
+      var srcList = [];
+      imgEls.forEach(function (im) { var s = im.getAttribute('src'); if (s) srcList.push(s); });
+      imgEls.forEach(function (imgEl) {
+        if (imgEl._pgBound) return;
+        imgEl._pgBound = true;
+        var target = imgEl;
+        // clone 替换以摘除 img 自带的单图灯箱绑定；cloneNode 不可用（Node 测试）则直接加监听
+        if (typeof imgEl.cloneNode === 'function' && imgEl.parentNode) {
+          target = imgEl.cloneNode(true);
+          target._pgBound = true;
+          imgEl.parentNode.replaceChild(target, imgEl);
+        }
+        target.style.cursor = 'zoom-in';
+        target.addEventListener('click', function () {
+          var getLightbox = (typeof require === 'function')
+            ? require('./lightbox').getLightbox
+            : window.TokUI._internal.getLightbox;
+          var lb = getLightbox(typeof document !== 'undefined' ? document : undefined);
+          // 点击时按当前 DOM 惰性收集（流式后到的图也进列表）
+          var cur = [];
+          container.querySelectorAll('.tokui-img').forEach(function (im) {
+            var s = im.getAttribute('src');
+            if (s) cur.push(s);
+          });
+          lb.open(target.getAttribute('src'), cur.length ? cur : srcList);
+        });
+      });
+    }
+
+    bindGroup(container);
+    // 流式：子图逐个到达，close 时按实际 DOM 重收列表重绑
+    container._streamCloseHook = function () { bindGroup(container); };
+    return container;
+  });
+
+  // === Tour 漫游引导（容器）===
+  // 子节点为 tour-step 标记（不可见）；attrs.open = 挂载后自动开启, attrs.mask = 遮罩（默认开）
+  // 事件：change(切步) / finish(完成) / close(跳过或✕关闭)；upd act:open/close/goto v:步号
+  renderer.register('tour', (node, rc) => {
+    var attrs = node.attrs || {};
+    var root = el('div', { class: 'tokui-tour' });
+    if (attrs.id) root.id = attrs.id;
+    rc(node.children || []).forEach(function (c) { if (c && c.nodeType) root.appendChild(c); });
+    root._slot = root;
+    root._tokuiType = 'tour';
+    root._report = renderer.createReporter('tour', attrs, root);
+    // mask 默认开；显式 mask:false 关闭
+    root._tourMask = attrs.mask !== 'false';
+
+    // 收集步骤标记（.tokui-tour-step 由 tour-step 渲染，随流式追加）
+    root._collectSteps = function () {
+      var steps = [];
+      root.querySelectorAll('.tokui-tour-step').forEach(function (m) {
+        steps.push({
+          tgt: m.getAttribute('data-tgt') || '',
+          tt: m.getAttribute('data-tt') || '',
+          tx: m.getAttribute('data-tx') || '',
+          pos: m.getAttribute('data-pos') || 'bottom'
+        });
+      });
+      return steps;
+    };
+
+    var layer = null;
+    var current = 0;
+    var doc = typeof document !== 'undefined' ? document : null;
+
+    function _findTarget(tgt) {
+      if (!tgt || !doc || typeof doc.getElementById !== 'function') return null;
+      return doc.getElementById(String(tgt).replace(/^#/, ''));
+    }
+
+    // 面板定位：贴目标边（pos 四向 + 8px 间距 + 视口 8px 边界修正）；无目标 → 视口居中
+    function _positionPanel(panel, highlight, step) {
+      var target = _findTarget(step.tgt);
+      if (!target || typeof target.getBoundingClientRect !== 'function' ||
+          typeof panel.getBoundingClientRect !== 'function' || typeof window === 'undefined') {
+        highlight.style.display = 'none';
+        panel.style.left = '50%';
+        panel.style.top = '50%';
+        panel.style.transform = 'translate(-50%, -50%)';
+        return;
+      }
+      panel.style.transform = '';
+      var rect = target.getBoundingClientRect();
+      highlight.style.display = '';
+      highlight.style.left = (rect.left - 4) + 'px';
+      highlight.style.top = (rect.top - 4) + 'px';
+      highlight.style.width = (rect.width + 8) + 'px';
+      highlight.style.height = (rect.height + 8) + 'px';
+      var pw = panel.offsetWidth || 280;
+      var ph = panel.offsetHeight || 120;
+      var vw = window.innerWidth || 1024;
+      var vh = window.innerHeight || 768;
+      var left = rect.left;
+      var top = rect.bottom + 8;
+      if (step.pos === 'top') { top = rect.top - ph - 8; }
+      else if (step.pos === 'left') { left = rect.left - pw - 8; top = rect.top; }
+      else if (step.pos === 'right') { left = rect.right + 8; top = rect.top; }
+      left = Math.max(8, Math.min(left, vw - pw - 8));
+      top = Math.max(8, Math.min(top, vh - ph - 8));
+      panel.style.left = left + 'px';
+      panel.style.top = top + 'px';
+    }
+
+    function _showStep(idx, silent) {
+      var steps = root._collectSteps();
+      if (!layer || steps.length === 0) return;
+      current = Math.max(0, Math.min(idx, steps.length - 1));
+      var step = steps[current];
+      var titleEl = layer.querySelector('.tokui-tour__title');
+      var bodyEl = layer.querySelector('.tokui-tour__body');
+      var counterEl = layer.querySelector('.tokui-tour__counter');
+      var prevBtn = layer.querySelector('.tokui-tour__prev');
+      var nextBtn = layer.querySelector('.tokui-tour__next');
+      var highlight = layer.querySelector('.tokui-tour__highlight');
+      var panel = layer.querySelector('.tokui-tour__panel');
+      if (titleEl) titleEl.textContent = step.tt;
+      if (bodyEl) bodyEl.textContent = step.tx;
+      if (counterEl) counterEl.textContent = _t('tour.stepCounter', { cur: current + 1, total: steps.length });
+      if (prevBtn) prevBtn.disabled = current === 0;
+      if (nextBtn) nextBtn.textContent = current === steps.length - 1 ? _t('tour.finish') : _t('tour.next');
+      _positionPanel(panel, highlight, step);
+      if (!silent) root._report('change', { index: current, target: step.tgt || undefined });
+    }
+
+    function _closeTour(reason, silent) {
+      if (!layer) return;
+      if (doc) doc.removeEventListener('keydown', _onKey, true);
+      if (layer.parentNode) layer.parentNode.removeChild(layer);
+      layer = null;
+      if (!silent) root._report(reason === 'finish' ? 'finish' : 'close', { index: current });
+    }
+
+    function _onKey(e) {
+      if (!layer) return;
+      if (e.key === 'Escape') _closeTour('close', false);
+      else if (e.key === 'ArrowRight') _showStep(current + 1, false);
+      else if (e.key === 'ArrowLeft') _showStep(current - 1, false);
+    }
+
+    function _openTour(startIdx, silent) {
+      var steps = root._collectSteps();
+      if (!doc || !doc.body || steps.length === 0) return;
+      _closeTour('close', true); // 幂等：重开先清旧层
+      layer = el('div', { class: 'tokui-tour__layer', role: 'dialog', 'aria-modal': 'true', 'aria-label': _t('tour.aria') });
+      var highlight = el('div', { class: 'tokui-tour__highlight' + (root._tourMask ? ' tokui-tour__highlight--mask' : '') });
+      var panel = el('div', { class: 'tokui-tour__panel' });
+      var header = el('div', { class: 'tokui-tour__header' });
+      header.appendChild(el('span', { class: 'tokui-tour__title' }));
+      header.appendChild(el('span', { class: 'tokui-tour__counter' }));
+      var closeBtn = el('button', { class: 'tokui-tour__close', type: 'button', 'aria-label': _t('common.close') }, '×');
+      header.appendChild(closeBtn);
+      panel.appendChild(header);
+      panel.appendChild(el('div', { class: 'tokui-tour__body' }));
+      var footer = el('div', { class: 'tokui-tour__footer' });
+      var skipBtn = el('button', { class: 'tokui-tour__skip', type: 'button' }, _t('tour.skip'));
+      var prevBtn = el('button', { class: 'tokui-tour__prev', type: 'button' }, _t('tour.prev'));
+      var nextBtn = el('button', { class: 'tokui-tour__next', type: 'button' }, _t('tour.next'));
+      footer.appendChild(skipBtn);
+      footer.appendChild(prevBtn);
+      footer.appendChild(nextBtn);
+      panel.appendChild(footer);
+      layer.appendChild(highlight);
+      layer.appendChild(panel);
+      closeBtn.addEventListener('click', function () { _closeTour('close', false); });
+      skipBtn.addEventListener('click', function () { _closeTour('close', false); });
+      prevBtn.addEventListener('click', function () { _showStep(current - 1, false); });
+      nextBtn.addEventListener('click', function () {
+        var steps2 = root._collectSteps();
+        if (current >= steps2.length - 1) _closeTour('finish', false);
+        else _showStep(current + 1, false);
+      });
+      doc.addEventListener('keydown', _onKey, true);
+      doc.body.appendChild(layer);
+      _showStep(startIdx || 0, silent);
+    }
+
+    // upd 契约：act:open（v 可选起始步）/ act:goto v:N / act:close —— 程序化全部 silent 防回环
+    root._update = function (uAttrs) {
+      if (uAttrs.act === 'open') _openTour(uAttrs.v !== undefined ? parseInt(uAttrs.v) || 0 : 0, true);
+      else if (uAttrs.act === 'goto' && uAttrs.v !== undefined) _showStep(parseInt(uAttrs.v) || 0, true);
+      else if (uAttrs.act === 'close') _closeTour('close', true);
+    };
+
+    // open 属性：容器闭合（流式末步到达 / 一次性挂载）后自动开启
+    if (attrs.open !== undefined) {
+      root._streamCloseHook = function () {
+        if (!layer) _openTour(0, true);
+      };
+    }
+
+    return root;
+  });
+
+  // === Tour Step 引导步骤（自闭合标记，不可见）===
+  // attrs.tgt = 目标元素 id（可带 #）, attrs.tt = 步骤标题, attrs.tx = 步骤说明（或正文）, attrs.pos = 面板方位(top/bottom/left/right)
+  renderer.register('tour-step', (node) => {
+    var a = node.attrs || {};
+    var marker = el('span', { class: 'tokui-tour-step' });
+    if (a.tgt) marker.setAttribute('data-tgt', String(a.tgt).replace(/^#/, ''));
+    if (a.tt) marker.setAttribute('data-tt', a.tt);
+    marker.setAttribute('data-tx', a.tx || node.content || '');
+    if (a.pos) marker.setAttribute('data-pos', a.pos);
+    return marker;
   });
 
   // === Timeline 时间轴组件 ===
@@ -1761,7 +2091,222 @@ function registerLayoutComponents(renderer) {
     return itemEl;
   });
 
-  // === Resizable 分割面板 ===
+  // === Anchor 锚点导航（双模式）===
+  // 简写（原子自闭合）：[anchor opt:"s1:第一章;s2:第二章" on:"change:h"]
+  // 容器（支持层级）：[anchor][lk h:s1 tx:第一章][lk h:s1-1 tx:1.1 小节 d:1][lk h:s2 tx:第二章][/anchor]
+  // attrs.top = scroll-spy 激活偏移(px，缺省 12)；变体 horizontal（横向模式）
+  // 点击平滑滚动到目标，滚动时自动高亮最近过顶项（spy offset 内）
+  renderer.register('anchor', (node, rc) => {
+    var attrs = node.attrs || {};
+    var nav = el('nav', { class: 'tokui-anchor', 'aria-label': _t('anchor.aria') });
+    if (attrs.id) nav.id = attrs.id;
+    nav._anchorOffset = parseInt(attrs.top) || 12;
+    var report = renderer.createReporter('anchor', attrs, nav);
+    nav._report = report;
+
+    // opt 简写子项（平铺，depth 0）
+    _parseAnchorOpt(attrs.opt).forEach(function (it) {
+      nav.appendChild(_buildAnchorItem(nav, it.v, it.tx, 0));
+    });
+    // 容器模式 lk 子节点（一次性渲染；流式经 slot 追加，lk 自绑 closest(nav)）
+    rc(node.children || []).forEach(function (c) {
+      if (c && c.nodeType) nav.appendChild(c);
+    });
+    nav._slot = nav;
+    nav._tokuiType = 'anchor';
+
+    // 初始高亮首项（流式 close 时再兜底一次）
+    function activateFirst() {
+      if (nav.querySelector('.tokui-anchor__item--active')) return;
+      var first = nav.querySelector('.tokui-anchor__item');
+      if (first) first.classList.add('tokui-anchor__item--active');
+    }
+    activateFirst();
+    nav._streamCloseHook = activateFirst;
+
+    // upd v:目标id → 程序化高亮（silent 不上报，防回环）
+    nav._update = function (uAttrs) {
+      if (uAttrs.v === undefined) return;
+      var target = String(uAttrs.v).replace(/^#/, '');
+      var nodes = nav.querySelectorAll('.tokui-anchor__item');
+      for (var i = 0; i < nodes.length; i++) {
+        if (nodes[i]._anchorValue === target) {
+          _setAnchorActive(nav, nodes[i], true);
+          nav._spySuppressUntil = Date.now() + 900;
+          break;
+        }
+      }
+    };
+
+    // scroll-spy：capture 监听 window（scroll 不冒泡，捕获阶段才能收到嵌套容器滚动）；
+    // 惰性探测可滚动祖先（渲染期内容常未撑高探测不到 → 每次 spy 重探直到命中）
+    if (typeof window !== 'undefined') {
+      var raf = window.requestAnimationFrame || function (fn) { return fn(); };
+      raf(function () {
+        var scrollEl = null;
+        function detectScrollEl() {
+          var parent = nav.parentElement;
+          while (parent) {
+            if (typeof getComputedStyle === 'function') {
+              var style = getComputedStyle(parent);
+              if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && parent.scrollHeight > parent.clientHeight) {
+                return parent;
+              }
+            }
+            parent = parent.parentElement;
+          }
+          return null;
+        }
+        var spy = function () {
+          // 点击/程序化激活后的抑制窗内不覆盖用户选择（平滑滚动途中位置未到位）
+          if (nav._spySuppressUntil && Date.now() < nav._spySuppressUntil) return;
+          if (!scrollEl) scrollEl = detectScrollEl();
+          var baseTop = scrollEl ? scrollEl.getBoundingClientRect().top : 0;
+          var offset = nav._anchorOffset || 12;
+          var nodes = nav.querySelectorAll('.tokui-anchor__item');
+          var activeItem = null;
+          for (var i = 0; i < nodes.length; i++) {
+            var t = document.getElementById(nodes[i]._anchorValue);
+            if (!t || typeof t.getBoundingClientRect !== 'function') continue;
+            // 目标越过（容器顶 + top 偏移）→ 记为候选，取最后一个
+            if (t.getBoundingClientRect().top - baseTop <= offset) activeItem = nodes[i];
+          }
+          // 全部目标都在顶线下方 → 高亮首项；无任何可定位目标 → 保持现状
+          if (!activeItem && nodes.length > 0) {
+            var first = document.getElementById(nodes[0]._anchorValue);
+            if (first && typeof first.getBoundingClientRect === 'function') activeItem = nodes[0];
+          }
+          if (activeItem) _setAnchorActive(nav, activeItem, true);
+        };
+        var ticking = false;
+        var onScroll = function () {
+          if (ticking) return;
+          ticking = true;
+          raf(function () { ticking = false; spy(); });
+        };
+        if (window.addEventListener) {
+          window.addEventListener('scroll', onScroll, { capture: true, passive: true });
+        }
+        spy();
+        nav._anchorCleanup = function () {
+          if (window.removeEventListener) window.removeEventListener('scroll', onScroll, { capture: true });
+        };
+      });
+    }
+
+    return nav;
+  });
+
+  // === Anchor Link 锚点子项（自闭合，anchor 容器模式用）===
+  // attrs.h = 目标元素 id（可带 #）, attrs.tx = 显示文本（或正文）, attrs.d = 层级深度(1-3，缩进)
+  renderer.register('lk', (node) => {
+    var a = node.attrs || {};
+    var value = String(a.h || '').replace(/^#/, '');
+    var depth = Math.min(parseInt(a.d) || 0, 3);
+    var item = el('div', {
+      class: 'tokui-anchor__item' + (depth > 0 ? ' tokui-anchor__item--depth-' + depth : ''),
+      role: 'link', tabindex: '0', 'data-target': value
+    }, a.tx || node.content || value);
+    item._anchorValue = value;
+    function go() {
+      // 挂载后经 closest 取 nav（流式追加时渲染先于挂载，不能闭包捕获 nav）
+      var nav = item.closest('.tokui-anchor');
+      if (!nav) return;
+      _setAnchorActive(nav, item, false);
+      // 平滑滚动途中 spy 会把高亮抢回「当前过顶项」——点击后抑制一个滚动动画窗口
+      nav._spySuppressUntil = Date.now() + 900;
+      _anchorScrollTo(value);
+    }
+    item.addEventListener('click', go);
+    item.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        go();
+      }
+    });
+    return item;
+  });
+
+  // 构建平铺锚点项（opt 简写用；lk 经 register 自渲染，行为对称）
+  function _buildAnchorItem(nav, value, text, depth) {
+    depth = Math.min(depth || 0, 3);
+    var item = el('div', {
+      class: 'tokui-anchor__item' + (depth > 0 ? ' tokui-anchor__item--depth-' + depth : ''),
+      role: 'link', tabindex: '0', 'data-target': value
+    }, text);
+    item._anchorValue = value;
+    function go() {
+      _setAnchorActive(nav, item, false);
+      // 平滑滚动途中 spy 会把高亮抢回「当前过顶项」——点击后抑制一个滚动动画窗口
+      nav._spySuppressUntil = Date.now() + 900;
+      _anchorScrollTo(value);
+    }
+    item.addEventListener('click', go);
+    item.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        go();
+      }
+    });
+    return item;
+  }
+
+  // 解析 anchor 的 opt 简写："s1:第一节;s2:第二节" → [{v:'s1', tx:'第一节'},...]
+  function _parseAnchorOpt(str) {
+    if (!str || typeof str !== 'string') return [];
+    return str.split(';').map(function (s) { return s.trim(); }).filter(Boolean).map(function (item) {
+      var idx = item.indexOf(':');
+      if (idx === -1) return { v: item.replace(/^#/, ''), tx: item };
+      return { v: item.substring(0, idx).trim().replace(/^#/, ''), tx: item.substring(idx + 1).trim() };
+    });
+  }
+
+  // 高亮指定锚点项（单例激活）；silent 为 true 时不上报 change（scroll-spy 与程序化走 silent）
+  function _setAnchorActive(nav, itemEl, silent) {
+    nav.querySelectorAll('.tokui-anchor__item--active').forEach(function (el2) {
+      el2.classList.remove('tokui-anchor__item--active');
+    });
+    itemEl.classList.add('tokui-anchor__item--active');
+    if (!silent && nav._report) nav._report('change', { value: itemEl._anchorValue });
+  }
+
+  // 平滑滚动到锚点目标（scrollIntoView 不存在时静默跳过，如 Node 测试环境）
+  function _anchorScrollTo(id) {
+    var t = document.getElementById(id);
+    if (t && typeof t.scrollIntoView === 'function') {
+      t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  // === Masonry 瀑布流（容器）===
+  // attrs.cols = 固定列数(1-6，缺省 2), attrs.minw = 自动列模式：子项最小宽度(px)，
+  // 列数随容器宽度自适应（与 cols 二选一，minw 优先）, attrs.gap = 间距(px，缺省 8)
+  // CSS columns 实现：子项自动分列平衡，流式追加自然流动，零 JS 布局计算
+  renderer.register('masonry', (node, rc) => {
+    var attrs = node.attrs || {};
+    var gap = parseInt(attrs.gap) || 8;
+    var wrap = el('div', { class: 'tokui-masonry' });
+    if (attrs.id) wrap.id = attrs.id;
+    var minw = parseInt(attrs.minw);
+    if (minw > 0) {
+      // 自动列模式：column-width 驱动，浏览器按容器宽度算列数（响应式）
+      wrap.classList.add('tokui-masonry--auto');
+      wrap.style.columnWidth = minw + 'px';
+    } else {
+      var cols = Math.min(Math.max(parseInt(attrs.cols) || 2, 1), 6);
+      wrap.style.columnCount = String(cols);
+    }
+    wrap.style.columnGap = gap + 'px';
+    wrap.style.setProperty('--tokui-masonry-gap', gap + 'px');
+    rc(node.children || []).forEach(function (c) {
+      if (c && c.nodeType) wrap.appendChild(c);
+    });
+    wrap._slot = wrap;
+    wrap._tokuiType = 'masonry';
+    return wrap;
+  });
+
+
   // attrs.dir = 方向(h水平/v竖直, 默认h), attrs.min = 最小尺寸(px, 默认100)
   // attrs.max = 最大尺寸(px, 默认800), attrs.default = 初始尺寸(px, 默认300)
   // attrs.w = 容器宽度
@@ -2170,7 +2715,9 @@ if (typeof window !== 'undefined') {
   window.TokUI = window.TokUI || {};
   window.TokUI._internal = window.TokUI._internal || {};
   window.TokUI._internal.registerLayoutComponents = registerLayoutComponents;
+  // 浏览器直载（非打包）场景：模块求值即挂 modal.confirm，不等渲染器初始化
+  mountModalConfirm();
 }
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { registerLayoutComponents };
+  module.exports = { registerLayoutComponents, mountModalConfirm };
 }

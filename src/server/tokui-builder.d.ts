@@ -78,6 +78,22 @@ export declare class TokUIBuilder {
   btngroup(attrs?: BuilderAttrs): this;
   picker(attrs?: BuilderAttrs): this;
   toggleGroup(attrs?: BuilderAttrs): this;
+  affix(attrs?: BuilderAttrs): this;
+  tour(attrs?: BuilderAttrs): this;
+  previewGroup(attrs?: BuilderAttrs): this;
+
+  // —— Phase 4 自闭合 ——
+  segmented(attrs?: BuilderAttrs): this;
+  colorPicker(attrs?: BuilderAttrs): this;
+  anchor(attrs?: BuilderAttrs): this;
+  lk(attrs?: BuilderAttrs): this;
+  tourStep(attrs?: BuilderAttrs): this;
+
+  // —— P2 组件 ——
+  kbd(content?: string, attrs?: BuilderAttrs): this;
+  editable(attrs?: BuilderAttrs): this;
+  floatButton(attrs?: BuilderAttrs): this;
+  masonry(attrs?: BuilderAttrs): this;
 
   // —— 表格辅助 ——
   thead(attrs?: BuilderAttrs): this;

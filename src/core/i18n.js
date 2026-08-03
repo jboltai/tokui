@@ -116,6 +116,36 @@ var STRINGS = {
     // —— 回到顶部 ——
     'backToTop.aria': '回到顶部',
 
+    // —— 锚点导航 ——
+    'anchor.aria': '锚点导航',
+
+    // —— 漫游引导 ——
+    'tour.aria': '漫游引导',
+    'tour.prev': '上一步',
+    'tour.next': '下一步',
+    'tour.finish': '完成',
+    'tour.skip': '跳过',
+    'tour.stepCounter': '{cur} / {total}',
+
+    // —— 命令式确认对话框 ——
+    'modal.aria': '确认操作',
+
+    // —— 颜色选择器 ——
+    'colorPicker.aria': '选择颜色',
+    'colorPicker.hue': '色相',
+    'colorPicker.hex': '色值',
+    'colorPicker.clear': '清除',
+    'colorPicker.preset': '预设色板',
+
+    // —— 图片预览组 ——
+    'previewGroup.aria': '图片预览组',
+
+    // —— 行内编辑 ——
+    'editable.aria': '点击编辑',
+
+    // —— 浮动按钮组 ——
+    'floatButton.aria': '浮动操作',
+
     // —— 日期选择器 ——
     'datepicker.title': '{y}年{m}月',
     'datepicker.weekday.0': '日',
@@ -285,6 +315,36 @@ var STRINGS = {
 
     // —— backToTop ——
     'backToTop.aria': 'Back to top',
+
+    // —— anchor ——
+    'anchor.aria': 'Anchor navigation',
+
+    // —— tour ——
+    'tour.aria': 'Tour guide',
+    'tour.prev': 'Previous',
+    'tour.next': 'Next',
+    'tour.finish': 'Finish',
+    'tour.skip': 'Skip',
+    'tour.stepCounter': '{cur} / {total}',
+
+    // —— modal (imperative confirm) ——
+    'modal.aria': 'Confirm action',
+
+    // —— color-picker ——
+    'colorPicker.aria': 'Pick a color',
+    'colorPicker.hue': 'Hue',
+    'colorPicker.hex': 'Hex value',
+    'colorPicker.clear': 'Clear',
+    'colorPicker.preset': 'Preset colors',
+
+    // —— preview-group ——
+    'previewGroup.aria': 'Image preview group',
+
+    // —— editable ——
+    'editable.aria': 'Click to edit',
+
+    // —— float-button ——
+    'floatButton.aria': 'Floating actions',
 
     // —— datepicker ——
     'datepicker.title': '{m}/{y}',

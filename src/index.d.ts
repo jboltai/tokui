@@ -149,6 +149,34 @@ export declare function el(
   textContent?: string
 ): HTMLElement;
 
+/**
+ * modal.confirm 命令式确认对话框选项
+ */
+export interface TokUIModalConfirmOptions {
+  /** 标题（缺省取 i18n modal.aria） */
+  tt?: string;
+  /** 正文文本 */
+  tx?: string;
+  /** 确认按钮类型：'danger' 红色警示，缺省 primary */
+  t?: 'danger' | 'primary';
+  /** 确认按钮文案（缺省 i18n common.ok） */
+  'ok-text'?: string;
+  /** 取消按钮文案（缺省 i18n common.cancel） */
+  'cancel-text'?: string;
+  /** 确认回调（Promise resolve(true) 之前触发） */
+  onOk?: () => void;
+  /** 取消/关闭回调（Promise resolve(false) 之前触发） */
+  onCancel?: () => void;
+}
+
+/**
+ * 命令式确认对话框 API（宿主侧 JS 调用，不经 DSL）。
+ * `TokUI.modal.confirm(opts)` / `TokUI.confirm(opts)` → Promise<boolean>（确认 true / 取消·Esc·遮罩 false）
+ */
+export interface TokUIModalApi {
+  confirm(opts?: TokUIModalConfirmOptions): Promise<boolean>;
+}
+
 /** 公共命名空间对象（ESM default 导出） */
 export interface TokUINamespace {
   TokUI: typeof TokUI;
@@ -160,6 +188,10 @@ export interface TokUINamespace {
   getLocale: typeof getLocale;
   registerLocale: typeof registerLocale;
   el: typeof el;
+  /** 命令式确认对话框（浏览器环境可用；SSR 为 undefined） */
+  readonly modal?: TokUIModalApi;
+  /** modal.confirm 的便捷别名 */
+  readonly confirm?: (opts?: TokUIModalConfirmOptions) => Promise<boolean>;
 }
 
 declare const TokUINamespace: TokUINamespace;

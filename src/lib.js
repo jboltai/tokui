@@ -67,6 +67,9 @@ const TokUI = {
   getLocale,
   registerLocale,
   el,
+  // 命令式确认对话框：layout.js 浏览器分支挂 window.TokUI.modal；getter 惰性读取，SSR 安全
+  get modal() { return (typeof window !== 'undefined' && window.TokUI) ? window.TokUI.modal : undefined; },
+  get confirm() { return (typeof window !== 'undefined' && window.TokUI) ? window.TokUI.confirm : undefined; },
 };
 
 export {

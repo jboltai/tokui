@@ -332,8 +332,10 @@ function registerBasicComponents(renderer) {
       const textColor = resolveColor(node.attrs.fc);
       const variant = node.attrs.v || '';
       if (bgColor) {
-        // underline 用 CSS 变量传色给 ::after，不设父元素背景
-        if (variant.includes('underline')) {
+        // underline/ribbon/badge/pill 用 CSS 变量传色：underline 给 ::after 高亮，
+        // ribbon/badge/pill 由 CSS color-mix 自动派生「浅底 + 主色字 + 淡描边」（不设行内实底）
+        if (variant.includes('underline') || variant.includes('ribbon') ||
+            variant.includes('badge') || variant.includes('pill')) {
           dom.style.setProperty('--tokui-title-bg', bgColor);
         } else {
           dom.style.background = bgColor;
@@ -504,7 +506,115 @@ function registerBasicComponents(renderer) {
     return span;
   });
 
-  // === Toggle 切换按钮（自闭合）===
+  // === Kbd 键盘按键（自闭合，行内）===
+  // [kbd Ctrl] / [kbd tx:⌘]；变体 sm/lg；组合键写作 [kbd Ctrl] + [kbd K] 由正文连接
+  renderer.register('kbd', (node) => {
+    var attrs = node.attrs || {};
+    var dom = el('kbd', { class: 'tokui-kbd' }, node.content || attrs.tx || '');
+    if (attrs.id) dom.id = attrs.id;
+    return dom;
+  });
+
+  // === Editable 行内编辑（自闭合）===
+  // attrs.tx/v = 初始文本, attrs.ph = 占位, attrs.n = 字段名, attrs.dis = 禁用
+  // attrs.on = 事件上报：提交（值变化）时 change {value, name}
+  // 点击/Enter/空格进入编辑态；Enter/blur 提交，Esc 还原（不上报）
+  renderer.register('editable', (node) => {
+    var attrs = node.attrs || {};
+    var root = el('span', { class: 'tokui-editable' });
+    if (attrs.id) root.id = attrs.id;
+    if (attrs.dis !== undefined) root.classList.add('tokui-editable--disabled');
+    var text = attrs.tx !== undefined ? String(attrs.tx) : (attrs.v !== undefined ? String(attrs.v) : (node.content || ''));
+    var isDisabled = attrs.dis !== undefined;
+    var display = el('span', {
+      class: 'tokui-editable__text',
+      role: 'button',
+      'aria-label': _t('editable.aria')
+    });
+    if (!isDisabled) display.setAttribute('tabindex', '0');
+    display.textContent = text || (attrs.ph || '');
+    if (!text && attrs.ph) display.classList.add('tokui-editable__text--ph');
+    root.appendChild(display);
+    root._tokuiType = 'editable';
+    var report = renderer.createReporter('editable', attrs, root);
+
+    var editing = false;
+    function commit(input) {
+      if (!editing) return;
+      editing = false;
+      var v = input.value;
+      if (input.parentNode) input.parentNode.removeChild(input);
+      display.style.display = '';
+      display.textContent = v || (attrs.ph || '');
+      display.classList.toggle('tokui-editable__text--ph', !v && !!attrs.ph);
+      root.classList.remove('tokui-editable--editing');
+      if (v !== text) {
+        text = v;
+        report('change', { value: v, name: attrs.n || undefined });
+      }
+    }
+    function start() {
+      if (editing || isDisabled) return;
+      editing = true;
+      var input = el('input', { type: 'text', class: 'tokui-editable__input' });
+      input.value = text;
+      root.appendChild(input);
+      display.style.display = 'none';
+      root.classList.add('tokui-editable--editing');
+      if (typeof input.focus === 'function') input.focus();
+      input.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') commit(input);
+        else if (e.key === 'Escape') { input.value = text; commit(input); } // Esc 还原不上报
+      });
+      input.addEventListener('blur', function () { commit(input); });
+    }
+    // 监听器无条件绑定（upd dis:false 后可解锁）；start 内有 isDisabled 守卫
+    display.addEventListener('click', start);
+    display.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        start();
+      }
+    });
+
+    // upd tx/v → 程序化改文本（silent 不上报）；dis:true/false → 禁用切换
+    root._update = function (uAttrs) {
+      if (uAttrs.tx !== undefined || uAttrs.v !== undefined) {
+        text = String(uAttrs.tx !== undefined ? uAttrs.tx : uAttrs.v);
+        display.textContent = text || (attrs.ph || '');
+        display.classList.toggle('tokui-editable__text--ph', !text && !!attrs.ph);
+      }
+      if (uAttrs.dis === true || uAttrs.dis === 'true' || uAttrs.dis === false || uAttrs.dis === 'false') {
+        isDisabled = (uAttrs.dis === true || uAttrs.dis === 'true');
+        root.classList.toggle('tokui-editable--disabled', isDisabled);
+      }
+    };
+    return root;
+  });
+
+  // === Float Button 浮动按钮组（容器）===
+  // attrs.pos = 固位(right-bottom/right-top/left-bottom/left-top，缺省 right-bottom)
+  // attrs.offset = 距视口边距(px，缺省 24)；子节点任意（btn/backtop 等，自动圆角悬浮化）
+  renderer.register('float-button', (node, rc) => {
+    var attrs = node.attrs || {};
+    var pos = attrs.pos || 'right-bottom';
+    if (['right-bottom', 'right-top', 'left-bottom', 'left-top'].indexOf(pos) === -1) pos = 'right-bottom';
+    var wrap = el('div', {
+      class: 'tokui-float-button tokui-float-button--' + pos,
+      role: 'group',
+      'aria-label': _t('floatButton.aria')
+    });
+    if (attrs.id) wrap.id = attrs.id;
+    if (attrs.offset !== undefined) {
+      var off = parseInt(attrs.offset);
+      if (!isNaN(off)) wrap.style.setProperty('--tokui-float-offset', off + 'px');
+    }
+    rc(node.children || []).forEach(function (c) { if (c && c.nodeType) wrap.appendChild(c); });
+    wrap._slot = wrap;
+    wrap._tokuiType = 'float-button';
+    return wrap;
+  });
+
   // attrs.tx = 文字, attrs.chk = 初始选中, attrs.clk = 点击事件
   // attrs.s = 尺寸(sm/lg), attrs.dis = 禁用
   renderer.register('toggle', (node) => {
@@ -1531,21 +1641,24 @@ function registerBasicComponents(renderer) {
     var fileType = attrs.t || 'default';
     var url = attrs.u || '';
     var desc = attrs.tt || '';
+    // 浅底深字配色（主流文件卡风格）：bg = 主色 10% 透明底，color = 主色，border = 主色 15% 描边
     var FILE_ICONS = {
-      pdf: { icon: 'PDF', color: '#f5222d' },
-      word: { icon: 'W', color: '#1677ff' },
-      excel: { icon: 'XLS', color: '#52c41a' },
-      ppt: { icon: 'PPT', color: '#fa8c16' },
-      image: { icon: 'IMG', color: '#eb2f96' },
-      zip: { icon: 'ZIP', color: '#722ed1' },
-      code: { icon: '</>', color: '#13c2c2' },
-      default: { icon: 'FILE', color: '#8c8c8c' }
+      pdf: { icon: 'PDF', color: '#d4380d', bg: '#f5222d1a', border: '#f5222d26' },
+      word: { icon: 'W', color: '#0958d9', bg: '#1677ff1a', border: '#1677ff26' },
+      excel: { icon: 'XLS', color: '#389e0d', bg: '#52c41a1a', border: '#52c41a26' },
+      ppt: { icon: 'PPT', color: '#d46b08', bg: '#fa8c161a', border: '#fa8c1626' },
+      image: { icon: 'IMG', color: '#c41d7f', bg: '#eb2f961a', border: '#eb2f9626' },
+      zip: { icon: 'ZIP', color: '#531dab', bg: '#722ed11a', border: '#722ed126' },
+      code: { icon: '</>', color: '#08979c', bg: '#13c2c21a', border: '#13c2c226' },
+      default: { icon: 'FILE', color: '#595959', bg: '#8c8c8c1a', border: '#8c8c8c26' }
     };
     var iconInfo = FILE_ICONS[fileType] || FILE_ICONS.default;
     var wrapper = el('div', { class: 'tokui-file' });
     // 文件类型 icon
     var iconEl = el('div', { class: 'tokui-file__icon' });
-    iconEl.style.background = iconInfo.color;
+    iconEl.style.background = iconInfo.bg;
+    iconEl.style.color = iconInfo.color;
+    iconEl.style.border = '1px solid ' + iconInfo.border;
     iconEl.textContent = iconInfo.icon;
     wrapper.appendChild(iconEl);
     // 文件信息
@@ -3333,7 +3446,128 @@ function registerBasicComponents(renderer) {
     return btn;
   });
 
-  // === Calendar 日历组件（容器）===
+  // === Affix 固钉（容器）===
+  // attrs.top = 距滚动容器顶部偏移(px)，越过即固定顶部；attrs.bottom = 距底部偏移(px)，越过即固定底部
+  // （top/bottom 二选一，缺省 top:0）；attrs.target = 显式滚动容器选择器（缺省自动探测最近可滚动祖先）
+  // attrs.on = 事件上报：固定状态切换时 change {fixed:true/false}
+  // 滚动监听：capture 挂 window（scroll 不冒泡，捕获阶段才能收到嵌套容器滚动）+ rAF 节流 + passive；
+  // 固定时插占位元素防内容跳动。
+  renderer.register('affix', (node, rc) => {
+    var attrs = node.attrs || {};
+    var offsetTop = attrs.top !== undefined ? (parseInt(attrs.top) || 0) : null;
+    var offsetBottom = attrs.bottom !== undefined ? (parseInt(attrs.bottom) || 0) : null;
+    if (offsetTop === null && offsetBottom === null) offsetTop = 0;
+    var targetSel = attrs.target || '';
+    var wrapper = el('div', { class: 'tokui-affix' });
+    if (attrs.id) wrapper.id = attrs.id;
+    var children = rc(node.children || []);
+    children.forEach(function (c) { if (c && c.nodeType) wrapper.appendChild(c); });
+    wrapper._slot = wrapper;
+    wrapper._tokuiType = 'affix';
+    var report = renderer.createReporter('affix', attrs, wrapper);
+
+    if (typeof window !== 'undefined') {
+      var raf = window.requestAnimationFrame || function (fn) { return fn(); };
+      raf(function () {
+        // 惰性探测滚动容器：显式 target 选择器优先；否则向上找可滚动祖先
+        // （渲染期内容常未撑高探测不到 → 每次 check 重探直到命中）；未命中按 window 语义
+        var scrollEl = null;
+        function detectScrollEl() {
+          if (targetSel && typeof document !== 'undefined' && typeof document.querySelector === 'function') {
+            var t = document.querySelector(targetSel);
+            if (t) return t;
+          }
+          var parent = wrapper.parentElement;
+          while (parent) {
+            if (typeof getComputedStyle === 'function') {
+              var style = getComputedStyle(parent);
+              if ((style.overflowY === 'auto' || style.overflowY === 'scroll') && parent.scrollHeight > parent.clientHeight) {
+                return parent;
+              }
+            }
+            parent = parent.parentElement;
+          }
+          return null;
+        }
+
+        var fixed = false;
+        var placeholder = null;
+        function viewportBounds() {
+          if (scrollEl) {
+            var r = scrollEl.getBoundingClientRect();
+            return { top: r.top, bottom: r.bottom };
+          }
+          return { top: 0, bottom: window.innerHeight || 768 };
+        }
+        var check = function () {
+          if (typeof wrapper.getBoundingClientRect !== 'function') return;
+          // 无显式 target 时每次重探：流式期内层容器后于外层变得可滚，
+          // 缓存会错锁外层容器（就近优先语义要求取「当前」最近可滚动祖先）
+          if (!targetSel || !scrollEl) scrollEl = detectScrollEl();
+          // 固定态下量占位元素（wrapper 自身已脱离文档流，rect 不代表原始位置）
+          var probe = (fixed && placeholder) ? placeholder : wrapper;
+          if (typeof probe.getBoundingClientRect !== 'function') return;
+          var rect = probe.getBoundingClientRect();
+          var bounds = viewportBounds();
+          var shouldFix;
+          if (offsetTop !== null) {
+            // 固顶：元素顶越过（容器顶 + top）即固定
+            shouldFix = rect.top - bounds.top < offsetTop;
+          } else {
+            // 固底：元素顶低于（容器底 - bottom - 元素高）即固定（同 AntD offsetBottom 语义）
+            shouldFix = rect.top > bounds.bottom - offsetBottom - rect.height;
+          }
+          if (shouldFix && !fixed) {
+            fixed = true;
+            var wRect = wrapper.getBoundingClientRect();
+            placeholder = el('div', { class: 'tokui-affix__placeholder' });
+            placeholder.style.height = wRect.height + 'px';
+            placeholder.style.width = wRect.width + 'px';
+            if (wrapper.parentNode) wrapper.parentNode.insertBefore(placeholder, wrapper);
+            wrapper.style.width = wRect.width + 'px';
+            wrapper.style.top = offsetTop !== null
+              ? (bounds.top + offsetTop) + 'px'
+              : (bounds.bottom - offsetBottom - wRect.height) + 'px';
+            wrapper.classList.add('tokui-affix--fixed');
+            report('change', { fixed: true });
+          } else if (!shouldFix && fixed) {
+            fixed = false;
+            wrapper.classList.remove('tokui-affix--fixed');
+            wrapper.style.top = '';
+            wrapper.style.width = '';
+            if (placeholder && placeholder.parentNode) placeholder.parentNode.removeChild(placeholder);
+            placeholder = null;
+            report('change', { fixed: false });
+          }
+        };
+        // scroll 高频触发 → rAF 节流合帧（一帧最多一次读写）；passive 不阻塞滚动（同 backtop）
+        var ticking = false;
+        var onScroll = function () {
+          if (ticking) return;
+          ticking = true;
+          raf(function () { ticking = false; check(); });
+        };
+        if (window.addEventListener) {
+          window.addEventListener('scroll', onScroll, { capture: true, passive: true });
+        }
+        // 视口缩放会改变固底锚点，resize 同步复检
+        if (window.addEventListener) {
+          window.addEventListener('resize', onScroll, { passive: true });
+        }
+        check();
+        // 流式：容器闭合时子树才齐，复检一次（固底条初次到位应立即固定）
+        wrapper._streamCloseHook = check;
+        wrapper._affixCleanup = function () {
+          if (window.removeEventListener) {
+            window.removeEventListener('scroll', onScroll, { capture: true });
+            window.removeEventListener('resize', onScroll);
+          }
+        };
+      });
+    }
+
+    return wrapper;
+  });
   // attrs.month = 年月(如"2025-06"), attrs.v = 变体(card/mini)
   // attrs.marks = 标记日期(如"3,15,25"), attrs.tt = 标题
   renderer.register('calendar', (node) => {

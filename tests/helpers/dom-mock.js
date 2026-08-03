@@ -335,13 +335,23 @@ function createDocumentFragment() {
 
 function setupDOM() {
   __idRegistry = {}; // 每次装载体清空，隔离用例
+  var docEvents = {};
   global.document = {
     createElement: createElement,
     createElementNS: createElementNS,
     createTextNode: createTextNode,
     createDocumentFragment: createDocumentFragment,
-    addEventListener: function() {},
-    removeEventListener: function() {},
+    // document 级监听存入 _events（与元素 mock 同构），测试可经 document._events[type] 触发
+    _events: docEvents,
+    addEventListener: function(type, fn) {
+      if (!docEvents[type]) docEvents[type] = [];
+      docEvents[type].push(fn);
+    },
+    removeEventListener: function(type, fn) {
+      if (!docEvents[type]) return;
+      var idx = docEvents[type].indexOf(fn);
+      if (idx > -1) docEvents[type].splice(idx, 1);
+    },
     querySelectorAll: function() { return []; },
     getElementById: function(id) { return __idRegistry[id] || null; }
   };

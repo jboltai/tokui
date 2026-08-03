@@ -17,7 +17,7 @@ Container-type layout components such as cards, grids, lists, tabs, collapse, di
 | `v` | Alignment | `ft` | `v:right` |
 
 **`card` variants**: `highlight` (highlighted border), `flat` (flat, no shadow), `bordered` (outlined), `center` / `right` (title alignment).
-**`ht` title decorations**: `fill` (filled block), `accent` (left color bar), `underline` (underline), `dot` (leading dot), `pill` (pill).
+**`ht` title decorations**: `fill` (tinted fill), `accent` (left color bar), `underline` (underline), `dot` (leading dot), `pill` (tinted pill). fill/pill use a soft "10% tinted background + accent text" scheme; custom `hc` colors are tinted the same way automatically.
 **`ft` variants**: `left` / `center` / `right`.
 
 <Playground dsl='[row][col span:6][card tt:基础卡片][p 这是基础卡片，承载正文与子组件。][/card][/col][col span:6][card tt:高亮卡片 v:highlight ht:underline hc:primary][p 带下划线标题的高亮卡片。][/card][/col][/row][card tt:带页脚的卡片 hc:danger ht:accent][p 主体内容：把操作按钮放进页脚区。][ft v:right][btn tx:取消] [btn tx:确定 v:primary][/ft][/card]' />
@@ -369,5 +369,108 @@ A back-to-top button that appears after a page or container scrolls past a thres
 | `tx` | Self-closing body text | `canvas` | `tx:简单内容` |
 
 <Playground dsl='[canvas tt:实时预览 pos:right w:340 open][canvas-content][p 这是画布面板的内容区，常用于代码/设计预览。][callout t:success tt:就绪][p v:sm 面板默认展开，可点击边缘标签折叠。[/callout][/canvas-content][/canvas]' />
+
+## Anchor `anchor`
+
+Dual mode. In-page section navigation for long documents: clicking an item smooth-scrolls to its target, and scroll-spy highlights the item closest to the top while scrolling. Target elements must carry an `id` (e.g. `[h2 id:sec-a 第一章]`).
+
+| Prop | Meaning | Example |
+|------|---------|---------|
+| `opt` | Anchor shorthand string `target-id:title;...` (**double quotes required**, atomic self-closing) | `opt:"sec-a:第一章;sec-b:第二章"` |
+| `top` | scroll-spy activation offset (px, defaults to 12) | `top:20` |
+| `v` | Variant: `horizontal` mode | `v:horizontal` |
+| `on` | change reports `{value}` (target id) | `on:"change:h"` |
+| `id` | Element ID | `id:pageAnchor` |
+
+**Container mode with `lk` children** (supports nested anchors):
+
+| Prop | Meaning | Example |
+|------|---------|---------|
+| `h` | Target element id (`#` prefix allowed) | `h:sec-a` |
+| `tx` | Display text | `tx:第一章` |
+| `d` | Depth 1-3 (indented) | `d:1` |
+
+> After a click activation, the spy won't steal the highlight back during smooth scrolling (900ms suppression window); `[upd id:x v:目标id]` activates programmatically (silent).
+
+<Playground dsl='[anchor opt:"s1:第一章;s2:第二章"][h2 id:s1 第一章][p 内容……][h2 id:s2 第二章][p 内容……]' />
+
+> Clicking calls `scrollIntoView` for smooth scrolling. The server can highlight an item programmatically with `[upd id:pageAnchor v:target-id]` (silent — not reported).
+
+<Playground dsl='[anchor opt:"s1:第一章;s2:第二章"][h2 id:s1 第一章][p 内容……][h2 id:s2 第二章][p 内容……]' />
+
+## Affix `affix`
+
+Container. Pins its content with `position:fixed` once scrolling crosses an offset (top or bottom), inserting a placeholder automatically to prevent layout jumps. Pin-state changes are reported via the `change` event.
+
+| Prop | Meaning | Example |
+|------|---------|---------|
+| `top` | Pin to top: offset (px) from the scroll container's top edge; defaults to `top:0` | `top:8` |
+| `bottom` | Pin to bottom: offset (px) from the container's bottom edge (mutually exclusive with `top`) | `bottom:8` |
+| `target` | Explicit scroll container selector (auto-detects the nearest scrollable ancestor by default) | `target:#list` |
+| `on` | Pin-state change reports `{fixed:true/false}` | `on:"change:h"` |
+
+> Bottom semantics: while the element sits below the bottom line it stays pinned to the bottom, and it releases once scrolled past its original position (same as AntD `offsetBottom`). The scroll listener attaches to `window` in the capture phase, so nested scroll containers (chat panes, `scroll-area`) are all detected.
+
+<Playground dsl='[affix top:8][btn tx:固定按钮 v:primary][/affix]' />
+
+<Playground dsl='[affix top:8][btn tx:固定按钮 v:primary][/affix]' />
+
+## Masonry `masonry`
+
+Container. A CSS-columns masonry layout: `cols` for a fixed column count or `minw` for auto columns (minimum item width — the column count adapts to the container width); `gap` sets the spacing. Children are balanced across columns automatically and streaming appends flow naturally. Zero JS layout computation; children get `break-inside: avoid` so they are never cut mid-block.
+
+| Prop | Meaning | Example |
+|------|---------|---------|
+| `cols` | Fixed column count (1-6, defaults to 2) | `cols:3` |
+| `minw` | Auto-column mode: minimum item width (px, wins over `cols`) | `minw:200` |
+| `gap` | Gap (px, defaults to 8) | `gap:10` |
+
+<Playground dsl='[masonry cols:3][card tt:A][p 短内容][/card][card tt:B][p 长内容][p 更多内容][/card][card tt:C][p 适中][/card][/masonry]' />
+
+## Tour `tour` / `tour-step`
+
+The `tour` container wraps a series of `tour-step` markers (self-closing) that walk the user through page elements step by step. Keyboard: Esc closes, ←/→ switch steps. A step without `tgt` shows its panel centered.
+
+| Prop | Meaning | Applies to | Example |
+|------|---------|------------|---------|
+| `open` | Auto-start once the container closes | `tour` | `open` |
+| `mask` | Backdrop mask (on by default; `mask:false` turns it off) | `tour` | `mask:false` |
+| `id` | Identifier (for targeted `upd` control) | `tour` | `id:tour1` |
+| `on` | Event reporting (see below) | `tour` | `on:"change:h,finish:h,close:h"` |
+| `tgt` | Target element id (may include `#`) | `tour-step` | `tgt:"#btn-a"` |
+| `tt` | Step title | `tour-step` | `tt:第一步` |
+| `tx` | Step description (or write body text) | `tour-step` | `tx:说明文字` |
+| `pos` | Panel placement (`top`/`bottom`/`left`/`right`, default `bottom`) | `tour-step` | `pos:bottom` |
+
+> **Events**: `change` (step switch, detail `{index,target}`) / `finish` (completed) / `close` (skip · ✕ · Esc).
+> **Programmatic control**: `[upd id:tour1 act:open]` (`v` optionally picks the starting step), `[upd id:tour1 act:goto v:N]`, `[upd id:tour1 act:close]` — all silent, never reported.
+
+<Playground dsl='[tour open][tour-step tt:第一步 tx:这是引导说明][tour-step tt:完成 tx:无目标步骤居中显示][/tour]' />
+
+## Imperative Confirm `modal.confirm`
+
+An imperative confirm dialog — **a host-side JS API, not part of the DSL** — invoked directly from page code. It returns a `Promise<boolean>`: `true` on confirm, `false` on cancel / Esc / backdrop click. The alias `TokUI.confirm(opts)` is equivalent.
+
+```js
+const ok = await TokUI.modal.confirm({
+  tt: 'Confirm deletion',
+  tx: 'Are you sure you want to delete this record?',
+  t: 'danger',           // OK button type: 'danger' | 'primary' (default)
+  'ok-text': 'Delete',    // defaults to i18n common.ok
+  'cancel-text': 'Cancel', // defaults to i18n common.cancel
+  onOk() { /* callback alongside the Promise */ },
+  onCancel() {}
+});
+```
+
+| Option | Meaning | Default |
+|--------|---------|---------|
+| `tt` | Title | i18n `modal.aria` |
+| `tx` | Body text | none (body area not rendered) |
+| `t` | OK button type | `primary` |
+| `ok-text` / `cancel-text` | Button labels | i18n `common.ok` / `common.cancel` |
+| `onOk` / `onCancel` | Callbacks (alongside the Promise) | — |
+
+> The overlay's aria text also comes from i18n (`modal.aria`), so multilingual sites need no manual handling.
 
 > When nesting container components deeply, close each container with `[/type]` immediately after its content to avoid rendering glitches caused by misplaced implicit closing during streaming parsing.

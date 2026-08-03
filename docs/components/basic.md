@@ -11,7 +11,7 @@
 | `tx` | 文本内容（亦可直接写正文） | `[h1 标题]` |
 | `v` | 变体 | `v:underline` |
 
-**变体**：`left` / `center` / `right`（对齐），`ribbon`（缎带），`underline`（下划线），`badge` / `pill`（徽标）。
+**变体**：`left` / `center` / `right`（对齐），`ribbon`（缎带），`underline`（下划线），`badge` / `pill`（徽标）。装饰色变体（ribbon/badge/pill/underline）统一走「浅底 + 主色文字」配色：`bg:` 指定主色后自动派生 10% 浅底与淡描边，深浅主题自适应。
 
 <Playground dsl='[h1 v:underline TokUI 一级标题][h2 二级标题][h3 三级标题][h4 四级标题][h5 v:badge 五级带徽标][h6 六级标题]' />
 
@@ -76,6 +76,37 @@
 `imgs` 多图：`s` 用逗号分隔多个 URL，自动排成 1~9 宫格。
 
 <Playground dsl='[imgs s:"https://picsum.photos/seed/a/200,https://picsum.photos/seed/b/200,https://picsum.photos/seed/c/200,https://picsum.photos/seed/d/200"]' />
+
+## 图片预览组 `preview-group`
+
+容器。把一组 `img` 绑定为共享预览会话：点击其中任意一张即开灯箱，并携带整组 src 列表（灯箱支持缩放 / 旋转 / 翻转 / 计数 / 前后切换）。流式渲染中后到的图自动入组。
+
+| 属性 | 含义 | 示例 |
+|------|------|------|
+| `id` | 元素 ID | `id:gallery` |
+
+> 与 `imgs` 的区别：`imgs` 是九宫格简写布局，`preview-group` 是显式「一组图共享预览会话」语义，组内图片排版照旧。
+
+<Playground dsl='[preview-group][img s:https://picsum.photos/seed/a/200][img s:https://picsum.photos/seed/b/200][/preview-group]' />
+
+## 键盘按键 `kbd`
+
+自闭合行内元素。键帽样式文本，适合快捷键/操作说明文档；可作为 `p` 的行内子节点与文字混排。
+
+**变体**：`sm` / `lg`。
+
+<Playground dsl='[p 全局搜索：[kbd Ctrl][kbd K]；取消：[kbd Esc]]' />
+
+## 浮动按钮组 `float-button`
+
+容器。将一组子组件（`btn`/`backtop` 等）固定于视口四角，子组件自动圆形悬浮化。
+
+| 属性 | 含义 | 示例 |
+|------|------|------|
+| `pos` | 固位：`right-bottom`（缺省）/ `right-top` / `left-bottom` / `left-top` | `pos:left-top` |
+| `offset` | 距视口边距（px，缺省 24） | `offset:80` |
+
+<Playground dsl='[float-button pos:right-bottom offset:80][btn tx:💬][/float-button]' />
 
 ## 按钮 `btn` / 按钮组 `btngroup`
 
@@ -292,7 +323,7 @@ Code128 Set B 纯 SVG 条码（零依赖），适用运单号/订单号/序列�
 
 **`result` 类型**：`success` / `error` / `warning` / `info`。
 
-<Playground dsl='[row][col span:6][card tt:空状态][empty tx:暂无数据][/card][/col][col span:6][card tt:结果页][result t:success tt:提交成功 tx:我们将在 3 个工作日内审核][/card][/col][/row]' />
+<Playground dsl='[row][col span:6][card tt:空状态][empty tx:暂无数据][/card][/col][col span:6][card tt:结果页][result t:success tt:提交成功 tx:我们将在3个工作日内审核][/card][/col][/row]' />
 
 ## 复制 `copy`
 

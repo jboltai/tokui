@@ -96,6 +96,24 @@ test('card with empty ft child renders NO footer - avoids blank footer bar', () 
   assert.strictEqual(footer, null);
 });
 
+test('card ht:fill/pill with custom hc - tinted via color-mix (no solid bg + white text)', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const fill = rc.render({ type: 'card', attrs: { tt: 'F', ht: 'fill', hc: '#8b5cf6' }, children: [] });
+  const fh = fill.querySelector('.tokui-card-header');
+  assert.ok(fh.style.background.indexOf('color-mix') !== -1);
+  assert.strictEqual(fh.style.color, '#8b5cf6');
+  assert.ok(fh.style.borderBottom.indexOf('color-mix') !== -1);
+  const pill = rc.render({ type: 'card', attrs: { tt: 'P', ht: 'pill', hc: '#8b5cf6' }, children: [] });
+  const ph = pill.querySelector('.tokui-card-header');
+  assert.ok(ph.style.background.indexOf('color-mix') !== -1);
+  assert.strictEqual(ph.style.color, '#8b5cf6');
+  assert.ok(ph.style.borderColor.indexOf('color-mix') !== -1);
+  // 非法色值 → 不注入任何行内样式（防 color-mix 拼接注入）
+  const evil = rc.render({ type: 'card', attrs: { tt: 'E', ht: 'fill', hc: 'red);display:none' }, children: [] });
+  assert.ok(!evil.querySelector('.tokui-card-header').style.background);
+});
+
 test('card with ft child that has content renders footer', () => {
   const rc = new TokUIRenderer(null);
   registerLayoutComponents(rc);

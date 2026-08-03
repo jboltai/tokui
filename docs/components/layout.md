@@ -17,7 +17,7 @@
 | `v` | 对齐 | `ft` | `v:right` |
 
 **`card` 变体**：`highlight`（高亮边）、`flat`（扁平无阴影）、`bordered`（描边）、`center` / `right`（标题对齐）。
-**`ht` 标题装饰**：`fill`（填充色块）、`accent`（左侧色条）、`underline`（下划线）、`dot`（前缀圆点）、`pill`（胶囊）。
+**`ht` 标题装饰**：`fill`（浅主色底填充）、`accent`（左侧色条）、`underline`（下划线）、`dot`（前缀圆点）、`pill`（浅底胶囊）。fill/pill 为「10% 主色浅底 + 主色文字」柔和配色，`hc` 自定义色同样自动浅化。
 **`ft` 变体**：`left` / `center` / `right`。
 
 <Playground dsl='[row][col span:6][card tt:基础卡片][p 这是基础卡片，承载正文与子组件。][/card][/col][col span:6][card tt:高亮卡片 v:highlight ht:underline hc:primary][p 带下划线标题的高亮卡片。][/card][/col][/row][card tt:带页脚的卡片 hc:danger ht:accent][p 主体内容：把操作按钮放进页脚区。][ft v:right][btn tx:取消] [btn tx:确定 v:primary][/ft][/card]' />
@@ -370,5 +370,106 @@
 | `tx` | 自闭合正文 | `canvas` | `tx:简单内容` |
 
 <Playground dsl='[canvas tt:实时预览 pos:right w:340 open][canvas-content][p 这是画布面板的内容区，常用于代码/设计预览。][callout t:success tt:就绪][p v:sm 面板默认展开，可点击边缘标签折叠。[/callout][/canvas-content][/canvas]' />
+
+## 锚点导航 `anchor`
+
+双模式。长文档内的章节跳转导航：点击平滑滚动到目标章节，滚动时 scroll-spy 自动高亮最近过顶的一项。目标元素需带 `id`（如 `[h2 id:sec-a 第一章]`）。
+
+| 属性 | 含义 | 示例 |
+|------|------|------|
+| `opt` | 锚点简写串 `目标id:标题;...`（**必须双引号**，原子自闭合） | `opt:"sec-a:第一章;sec-b:第二章"` |
+| `top` | scroll-spy 激活偏移（px，缺省 12） | `top:20` |
+| `v` | 变体：`horizontal` 横向模式 | `v:horizontal` |
+| `on` | change 上报 `{value}`（目标 id） | `on:"change:h"` |
+| `id` | 元素 ID | `id:pageAnchor` |
+
+**容器模式 `lk` 子项**（支持二级锚点）：
+
+| 属性 | 含义 | 示例 |
+|------|------|------|
+| `h` | 目标元素 id（可带 `#`） | `h:sec-a` |
+| `tx` | 显示文本 | `tx:第一章` |
+| `d` | 层级深度 1-3（缩进） | `d:1` |
+
+> 点击激活后平滑滚动途中 spy 不会抢回高亮（900ms 抑制窗）；`upd v:目标id` 程序化高亮（silent）。
+
+<Playground dsl='[anchor opt:"s1:第一章;s2:第二章"][h2 id:s1 第一章][p 内容……][h2 id:s2 第二章][p 内容……]' />
+
+> 点击调用 `scrollIntoView` 平滑滚动。服务端可用 `[upd id:pageAnchor v:目标id]` 程序化高亮（silent，不上报）。
+
+<Playground dsl='[anchor opt:"s1:第一章;s2:第二章"][h2 id:s1 第一章][p 内容……][h2 id:s2 第二章][p 内容……]' />
+
+## 固钉 `affix`
+
+容器。滚动越过偏移时将内容以 `position:fixed` 固定（固顶或固底），并自动插入占位元素防止布局跳动；固定状态切换经 `change` 事件上报。
+
+| 属性 | 含义 | 示例 |
+|------|------|------|
+| `top` | 固顶：距滚动容器顶部偏移（px），缺省 `top:0` | `top:8` |
+| `bottom` | 固底：距滚动容器底部偏移（px，与 top 二选一） | `bottom:8` |
+| `target` | 显式滚动容器选择器（缺省自动探测最近可滚动祖先） | `target:#list` |
+| `on` | 固定状态切换上报 `{fixed:true/false}` | `on:"change:h"` |
+
+> 固底语义：元素位于底线之下时先固定于底部，滚动经过其原始位置后释放（同 AntD `offsetBottom`）。滚动监听挂 window 捕获阶段，嵌套滚动容器（对话区/scroll-area）均可感知。
+
+<Playground dsl='[affix top:8][btn tx:固定按钮 v:primary][/affix]' />
+
+## 瀑布流 `masonry`
+
+容器。CSS columns 瀑布流：`cols` 固定列数或 `minw` 自动列（子项最小宽度，列数随容器宽度自适应），`gap` 间距。子项自动分列平衡，流式追加自然流动；零 JS 布局计算，子项 `break-inside: avoid` 不被截断。
+
+| 属性 | 含义 | 示例 |
+|------|------|------|
+| `cols` | 固定列数（1-6，缺省 2） | `cols:3` |
+| `minw` | 自动列模式：子项最小宽度（px，优先于 cols） | `minw:200` |
+| `gap` | 间距（px，缺省 8） | `gap:10` |
+
+<Playground dsl='[masonry cols:3][card tt:A][p 短内容][/card][card tt:B][p 长内容][p 更多内容][/card][card tt:C][p 适中][/card][/masonry]' />
+
+## 漫游引导 `tour` / `tour-step`
+
+`tour` 容器包裹若干 `tour-step`（自闭合标记），分步高亮讲解页面元素。键盘：Esc 关闭、←/→ 切步。无 `tgt` 的步骤面板居中显示。
+
+| 属性 | 含义 | 适用 | 示例 |
+|------|------|------|------|
+| `open` | 容器闭合后自动开启 | `tour` | `open` |
+| `mask` | 遮罩（默认开，`mask:false` 关） | `tour` | `mask:false` |
+| `id` | 标识（供 `upd` 定向控制） | `tour` | `id:tour1` |
+| `on` | 事件上报（见下） | `tour` | `on:"change:h,finish:h,close:h"` |
+| `tgt` | 目标元素 id（可带 `#`） | `tour-step` | `tgt:"#btn-a"` |
+| `tt` | 步骤标题 | `tour-step` | `tt:第一步` |
+| `tx` | 步骤说明（或直接写正文） | `tour-step` | `tx:说明文字` |
+| `pos` | 面板方位（`top`/`bottom`/`left`/`right`，默认 `bottom`） | `tour-step` | `pos:bottom` |
+
+> **事件**：`change`（切步，detail `{index,target}`）/ `finish`（完成）/ `close`（跳过·✕·Esc）。
+> **程序化控制**：`[upd id:tour1 act:open]`（`v` 可选起始步）、`[upd id:tour1 act:goto v:N]`、`[upd id:tour1 act:close]`，均 silent 不上报。
+
+<Playground dsl='[tour open][tour-step tt:第一步 tx:这是引导说明][tour-step tt:完成 tx:无目标步骤居中显示][/tour]' />
+
+## 命令式确认 `modal.confirm`
+
+命令式确认对话框——**宿主侧 JS API，不经 DSL**，由页面代码直接调用。返回 `Promise<boolean>`：确认得 `true`，取消 / Esc / 点击遮罩得 `false`。别名 `TokUI.confirm(opts)` 等价。
+
+```js
+const ok = await TokUI.modal.confirm({
+  tt: '删除确认',
+  tx: '确定要删除这条记录吗？',
+  t: 'danger',           // 确认按钮类型：'danger' | 'primary'（默认）
+  'ok-text': '删除',      // 缺省走 i18n common.ok
+  'cancel-text': '取消',  // 缺省走 i18n common.cancel
+  onOk() { /* 与 Promise 并存的回调 */ },
+  onCancel() {}
+});
+```
+
+| 选项 | 含义 | 默认 |
+|------|------|------|
+| `tt` | 标题 | i18n `modal.aria` |
+| `tx` | 正文 | 无（缺省不渲染正文区） |
+| `t` | 确认按钮类型 | `primary` |
+| `ok-text` / `cancel-text` | 按钮文案 | i18n `common.ok` / `common.cancel` |
+| `onOk` / `onCancel` | 回调（与 Promise 并存） | — |
+
+> 遮罩 aria 文案同样走 i18n（`modal.aria`），多语言站点无需手工处理。
 
 > 容器型组件层级较深时，建议在每个容器后立即写好闭合标签 `[/type]`，避免流式解析下因隐式闭合时机错位导致渲染异常。
