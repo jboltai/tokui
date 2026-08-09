@@ -29,6 +29,8 @@ function svgEl(tag, attrs) {
       el.setAttribute(k, String(attrs[k]));
     });
   }
+  // a11y：svg 根统一补 role=img（AT 不逐个读 SVG 碎块；aria-label 由各图表调用点经 attrs 传入）
+  if (tag === 'svg' && !el.getAttribute('role')) el.setAttribute('role', 'img');
   return el;
 }
 
@@ -374,6 +376,65 @@ function attachAxisTooltip(o) {
 // o: { svg, plotG, tipLayer, padL, cw, padT, ch, h, w, n,
 //      srcLeft(s), srcRight(e), overview[], valMin, range, renderLabels(labelG, s, e) }
 // 返回 { showTip, winState, sharedTip } —— 图表用 showTip 绑各自 hover。
+
+/**
+ * dataZoom 键盘可达（APG slider 模式）：窗口（pan）与左右手柄（resize）可聚焦，
+ * ←/→ 逐数据点平移/收边，Home/End 到端点；aria-valuenow 反映当前起止数据索引。
+ * ctx: { n, minWinFrac, getS(), getE(), setSE(s,e), applyZoom(live) }
+ * 返回 { syncAria } —— 拖拽路径（applyZoom 内）也应调 syncAria 保持同步。
+ */
+function bindZoomKeyboard(win, h1, h2, ctx) {
+  var n = ctx.n;
+  var nodes = [
+    { el: win, mode: 'pan', label: 'zoom window' },
+    { el: h1, mode: 'l', label: 'zoom start' },
+    { el: h2, mode: 'r', label: 'zoom end' }
+  ];
+  nodes.forEach(function (nd) {
+    nd.el.setAttribute('tabindex', '0');
+    nd.el.setAttribute('role', 'slider');
+    nd.el.setAttribute('aria-label', nd.label);
+    nd.el.setAttribute('aria-valuemin', '0');
+    nd.el.setAttribute('aria-valuemax', String(n - 1));
+  });
+  function syncAria() {
+    var b = zoomBounds(n, ctx.getS(), ctx.getE());
+    win.setAttribute('aria-valuenow', String(b.s));
+    h1.setAttribute('aria-valuenow', String(b.s));
+    h2.setAttribute('aria-valuenow', String(b.e));
+  }
+  syncAria();
+  var keyStep = 1 / (n - 1); // 一个数据点的分数步长
+  function onKey(mode, ev) {
+    var k = ev.key;
+    if (k !== 'ArrowLeft' && k !== 'ArrowRight' && k !== 'Home' && k !== 'End') return;
+    ev.preventDefault();
+    var s = ctx.getS(), e = ctx.getE();
+    var d = k === 'ArrowLeft' ? -keyStep : k === 'ArrowRight' ? keyStep : 0;
+    if (mode === 'l') {
+      if (k === 'Home') s = 0;
+      else if (k === 'End') s = e - ctx.minWinFrac;
+      else s = Math.min(Math.max(s + d, 0), e - ctx.minWinFrac);
+    } else if (mode === 'r') {
+      if (k === 'Home') e = s + ctx.minWinFrac;
+      else if (k === 'End') e = 1;
+      else e = Math.min(Math.max(e + d, s + ctx.minWinFrac), 1);
+    } else {
+      var span = e - s;
+      if (k === 'Home') { s = 0; e = span; }
+      else if (k === 'End') { e = 1; s = 1 - span; }
+      else { s = Math.min(Math.max(s + d, 0), 1 - span); e = s + span; }
+    }
+    ctx.setSE(s, e);
+    ctx.applyZoom(false); // 键盘离散操作：直接全量补标签
+    syncAria();
+  }
+  win.addEventListener('keydown', function (ev) { onKey('pan', ev); });
+  h1.addEventListener('keydown', function (ev) { onKey('l', ev); });
+  h2.addEventListener('keydown', function (ev) { onKey('r', ev); });
+  return { syncAria: syncAria };
+}
+
 function attachZoomPlot(svg, o) {
   var padL = o.padL, cw = o.cw, n = o.n, plotG = o.plotG;
   // clipPath（固定，不随 transform 动）—— 必须在不动的 clipG 上，否则 clip 随 transform 偏移
@@ -493,7 +554,16 @@ function attachZoomPlot(svg, o) {
     var b = zoomBounds(n, sFrac, eFrac);
     if (live) scheduleLightDraw(b.s, b.e);                      // 拖拽中：RAF 合流 + 不重建 tooltip/label
     else { pendingSE = null; drawWindow(b.s, b.e, true); }      // 松手：补标签
+    if (zoomKeys) zoomKeys.syncAria();                          // a11y：aria-valuenow 同步起止索引
   }
+  // 键盘可达（APG slider）：窗口/手柄可聚焦，←/→ 逐点平移或收边，Home/End 到端点
+  var zoomKeys = bindZoomKeyboard(win, h1, h2, {
+    n: n, minWinFrac: minWinFrac,
+    getS: function () { return sFrac; },
+    getE: function () { return eFrac; },
+    setSE: function (s, e) { sFrac = s; eFrac = e; },
+    applyZoom: applyZoom
+  });
   function bindDrag(node, mode) {
     node.style.touchAction = 'none'; node.style.userSelect = 'none'; node.style.webkitUserDrag = 'none';
     function start(clientX, pointerId) {
@@ -1164,7 +1234,16 @@ function renderBar(data, labels, colors, attrs) {
           var b = zoomBounds(n, sFrac, eFrac);
           if (live) scheduleLightDraw(b.s, b.e);   // 拖拽中：RAF 合流 + 不重建 tooltip
           else { pendingSE = null; drawWindow(b.s, b.e, true); } // 松手：全量（含 tooltip）
+          if (zoomKeys) zoomKeys.syncAria();       // a11y：aria-valuenow 同步起止索引
         }
+        // 键盘可达（APG slider）：窗口/手柄可聚焦，←/→ 逐点、Home/End 到端点
+        var zoomKeys = bindZoomKeyboard(win, h1, h2, {
+          n: n, minWinFrac: minWinFrac,
+          getS: function () { return sFrac; },
+          getE: function () { return eFrac; },
+          setSE: function (s, e) { sFrac = s; eFrac = e; },
+          applyZoom: applyZoom
+        });
         // 拖拽（Pointer Events + setPointerCapture）：指针锁到柄元素 → 全程事件不丢、
         // 不被原生 DnD / 文本选中劫持（慢移冻住、快移碎裂的根因）；统一鼠标+触屏；
         // touch-action:none 防 touch 滚动抢占。松手 releasePointerCapture + 全量补 tooltip。
@@ -3088,6 +3167,10 @@ function registerChartComponents(renderer) {
       // 打类型标记：CSS 据此设各类型最佳实践响应式尺寸 + 最大高度（防宽容器里高度爆炸）
       if (svg && svg.setAttribute && (svg.tagName || '').toLowerCase() === 'svg') {
         svg.setAttribute('data-chart-type', type);
+        // a11y：图表可访问名（标题 > 类型），role=img 由 svgEl 统一打
+        if (!svg.getAttribute('aria-label')) {
+          svg.setAttribute('aria-label', (attrs.tt ? attrs.tt + ' - ' : '') + type);
+        }
         // 横向柱（orient:h）类别在 y 轴、高度随类别数线性增长（autoSize 封顶 1200），
         // 需比纵向更高的 max-height，否则多类别被压扁。打 data-orient 供 CSS 定向放宽。
         if (type === 'bar' && (attrs.orient === 'h' || attrs.orientation === 'h')) {
@@ -3454,13 +3537,25 @@ function registerChartComponents(renderer) {
 
     var prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    var onKey = function (e) { if (e.key === 'Escape') close(); };
+    // 焦点管理：记录触发焦点，打开进关闭钮，关闭还原
+    var prevFocus = document.activeElement || null;
+    var onKey = function (e) {
+      if (e.key === 'Escape') close();
+      // focus trap：弹层内仅关闭钮可聚焦，Tab 循环回自身
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        closeBtn.focus();
+      }
+    };
     var closed = false;
     function close() {
       if (closed) return; closed = true;
       overlay.classList.remove('tokui-chart__modal--open');
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = prevOverflow;
+      if (prevFocus && typeof prevFocus.focus === 'function') {
+        try { prevFocus.focus(); } catch (_) { /* ignore */ }
+      }
       setTimeout(function () { if (overlay.parentNode) overlay.remove(); }, 180);
     }
     overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
@@ -3468,6 +3563,7 @@ function registerChartComponents(renderer) {
     document.addEventListener('keydown', onKey);
 
     document.body.appendChild(overlay);
+    if (typeof closeBtn.focus === 'function') closeBtn.focus();
     void overlay.offsetWidth; // 强制 reflow 触发 open transition
     overlay.classList.add('tokui-chart__modal--open');
     // 弹层 svg 撑满 body（远大于原 inline 宽），重算 tooltip 整组缩放防 tip 文字爆大。

@@ -315,41 +315,59 @@ function registerTableComponents(renderer) {
         if (totalSpan) totalSpan.textContent = _t('pagination.totalCount', { count: total });
         var pageBtns = pager.querySelectorAll('.tokui-table__pager-page');
         for (var bi = 0; bi < pageBtns.length; bi++) {
-          if (bi + 1 === state.page) pageBtns[bi].classList.add('tokui-table__pager-page--active');
-          else pageBtns[bi].classList.remove('tokui-table__pager-page--active');
+          if (bi + 1 === state.page) {
+            pageBtns[bi].classList.add('tokui-table__pager-page--active');
+            pageBtns[bi].setAttribute('aria-current', 'page');
+          } else {
+            pageBtns[bi].classList.remove('tokui-table__pager-page--active');
+            pageBtns[bi].removeAttribute('aria-current');
+          }
         }
         var navBtns = pager.querySelectorAll('.tokui-table__pager-btn');
         if (navBtns[0]) {
+          navBtns[0].disabled = state.page <= 1;
           if (state.page <= 1) navBtns[0].classList.add('tokui-table__pager-btn--disabled');
           else navBtns[0].classList.remove('tokui-table__pager-btn--disabled');
         }
         if (navBtns[1]) {
+          navBtns[1].disabled = state.page >= pages;
           if (state.page >= pages) navBtns[1].classList.add('tokui-table__pager-btn--disabled');
           else navBtns[1].classList.remove('tokui-table__pager-btn--disabled');
         }
         return;
       }
       state.pagerPages = pages;
+      // 焦点保持：重建前焦点在分页条内（点翻页钮触发）→ 重建后聚焦当前页按钮
+      var hadFocusInside = typeof document !== 'undefined' && document.activeElement
+        && pager.contains && pager.contains(document.activeElement);
       pager.innerHTML = '';
       var totalEl = el('span', { class: 'tokui-table__pager-total' });
       totalEl.textContent = _t('pagination.totalCount', { count: total });
       pager.appendChild(totalEl);
-      var prev = el('button', { type: 'button', class: 'tokui-table__pager-btn' + (state.page <= 1 ? ' tokui-table__pager-btn--disabled' : '') });
+      var prev = el('button', { type: 'button', class: 'tokui-table__pager-btn' + (state.page <= 1 ? ' tokui-table__pager-btn--disabled' : ''), 'aria-label': _t('pagination.prev') });
       prev.textContent = '\u2039';
+      prev.disabled = state.page <= 1;
       prev.addEventListener('click', function () { gotoPage(state.page - 1); });
       pager.appendChild(prev);
       for (var p = 1; p <= pages; p++) {
         (function (pn) {
-          var pb = el('button', { type: 'button', class: 'tokui-table__pager-page' + (pn === state.page ? ' tokui-table__pager-page--active' : '') });
+          var pbAttrs = { type: 'button', class: 'tokui-table__pager-page' + (pn === state.page ? ' tokui-table__pager-page--active' : '') };
+          if (pn === state.page) pbAttrs['aria-current'] = 'page';
+          var pb = el('button', pbAttrs);
           pb.textContent = String(pn);
           pb.addEventListener('click', function () { gotoPage(pn); });
           pager.appendChild(pb);
         })(p);
       }
-      var next = el('button', { type: 'button', class: 'tokui-table__pager-btn' + (state.page >= pages ? ' tokui-table__pager-btn--disabled' : '') });
+      var next = el('button', { type: 'button', class: 'tokui-table__pager-btn' + (state.page >= pages ? ' tokui-table__pager-btn--disabled' : ''), 'aria-label': _t('pagination.next') });
       next.textContent = '\u203a';
+      next.disabled = state.page >= pages;
       next.addEventListener('click', function () { gotoPage(state.page + 1); });
       pager.appendChild(next);
+      if (hadFocusInside) {
+        var curBtn = pager.querySelector('.tokui-table__pager-page--active');
+        if (curBtn && typeof curBtn.focus === 'function') curBtn.focus();
+      }
     }
 
     // 筛选上报防抖（300ms）：输入即过滤（UI 即时），上报聚合，避免逐字符打到后端
@@ -365,9 +383,12 @@ function registerTableComponents(renderer) {
         if (th.classList.contains('tokui-col-chk')) return;
         var colIdx = item.col;
         th.classList.add('tokui-table__th--sortable');
+        // 键盘可达 + 排序态语义：可聚焦、Enter/Space 触发、aria-sort 同步
+        th.setAttribute('tabindex', '0');
+        th.setAttribute('aria-sort', 'none');
         var icon = el('span', { class: 'tokui-table__sort-icon' });
         th.appendChild(icon);
-        th.addEventListener('click', function () {
+        function doSort() {
           state.sortDir = (state.sortCol === colIdx && state.sortDir === 'asc') ? 'desc' : 'asc';
           state.sortCol = colIdx;
           Array.prototype.slice.call(state.thead.querySelectorAll('.tokui-table__sort-icon')).forEach(function (ic) {
@@ -375,11 +396,22 @@ function registerTableComponents(renderer) {
             ic.classList.remove('tokui-table__sort-icon--asc');
             ic.classList.remove('tokui-table__sort-icon--desc');
           });
+          Array.prototype.slice.call(state.thead.querySelectorAll('th[aria-sort]')).forEach(function (o) {
+            o.setAttribute('aria-sort', 'none');
+          });
           icon.textContent = state.sortDir === 'asc' ? '\u25b2' : '\u25bc';
           icon.classList.add('tokui-table__sort-icon--' + state.sortDir);
+          th.setAttribute('aria-sort', state.sortDir === 'asc' ? 'ascending' : 'descending');
           resortRows();
           applyTableState();
           if (table._tokuiReport) table._tokuiReport('sort', { column: colIdx, dir: state.sortDir });
+        }
+        th.addEventListener('click', doSort);
+        th.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            doSort();
+          }
         });
       });
     }
@@ -391,7 +423,7 @@ function registerTableComponents(renderer) {
       _tableLeafThs(state.thead).forEach(function (item) {
         var colIdx = item.col;
         var td = el('td', { class: 'tokui-table__filter-cell' });
-        var input = el('input', { type: 'text', class: 'tokui-table__filter-input', placeholder: (item.th.textContent || '').trim() });
+        var input = el('input', { type: 'text', class: 'tokui-table__filter-input', placeholder: (item.th.textContent || '').trim(), 'aria-label': (item.th.textContent || '').trim() });
         input.addEventListener('input', function () {
           var v = (input.value || '').trim();
           if (v) state.filters[colIdx] = v; else delete state.filters[colIdx];
@@ -539,7 +571,7 @@ function registerTableComponents(renderer) {
           }
           if (cell.text === 'chk') {
             thAttrs.class = 'tokui-col-chk' + (alignCls ? ' ' + alignCls : '') + (colorCls ? ' ' + colorCls : '');
-            const chk = el('input', { type: 'checkbox', class: 'tokui-chk-all' });
+            const chk = el('input', { type: 'checkbox', class: 'tokui-chk-all', 'aria-label': _t('table.selectAll') });
             chk.addEventListener('change', function () {
               const table = chk.closest('table');
               if (!table) return;
@@ -873,7 +905,7 @@ function registerTableComponents(renderer) {
   function attachTrReconcile(tr, ctx) {
     tr._tokuiCellText = [];   // 每 cell-idx 的 renderKey（cell 值 或 SKELETON 哨兵）
     tr._tokuiCellTds = [];    // 每 cell-idx 对应的 td（colspan 跳过为 null）
-    var SKELETON = ' SKELETON ';
+    var SKELETON = '\u0000SKELETON\u0000';
 
     function placeTd(td, idx) {
       if (!td) return;

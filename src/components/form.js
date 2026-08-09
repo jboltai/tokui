@@ -342,6 +342,9 @@ function registerFormComponents(renderer) {
       sugList.style.display = 'none';
       sugWrap.appendChild(sugList);
       wrapper.appendChild(sugWrap);
+      // combobox 语义：aria-expanded 随下拉开关联动
+      inputEl.setAttribute('role', 'combobox');
+      inputEl.setAttribute('aria-expanded', 'false');
     } else {
       wrapper.appendChild(mountTarget);
     }
@@ -384,17 +387,19 @@ function registerFormComponents(renderer) {
         sugList.style.display = 'none';
         sugItems = [];
         sugActive = -1;
+        inputEl.setAttribute('aria-expanded', 'false');
       };
       var paintSug = function() {
         sugList.innerHTML = '';
-        if (!sugItems.length) { sugList.style.display = 'none'; return; }
+        if (!sugItems.length) { sugList.style.display = 'none'; inputEl.setAttribute('aria-expanded', 'false'); return; }
         sugItems.forEach(function(it, i) {
           var cls = 'tokui-sug__item' + (i === sugActive ? ' tokui-sug__item--active' : '');
-          var item = el('div', { class: cls, role: 'option' }, it.tx);
+          var item = el('div', { class: cls, role: 'option', 'aria-selected': i === sugActive ? 'true' : 'false' }, it.tx);
           item.setAttribute('data-idx', i);
           sugList.appendChild(item);
         });
         sugList.style.display = '';
+        inputEl.setAttribute('aria-expanded', 'true');
       };
       var applySugResult = function(result) {
         var arr = Array.isArray(result) ? result : [];
@@ -521,8 +526,8 @@ function registerFormComponents(renderer) {
     // 密码显示/隐藏切换按钮
     var toggleBtn = null;
     if (node.attrs.toggle !== undefined && !node.attrs.dis) {
-      toggleBtn = el('button', { class: 'tokui-pwd-toggle', type: 'button', tabindex: '-1' });
-      toggleBtn.setAttribute('aria-label', 'Toggle password visibility');
+      toggleBtn = el('button', { class: 'tokui-pwd-toggle', type: 'button', tabindex: '-1', 'aria-pressed': 'false' });
+      toggleBtn.setAttribute('aria-label', _t('pwd.toggle'));
       // 睁眼 SVG（密码可见）
       var svgEyeOpen = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
       // 闭眼 SVG（密码隐藏）
@@ -533,6 +538,7 @@ function registerFormComponents(renderer) {
         inputEl.type = isPassword ? 'text' : 'password';
         _setPwdEye(toggleBtn, isPassword ? 'open' : 'closed', isPassword ? svgEyeOpen : svgEyeClosed);
         toggleBtn.classList.toggle('tokui-pwd-toggle--active', isPassword);
+        toggleBtn.setAttribute('aria-pressed', String(isPassword));
       });
     }
     if (hasInputGroup(node) || toggleBtn) {
@@ -733,7 +739,7 @@ function registerFormComponents(renderer) {
     const pickerClasses = ['tokui-picker'];
     if (isMulti) pickerClasses.push('tokui-picker--multi');
     if (isDisabled) pickerClasses.push('tokui-picker--disabled');
-    const pickerEl = el('div', { class: pickerClasses.join(' '), 'data-tokui-picker': node.attrs.id || '', role: 'listbox', 'aria-expanded': 'false' });
+    const pickerEl = el('div', { class: pickerClasses.join(' '), 'data-tokui-picker': node.attrs.id || '', role: 'listbox', 'aria-expanded': 'false', 'aria-multiselectable': isMulti ? 'true' : undefined });
 
     // 计算预选初始值
     var initialSingleValue = '';
@@ -959,6 +965,7 @@ function registerFormComponents(renderer) {
       if (isOpen) return;
       isOpen = true;
       pickerEl.classList.add('tokui-picker--open');
+      pickerEl.setAttribute('aria-expanded', 'true'); // 开合状态同步
       // fixed 定位：根据 control 的视口位置动态设置 dropdown
       var rect = control.getBoundingClientRect();
       dropdown.style.left = rect.left + 'px';
@@ -972,6 +979,7 @@ function registerFormComponents(renderer) {
       if (!isOpen) return;
       isOpen = false;
       pickerEl.classList.remove('tokui-picker--open');
+      pickerEl.setAttribute('aria-expanded', 'false'); // 开合状态同步
       if (multi) search.value = '';
       filterOptions('');
       resetActive();
@@ -1022,8 +1030,10 @@ function registerFormComponents(renderer) {
     function singleSelect(li, value, text) {
       dropdown.querySelectorAll('.tokui-picker-option--selected').forEach(function(opt) {
         opt.classList.remove('tokui-picker-option--selected');
+        opt.setAttribute('aria-selected', 'false');
       });
       li.classList.add('tokui-picker-option--selected');
+      li.setAttribute('aria-selected', 'true');
       search.value = text;
       var hidden = pickerEl.querySelector('input[type=hidden]');
       if (hidden) hidden.value = value;
@@ -1033,6 +1043,7 @@ function registerFormComponents(renderer) {
 
     function toggleMultiSelect(li, value, text) {
       var isSelected = li.classList.toggle('tokui-picker-option--selected');
+      li.setAttribute('aria-selected', String(isSelected));
       if (isSelected) {
         addTag(value, text);
         addHiddenInput(value);
@@ -1244,11 +1255,16 @@ function registerFormComponents(renderer) {
     const isInline = vList.indexOf('inline') !== -1;
     const wrapperClass = isInline ? 'tokui-field tokui-field--inline' : 'tokui-field';
     const wrapper = el('div', { class: wrapperClass });
+    var radioLabelId = '';
     if (node.attrs.l) {
-      wrapper.appendChild(el('div', { class: 'tokui-label' + (node.attrs.req !== undefined ? ' tokui-label--req' : '') }, node.attrs.l));
+      // 组标签关联：aria-labelledby 让 radiogroup 有可访问名
+      radioLabelId = 'tokui-rg-label-' + Math.random().toString(36).slice(2, 8);
+      wrapper.appendChild(el('div', { class: 'tokui-label' + (node.attrs.req !== undefined ? ' tokui-label--req' : ''), id: radioLabelId }, node.attrs.l));
     }
     const isVertical = vList.indexOf('vertical') !== -1;
-    const group = el('div', { class: 'tokui-radio-group' + (isVertical ? ' tokui-radio-group--vertical' : ''), role: 'radiogroup' });
+    const groupAttrs = { class: 'tokui-radio-group' + (isVertical ? ' tokui-radio-group--vertical' : ''), role: 'radiogroup' };
+    if (radioLabelId) groupAttrs['aria-labelledby'] = radioLabelId;
+    const group = el('div', groupAttrs);
     if (node.attrs.id) group.id = node.attrs.id;
     const radioName = node.attrs.n || node.attrs.id || 'radio';
     group._radioName = radioName; // 存储共享 name，供子 opt 渲染时读取
@@ -1359,7 +1375,7 @@ function registerFormComponents(renderer) {
       // —— 单布尔（legacy，保持原逻辑）——
       const vList = node.attrs.v ? node.attrs.v.split(',').map(s => s.trim()) : [];
       const isInline = vList.indexOf('inline') !== -1;
-      var cb = el('label', { class: 'tokui-checkbox' + (isInline ? ' tokui-checkbox--inline' : ''), role: 'checkbox', 'aria-checked': String(node.attrs.chk !== undefined) });
+      var cb = el('label', { class: 'tokui-checkbox' + (isInline ? ' tokui-checkbox--inline' : '') });
       const inputAttrs = { type: 'checkbox', class: 'tokui-checkbox-input' };
       if (node.attrs.id) inputAttrs.id = node.attrs.id;
       if (node.attrs.n) inputAttrs.name = node.attrs.n;
@@ -1368,17 +1384,15 @@ function registerFormComponents(renderer) {
       const input = el('input', inputAttrs);
       cb.appendChild(input);
       cb.appendChild(el('span', { class: 'tokui-checkbox-text' }, node.attrs.l || ''));
-      // 值变更上报：单布尔取 true/false
+      // 值变更上报：单布尔取 true/false（选中态语义由原生 input 承担，label 不再重复 role/aria-checked）
       var report = renderer.createReporter('checkbox', node.attrs, cb);
       input.addEventListener('change', function() {
-        cb.setAttribute('aria-checked', String(input.checked));
         report('change', { value: input.checked, name: node.attrs.n || undefined });
       });
       // upd chk:true/false → 切换单布尔选中（与 switch 同语义）
       var singleUpdate = function (uAttrs) {
         if (uAttrs.chk === true || uAttrs.chk === 'true') input.checked = true;
         else if (uAttrs.chk === false || uAttrs.chk === 'false') input.checked = false;
-        cb.setAttribute('aria-checked', String(input.checked));
       };
       if (!isInline) {
         var field = el('div', { class: 'tokui-field' });
@@ -1395,12 +1409,17 @@ function registerFormComponents(renderer) {
     const isInline = vList.indexOf('inline') !== -1;
     const wrapperClass = isInline ? 'tokui-field tokui-field--inline' : 'tokui-field';
     const wrapper = el('div', { class: wrapperClass });
+    var cbLabelId = '';
     if (node.attrs.l) {
-      wrapper.appendChild(el('div', { class: 'tokui-label' + (node.attrs.req !== undefined ? ' tokui-label--req' : '') }, node.attrs.l));
+      // 组标签关联：aria-labelledby 让 group 有可访问名
+      cbLabelId = 'tokui-cg-label-' + Math.random().toString(36).slice(2, 8);
+      wrapper.appendChild(el('div', { class: 'tokui-label' + (node.attrs.req !== undefined ? ' tokui-label--req' : ''), id: cbLabelId }, node.attrs.l));
     }
     const cbName = node.attrs.n || node.attrs.id || 'checkbox';
     const isVertical = vList.indexOf('vertical') !== -1;
-    const group = el('div', { class: 'tokui-checkbox-group' + (isVertical ? ' tokui-checkbox-group--vertical' : ''), role: 'group' });
+    const cbGroupAttrs = { class: 'tokui-checkbox-group' + (isVertical ? ' tokui-checkbox-group--vertical' : ''), role: 'group' };
+    if (cbLabelId) cbGroupAttrs['aria-labelledby'] = cbLabelId;
+    const group = el('div', cbGroupAttrs);
     group._checkboxName = cbName; // 供流式 opt 注入共享 name（见 renderer.js）
     if (node.attrs.id) group.id = node.attrs.id;
     // 统一遍历 opt 子节点（简写合成的 + 容器真实的；流式路径由 renderer.js 特判挂载）
@@ -1443,10 +1462,15 @@ function registerFormComponents(renderer) {
   renderer.register('segmented', (node) => {
     node = _expandOptChildren(node);
     const wrapper = el('div', { class: 'tokui-field' });
+    var segLabelId = '';
     if (node.attrs.l) {
-      wrapper.appendChild(el('div', { class: 'tokui-label' + (node.attrs.req !== undefined ? ' tokui-label--req' : '') }, node.attrs.l));
+      // 组标签关联：aria-labelledby 让 radiogroup 有可访问名
+      segLabelId = 'tokui-seg-label-' + Math.random().toString(36).slice(2, 8);
+      wrapper.appendChild(el('div', { class: 'tokui-label' + (node.attrs.req !== undefined ? ' tokui-label--req' : ''), id: segLabelId }, node.attrs.l));
     }
-    const group = el('div', { class: 'tokui-segmented', role: 'radiogroup' });
+    const segGroupAttrs = { class: 'tokui-segmented', role: 'radiogroup' };
+    if (segLabelId) segGroupAttrs['aria-labelledby'] = segLabelId;
+    const group = el('div', segGroupAttrs);
     if (node.attrs.id) group.id = node.attrs.id;
     const segName = node.attrs.n || node.attrs.id || 'segmented';
     group._segmentedName = segName; // 存储共享 name，供流式 opt 渲染时读取（同 radio._radioName）
@@ -1541,8 +1565,11 @@ function registerFormComponents(renderer) {
     if (node.attrs.v) inputAttrs.value = node.attrs.v;
     if (node.attrs.chk !== undefined) inputAttrs.checked = 'checked';
     if (node.attrs.dis !== undefined) inputAttrs.disabled = 'disabled';
+    // role=switch 挂原生 input（焦点所在元素），SR 直接播报开关键态
+    inputAttrs.role = 'switch';
+    inputAttrs['aria-checked'] = inputAttrs.checked ? 'true' : 'false';
     wrapper.appendChild(el('input', inputAttrs));
-    var track = el('span', { class: 'tokui-switch__track', role: 'switch', 'aria-checked': String(!!inputAttrs.checked) });
+    var track = el('span', { class: 'tokui-switch__track' });
     wrapper.appendChild(track);
     if (node.attrs.l) {
       wrapper.appendChild(el('span', { class: 'tokui-switch__label' }, node.attrs.l));
@@ -1551,7 +1578,7 @@ function registerFormComponents(renderer) {
     // 值变更上报：取 true/false
     var report = renderer.createReporter('switch', node.attrs, wrapper);
     input.addEventListener('change', function() {
-      track.setAttribute('aria-checked', String(input.checked));
+      input.setAttribute('aria-checked', String(input.checked));
       report('change', { value: input.checked, name: node.attrs.n || undefined });
     });
     if (node.attrs.clk && renderer.eventBus) {
@@ -1563,8 +1590,8 @@ function registerFormComponents(renderer) {
       }
     }
     wrapper._update = function(uAttrs) {
-      if (uAttrs.chk === true || uAttrs.chk === 'true') { input.checked = true; track.setAttribute('aria-checked', 'true'); }
-      else if (uAttrs.chk === false || uAttrs.chk === 'false') { input.checked = false; track.setAttribute('aria-checked', 'false'); }
+      if (uAttrs.chk === true || uAttrs.chk === 'true') { input.checked = true; input.setAttribute('aria-checked', 'true'); }
+      else if (uAttrs.chk === false || uAttrs.chk === 'false') { input.checked = false; input.setAttribute('aria-checked', 'false'); }
       if (uAttrs.dis === true || uAttrs.dis === 'true') input.disabled = true;
       else if (uAttrs.dis === false || uAttrs.dis === 'false') input.disabled = false;
     };
@@ -1576,7 +1603,7 @@ function registerFormComponents(renderer) {
     wrapper.setAttribute('data-tokui-resettable', '');
     wrapper._tokuiReset = function () {
       input.checked = switchInit;
-      track.setAttribute('aria-checked', String(switchInit));
+      input.setAttribute('aria-checked', String(switchInit));
     };
     return wrapper;
   });
@@ -1726,6 +1753,32 @@ function registerFormComponents(renderer) {
         };
         rSlider.addEventListener('mousedown', onRangeStart);
         rSlider.addEventListener('touchstart', onRangeStart, { passive: false });
+        // 键盘可达（APG slider）：←/↓ -step、→/↑ +step、Home/End 到边界；钳制不交叉，值变走同一上报
+        var rKeyHandler = function(which) {
+          return function(e) {
+            var cur = which === 'min' ? lo : hi;
+            var nv = null;
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') nv = cur - step;
+            else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') nv = cur + step;
+            else if (e.key === 'Home') nv = min;
+            else if (e.key === 'End') nv = max;
+            if (nv === null) return;
+            e.preventDefault();
+            nv = Math.round(nv / step) * step;
+            var floatFix = step < 1 ? Math.pow(10, Math.ceil(-Math.log10(step))) : 1;
+            nv = Math.round(nv * floatFix) / floatFix;
+            if (which === 'min') lo = Math.max(min, Math.min(nv, hi));
+            else hi = Math.min(max, Math.max(nv, lo));
+            paintRange();
+            if (node.attrs.clk) {
+              var kh = renderer.eventBus ? renderer.eventBus.getHandler(node.attrs.clk) : null;
+              if (kh) kh({ value: [lo, hi], id: node.attrs.id });
+            }
+            rReport('change', { value: [lo, hi], name: node.attrs.n || undefined });
+          };
+        };
+        thumbMin.addEventListener('keydown', rKeyHandler('min'));
+        thumbMax.addEventListener('keydown', rKeyHandler('max'));
       }
 
       rField._update = function(uAttrs) {
@@ -1833,6 +1886,33 @@ function registerFormComponents(renderer) {
       };
       slider.addEventListener('mousedown', onStart);
       slider.addEventListener('touchstart', onStart, { passive: false });
+      // 键盘可达（APG slider）：←/↓ -step、→/↑ +step、Home/End 到边界，值变走同一上报
+      var paintKey = function() {
+        var p = ((value - min) / (max - min)) * 100;
+        fill.style.width = p + '%';
+        thumb.style.left = p + '%';
+        valSpan.textContent = String(value);
+        hidden.value = value;
+        thumb.setAttribute('aria-valuenow', String(value));
+      };
+      thumb.addEventListener('keydown', function(e) {
+        var nv = null;
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') nv = value - step;
+        else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') nv = value + step;
+        else if (e.key === 'Home') nv = min;
+        else if (e.key === 'End') nv = max;
+        if (nv === null) return;
+        e.preventDefault();
+        nv = Math.round(nv / step) * step;
+        var floatFix = step < 1 ? Math.pow(10, Math.ceil(-Math.log10(step))) : 1;
+        value = Math.max(min, Math.min(max, Math.round(nv * floatFix) / floatFix));
+        paintKey();
+        if (node.attrs.clk) {
+          var kh = renderer.eventBus ? renderer.eventBus.getHandler(node.attrs.clk) : null;
+          if (kh) kh({ value: value, id: node.attrs.id });
+        }
+        report('change', { value: value, name: node.attrs.n || undefined });
+      });
     }
 
     field._update = function(uAttrs) {
@@ -2148,7 +2228,7 @@ function registerFormComponents(renderer) {
     function makePanel(title) {
       var panel = el('div', { class: 'tokui-transfer__panel', role: 'listbox' });
       var header = el('div', { class: 'tokui-transfer__header' });
-      var checkAll = el('input', { type: 'checkbox', class: 'tokui-transfer__check-all' });
+      var checkAll = el('input', { type: 'checkbox', class: 'tokui-transfer__check-all', 'aria-label': _t('transfer.selectAll') });
       header.appendChild(checkAll);
       header.appendChild(el('span', {}, title));
       var count = el('span', { class: 'tokui-transfer__count' }, '0/0');
@@ -2164,7 +2244,10 @@ function registerFormComponents(renderer) {
       // 全选/取消全选
       checkAll.addEventListener('change', function() {
         var checked = checkAll.checked;
-        panel._items.forEach(function(item) { item._cb.checked = checked; });
+        panel._items.forEach(function(item) {
+          item._cb.checked = checked;
+          item.setAttribute('aria-selected', String(checked));
+        });
         updateCount(panel);
       });
       return panel;
@@ -2180,8 +2263,9 @@ function registerFormComponents(renderer) {
       label.appendChild(cb);
       label.appendChild(el('span', {}, text));
       label._cb = cb;
-      // 单个 checkbox 变化时同步全选状态和计数
+      // 单个 checkbox 变化时同步全选状态、计数与 aria-selected
       cb.addEventListener('change', function() {
+        label.setAttribute('aria-selected', String(!!cb.checked));
         var panel = label.closest('.tokui-transfer__panel');
         if (panel) {
           updateCount(panel);
@@ -2211,8 +2295,8 @@ function registerFormComponents(renderer) {
     });
 
     var actions = el('div', { class: 'tokui-transfer__actions' });
-    var btnRight = el('button', { class: 'tokui-transfer__btn', type: 'button' }, '→');
-    var btnLeft = el('button', { class: 'tokui-transfer__btn', type: 'button' }, '←');
+    var btnRight = el('button', { class: 'tokui-transfer__btn', type: 'button', 'aria-label': _t('transfer.moveRight') }, '→');
+    var btnLeft = el('button', { class: 'tokui-transfer__btn', type: 'button', 'aria-label': _t('transfer.moveLeft') }, '←');
     actions.appendChild(btnRight);
     actions.appendChild(btnLeft);
 
@@ -2313,6 +2397,9 @@ function registerFormComponents(renderer) {
 
     if (node.attrs.dis !== undefined) {
       transfer.classList.add('tokui-transfer--disabled');
+      // 禁用态真禁用移动钮（class 之外的行为闸门）
+      btnRight.disabled = true;
+      btnLeft.disabled = true;
     }
 
     // 真流式追加钩子：流式模式下每个 opt 子节点到达时由 renderer._streamChild 调用，
@@ -2370,8 +2457,10 @@ function registerFormComponents(renderer) {
     var isDisabled = node.attrs.dis !== undefined;
 
     var field = el('div', { class: 'tokui-field' });
+    var numInputId = node.attrs.id || ('tokui-numinput-' + Math.random().toString(36).slice(2, 8));
     if (node.attrs.l) {
-      field.appendChild(el('label', { class: 'tokui-label' + (node.attrs.req !== undefined ? ' tokui-label--req' : '') }, node.attrs.l));
+      // label for 关联输入框（可点击聚焦 + AT 播报标签）
+      field.appendChild(el('label', { class: 'tokui-label' + (node.attrs.req !== undefined ? ' tokui-label--req' : ''), for: numInputId }, node.attrs.l));
     }
 
     var wrapper = el('div', { class: 'tokui-numinput' + (isDisabled ? ' tokui-numinput--disabled' : '') });
@@ -2379,18 +2468,23 @@ function registerFormComponents(renderer) {
     // 减少按钮
     var minusBtn = el('button', {
       class: 'tokui-numinput__btn tokui-numinput__btn--minus',
-      type: 'button'
+      type: 'button',
+      'aria-label': _t('numinput.decrease')
     });
     minusBtn.textContent = '−'; // minus sign
     wrapper.appendChild(minusBtn);
 
-    // 数字输入
+    // 数字输入（spinbutton 语义：AT 播报当前值与边界）
     var inputAttrs = {
       class: 'tokui-numinput__input',
       type: 'text',
-      value: String(value)
+      value: String(value),
+      role: 'spinbutton',
+      'aria-valuenow': String(value)
     };
-    if (node.attrs.id) inputAttrs.id = node.attrs.id;
+    if (!isNaN(min)) inputAttrs['aria-valuemin'] = String(min);
+    if (!isNaN(max)) inputAttrs['aria-valuemax'] = String(max);
+    inputAttrs.id = numInputId;
     // 不设 name，表单提交由 hidden input 负责
     if (isDisabled) inputAttrs.disabled = 'disabled';
     var input = el('input', inputAttrs);
@@ -2399,7 +2493,8 @@ function registerFormComponents(renderer) {
     // 增加按钮
     var plusBtn = el('button', {
       class: 'tokui-numinput__btn tokui-numinput__btn--plus',
-      type: 'button'
+      type: 'button',
+      'aria-label': _t('numinput.increase')
     });
     plusBtn.textContent = '+'; // plus sign
     wrapper.appendChild(plusBtn);
@@ -2431,6 +2526,7 @@ function registerFormComponents(renderer) {
         newVal = clamp(newVal);
         value = newVal;
         input.value = String(value);
+        input.setAttribute('aria-valuenow', String(value));
         hidden.value = value;
         reportChange();
       }
@@ -2457,6 +2553,7 @@ function registerFormComponents(renderer) {
         if (!isNaN(max)) newVal = Math.min(max, newVal);
         value = newVal;
         input.value = String(value);
+        input.setAttribute('aria-valuenow', String(value));
         hidden.value = value;
       }
       if (uAttrs.dis === true || uAttrs.dis === 'true') {
@@ -2689,10 +2786,14 @@ function registerFormComponents(renderer) {
     function renderMenuColumn(items) {
       var col = el('div', { class: 'tokui-cascader-menu' });
       items.forEach(function(item) {
+        // role=option + tabindex=-1：键盘 ↑↓ 经委托聚焦、Enter/Space 选定
         var optEl = el('div', {
           class: 'tokui-cascader-option' + (item.children.length ? ' tokui-cascader-option--expand' : ''),
           'data-value': item.v,
-          'data-text': item.tx
+          'data-text': item.tx,
+          role: 'option',
+          tabindex: '-1',
+          'aria-selected': 'false'
         });
         optEl.textContent = item.tx;
         col.appendChild(optEl);
@@ -2703,7 +2804,9 @@ function registerFormComponents(renderer) {
     // 高亮列中指定值的选项
     function highlightOption(col, val) {
       col.querySelectorAll('.tokui-cascader-option').forEach(function(o) {
-        o.classList.toggle('tokui-cascader-option--active', o.getAttribute('data-value') === val);
+        var on = o.getAttribute('data-value') === val;
+        o.classList.toggle('tokui-cascader-option--active', on);
+        o.setAttribute('aria-selected', String(on));
       });
     }
 
@@ -2784,12 +2887,55 @@ function registerFormComponents(renderer) {
         else if (state.tree) openMenus(state.tree);
       });
 
+      // 键盘可达：readonly input 上 Enter/↓ 开面板、Esc 关并还焦 input
+      searchInput.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowDown' || e.key === 'Enter') {
+          if (!state.isOpen && state.tree) {
+            e.preventDefault();
+            e.stopPropagation();
+            openMenus(state.tree);
+            // 焦点进第一列首项
+            var first = menus.querySelector('.tokui-cascader-option');
+            if (first && typeof first.focus === 'function') first.focus();
+          }
+        } else if (e.key === 'Escape' && state.isOpen) {
+          e.stopPropagation();
+          closeMenus();
+        }
+      });
+
+      // 选项键盘操作（委托）：↑/↓ 列内移动焦点、Enter/Space 选定、Esc 关并还焦 input
+      menus.addEventListener('keydown', function(e) {
+        var optEl = e.target && e.target.closest ? e.target.closest('.tokui-cascader-option') : null;
+        if (e.key === 'Escape') {
+          e.stopPropagation();
+          closeMenus();
+          if (typeof searchInput.focus === 'function') searchInput.focus();
+          return;
+        }
+        if (!optEl) return;
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          var colOpts = Array.prototype.slice.call(optEl.parentElement.querySelectorAll('.tokui-cascader-option'));
+          var oi = colOpts.indexOf(optEl);
+          var nextOi = e.key === 'ArrowDown' ? Math.min(oi + 1, colOpts.length - 1) : Math.max(oi - 1, 0);
+          if (colOpts[nextOi] && typeof colOpts[nextOi].focus === 'function') colOpts[nextOi].focus();
+        } else if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          selectCascaderOption(optEl);
+        }
+      });
+
       menus.addEventListener('click', function(e) {
         e.stopPropagation();
         var optEl = e.target.closest('.tokui-cascader-option');
         if (!optEl) return;
+        selectCascaderOption(optEl);
+      });
+
+      // 选中逻辑（click 与键盘 Enter/Space 共用）
+      function selectCascaderOption(optEl) {
         var val = optEl.getAttribute('data-value');
-        var tx = optEl.getAttribute('data-text');
         if (!state.tree) return;
 
         var path = findPathToNode(state.tree, val);
@@ -2804,6 +2950,9 @@ function registerFormComponents(renderer) {
           // 非叶子：更新路径到当前节点，展开下一级
           state.activeValues = path.map(function(p) { return p.v; });
           rebuildMenus(state.tree, state.activeValues);
+          // 键盘路径：焦点移入新列首项
+          var first = menus.querySelector('.tokui-cascader-menu:last-child .tokui-cascader-option');
+          if (first && typeof first.focus === 'function') first.focus();
         } else {
           // 叶子：选中完成
           var pathText = path.map(function(p) { return p.tx; }).join(' / ');
@@ -2811,6 +2960,7 @@ function registerFormComponents(renderer) {
           searchInput.value = pathText;
           hidden.value = pathValue;
           closeMenus();
+          if (typeof searchInput.focus === 'function') searchInput.focus();
           if (node.attrs.clk) {
             var handler = (typeof window !== 'undefined' && window.TokUI && window.TokUI._internal && window.TokUI._internal.TokUIEventBus)
               ? window.TokUI._internal.TokUIEventBus.getHandler(node.attrs.clk) : null;
@@ -2818,7 +2968,7 @@ function registerFormComponents(renderer) {
           }
           report('change', { value: pathValue, name: node.attrs.n || undefined });
         }
-      });
+      }
 
       // 外部点击关闭
       if (typeof document !== 'undefined') {
@@ -2979,7 +3129,7 @@ function registerFormComponents(renderer) {
         item.appendChild(size);
         // 传输层三态 UI（仅 u: 模式下 entry 带 status）：上传中进度条 / 成功 ✓ / 失败 ✗ + 重试
         if (f.status === 'uploading') {
-          var prog = el('div', { class: 'tokui-upload__progress', role: 'progressbar', title: _t('upload.uploading') });
+          var prog = el('div', { class: 'tokui-upload__progress', role: 'progressbar', title: _t('upload.uploading'), 'aria-valuenow': String(f.percent || 0), 'aria-valuemin': '0', 'aria-valuemax': '100' });
           var bar = el('div', { class: 'tokui-upload__progress-bar' });
           bar.style.width = (f.percent || 0) + '%';
           prog.appendChild(bar);
@@ -2995,9 +3145,19 @@ function registerFormComponents(renderer) {
           retry.setAttribute('data-idx', idx);
           item.appendChild(retry);
         }
-        var remove = el('span', { class: 'tokui-upload-file-remove' });
+        // 键盘可达：role=button + 可聚焦 + Enter/Space 删除（click 委托在 fileList 上，keydown 这里直接派发）
+        var remove = el('span', { class: 'tokui-upload-file-remove', role: 'button', tabindex: '0', 'aria-label': _t('common.delete') });
         remove.textContent = '✕';
         remove.setAttribute('data-idx', idx);
+        remove.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            // 与 click 委托同路径：删项 + 重绘 + 上报
+            selectedFiles.splice(idx, 1);
+            renderFileList();
+            reportFiles();
+          }
+        });
         item.appendChild(remove);
         fileList.appendChild(item);
       });
@@ -3390,9 +3550,9 @@ function registerFormComponents(renderer) {
   function renderCalendarGrid(year, month, selectedDate, now, container, rangeSel) {
     // 头部导航
     var header = el('div', { class: 'tokui-datepicker-header' });
-    var prevBtn = el('button', { class: 'tokui-datepicker-nav tokui-datepicker-nav--prev', type: 'button' });
+    var prevBtn = el('button', { class: 'tokui-datepicker-nav tokui-datepicker-nav--prev', type: 'button', 'aria-label': _t('calendar.prevMonth') });
     prevBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>';
-    var nextBtn = el('button', { class: 'tokui-datepicker-nav tokui-datepicker-nav--next', type: 'button' });
+    var nextBtn = el('button', { class: 'tokui-datepicker-nav tokui-datepicker-nav--next', type: 'button', 'aria-label': _t('calendar.nextMonth') });
     nextBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>';
     var titleEl = el('span', { class: 'tokui-datepicker-title' }, _t('datepicker.title', { y: year, m: month + 1 }));
     header.appendChild(prevBtn);
@@ -3438,7 +3598,8 @@ function registerFormComponents(renderer) {
           dayClasses.push('tokui-datepicker-day--in-range');
         }
       }
-      var dayEl = el('span', { class: dayClasses.join(' '), 'data-day': String(d) }, String(d));
+      // 本月（tabindex=-1：可编程聚焦，配合面板 keydown 委托实现键盘选日）
+      var dayEl = el('span', { class: dayClasses.join(' '), 'data-day': String(d), tabindex: '-1' }, String(d));
       grid.appendChild(dayEl);
     }
     // 下月填充（补齐到 6 行 42 格）
@@ -3594,10 +3755,76 @@ function registerFormComponents(renderer) {
         if (isOpen) closePanel(); else openPanel();
       });
 
+      // 键盘可达：Enter/↓ 开面板（焦点进面板内首个可选日）、Esc 关并还焦输入框
+      input.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowDown' || e.key === 'Enter') {
+          if (!isOpen) {
+            e.preventDefault();
+            e.stopPropagation();
+            openPanel();
+            var firstDay = dropdown.querySelector('.tokui-datepicker-day--selected') || dropdown.querySelector('.tokui-datepicker-day:not(.tokui-datepicker-day--other)');
+            if (firstDay && typeof firstDay.focus === 'function') firstDay.focus();
+          }
+        } else if (e.key === 'Escape' && isOpen) {
+          e.stopPropagation();
+          closePanel();
+        }
+      });
+
+      // 面板内键盘：Enter/Space 选定聚焦日（与 click 同路径）、Esc 关并还焦输入框、
+      // 方向键网格导航（←/→ ±1 天、↑/↓ ±7 天，跨月自动翻页重绘，APG date picker grid）
+      dropdown.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+          e.stopPropagation();
+          closePanel();
+          if (typeof input.focus === 'function') input.focus();
+          return;
+        }
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+          var curDayEl = e.target && e.target.closest ? e.target.closest('.tokui-datepicker-day') : null;
+          if (!curDayEl) return;
+          e.preventDefault();
+          var curDay = parseInt(curDayEl.getAttribute('data-day'), 10);
+          // --other 格（上下月填充）以当月 1 号为锚：左/上移出月末、右/下移进下月，统一经 Date 进位
+          var isOther = curDayEl.classList.contains('tokui-datepicker-day--other');
+          var delta = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : e.key === 'ArrowUp' ? -7 : 7;
+          var target = isOther
+            ? new Date(currentYear, currentMonth, delta > 0 ? delta : delta + 1) // 末格锚 1 号、首格锚 0 号
+            : new Date(currentYear, currentMonth, curDay + delta);
+          var tY = target.getFullYear(), tM = target.getMonth(), tD = target.getDate();
+          if (tY !== currentYear || tM !== currentMonth) {
+            currentYear = tY;
+            currentMonth = tM;
+            renderCalendar(currentYear, currentMonth);
+          }
+          // 重绘后按 data-day 找当月格聚焦（不用复合选择器，兼容 dom-mock）
+          var allDays = dropdown.querySelectorAll('.tokui-datepicker-day');
+          for (var di = 0; di < allDays.length; di++) {
+            var dEl = allDays[di];
+            if (!dEl.classList.contains('tokui-datepicker-day--other')
+              && parseInt(dEl.getAttribute('data-day'), 10) === tD) {
+              if (typeof dEl.focus === 'function') dEl.focus();
+              break;
+            }
+          }
+          return;
+        }
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        var dayEl = e.target && e.target.closest ? e.target.closest('.tokui-datepicker-day') : null;
+        if (!dayEl || dayEl.classList.contains('tokui-datepicker-day--other')) return;
+        e.preventDefault();
+        pickDay(dayEl);
+      });
+
       dropdown.addEventListener('click', function(e) {
         e.stopPropagation();
         var dayEl = e.target.closest('.tokui-datepicker-day');
         if (!dayEl || dayEl.classList.contains('tokui-datepicker-day--other')) return;
+        pickDay(dayEl);
+      });
+
+      // 选日逻辑（click 与键盘 Enter/Space 共用）
+      function pickDay(dayEl) {
         var day = parseInt(dayEl.getAttribute('data-day'));
         if (isRange) {
           // range 选段：第一次设 start，第二次设 end（end<start 自动交换），第三次重选
@@ -3637,7 +3864,7 @@ function registerFormComponents(renderer) {
           if (handler) handler({ value: formatted, date: selectedDate, id: attrs.id });
         }
         report('change', { value: formatted, name: attrs.n || undefined });
-      });
+      }
 
       if (typeof document !== 'undefined') {
         document.addEventListener('click', function(e) {
@@ -3774,6 +4001,29 @@ function registerFormComponents(renderer) {
       control.addEventListener('click', function(e) {
         e.stopPropagation();
         if (isOpen) closePanel(); else openPanel();
+      });
+
+      // 键盘可达：Enter/↓ 开面板（焦点进确认钮）、Esc 关并还焦输入框
+      input.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowDown' || e.key === 'Enter') {
+          if (!isOpen) {
+            e.preventDefault();
+            e.stopPropagation();
+            openPanel();
+            if (typeof confirmBtn.focus === 'function') confirmBtn.focus();
+          }
+        } else if (e.key === 'Escape' && isOpen) {
+          e.stopPropagation();
+          closePanel();
+        }
+      });
+      // 面板内 Esc 关并还焦输入框
+      dropdown.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+          e.stopPropagation();
+          closePanel();
+          if (typeof input.focus === 'function') input.focus();
+        }
       });
 
       confirmBtn.addEventListener('click', function(e) {
@@ -3967,14 +4217,76 @@ function registerFormComponents(renderer) {
         if (isOpen) closePanel(); else openPanel();
       });
 
+      // 键盘可达：Enter/↓ 开面板（焦点进选中日/首日）、Esc 关并还焦输入框
+      input.addEventListener('keydown', function(e) {
+        if (e.key === 'ArrowDown' || e.key === 'Enter') {
+          if (!isOpen) {
+            e.preventDefault();
+            e.stopPropagation();
+            openPanel();
+            var firstDay = dropdown.querySelector('.tokui-datepicker-day--selected') || dropdown.querySelector('.tokui-datepicker-day:not(.tokui-datepicker-day--other)');
+            if (firstDay && typeof firstDay.focus === 'function') firstDay.focus();
+          }
+        } else if (e.key === 'Escape' && isOpen) {
+          e.stopPropagation();
+          closePanel();
+        }
+      });
+      // 面板内键盘：Esc 关并还焦；日期格 Enter/Space 选日（与 click 同路径）；方向键网格导航（跨月自动翻页）
+      dropdown.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+          e.stopPropagation();
+          closePanel();
+          if (typeof input.focus === 'function') input.focus();
+          return;
+        }
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+          var curDayEl = e.target && e.target.closest ? e.target.closest('.tokui-datepicker-day') : null;
+          if (!curDayEl) return;
+          e.preventDefault();
+          var curDay = parseInt(curDayEl.getAttribute('data-day'), 10);
+          var isOther = curDayEl.classList.contains('tokui-datepicker-day--other');
+          var delta = e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : e.key === 'ArrowUp' ? -7 : 7;
+          var target = isOther
+            ? new Date(currentYear, currentMonth, delta > 0 ? delta : delta + 1)
+            : new Date(currentYear, currentMonth, curDay + delta);
+          var tY = target.getFullYear(), tM = target.getMonth(), tD = target.getDate();
+          if (tY !== currentYear || tM !== currentMonth) {
+            currentYear = tY;
+            currentMonth = tM;
+            renderDateSection(currentYear, currentMonth);
+          }
+          var allDays = dropdown.querySelectorAll('.tokui-datepicker-day');
+          for (var di = 0; di < allDays.length; di++) {
+            var dEl = allDays[di];
+            if (!dEl.classList.contains('tokui-datepicker-day--other')
+              && parseInt(dEl.getAttribute('data-day'), 10) === tD) {
+              if (typeof dEl.focus === 'function') dEl.focus();
+              break;
+            }
+          }
+          return;
+        }
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        var dayEl = e.target && e.target.closest ? e.target.closest('.tokui-datepicker-day') : null;
+        if (!dayEl || dayEl.classList.contains('tokui-datepicker-day--other')) return;
+        e.preventDefault();
+        pickDtDay(dayEl);
+      });
+
       dateSection.addEventListener('click', function(e) {
         e.stopPropagation();
         var dayEl = e.target.closest('.tokui-datepicker-day');
         if (!dayEl || dayEl.classList.contains('tokui-datepicker-day--other')) return;
+        pickDtDay(dayEl);
+      });
+
+      // 选日逻辑（click 与键盘 Enter/Space 共用）
+      function pickDtDay(dayEl) {
         var day = parseInt(dayEl.getAttribute('data-day'));
         selectedDate = new Date(currentYear, currentMonth, day);
         renderDateSection(currentYear, currentMonth);
-      });
+      }
 
       confirmBtn.addEventListener('click', function(e) {
         e.stopPropagation();

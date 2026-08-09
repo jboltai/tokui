@@ -527,6 +527,6 @@
 
 > 服务端可用 `[upd id:ed1 tx:新值]` 程序化改值（silent）、`[upd id:ed1 dis:false]` 解锁。
 
-<Playground dsl='[p 昵称：[editable tx:小木屋 n:nick]][p 签名：[editable ph:点击填写 n:sign]]' />
+<Playground dsl='[p]昵称：[editable tx:小木屋 n:nick][/p][p]签名：[editable ph:点击填写 n:sign][/p][p]锁定项：[editable tx:不可编辑 dis][/p]' />
 
 > 完整 DSL 语法（属性简写、变体白名单、流式渲染约束等）见 [DSL 语法](/guide/dsl-syntax)。

@@ -425,7 +425,7 @@ Container. A CSS-columns masonry layout: `cols` for a fixed column count or `min
 | `minw` | Auto-column mode: minimum item width (px, wins over `cols`) | `minw:200` |
 | `gap` | Gap (px, defaults to 8) | `gap:10` |
 
-<Playground dsl='[masonry cols:3][card tt:A][p 短内容][/card][card tt:B][p 长内容][p 更多内容][/card][card tt:C][p 适中][/card][/masonry]' />
+<Playground dsl='[masonry cols:3][card tt:A][p 短内容][/card][card tt:B][p 这是一段比较长的内容，用来撑高这张卡片，让瀑布流高低错落的效果更明显。][p 再来一段补充说明。][/card][card tt:C][p 适中内容][p 第二行][/card][card tt:D][p 短][/card][card tt:E][p 长内容示例][p 第二段][p 第三段][p 第四段][/card][card tt:F][p 适中][/card][card tt:G][p 瀑布流按列依次填充，卡片高度各不相同，才能看出与网格布局的区别。][/card][card tt:H][p 短][/card][card tt:I][p 收尾卡片][p 内容][/card][/masonry]' />
 
 ## Tour `tour` / `tour-step`
 

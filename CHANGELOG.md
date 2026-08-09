@@ -2,6 +2,31 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.2] - 2026-08-09
+
+a11y 无障碍巡检专项 + Phase 5 体系债务清理收官。
+
+### 新增
+
+- **datepicker/datetimepicker 键盘网格导航**：日期格 APG 方向键导航（←/→ 逐日、↑/↓ 逐周、Home/End 行首行尾），跨月边界自动翻页并聚焦对应日期。
+- **chart dataZoom 键盘化**：缩放窗口与左右手柄支持键盘操作（role=slider + 方向键步进 + Home/End 直达边界），`aria-valuenow` 实时同步，复用共享 `bindZoomKeyboard` helper。
+- **分页焦点保持**：pagination 与 table pager 重绘后焦点不丢失（翻页按钮重建时焦点落回同位置页码）。
+
+### 修复
+
+- **menu 变体纳入白名单**：`v:horizontal`/`v:inline` 迁入 renderer `VARIANTS` 机制，与全局变体体系一致。
+- **parser**：`BOOLEAN_ATTRS` 重复的 `'open'` 去重。
+- **table.js**：`'\x00SKELETON\x00'` 哨兵改为 `'\u0000SKELETON\u0000'` 转义写法，源码不再有裸 NUL 字节。
+- **禁用态点击闸门**：`aria-disabled` 元素不再触发 `clk` 回调（鼠标/键盘同口径）。
+- **a11y 巡检批量修复**（~60 处）：tabs/menu 补 ARIA 角色与 roving tabindex；灯箱、tag 关闭钮、file-tree 折叠钮键盘可达；popover/command 面板焦点管理完善；chart SVG 统一 `role="img"`。
+
+### 变更
+
+- **ARIA 语义统一**：开关类控件 `aria-pressed` 统一调整为 `aria-checked`。
+- **i18n 字典扩充**：新增 17 条 chrome 文案（lightbox 上下张、sidebar 折叠、canvas 面板、pagination 翻页、carousel、numinput 增减、transfer 移动/全选、calendar 翻月、table 全选、pwd 显隐），zh-CN / en-US 双份。
+- **DSL 参考**：`dis:false` 语义坑写入 `demo/TOKUI_DSL_REFERENCE.md` §3 与 `docs/guide/dsl-syntax.md` 双语醒目警告；steps `vd:`/`s:` 与 tabs 值语义 `v` 在 §4/§8.1 明示。
+- **文档示例完善**：h1-h6 标题补 `bg`/`fc` 配色属性说明与装饰变体（ribbon/badge/pill 等）示例；masonry 瀑布流示例改为多卡片不同高度；editable 示例改为规范嵌套段落形式（`docs/components/` 中英双语同步）。
+
 ## [0.2.1] - 2026-08-03
 
 Phase 4 新组件补位 + P2 社区组件落地，配色体系整体柔化。

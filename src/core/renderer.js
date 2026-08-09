@@ -271,6 +271,7 @@ const VARIANTS = {
   cascader: new Set(['error', 'success']),
   upload:   new Set(['sm', 'lg']),
   tree:     new Set(['sm', 'lg']),
+  menu: new Set(['horizontal', 'inline']),
   segmented: new Set(['sm', 'lg', 'block', 'pill', 'vertical']),
   anchor: new Set(['horizontal']),
   kbd: new Set(['sm', 'lg']),
@@ -689,12 +690,25 @@ class TokUIRenderer {
         const label = document.createElement('label');
         label.className = 'tokui-tabs-label';
         label.setAttribute('for', tabId + '-' + idx);
+        label.setAttribute('id', tabId + '-label-' + idx);
         label.setAttribute('data-index', String(idx));
         label.setAttribute('data-tokui-tag', 'tab');
+        // a11y：role/aria-selected/roving tabindex + panel 关联（流式路径与非流式 _appendTabItem 对齐）
+        label.setAttribute('role', 'tab');
+        label.setAttribute('aria-selected', 'true'); // 流式跟随：新 tab 即当前页
+        label.setAttribute('aria-controls', tabId + '-panel-' + idx);
+        label.setAttribute('tabindex', '0');
+        // 其余 tab 让位（roving tabindex + aria-selected 复位）
+        tabsEl.querySelectorAll('.tokui-tabs-label').forEach(function (lb) {
+          lb.setAttribute('aria-selected', 'false');
+          lb.setAttribute('tabindex', '-1');
+        });
         label.textContent = dom._tabTitle || ('Tab ' + (idx + 1));
         tabsEl.appendChild(label);
         // 面板追加到 tabs 容器
         dom.setAttribute('data-index', String(idx));
+        dom.setAttribute('id', tabId + '-panel-' + idx);
+        dom.setAttribute('aria-labelledby', tabId + '-label-' + idx);
         tabsEl.appendChild(dom);
         tabsEl._tabCount = idx + 1;
         // panel 的 slot 是自身，子内容追加到 panel 内
@@ -987,6 +1001,8 @@ class TokUIRenderer {
       }
       var clickFn = function (e) {
         e.preventDefault();
+        // 禁用态闸门：aria-disabled 元素不触发 clk（鼠标/键盘同口径）
+        if (element.getAttribute('aria-disabled') === 'true') return;
         // 提交按钮在 form 外：用附近 form 的 sub handler 处理
         if (nearbyFormForSubmit) {
           if (!self._checkFormValidity(nearbyFormForSubmit)) return;
@@ -1015,6 +1031,21 @@ class TokUIRenderer {
       };
       element.addEventListener('click', clickFn);
       self._boundElements.push({ element: element, listeners: [{ type: 'click', fn: clickFn }] });
+      // 键盘可达兜底：非原生交互元素（div/span 等）带 clk 时可聚焦但没有原生 Enter/Space 激活，
+      // 统一补 keydown → 触发同一 clickFn（原生 button/a/input 等跳过，浏览器自带该行为）。
+      // _tokuiKeySelf：组件已自绑键盘分发（如 menu-item / suggestion 的 Enter→el.click()），防 handler 双发。
+      var tag = element.tagName ? element.tagName.toUpperCase() : '';
+      var isNativeInteractive = tag === 'BUTTON' || tag === 'A' || tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA' || tag === 'SUMMARY';
+      if (!isNativeInteractive && !element._tokuiKeySelf) {
+        var keyFn = function (e) {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            clickFn(e);
+          }
+        };
+        element.addEventListener('keydown', keyFn);
+        self._boundElements[self._boundElements.length - 1].listeners.push({ type: 'keydown', fn: keyFn });
+      }
     });
 
     // 绑定表单提交事件

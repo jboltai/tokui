@@ -4,16 +4,33 @@ The most frequently used display components: headings, text, buttons, tags, call
 
 ## Headings `h1` ~ `h6`
 
-Six-level headings, self-closing. `tx` is the text (optional — you can write the content inline), and `v` controls alignment and decoration.
+Six-level headings, self-closing. `tx` is the text (optional — you can write the content inline), `v` controls alignment and decoration, and `bg` / `fc` set the colors.
 
 | Prop | Meaning | Example |
 |------|---------|---------|
 | `tx` | Text content (or write content inline) | `[h1 标题]` |
-| `v` | Variant | `v:underline` |
+| `v` | Variant (alignment / decoration, comma-combinable) | `v:underline`、`v:"center,ribbon"` |
+| `bg` | Background / accent color: theme name (`primary`/`success`/`warning`/`danger`/`dark`/`light`) or 6-digit hex (no `#`) | `bg:success`、`bg:722ed1` |
+| `fc` | Text color (same values as `bg`) | `fc:danger` |
+| `id` | Element ID (targeted by `upd`/`del`/`ins`) | `id:title1` |
 
-**Variants**: `left` / `center` / `right` (alignment), `ribbon`, `underline`, `badge` / `pill`. The decorative variants (ribbon/badge/pill/underline) share a "tinted background + accent text" scheme: `bg:` sets the accent color and the 10% tint background and soft border are derived automatically, adapting to light and dark themes.
+**Variants**: `left` / `center` / `right` (alignment), `ribbon`, `underline`, `badge` / `pill`. The decorative variants (ribbon/badge/pill/underline) share a "tinted background + accent text" scheme: `bg:` sets the accent color and the 10% tint background and soft border are derived automatically, adapting to light and dark themes. Without a decorative variant, `bg` paints a solid full-width background.
 
-<Playground dsl='[h1 v:underline TokUI 一级标题][h2 二级标题][h3 三级标题][h4 四级标题][h5 v:badge 五级带徽标][h6 六级标题]' />
+Six levels side by side:
+
+<Playground dsl='[h1 一级标题][h2 二级标题][h3 三级标题][h4 四级标题][h5 五级标题][h6 六级标题]' />
+
+Alignment variants:
+
+<Playground dsl='[h3 v:left 左对齐（默认）][h3 v:center 居中对齐][h3 v:right 右对齐]' />
+
+Decorative variants (recolor with `bg`):
+
+<Playground dsl='[h2 v:ribbon 缎带标题][h2 v:ribbon bg:success 成功色缎带][h2 v:underline 下划线标题][h2 v:underline bg:warning 警告色下划线][h3 v:badge 徽标标题][h3 v:badge bg:danger 危险色徽标][h3 v:pill 胶囊标题][h3 v:pill bg:722ed1 自定义色胶囊]' />
+
+Solid `bg` + `fc` text color, and combining alignment with decoration:
+
+<Playground dsl='[h3 bg:1677ff fc:ffffff 实底白字标题][h3 v:"center,underline" bg:danger 居中 + 危险色下划线]' />
 
 ## Paragraph `p`
 

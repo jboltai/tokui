@@ -171,14 +171,14 @@ function createLightbox(doc) {
     var prevBtn = doc.createElement('button');
     prevBtn.className = 'tokui-lightbox__prev';
     prevBtn.textContent = '‹';
-    prevBtn.setAttribute('aria-label', 'Previous');
+    prevBtn.setAttribute('aria-label', _t('lightbox.prev'));
     overlay.appendChild(prevBtn);
     elPrev = prevBtn;
 
     var nextBtn = doc.createElement('button');
     nextBtn.className = 'tokui-lightbox__next';
     nextBtn.textContent = '›';
-    nextBtn.setAttribute('aria-label', 'Next');
+    nextBtn.setAttribute('aria-label', _t('lightbox.next'));
     overlay.appendChild(nextBtn);
     elNext = nextBtn;
 

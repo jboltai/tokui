@@ -1310,20 +1310,20 @@ test('builder toChunks for streaming command', function() {
 
 // ===== toggle 测试 =====
 
-test('toggle basic render - button.tokui-toggle with aria-pressed', function() {
+test('toggle basic render - button.tokui-toggle with aria-checked', function() {
   var rc = makeRenderer();
   var dom = rc.render({ type: 'toggle', attrs: { tx: 'Bold' }, children: [] });
   assert.strictEqual(dom.tagName, 'BUTTON');
   assert.ok(dom.classList.contains('tokui-toggle'));
-  assert.strictEqual(dom.getAttribute('aria-pressed'), 'false');
+  assert.strictEqual(dom.getAttribute('aria-checked'), 'false');
   assert.strictEqual(dom.getAttribute('role'), 'switch');
   assert.strictEqual(dom.textContent, 'Bold');
 });
 
-test('toggle chk:true sets aria-pressed true and pressed class', function() {
+test('toggle chk:true sets aria-checked true and pressed class', function() {
   var rc = makeRenderer();
   var dom = rc.render({ type: 'toggle', attrs: { tx: 'Bold', chk: true }, children: [] });
-  assert.strictEqual(dom.getAttribute('aria-pressed'), 'true');
+  assert.strictEqual(dom.getAttribute('aria-checked'), 'true');
   assert.ok(dom.classList.contains('tokui-toggle--pressed'));
 });
 
@@ -1352,18 +1352,18 @@ test('toggle clk sets data-tokui-clk', function() {
   assert.strictEqual(dom.getAttribute('data-tokui-clk'), 'onBold');
 });
 
-test('toggle click toggles aria-pressed and pressed class', function() {
+test('toggle click toggles aria-checked and pressed class', function() {
   var rc = makeRenderer();
   var dom = rc.render({ type: 'toggle', attrs: { tx: 'B' }, children: [] });
-  assert.strictEqual(dom.getAttribute('aria-pressed'), 'false');
+  assert.strictEqual(dom.getAttribute('aria-checked'), 'false');
   assert.ok(!dom.classList.contains('tokui-toggle--pressed'));
   // Simulate click via dispatchEvent on mock
   var clickHandlers = dom._events['click'] || [];
   clickHandlers.forEach(function(fn) { fn({ target: dom }); });
-  assert.strictEqual(dom.getAttribute('aria-pressed'), 'true');
+  assert.strictEqual(dom.getAttribute('aria-checked'), 'true');
   assert.ok(dom.classList.contains('tokui-toggle--pressed'));
   clickHandlers.forEach(function(fn) { fn({ target: dom }); });
-  assert.strictEqual(dom.getAttribute('aria-pressed'), 'false');
+  assert.strictEqual(dom.getAttribute('aria-checked'), 'false');
   assert.ok(!dom.classList.contains('tokui-toggle--pressed'));
 });
 
@@ -1397,7 +1397,7 @@ test('toggle-group renders toggle children', function() {
   assert.strictEqual(toggles.length, 2);
   assert.strictEqual(toggles[0].textContent, 'B');
   assert.strictEqual(toggles[1].textContent, 'I');
-  assert.strictEqual(toggles[1].getAttribute('aria-pressed'), 'true');
+  assert.strictEqual(toggles[1].getAttribute('aria-checked'), 'true');
 });
 
 test('toggle-group single-select: clicking one deselects others', function() {
@@ -1412,13 +1412,13 @@ test('toggle-group single-select: clicking one deselects others', function() {
   });
   var toggles = dom.querySelectorAll('.tokui-toggle');
   // A is initially pressed
-  assert.strictEqual(toggles[0].getAttribute('aria-pressed'), 'true');
-  assert.strictEqual(toggles[1].getAttribute('aria-pressed'), 'false');
+  assert.strictEqual(toggles[0].getAttribute('aria-checked'), 'true');
+  assert.strictEqual(toggles[1].getAttribute('aria-checked'), 'false');
   // Click B via group's click handler (simulating event delegation)
   var groupClickHandlers = dom._events['click'] || [];
   groupClickHandlers.forEach(function(fn) { fn({ target: toggles[1] }); });
-  assert.strictEqual(toggles[0].getAttribute('aria-pressed'), 'false');
-  assert.strictEqual(toggles[1].getAttribute('aria-pressed'), 'true');
+  assert.strictEqual(toggles[0].getAttribute('aria-checked'), 'false');
+  assert.strictEqual(toggles[1].getAttribute('aria-checked'), 'true');
 });
 
 test('toggle-group multi-select: clicking one does not affect others', function() {
@@ -1433,13 +1433,13 @@ test('toggle-group multi-select: clicking one does not affect others', function(
   });
   var toggles = dom.querySelectorAll('.tokui-toggle');
   // A is initially pressed
-  assert.strictEqual(toggles[0].getAttribute('aria-pressed'), 'true');
-  assert.strictEqual(toggles[1].getAttribute('aria-pressed'), 'false');
+  assert.strictEqual(toggles[0].getAttribute('aria-checked'), 'true');
+  assert.strictEqual(toggles[1].getAttribute('aria-checked'), 'false');
   // Click B via toggle's own click handler
   var clickHandlers = toggles[1]._events['click'] || [];
   clickHandlers.forEach(function(fn) { fn({ target: toggles[1] }); });
-  assert.strictEqual(toggles[0].getAttribute('aria-pressed'), 'true');
-  assert.strictEqual(toggles[1].getAttribute('aria-pressed'), 'true');
+  assert.strictEqual(toggles[0].getAttribute('aria-checked'), 'true');
+  assert.strictEqual(toggles[1].getAttribute('aria-checked'), 'true');
 });
 
 test('toggle-group size class propagates from group', function() {

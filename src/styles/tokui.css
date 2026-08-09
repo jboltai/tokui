@@ -1896,7 +1896,8 @@ textarea.tokui-textarea--auto { resize: none !important; }
   flex-shrink: 0;
 }
 
-.tokui-conv:hover .tokui-conv__actions {
+.tokui-conv:hover .tokui-conv__actions,
+.tokui-conv:focus-within .tokui-conv__actions {
   display: flex;
 }
 
@@ -2096,7 +2097,8 @@ textarea.tokui-textarea--auto { resize: none !important; }
   border-color: var(--tokui-primary);
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
-.tokui-attach:hover .tokui-attach__actions {
+.tokui-attach:hover .tokui-attach__actions,
+.tokui-attach:focus-within .tokui-attach__actions {
   opacity: 1;
   pointer-events: auto;
 }

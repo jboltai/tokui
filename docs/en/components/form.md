@@ -475,6 +475,6 @@ Self-closing inline element. The text carries a dashed underline marking it as e
 
 > The server can rewrite programmatically with `[upd id:ed1 tx:新值]` (silent) and unlock with `[upd id:ed1 dis:false]`.
 
-<Playground dsl='[p 昵称：[editable tx:小木屋 n:nick]][p 签名：[editable ph:点击填写 n:sign]]' />
+<Playground dsl='[p]昵称：[editable tx:小木屋 n:nick][/p][p]签名：[editable ph:点击填写 n:sign][/p][p]锁定项：[editable tx:不可编辑 dis][/p]' />
 
 > For the full DSL syntax (prop shorthands, variant whitelist, streaming render constraints, etc.), see [DSL Syntax](/guide/dsl-syntax).

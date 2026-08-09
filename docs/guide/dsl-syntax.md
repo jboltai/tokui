@@ -59,6 +59,8 @@ pill dot leaf inline rounded container reset print approval streaming
 
 完整列表以 `parser.js` 的 `BOOLEAN_ATTRS` Set 为准。
 
+> ⚠️ 布尔属性**没有「false 值」**：出现即为 true。想表达「初始不禁用」就**省略该属性**，不要写 `dis:false`——初始渲染时 `'false'` 是字符串（truthy），照样禁用。只有 `upd` 指令里的 `dis:false` / `ro:false` / `chk:false` 才是「主动关闭」语义（见[动态更新](#动态更新)）。
+
 > `approval` 让 `tool-call` 进入人工审批模式（见 [AI 对话 · 工具调用](/components/ai-chat#工具调用-tool-call)），`streaming` 让 `chat-input` 显示停止生成按钮（见 [AI 对话 · 对话输入](/components/ai-chat#对话输入-chat-input)）。
 
 ## 变体系统

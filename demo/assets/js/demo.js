@@ -334,7 +334,7 @@ const I18N = {
   eventPanelClear: { zh: '清空', en: 'Clear' },
   editClicked:    { zh: '编辑按钮被点击', en: 'Edit button clicked' },
   deleteClicked:  { zh: '删除按钮被点击', en: 'Delete button clicked' },
-  footerVer:      { zh: '当前版本:v0.2.1', en: 'Version: v0.2.1' },
+  footerVer:      { zh: '当前版本:v0.2.2', en: 'Version: v0.2.2' },
   footerCopy:     { zh: '零依赖 · 流式UI描述与渲染框架', en: 'Zero Deps · Streaming UI Framework' },
   dslRef:         { zh: 'DSL 语法速查', en: 'DSL Syntax Ref' },
   clearBtn:       { zh: '清空', en: 'Clear' },

@@ -53,6 +53,8 @@ pill dot leaf inline rounded container reset print approval streaming
 
 > `approval` puts `tool-call` into human-approval mode, and `streaming` shows the stop-generating button on `chat-input` (see [AI Chat](/en/components/ai-chat)).
 
+> ⚠️ Boolean attributes have **no "false" value**: presence means true. To say "not disabled initially", **omit the attribute** — do not write `dis:false`; at initial render `'false'` is a (truthy) string and still disables. Only inside `upd` directives are `dis:false` / `ro:false` / `chk:false` treated as "actively turn off".
+
 ## Variants
 
 `v:primary` generates class `tokui-{type}--primary`. Combine with commas: `v:"primary,sm,pill"`. Unknown variants are silently dropped (whitelist).

@@ -112,6 +112,17 @@ function createElement(tag) {
     getAttribute(key) {
       return this.attributes.hasOwnProperty(key) ? this.attributes[key] : null;
     },
+    // 布局测量桩：jsdom 风格零值矩形，弹层定位代码在 mock 下可跑（结果无视觉意义）
+    getBoundingClientRect() {
+      return { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0 };
+    },
+    // 焦点桩：focus/blur 同步 document.activeElement（焦点管理/还原逻辑的断言支点）
+    focus() {
+      if (global.document) global.document._activeElement = this;
+    },
+    blur() {
+      if (global.document && global.document._activeElement === this) global.document._activeElement = null;
+    },
     hasAttribute(key) {
       return key in this.attributes;
     },
@@ -353,7 +364,10 @@ function setupDOM() {
       if (idx > -1) docEvents[type].splice(idx, 1);
     },
     querySelectorAll: function() { return []; },
-    getElementById: function(id) { return __idRegistry[id] || null; }
+    getElementById: function(id) { return __idRegistry[id] || null; },
+    // 焦点桩配套：activeElement 由元素 focus()/blur() 维护
+    _activeElement: null,
+    get activeElement() { return this._activeElement; }
   };
   global.FormData = MockFormData;
 }

@@ -245,4 +245,42 @@ test('页面滚动关闭所有打开的面板', function() {
   assert.strictEqual(window.TokUI._internal._datePickers.size, 0, '注册表清空');
 });
 
+test('datepicker 方向键网格导航：→ 次日、← 跨月翻页聚焦上月末', function() {
+  var rc = makeRenderer();
+  var dom = rc.render({ type: 'datepicker', attrs: { fmt: 'YYYY-MM-DD' }, children: [] });
+  var ctrl = dom.querySelector('.tokui-datepicker-control');
+  var dd = dom.querySelector('.tokui-datepicker-dropdown');
+  ctrl.getBoundingClientRect = fakeRect;
+  fireClick(ctrl); // 开面板
+  function curMonthDay(n) {
+    var found = null;
+    dd.querySelectorAll('.tokui-datepicker-day').forEach(function(d) {
+      if (!d.classList.contains('tokui-datepicker-day--other') && d.getAttribute('data-day') === String(n)) found = d;
+    });
+    return found;
+  }
+  function fireKey(key, target) {
+    (dd._events['keydown'] || []).forEach(function(fn) {
+      fn({ key: key, target: target, preventDefault: function() {}, stopPropagation: function() {} });
+    });
+  }
+  // → 从 15 号到 16 号
+  fireKey('ArrowRight', curMonthDay(15));
+  var active = document.activeElement;
+  assert.ok(active && active.getAttribute('data-day') === '16'
+    && !active.classList.contains('tokui-datepicker-day--other'), '→ 应聚焦当月 16 号');
+  // ↓ +7 天：16 → 23
+  fireKey('ArrowDown', active);
+  active = document.activeElement;
+  assert.ok(active && active.getAttribute('data-day') === '23', '↓ 应 +7 天到 23 号');
+  // ← 从 1 号跨月：重绘后聚焦上月最后一天
+  fireKey('ArrowLeft', curMonthDay(1));
+  active = document.activeElement;
+  var now = new Date();
+  var prevLast = new Date(now.getFullYear(), now.getMonth(), 0).getDate();
+  assert.ok(active && active.getAttribute('data-day') === String(prevLast)
+    && !active.classList.contains('tokui-datepicker-day--other'),
+    '← 跨月应聚焦上月末 ' + prevLast + '，实际 ' + (active && active.getAttribute('data-day')));
+});
+
 run();

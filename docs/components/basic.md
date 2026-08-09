@@ -4,16 +4,33 @@
 
 ## 标题 `h1` ~ `h6`
 
-六级标题，自闭合。`tx` 文本（可省略直接写正文），`v` 控制对齐与装饰。
+六级标题，自闭合。`tx` 文本（可省略直接写正文），`v` 控制对齐与装饰，`bg` / `fc` 配色。
 
 | 属性 | 含义 | 示例 |
 |------|------|------|
 | `tx` | 文本内容（亦可直接写正文） | `[h1 标题]` |
-| `v` | 变体 | `v:underline` |
+| `v` | 变体（对齐 / 装饰，可逗号组合） | `v:underline`、`v:"center,ribbon"` |
+| `bg` | 背景/装饰主色：主题色名（`primary`/`success`/`warning`/`danger`/`dark`/`light`）或 6 位 hex（不带 `#`） | `bg:success`、`bg:722ed1` |
+| `fc` | 文字颜色（取值同 `bg`） | `fc:danger` |
+| `id` | 元素 ID（供 `upd`/`del`/`ins` 定位） | `id:title1` |
 
-**变体**：`left` / `center` / `right`（对齐），`ribbon`（缎带），`underline`（下划线），`badge` / `pill`（徽标）。装饰色变体（ribbon/badge/pill/underline）统一走「浅底 + 主色文字」配色：`bg:` 指定主色后自动派生 10% 浅底与淡描边，深浅主题自适应。
+**变体**：`left` / `center` / `right`（对齐），`ribbon`（缎带），`underline`（下划线），`badge` / `pill`（徽标）。装饰色变体（ribbon/badge/pill/underline）统一走「浅底 + 主色文字」配色：`bg:` 指定主色后自动派生 10% 浅底与淡描边，深浅主题自适应。`bg` 不带装饰变体时则为整行实底。
 
-<Playground dsl='[h1 v:underline TokUI 一级标题][h2 二级标题][h3 三级标题][h4 四级标题][h5 v:badge 五级带徽标][h6 六级标题]' />
+六级字号对比：
+
+<Playground dsl='[h1 一级标题][h2 二级标题][h3 三级标题][h4 四级标题][h5 五级标题][h6 六级标题]' />
+
+对齐变体：
+
+<Playground dsl='[h3 v:left 左对齐（默认）][h3 v:center 居中对齐][h3 v:right 右对齐]' />
+
+装饰变体（`bg` 换主色）：
+
+<Playground dsl='[h2 v:ribbon 缎带标题][h2 v:ribbon bg:success 成功色缎带][h2 v:underline 下划线标题][h2 v:underline bg:warning 警告色下划线][h3 v:badge 徽标标题][h3 v:badge bg:danger 危险色徽标][h3 v:pill 胶囊标题][h3 v:pill bg:722ed1 自定义色胶囊]' />
+
+`bg` 实底 + `fc` 文字色、对齐与装饰组合：
+
+<Playground dsl='[h3 bg:1677ff fc:ffffff 实底白字标题][h3 v:"center,underline" bg:danger 居中 + 危险色下划线]' />
 
 ## 段落 `p`
 

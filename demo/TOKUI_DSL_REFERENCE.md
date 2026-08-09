@@ -102,6 +102,8 @@ search  thumb  reset  print  approval  streaming  mask
 
 > `reset` / `print` 是按钮内置动作；`thumb`/`delete` 多用于 `msg-actions` 等生成默认按钮；`controls` 用于 `video` 显示原生控件栏；`leaf` 让 `tn` 自闭合；`collapsible` 用于 `sidebar`；`approval` 让 `tool-call` 进入人工审批模式（§6.4）；`streaming` 让 `chat-input` 显示停止生成按钮（§6.4）。
 
+> ⚠️ **布尔属性没有「false 值」**：出现即为 true。想表达「初始不禁用」就**省略该属性**，不要写 `dis:false`——初始渲染时 `'false'` 是字符串（truthy），照样禁用。只有 `upd` 指令里 `dis:false` / `ro:false` / `chk:false` 才是「主动关闭」语义（渲染端判 `=== 'false'`，见 §8.1）。
+
 ---
 
 ## 4. 变体系统
@@ -130,8 +132,12 @@ DSL 写 `v:primary` → 渲染器生成 CSS 类 `tokui-{type}--primary`。多变
 | `input` `pwd` | `error` `success` `sm` `lg` `underline` `pill`（另有 `inline` 非白名单，单独处理） |
 | `select` `picker` `cascader` | `error` `success` |
 | `breadcrumb` | `arrow` |
+| `menu` | `horizontal` `inline`（`vertical` 为默认无类；历史别名 `v:h` 归一为 `horizontal`） |
+| `segmented` | `sm` `lg` `block` `pill` `vertical` |
+| `anchor` | `horizontal` |
+| `kbd` | `sm` `lg` |
 
-> `radio`/`checkbox` 的 `v:inline`（标签与控件同行）/ `v:vertical`（竖排左对齐）是**手动标记**，不在 `VARIANTS` 白名单内，由组件自身解析；二者互斥。`timeline` 的 `v:h`/`horizontal`/`alt`/`alternate`/`card`、`steps` 的 `vd:v`/`vertical` 同理。
+> `radio`/`checkbox` 的 `v:inline`（标签与控件同行）/ `v:vertical`（竖排左对齐）是**手动标记**，不在 `VARIANTS` 白名单内，由组件自身解析；二者互斥。`timeline` 的 `v:h`/`horizontal`/`alt`/`alternate`/`card`、`steps` 的 `vd:v`/`vertical` 同理。注意 `steps`/`tabs` 的 `v` 是**值语义**（当前步序号 / 激活页序号，见 §8.1），不是外观变体。
 
 ---
 

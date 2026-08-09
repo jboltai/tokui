@@ -64,6 +64,22 @@ test('pagination renders page buttons', () => {
   assert.ok(btns.length >= 3);
 });
 
+test('pagination 翻页重绘保持焦点（聚焦等价按钮）', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'pagination', attrs: { page: '2', total: '5' }, children: [] });
+  // 模拟键盘用户：焦点在「下一页」钮上
+  const nextBtn = dom.querySelector('.tokui-pagination__next');
+  nextBtn.focus();
+  assert.strictEqual(document.activeElement, nextBtn);
+  // click 委托在 nav 上：经 nav 派发（真实浏览器 click 冒泡路径）
+  (dom._events['click'] || []).forEach(function (fn) { fn({ target: nextBtn, preventDefault: function () {} }); });
+  // 翻页后 pagesWrap 重建，焦点应还到同 data-page=3 的按钮（新的当前页项）
+  const active = document.activeElement;
+  assert.ok(active && active.getAttribute('data-page') === '3', '焦点应保持在 data-page=3，实际 ' + (active && active.getAttribute('data-page')));
+  assert.ok(active.classList.contains('tokui-pagination__item--active'), '落点是新的当前页项');
+  assert.strictEqual(active.getAttribute('aria-current'), 'page');
+});
+
 // === backtop ===
 test('backtop renders with aria-label', () => {
   const rc = makeRenderer();
@@ -83,12 +99,25 @@ test('breadcrumb renders items', () => {
 });
 
 // === tooltip ===
-test('tooltip renders with role tooltip and tabindex', () => {
+test('tooltip renders with tabindex; popup carries role tooltip on focus', () => {
   const rc = makeRenderer();
   const dom = rc.render({ type: 'tooltip', attrs: { tt: '提示文字', tx: '触发' }, children: [] });
-  assert.strictEqual(dom.getAttribute('role'), 'tooltip');
+  // role=tooltip 应在弹层上（APG），触发器只带 tabindex；focus 时弹层挂 body 并回链 aria-describedby
+  assert.strictEqual(dom.getAttribute('role'), null);
   assert.strictEqual(dom.getAttribute('tabindex'), '0');
   assert.strictEqual(dom.textContent, '触发');
+  // mock document 无 body，补最小桩承载弹层挂载
+  if (!document.body) {
+    document.body = { childNodes: [], appendChild: function (c) { c.parentNode = this; this.childNodes.push(c); }, removeChild: function (c) { var i = this.childNodes.indexOf(c); if (i > -1) this.childNodes.splice(i, 1); } };
+  }
+  var _needWindowStub = typeof window === 'undefined';
+  if (_needWindowStub) global.window = { innerWidth: 1024 };
+  dom._events['focus'][0]();
+  if (_needWindowStub) delete global.window; // 桩即用即删，防泄漏到后续用例
+  const tip = dom._tooltipEl;
+  assert.ok(tip, 'focus 后应创建弹层');
+  assert.strictEqual(tip.getAttribute('role'), 'tooltip');
+  assert.strictEqual(dom.getAttribute('aria-describedby'), tip.id);
 });
 
 test('tooltip registers keydown listener for Escape', () => {

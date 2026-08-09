@@ -161,7 +161,7 @@ const BOOLEAN_ATTRS = new Set([
   'round', 'closable', 'bordered', 'open', 'pill', 'dot', 'leaf',
   'inline', 'rounded', 'container',
   'copy', 'regenerate', 'like', 'dislike', 'visible', 'delete',
-  'controls', 'open',
+  'controls',
   'active',
   'collapsible',
   'toggle',

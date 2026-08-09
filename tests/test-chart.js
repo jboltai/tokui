@@ -1058,6 +1058,37 @@ test('chart bar zoom:auto 初始窗口 = 全量（窗口 rect 横跨整轴宽）
   assert.ok(w > 600, '初始窗口应横跨整轴宽，得 width=' + w);
 });
 
+test('chart dataZoom 键盘：窗口/手柄 role=slider + 方向键平移/收边 + aria 同步', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  var labels = mkLabels(50, 'D');
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'bar', d: labels.map(function () { return '10'; }).join(','), l: labels.join(','), w: 800, h: 200, zoom: 'auto' }, content: '', children: [] });
+  var svg = dom.querySelector('.tokui-chart__svg');
+  var win = svg.querySelector('.tokui-chart-zoom-window');
+  var handles = svg.querySelectorAll('.tokui-chart-zoom-handle');
+  // 语义：窗口与手柄均为可聚焦 slider
+  assert.strictEqual(win.getAttribute('role'), 'slider');
+  assert.strictEqual(win.getAttribute('tabindex'), '0');
+  assert.strictEqual(handles[0].getAttribute('role'), 'slider');
+  assert.strictEqual(win.getAttribute('aria-valuenow'), '0', '初始窗口起于 0');
+  assert.strictEqual(handles[1].getAttribute('aria-valuenow'), '49', '初始窗口止于 49');
+  function fireKey(el2, key) {
+    (el2._events['keydown'] || []).forEach(function (fn) { fn({ key: key, preventDefault: function () {} }); });
+  }
+  // 先右手柄 ← 收边（全窗宽 span=1 时 pan 无位移空间，属正确行为，须先收窗）
+  fireKey(handles[1], 'ArrowLeft');
+  assert.strictEqual(handles[1].getAttribute('aria-valuenow'), '48', '右手柄 ← 后止于 48');
+  // 窗口 → 右移一点（pan 保宽度）
+  var w0 = parseFloat(win.getAttribute('width'));
+  fireKey(win, 'ArrowRight');
+  assert.strictEqual(win.getAttribute('aria-valuenow'), '1', '窗口 → 后起于 1');
+  assert.ok(Math.abs(parseFloat(win.getAttribute('width')) - w0) < 1, 'pan 窗宽不变');
+  // 左手柄 Home 回起点
+  fireKey(handles[0], 'End');
+  assert.ok(parseInt(handles[0].getAttribute('aria-valuenow')) > 0, '左手柄 End 右移');
+  fireKey(handles[0], 'Home');
+  assert.strictEqual(handles[0].getAttribute('aria-valuenow'), '0', '左手柄 Home 回 0');
+});
+
 test('chart bar 无 zoom → 不渲染滑块', () => {
   const renderer = new TokUIRenderer(); registerChartComponents(renderer);
   var labels = mkLabels(50, 'D');
