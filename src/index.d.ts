@@ -49,6 +49,13 @@ export interface TokUIOptions {
   locale?: string;
   /** 是否启用流式渲染模式，默认 true */
   streaming?: boolean;
+  /**
+   * 流式入场动画开关，默认 true。
+   * true：流式挂载的顶层元素挂 tokui-fade-in 淡入（嵌套元素与纯文本 chunk 不挂）；
+   * false：流式路径完全关闭入场动画（大对话/高频流式性能场景）。
+   * 不影响一次性 render() 的入场动画。
+   */
+  streamAnimation?: boolean;
   /** 事件回调：('streamEnd', {}) 流结束；('component', TokUIComponentEvent) 组件交互统一出口 */
   onEvent?: TokUIEventCallback | null;
   /** 组件交互事件过滤器：返回 false 丢弃该事件（onEvent 降噪用，如只看某类组件） */

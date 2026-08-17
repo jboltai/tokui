@@ -1371,7 +1371,7 @@ const DEMOS = [
             .cardTx('快捷操作', '点击左侧导航选择更多组件示例。')
           .end()
           .col_layout({ span: 6 })
-            .cardTx('版本更新', 'TokUI v0.2.2 已发布，支持卡片自闭合模式。')
+            .cardTx('版本更新', 'TokUI v0.2.3 已发布，支持卡片自闭合模式。')
           .end()
         .end()
         .hr()
@@ -1561,7 +1561,7 @@ const DEMOS = [
                 .a({ tx: '帮助文档', u: '/docs' })
                 .p(' | ')
                 .a({ tx: '联系我们', u: '/contact' })
-                .p('版本 v0.2.2')
+                .p('版本 v0.2.3')
               .end()
             .end()
           .end()
@@ -4090,7 +4090,7 @@ const DEMOS = [
   {
     trigger: 'demo-upd-chat-input',
     title: 'UPD 对话输入状态',
-    desc: 'AI 回复过程中禁用/启用输入框',
+    desc: 'AI 回复过程中禁用/启用输入框、切换生成中停止态',
     _ids: null,
     build() {
       const uid = Math.random().toString(36).slice(2, 6);
@@ -4100,8 +4100,8 @@ const DEMOS = [
       };
       const b = new TokUIBuilder();
       b.card({ tt: 'UPD Chat-Input 输入状态' })
-        .p('通过 [upd id:xxx dis:true/false] 控制 chat-input 的禁用状态。')
-        .p('场景：AI 正在思考时禁用输入框，完成后恢复。')
+        .p('通过 [upd id:xxx dis:true/false] 控制 chat-input 的禁用状态，[upd id:xxx streaming:true/false] 切换生成中（发送钮变停止钮）。')
+        .p('场景：AI 正在思考时禁用输入框并切到生成中，完成后恢复。')
         .dv()
         .card({ id: this._ids.c1, tt: '对话状态' })
           .p('空闲 — 等待用户输入')
@@ -4114,10 +4114,10 @@ const DEMOS = [
     extraChunks() {
       const ids = this._ids;
       const chunks = [];
-      // 用户发送消息 → 禁用输入
+      // 用户发送消息 → 禁用输入 + 切生成中（发送钮变停止钮）
       chunks.push({ _wait: 1500 });
       let b = new TokUIBuilder();
-      b.upd({ id: ids.ci, dis: true });
+      b.upd({ id: ids.ci, dis: true, streaming: true });
       b.upd({ id: ids.c1, tt: 'AI 思考中...', tx: '正在生成回复，请稍候...' });
       chunks.push(...b.toChunks());
       // AI 处理中
@@ -4125,11 +4125,82 @@ const DEMOS = [
       b = new TokUIBuilder();
       b.upd({ id: ids.c1, tt: 'AI 正在回复', tx: '已完成 80%...' });
       chunks.push(...b.toChunks());
-      // 完成 → 恢复输入
+      // 完成 → 恢复输入 + 退出生成中
       chunks.push({ _wait: 2000 });
       b = new TokUIBuilder();
-      b.upd({ id: ids.ci, dis: false });
+      b.upd({ id: ids.ci, dis: false, streaming: false });
       b.upd({ id: ids.c1, tt: '回复完成 ✓', tx: '空闲 — 等待用户输入' });
+      chunks.push(...b.toChunks());
+      return chunks;
+    }
+  },
+
+  // ===== UPD Plan 计划步骤推进 =====
+  {
+    trigger: 'demo-plan-progress',
+    title: 'UPD Plan 计划推进',
+    desc: 'plan-step 经 [upd id:stepN status:doing/done] 逐步推进 Agent 执行计划',
+    _ids: null,
+    build() {
+      const uid = Math.random().toString(36).slice(2, 6);
+      this._ids = {
+        s1: 'ps1-' + uid,
+        s2: 'ps2-' + uid,
+        s3: 'ps3-' + uid,
+        s4: 'ps4-' + uid,
+        c1: 'ppc-' + uid,
+      };
+      const b = new TokUIBuilder();
+      b.card({ tt: 'UPD Plan 计划推进' })
+        .p('通过 [upd id:stepN status:doing/done tt:/desc:] 推送步骤状态，模拟 Agent 任务计划的逐步推进（status 支持别名归一化：running→doing、complete→done）。')
+        .plan({ tt: '生成季度销售分析报告' })
+          .planStep({ id: this._ids.s1, status: 'pending', tt: '拉取销售数据', desc: '等待执行' })
+          .planStep({ id: this._ids.s2, status: 'pending', tt: '清洗与聚合', desc: '等待执行' })
+          .planStep({ id: this._ids.s3, status: 'pending', tt: '生成图表', desc: '等待执行' })
+          .planStep({ id: this._ids.s4, status: 'pending', tt: '撰写结论', desc: '等待执行' })
+        .end()
+        .dv()
+        .card({ id: this._ids.c1, tt: '执行状态' })
+          .p('计划已创建，等待 Agent 开始执行...')
+        .end()
+      .end();
+      return b;
+    },
+    extraChunks() {
+      const ids = this._ids;
+      const chunks = [];
+      // Step 1 开始
+      chunks.push({ _wait: 1200 });
+      let b = new TokUIBuilder();
+      b.upd({ id: ids.s1, status: 'doing', desc: '正在从数据仓库拉取 Q1-Q3 订单...' });
+      b.upd({ id: ids.c1, tx: 'Step 1/4 进行中：拉取销售数据' });
+      chunks.push(...b.toChunks());
+      // Step 1 完成 → Step 2 开始
+      chunks.push({ _wait: 2000 });
+      b = new TokUIBuilder();
+      b.upd({ id: ids.s1, status: 'done', desc: '完成：共拉取 12,480 条订单记录' });
+      b.upd({ id: ids.s2, status: 'doing', desc: '正在按区域/品类聚合...' });
+      b.upd({ id: ids.c1, tx: 'Step 2/4 进行中：清洗与聚合' });
+      chunks.push(...b.toChunks());
+      // Step 2 完成 → Step 3 开始
+      chunks.push({ _wait: 2000 });
+      b = new TokUIBuilder();
+      b.upd({ id: ids.s2, status: 'done', desc: '完成：聚合为 36 个分组指标' });
+      b.upd({ id: ids.s3, status: 'doing', desc: '正在渲染柱状图与趋势线...' });
+      b.upd({ id: ids.c1, tx: 'Step 3/4 进行中：生成图表' });
+      chunks.push(...b.toChunks());
+      // Step 3 完成 → Step 4 开始
+      chunks.push({ _wait: 2000 });
+      b = new TokUIBuilder();
+      b.upd({ id: ids.s3, status: 'done', desc: '完成：2 张图表已生成' });
+      b.upd({ id: ids.s4, status: 'doing', desc: '正在撰写分析结论...' });
+      b.upd({ id: ids.c1, tx: 'Step 4/4 进行中：撰写结论' });
+      chunks.push(...b.toChunks());
+      // 全部完成
+      chunks.push({ _wait: 2000 });
+      b = new TokUIBuilder();
+      b.upd({ id: ids.s4, status: 'done', desc: '完成：报告全文 1,230 字' });
+      b.upd({ id: ids.c1, tt: '执行状态', tx: '全部完成 ✓ — 报告已生成' });
       chunks.push(...b.toChunks());
       return chunks;
     }
@@ -8158,6 +8229,40 @@ const DEMOS = [
   },
 
   {
+    trigger: 'demo-tool-call-collapse',
+    title: 'Tool Call 折叠',
+    desc: 'collapsed 初始收起 / 默认展开对比 / HITL 审批组合（审批条不受收展影响）',
+    build() {
+      const b = new TokUIBuilder();
+
+      b.card({ tt: '📁 collapsed 初始收起' })
+        .p('加「collapsed」布尔属性后 body 初始收起；点击 header 或按 Enter/Space 展开，chevron 随动：')
+        .toolCall({ name: 'read_file', status: 'done', duration: '0.3s', collapsed: true })
+          .p('读取: src/index.js')
+          .p('返回 120 行代码，识别到 3 个导出函数')
+        .end()
+      .end();
+
+      b.card({ tt: '📂 默认展开（对比）' })
+        .p('不加「collapsed」时 body 默认展开，二者仅初始态不同：')
+        .toolCall({ name: 'read_file', status: 'done', duration: '0.3s' })
+          .p('读取: src/index.js')
+          .p('返回 120 行代码，识别到 3 个导出函数')
+        .end()
+      .end();
+
+      b.card({ tt: '🔐 折叠 + HITL 审批组合' })
+        .p('「collapsed」与「approval」同开：审批条在 body 之外，收起时仍可批准/拒绝（决定后经 clk 上报回显）：')
+        .toolCall({ name: 'delete_files', status: 'pending', approval: true, collapsed: true, clk: 'tcApproval' })
+          .p('rm -rf /tmp/build-cache（3 个目录，约 1.2 GB）')
+        .end()
+        .p('收起态只隐藏参数 body，审批条始终可见可点。', { v: 'muted' })
+      .end();
+      return b;
+    }
+  },
+
+  {
     trigger: 'demo-typing',
     title: 'Typing 打字指示器',
     desc: 'AI 等待动画，带/不带文字标签',
@@ -8191,6 +8296,40 @@ const DEMOS = [
         .end()
       .end();
       return b;
+    }
+  },
+
+  {
+    trigger: 'demo-typing-to-bubble',
+    title: 'Typing → 正文切换',
+    desc: 'typing 等待指示经 [del id:] 移除后 AI 正文流式涌入（真实应答时序）',
+    _ids: null,
+    build() {
+      const uid = Math.random().toString(36).slice(2, 6);
+      this._ids = { ty: 't2b-' + uid };
+      const b = new TokUIBuilder();
+      b.card({ tt: 'Typing → Bubble 正文流入' })
+        .p('AI 应答的标准时序：typing 指示出现 → 思考完成 → [del id:xxx] 移除 typing → 正文逐段流入 bubble。')
+        .bubble({ role: 'user', time: '14:40' })
+          .p('TokUI 的流式渲染是怎么工作的？')
+        .end()
+        .typing({ id: this._ids.ty, text: 'AI 正在思考...' })
+      .end();
+      return b;
+    },
+    extraChunks() {
+      const ids = this._ids;
+      return [
+        { _wait: 2000 },
+        '[del id:' + ids.ty + ']',
+        '[bubble role:ai model:"TokUI" time:"14:40"]',
+        '后端用 TokUI DSL 描述 UI，经 SSE 逐 chunk 推送；',
+        { _wait: 700 },
+        '前端解析器 feed(chunk) 增量解析为 AST，',
+        { _wait: 700 },
+        '渲染器把节点实时挂载为真实 DOM——你现在看到的逐段出现，就是这条链路在干活。',
+        '[/bubble]'
+      ];
     }
   },
 
@@ -8988,6 +9127,100 @@ const DEMOS = [
       .end();
 
       return b;
+    }
+  },
+
+  {
+    trigger: 'demo-ai-chat-full',
+    title: 'AI 综合对话页',
+    desc: 'welcome → suggestions 点击回显 → typing→正文 → tool-call 流转 → plan 推进 → source → msg-actions 全链路',
+    build() { return new TokUIBuilder(); },
+    stream(res) {
+      // 手写 DSL 分段推送。交互块（welcome / suggestions / msg-actions）即时闭合——
+      // 流式容器内子元素的 clk 绑定在各自容器闭合时完成，即时闭合保证流未走完也可点击。
+      var chunks = [
+        '[card tt:"AI 综合对话 Full Chat"]',
+        '[p v:muted "全链路演示：welcome → suggestions（点击经 clk 回显为系统消息）→ typing → del → bubble 正文（md 流式）→ tool-call 状态流转 → plan 步骤推进 → source 引用 → msg-actions。"]',
+
+        // === 1. Welcome 欢迎页（feature 点击回显） ===
+        '[h3 1. Welcome 欢迎页]',
+        '[welcome tt:"你好，有什么可以帮你？" st:"点下方功能卡或建议卡试试，点击会回显为系统消息"]',
+        '[welcome-feature tt:"数据分析" tx:"可视化你的业务数据" i:"chart" clk:fcFeat][/welcome-feature]',
+        '[welcome-feature tt:"代码生成" tx:"按需求生成代码" i:"code" clk:fcFeat][/welcome-feature]',
+        '[/welcome]',
+
+        // === 2. Suggestions 建议卡片（点击经 clk 回显） ===
+        '[h3 2. Suggestions 建议卡片]',
+        '[suggestions cols:2]',
+        '[suggestion tt:"分析销售数据趋势" tx:"生成图表与结论" clk:fcSug]',
+        '[suggestion tt:"写一个快速排序" tx:"Python 实现 + 单测" clk:fcSug]',
+        '[/suggestions]',
+
+        // === 3. AI 应答：typing → del → bubble 正文（md 流式） ===
+        '[h3 3. AI 应答 — typing → 正文]',
+        '[bubble role:user time:"14:40"][p 分析一下本季度的销售数据趋势][/bubble]',
+        '[typing id:fc-ty text:"AI 正在思考..."]',
+        { _wait: 1800 },
+        '[del id:fc-ty]',
+        '[bubble role:ai model:"TokUI" time:"14:40"]',
+        '[md]',
+        '**Q3 销售额 128 万元**，环比增长 **+12%**。主要驱动：',
+        { _wait: 600 },
+        '\n\n- 华东区新品放量（+34%）\n- 老客户复购率提升至 41%',
+        { _wait: 600 },
+        '\n\n详细拆解见下方的工具调用与计划推进。',
+        '[/md]',
+        '[/bubble]',
+
+        // === 4. Tool Call 状态流转（collapsed 收起参数，upd 推送结果） ===
+        '[h3 4. Tool Call 状态流转]',
+        '[tool-call id:fc-tc name:query_sales status:running collapsed][p "查询参数: region=all, quarter=Q3"][/tool-call]',
+        { _wait: 1500 },
+        '[upd id:fc-tc status:done duration:0.8s result:"{rows: 12480, total: 1280000}"]',
+
+        // === 5. Plan 步骤推进（upd 推送） ===
+        '[h3 5. Plan 步骤推进]',
+        '[plan tt:"生成分析报告"]',
+        '[plan-step id:fc-s1 status:done tt:"拉取数据" desc:"12,480 条订单"]',
+        '[plan-step id:fc-s2 status:doing tt:"生成图表" desc:"渲染中..."]',
+        '[plan-step id:fc-s3 status:pending tt:"撰写结论"]',
+        '[/plan]',
+        { _wait: 1500 },
+        '[upd id:fc-s2 status:done desc:"2 张图表已生成"][upd id:fc-s3 status:doing desc:"撰写中..."]',
+        { _wait: 1500 },
+        '[upd id:fc-s3 status:done desc:"报告全文 1,230 字"]',
+
+        // === 6. Source 引用来源 ===
+        '[h3 6. Source 引用来源]',
+        '[source n:1 tt:"销售数据仓库 - orders 表" u:"https://example.com/dw/orders" sn:"Q3 订单明细，每日同步。"]',
+        '[source n:2 tt:"内部 BI 平台 - 区域看板" u:"https://example.com/bi/region" sn:"华东区 Q3 新品销售明细。"]',
+
+        // === 7. Msg Actions 消息操作（点击回显动作名） ===
+        '[h3 7. Msg Actions 消息操作]',
+        '[msg-actions clk:fcAct copy regenerate like visible][/msg-actions]',
+        '[/card]'
+      ];
+      var i = 0;
+      var cleaned = false;
+      res.on('close', function() { cleaned = true; });
+      function sendNext() {
+        if (cleaned || i >= chunks.length) {
+          if (!cleaned) {
+            res.write('data: [DONE]\n\n');
+            res.end();
+          }
+          return;
+        }
+        var chunk = chunks[i++];
+        // { _wait: ms } 延迟占位，不发数据只等待（同 streamBuilder 语义）
+        if (typeof chunk === 'object' && chunk._wait) {
+          setTimeout(sendNext, chunk._wait);
+        } else {
+          res.write('data: ' + JSON.stringify({ tokui: chunk }) + '\n\n');
+          setTimeout(sendNext, 80);
+        }
+      }
+      sendNext();
     }
   },
 

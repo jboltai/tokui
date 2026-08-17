@@ -53,6 +53,7 @@
      * @param {string} [options.theme='default'] - 主题名称
      * @param {string} [options.locale] - 界面语言（如 'zh-CN' / 'en-US' / 'en'；缺省自动探测 documentElement.lang / navigator.language）
      * @param {boolean} [options.streaming=true] - 是否启用流式渲染模式
+     * @param {boolean} [options.streamAnimation=true] - 流式入场动画开关：false 时流式挂载不再挂 tokui-fade-in（大对话/高频流式性能场景）；不影响一次性 render()
      * @param {Function} [options.onEvent=null] - 事件回调（如 'streamEnd'）
      */
     constructor(options) {
@@ -62,12 +63,15 @@
         theme: 'default',
         locale: null,
         streaming: true,
+        streamAnimation: true,
         onEvent: null
       }, options);
 
       // 初始化渲染器并注册所有组件
       this.renderer = new _TokUIRenderer(_TokUIEventBus);
       _registerAll(this.renderer);
+      // 流式入场动画开关透传（false = 流式路径不挂 tokui-fade-in）
+      this.renderer.streamAnimation = this.options.streamAnimation !== false;
       // 渲染器回指所属实例：chat-input 停止生成等「找自己所在实例」场景用，
       // 避免多实例页面误操作 window.TokUI._instance（最后构造者）
       this.renderer._tokuiInstance = this;

@@ -48,10 +48,10 @@ Just the key, no value:
 
 ```
 stripe dis ro req chk multi auto plain round closable bordered open
-pill dot leaf inline rounded container reset print approval streaming
+pill dot leaf inline rounded container reset print approval streaming collapsed
 ```
 
-> `approval` puts `tool-call` into human-approval mode, and `streaming` shows the stop-generating button on `chat-input` (see [AI Chat](/en/components/ai-chat)).
+> `approval` puts `tool-call` into human-approval mode, `collapsed` starts a `tool-call` with its body collapsed, and `streaming` shows the stop-generating button on `chat-input` (see [AI Chat](/en/components/ai-chat)).
 
 > ⚠️ Boolean attributes have **no "false" value**: presence means true. To say "not disabled initially", **omit the attribute** — do not write `dis:false`; at initial render `'false'` is a (truthy) string and still disables. Only inside `upd` directives are `dis:false` / `ro:false` / `chk:false` treated as "actively turn off".
 
@@ -144,6 +144,14 @@ Beyond the named handler, every interaction is also delivered to the unified out
 | `msg-actions` | `action` (built-in buttons) | `{act: 'copy'/'regenerate'/'like'/'dislike'/'delete'}` |
 | `quick-reply` / `suggestion` | `select` (item clicked) | `{value: label/title}` |
 | `tool-call` | `approval` (HITL human approval) | `{approved, id, name}` |
+| `thumb` | `like` (thumb up/down; the `clk` channel payload `{direction, active}` is unchanged) | `{value: 'up'/'down'}` |
+| `source` | `open` (title link clicked; native navigation unchanged) | `{url, title}` |
+| `code` / `terminal` / `copy` / `artifact` | `copy` (copy button) | `{}` |
+| `command` | `select` (command item picked) | `{value, text}` |
+| `sidebar` | `toggle` (collapse button flipped) | `{collapsed}` |
+| `ft-folder` (file-tree folder) | `toggle` (collapse/expand) | `{name, open}` |
+| `attach` | `delete` (attachment removed) | `{name, url, type}` |
+| `welcome-feature` | `select` (feature card clicked) | `{value: title}` |
 
 > Per-component details live in the component docs: [Form](/en/components/form), [Layout](/en/components/layout), [AI Chat](/en/components/ai-chat); full description in §8.4 of the [DSL reference](https://github.com/jboltai/tokui/blob/master/demo/TOKUI_DSL_REFERENCE.md).
 

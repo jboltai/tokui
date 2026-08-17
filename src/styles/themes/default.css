@@ -113,10 +113,26 @@
   /* 通用 */
   --tokui-radius: 4px;
   --tokui-avatar-size: 80px;
+  /* 等宽字体栈（tool-call / diff / file-tree / terminal / sandbox 等引用）；
+     与主题无关，仅在 :root 定义一次，dark/modern/modern-dark 经 :root 继承 */
+  --tokui-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   /* 代码块 */
   --tokui-code-bg: #f6f8fa;
   --tokui-code-text: #24292f;
+  /* 代码语法高亮（GitHub Light 系，浅底适配；dark/modern-dark 各自覆盖暗色板） */
+  --tokui-code-kw: #cf222e;
+  --tokui-code-str: #0a3069;
+  --tokui-code-num: #0550ae;
+  --tokui-code-fn: #8250df;
+  --tokui-code-type: #953800;
+  --tokui-code-op: var(--tokui-code-text);
+  --tokui-code-cmt: #6e7781;
+
+  /* Terminal 终端（行业惯例：终端即深色，四主题共享，暗色主题经边框与页面分层） */
+  --tokui-terminal-bg: #1e1e1e;
+  --tokui-terminal-text: #d4d4d4;
+  --tokui-terminal-titlebar: #2d2d2d;
 
   /* 按钮 */
   --tokui-btn-primary-hover: var(--tokui-primary-7);
@@ -186,8 +202,8 @@
   --tokui-callout-tip-bg: #f9f0ff;
   --tokui-callout-tip-border: #722ed1;
 
-  /* Think 思考块 */
-  --tokui-think-bg: var(--tokui-stripe);
+  /* Think 思考块（轻量卡片底：比 stripe 更轻，近乎透明） */
+  --tokui-think-bg: rgba(0, 0, 0, 0.022);
   --tokui-think-border: var(--tokui-border);
 
   /* Chart 图表 */
@@ -195,6 +211,14 @@
   --tokui-chart-text: #999;
   --tokui-chart-today-line: #fa541c;
   --tokui-chart-task-dep: #bbb;
+
+  /* Bubble 气泡（中性灰系：user 浅灰圆角块 + 浅灰头像；AI 无底全宽 + primary 淡底头像） */
+  --tokui-bubble-user-bg: var(--tokui-stripe);
+  --tokui-bubble-user-text: var(--tokui-text);
+  --tokui-bubble-user-avatar-bg: var(--tokui-stripe);
+  --tokui-bubble-user-avatar-text: var(--tokui-text-secondary);
+  --tokui-bubble-ai-avatar-bg: var(--tokui-primary-bg);
+  --tokui-bubble-ai-avatar-text: var(--tokui-primary);
 
   /* ========== 浮层 / 遮罩 / 反转（供 tokui.css 基类写死值引用） ========== */
   /* 浮层阴影：两段柔光 + 1px 发丝边，Modern 风分层 */

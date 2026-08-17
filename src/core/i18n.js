@@ -197,6 +197,16 @@ var STRINGS = {
     'agent.thinking': '思考',
     'agent.generating': '生成',
     'agent.total': '总计',
+    'agent.defaultName': '智能体',
+
+    // —— AI 组件默认标题 / 默认名 / 汇总 ——
+    'terminal.title': '终端',
+    'sandbox.title': '预览',
+    'canvas.title': '画布',
+    'toolCall.defaultName': '工具',
+    'artifact.codeTab': '代码',
+    'artifact.previewTab': '预览',
+    'testResult.total': '总计：{n}',
 
     // —— 表单类 ——
     'picker.noMatch': '无匹配项',
@@ -414,6 +424,16 @@ var STRINGS = {
     'agent.thinking': 'Thinking',
     'agent.generating': 'Generating',
     'agent.total': 'Total',
+    'agent.defaultName': 'Agent',
+
+    // —— AI component default titles / names / summary ——
+    'terminal.title': 'Terminal',
+    'sandbox.title': 'Preview',
+    'canvas.title': 'Canvas',
+    'toolCall.defaultName': 'tool',
+    'artifact.codeTab': 'Code',
+    'artifact.previewTab': 'Preview',
+    'testResult.total': 'Total: {n}',
 
     // —— bubble avatar ——
     'bubble.you': 'You',

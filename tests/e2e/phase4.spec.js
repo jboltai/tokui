@@ -100,6 +100,9 @@ test('Phase 4 新组件全链路冒烟', async ({ page }) => {
 
   // --- modal.confirm：点删除钮 → 弹层 → 确认 → 系统消息回显 ---
   await openDemo(page, 'Modal 确认框');
+  // 先等按钮出现（流进行中）再等流结束（sending 归零）——流式容器闭合才统一绑定事件，提前点击是空操作
+  await expect(page.locator('button', { hasText: '删除文件' })).toBeVisible({ timeout: 15000 });
+  await page.waitForFunction(() => document.body.dataset.sending !== '1', null, { timeout: 20000 });
   await page.locator('button', { hasText: '删除文件' }).click();
   const modal = page.locator('.tokui-modal__overlay');
   await expect(modal).toBeVisible();

@@ -234,4 +234,75 @@ test('terminal 复制按钮文案 key 双语存在（actions.copy / common.copie
   resetZh();
 });
 
+test('P3 新增 AI 组件 key 双语存在（terminal/sandbox/canvas/toolCall/artifact/testResult/agent）', () => {
+  const keys = [
+    'terminal.title', 'sandbox.title', 'canvas.title', 'toolCall.defaultName',
+    'artifact.codeTab', 'artifact.previewTab', 'testResult.total', 'agent.defaultName'
+  ];
+  for (const key of keys) {
+    i18n.setLocale('zh-CN');
+    const zh = i18n.t(key);
+    i18n.setLocale('en-US');
+    const en = i18n.t(key);
+    assert.ok(zh !== key, `zh-CN 缺 key: ${key}`);
+    assert.ok(en !== key, `en-US 缺 key: ${key}`);
+    assert.ok(zh !== en, `中英译文相同（疑似未翻译）: ${key} = ${zh}`);
+  }
+  // 插值
+  i18n.setLocale('zh-CN');
+  assert.strictEqual(i18n.t('testResult.total', { n: 5 }), '总计：5');
+  i18n.setLocale('en-US');
+  assert.strictEqual(i18n.t('testResult.total', { n: 5 }), 'Total: 5');
+  resetZh();
+});
+
+test('conversations 分组按 i18n 字典值比较（en-US 下 time:Yesterday 落昨天组）', () => {
+  // 组件渲染需 DOM：本文件此前纯测 i18n 模块，此用例内局部装载/卸载 dom-mock
+  const { setupDOM, teardownDOM } = require('./helpers/dom-mock');
+  setupDOM();
+  try {
+    const { TokUIRenderer } = require('../src/core/renderer');
+    const { registerAllComponents } = require('../src/components/index');
+    const rc = new TokUIRenderer();
+    registerAllComponents(rc);
+    i18n.setLocale('en-US');
+    const dom = rc.render({
+      type: 'conversations', attrs: {},
+      children: [
+        { type: 'conv', attrs: { tt: '早安', time: '09:30' }, children: [] },
+        { type: 'conv', attrs: { tt: '昨日问题', time: 'Yesterday' }, children: [] }
+      ]
+    });
+    const headers = dom.querySelectorAll('.tokui-conversations__group-header');
+    const labels = [];
+    headers.forEach(h => labels.push(h.textContent));
+    assert.deepStrictEqual(labels, ['Today', 'Yesterday'],
+      'en-US 下 time:Yesterday 按字典值 time.yesterday 落昨天分组（原硬编码 "昨天" 比较会落更早）');
+    resetZh();
+  } finally {
+    teardownDOM();
+  }
+});
+
+test('agent 状态文案切 locale 后 _update 用新语言（非渲染期固化闭包）', () => {
+  const { setupDOM, teardownDOM } = require('./helpers/dom-mock');
+  setupDOM();
+  try {
+    const { TokUIRenderer } = require('../src/core/renderer');
+    const { registerAllComponents } = require('../src/components/index');
+    const rc = new TokUIRenderer();
+    registerAllComponents(rc);
+    resetZh();
+    const dom = rc.render({ type: 'agent', attrs: { name: 'A', status: 'done' }, children: [] });
+    const badge = dom.querySelector('.tokui-agent__status');
+    assert.strictEqual(badge.textContent, '完成');
+    i18n.setLocale('en-US');
+    dom._update({ status: 'running' });
+    assert.strictEqual(badge.textContent, 'Running', '切 en-US 后 upd 状态文案应为英文（原 STATUS_TEXT 闭包固化仍是中文）');
+    resetZh();
+  } finally {
+    teardownDOM();
+  }
+});
+
 run();

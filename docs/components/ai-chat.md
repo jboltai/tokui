@@ -62,6 +62,7 @@
 | `duration` | 耗时 | `duration:1.2s` |
 | `id` | 标识（可被 `upd` 更新） | `id:tc1` |
 | `approval` | 人工审批模式（HITL，配 `status:pending`） | `approval` |
+| `collapsed` | 初始收起 body（header 点击/键盘可收展） | `collapsed` |
 | `clk` | 审批决定处理器 | `clk:onApproval` |
 
 <Playground dsl='[tool-call name:web_search status:done duration:1.2s][p 已搜索「TokUI 流式 UI」，找到 8 条结果。[/tool-call][tool-call name:run_code status:running][p 正在执行 Python 代码…[/tool-call][tool-call name:read_file status:error duration:0.4s][p 文件不存在。[/tool-call]' />
@@ -76,6 +77,8 @@
 [upd id:tc1 status:running]
 [upd id:tc1 status:done duration:0.8s]
 ```
+
+**折叠**：加 `collapsed` 布尔属性让 body 初始收起；header 点击或 Enter/Space 随时收展（`aria-expanded` 同步、chevron 旋转指示），状态徽章常显；body 只切 display 不销毁内容，`upd` 推送状态时保留当前收展态。
 
 ## 打字指示 `typing`
 
@@ -130,6 +133,7 @@
 | `u` / `url` | 链接 | `u:https://tokui.jboltai.com` |
 
 > `tt`/`sn` 含空格必须用双引号包裹，否则会被空格截断。
+> **打开上报**：点击标题链接保持 `<a target="_blank">` 原生跳转，同时经统一出口上报 `open` 事件 `{url, title}`。
 
 <Playground dsl='[card tt:参考来源][source n:1 tt:"TokUI 官方文档" sn:"零依赖流式 UI 描述与渲染框架" u:#][source n:2 tt:"SSE 协议规范" sn:"Server-Sent Events 实时推送" u:#][source n:3 tt:"MDN Web Docs" sn:"Using Server-Sent Events to push updates" u:#][/card]' />
 
@@ -153,11 +157,20 @@
 | 属性 | 含义 | 适用 |
 |------|------|------|
 | `tt` | 计划标题 | `plan` |
-| `status` | 步骤状态（`pending`/`running`/`done`/`error`/`skipped`） | `plan-step` |
+| `status` | 步骤状态（`pending`/`doing`/`done`/`error`/`skipped`；`running` 等同义词自动归一） | `plan-step` |
 | `tt` | 步骤标题 | `plan-step` |
 | `desc` | 步骤描述 | `plan-step` |
+| `id` | 步骤标识（可被 `upd` 推进） | `plan-step` |
 
 <Playground dsl='[plan tt:重构登录模块][plan-step status:done tt:梳理现有代码][plan-step status:done tt:抽取校验逻辑][plan-step status:running tt:替换为新组件 desc:迁移到 TokUI form 组件][plan-step status:pending tt:补充单元测试][/plan]' />
+
+**步骤推进（upd）**：`plan-step` 带 `id` 后可由服务端逐步驱动——`status` 同义词自动归一（`running`→`doing`、`complete`→`done`、`fail`→`error` 等），`tt` / `desc` 同步可改：
+
+```tokui
+[plan tt:发布流程][plan-step id:s1 status:done tt:代码评审][plan-step id:s2 status:doing tt:构建产物][plan-step id:s3 status:pending tt:上线][/plan]
+[upd id:s2 status:done]
+[upd id:s3 status:doing]
+```
 
 ## Agent 状态 `agent`
 
@@ -195,6 +208,8 @@
 | `status` | 执行状态 | `status:success` |
 
 <Playground dsl='[terminal title:bash status:success]$ npm install\n$ npm run dev\n\n✓ 服务已启动: http://localhost:5173[/terminal]' />
+
+> **复制上报**：标题栏复制按钮点击后经统一出口上报 `copy` 事件（detail `{}`）。
 
 ## 代码沙盒 `sandbox`
 
@@ -329,6 +344,7 @@ Git 提交信息卡片，自闭合。
 | `clk` | 点击处理器 | `welcome-feature` / `feature` | `clk:onPick` |
 
 > `[feature tt:x tx:y i:code]` 自闭合（推荐）；`[welcome-feature ...][/welcome-feature]` 为容器写法，效果相同。卡片由属性驱动，每个标签到达即渲染（真流式）。
+> **选择上报**：点击特性卡片经统一出口上报 `select` 事件 `{value: 标题}`。
 
 <Playground dsl='[welcome tt:"你好，我是 TokUI 助手" st:"有什么可以帮你？"][feature tt:写代码 tx:"生成与调试代码" i:code clk:a][feature tt:画图表 tx:"用纯 SVG 渲染数据" i:chart clk:b][feature tt:查文档 tx:"检索与总结资料" i:doc clk:c][/welcome]' />
 
@@ -347,6 +363,8 @@ Git 提交信息卡片，自闭合。
 
 <Playground dsl='[attachments clk:onRemove][attach t:pdf s:需求文档.pdf size:2.4 MB u:#][attach t:code s:app.js size:12 KB u:#][attach t:image s:设计稿.png size:580 KB u:https://picsum.photos/seed/att/120/80][attach t:excel s:数据统计.xlsx size:32 KB u:#][/attachments]' />
 
+> **删除上报**：点附件项的删除按钮经统一出口上报 `delete` 事件 `{name, url, type}`。
+
 ## Artifact `artifact` / `artifact-code` / `artifact-preview`
 
 侧边预览面板 Artifact 容器，内部用 `artifact-code` 放代码槽、`artifact-preview` 放实时预览槽。
@@ -359,6 +377,8 @@ Git 提交信息卡片，自闭合。
 | `w` | 面板宽度 | `artifact` |
 
 <Playground dsl='[artifact tt:登录卡片 lang:html][artifact-code]<div class="card">\n  <h3>登录</h3>\n  <input placeholder="用户名"/>\n  <input placeholder="密码"/>\n  <button>提交</button>\n</div>[/artifact-code][artifact-preview]<div style="padding:16px;font-family:sans-serif"><h3 style="margin:0 0 8px">登录</h3><input placeholder="用户名" style="display:block;margin-bottom:8px;padding:6px"/><input placeholder="密码" style="display:block;margin-bottom:8px;padding:6px"/><button style="padding:6px 12px;background:#4f46e5;color:#fff;border:0;border-radius:4px">提交</button></div>[/artifact-preview][/artifact]' />
+
+> **事件上报**：关闭按钮上报 `close`、代码复制按钮上报 `copy`（detail 均为 `{}`）；复制内容为渲染期留档的原始代码文本（含换行），不受行号折行影响。
 
 ## 对话输入 `chat-input`
 
@@ -389,6 +409,8 @@ Git 提交信息卡片，自闭合。
 [upd id:ci streaming:false]   ;; 生成结束，恢复发送按钮
 ```
 
+`dis` 同样走 `upd` 全通路控制：`[upd id:ci dis:true]` 禁用输入区、`[upd id:ci dis:false]` 恢复启用（字符串 `'false'` 按「主动关闭禁用」处理）。
+
 ## 消息操作 `msg-actions`
 
 气泡底部消息操作栏容器，支持复制 / 重新生成 / 赞踩等开关。
@@ -413,9 +435,23 @@ Git 提交信息卡片，自闭合。
 | `clk` | 点击处理器 | `clk:onLike` |
 | `v` | 状态/数值 | `v:12` |
 
-> `clk` 触发时 handler 第一参为 `{ direction: 'up' | 'down', active: boolean }`（点击后自动切换激活态）。
+> `clk` 触发时 handler 第一参为 `{ direction: 'up' | 'down', active: boolean }`（点击后自动切换激活态）；同时经统一出口上报 `like` 事件 `{value: 'up'/'down'}`。
 
 <Playground dsl='[toolbar][thumb t:up v:12 clk:onLike][thumb t:down clk:onDislike][/toolbar]' />
+
+## id 锚点与动态更新
+
+AI 组件的 `id` 均落 DOM，可作 `[del]` / `[ins]` 的定位锚点；带 `_update` 的组件还可被 `[upd]` 直接驱动：
+
+| 组件 | `id` 能力 |
+|------|-----------|
+| `chat-input` | `upd`：`dis` / `streaming`（`dis:false` 为主动启用） |
+| `tool-call` | `upd`：`status` / `duration` / `result` / `error`（result/error 幂等，重复推送就地更新） |
+| `agent` | `upd`：`status` / `action` / `duration` |
+| `plan-step` | `upd`：`status` / `tt` / `desc`（status 同义词归一化） |
+| `bubble` / `typing` / `terminal` / `diff` / `artifact` / `quick-reply` / `msg-actions` / `think` / `think-chain` | 仅锚点（`del` / `ins` 定位；改内容用 del+ins 替换） |
+
+> 典型模式——typing 占位切换正文：先推 `[typing id:t1 text:正在生成]`，正文到达后 `[del id:t1]` 移除指示，再流式推 `[bubble role:ai]…[/bubble]`。
 
 ## 综合示例：一段真实 AI 回复
 

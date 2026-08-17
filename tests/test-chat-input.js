@@ -164,12 +164,23 @@ test('chat-input _update toggles disabled state', () => {
   assert.ok(!sendBtn.hasAttribute('disabled'), 'send button re-enabled');
 });
 
-// === 10. _slot points to textarea ===
-test('chat-input _slot points to textarea', () => {
+// === 10. _slot points to actions wrap（非 textarea）===
+// textarea 内容模型为纯文本，流式子元素 append 进去不渲染；
+// 容器模式子节点（自定义按钮）在挂载态落 actions 区，流式插槽须对齐同一位置
+test('chat-input _slot points to actions wrap', () => {
   const rc = makeRenderer();
   const dom = rc.render({ type: 'chat-input', attrs: {}, children: [] });
-  var textarea = dom.querySelector('textarea');
-  assert.strictEqual(dom._slot, textarea);
+  var actionsWrap = dom.querySelector('.tokui-chat-input__actions');
+  assert.ok(actionsWrap, 'actions wrap exists');
+  assert.strictEqual(dom._slot, actionsWrap);
+});
+
+// === 11. attrs.id 落到 wrapper DOM（upd/del 指令经 getElementById 定位的前提） ===
+test('chat-input attrs.id lands on wrapper DOM', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'chat-input', attrs: { id: 'ci1' }, children: [] });
+  assert.strictEqual(dom.id, 'ci1');
+  assert.strictEqual(document.getElementById('ci1'), dom);
 });
 
 run();

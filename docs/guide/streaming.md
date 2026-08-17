@@ -85,6 +85,16 @@ tokui.connect('/api/chat', { prompt: '画一个登录卡片' });
 
 `stat`/`img`/`avatar`/`result`/`empty`/`video`/`audio`/`file`/`attach`/`commit` 无法容器化，流式期框架自动挂骨架占位（无需写法改动），`]` 到达平滑替换为真节点，避免空洞 pop-in。小件（tag/btn 等）保持 pop-in（骨架一闪反不如直接出）。
 
+## 流式入场动画（`streamAnimation`）
+
+流式挂载的**顶层组件**默认带 `tokui-fade-in` 淡入：动画只动 `opacity`（无位移），且仅顶层元素挂载——嵌套子元素与纯文本分片不挂，避免每个 token 都播一遍动画。大对话 / 高频流式场景可整体关闭：
+
+```js
+const tokui = new TokUI.TokUI({ container: '#app', streamAnimation: false });
+```
+
+`streamAnimation`（默认 `true`）只作用于流式路径，一次性 `render()` 的入场动画不受影响。
+
 ## 资源防护
 
 为防止恶意或超长输入耗尽资源：

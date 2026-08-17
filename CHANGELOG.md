@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+AI 对话组件专项：缺陷修复 + 令牌体系统一 + 视觉重设计 + upd/事件能力补齐 + 流式性能。
+
+### 新增
+
+- **plan-step 支持 upd 推进**：`plan-step` 落 `id` 并新增 `_update`——`[upd id:step1 status:doing]` 即可推进步骤；`status` 同义词自动归一（`running`→`doing`、`complete`→`done`、`fail`→`error` 等），`tt`/`desc` 同步可改。
+- **AI 组件 id 锚点补全**：`bubble`/`typing`/`terminal`/`diff`/`artifact`/`quick-reply`/`msg-actions`/`think`/`think-chain` 的 `id` 均落 DOM，作 `del`/`ins` 定位锚点（typing→正文切换等编排场景）。
+- **tool-call 可折叠**：新增 `collapsed` 布尔属性（入 parser `BOOLEAN_ATTRS`）初始收起 body；header 点击 / Enter/Space 随时收展（`aria-expanded` 同步），状态徽章常显，body 只切 display 不销毁内容。
+- **`streamAnimation` 公共选项**：`new TokUI({ streamAnimation:false })` 关闭流式入场动画（默认 true；不影响一次性 `render()`）。
+- **新 i18n key**（zh-CN / en-US 双份）：`agent.defaultName`、`terminal.title`、`sandbox.title`、`canvas.title`、`toolCall.defaultName`、`artifact.codeTab`、`artifact.previewTab`、`testResult.total`（含 `{n}` 插值）。
+- **新测试文件**：`tests/test-cleanup.js`（`_registerCleanup` 清理机制）、`tests/test-theme-tokens.js`（主题令牌引用完整性扫描）、`tests/test-stream-perf.js`（fade-in 闸门 / 流式 Text 合并）。
+
+### 修复
+
+- **chat-input upd 全通路**：`id` 落 DOM，`[upd id:x dis:true]` / `[upd id:x streaming:false]` 真实生效；`dis:'false'` 字符串按布尔语义视为「主动启用」；流式 `_slot` 由 textarea 改挂 actions 区（textarea 纯文本内容模型不渲染子元素）。
+- **artifact 复制保留换行**：复制改用渲染期留档的原始文本（含流式追加），不再读丢失 `\n` 的 `textContent`。
+- **callout / agent 流式落位**：callout 补 `_tokuiType` 盖章（流式闭合类型匹配）；agent 无条件建 body 插槽，open 后流入子节点落位正确。
+- **监听器泄漏**：renderer 新增 `_registerCleanup(el, fn)` 清理机制（`destroy()` 统一调用，要求幂等）；affix / backtop / command hotkey 的 window/document 监听接入解绑。
+- **sandbox 流式**：`lang:html` 分支流式期间只累积文本、闭合时才一次性写 iframe srcdoc；非 html 分支流式文本落入 pre 代码区。
+- **tool-call upd 幂等**：`result`/`error` 重复推送就地更新既有节点，不再堆叠。
+- **command**：键盘 ↑↓ 与鼠标悬停选中状态同步；选中 emit 合并为单一通路（同一 item 一次选中只 emit 一轮）；分组显隐改数据驱动；带 `v:` 项的显示文本不再被 value 冲掉。
+
+### 变更
+
+- **AI 组件全令牌化**：tool-call / agent / diff / artifact / welcome / callout / chat-input 等状态色、阴影、边框全部改吃三层令牌（无裸 hex/rgba）；新增 `--tokui-font-mono`、`--tokui-bubble-*`（6 个，四主题）、`--tokui-terminal-bg/-text/-titlebar`、`--tokui-code-*`（7 个高亮令牌，default = GitHub Light 板 / dark = One Dark 板）。
+- **视觉重设计**（对齐 card 调性）：bubble user 浅灰气泡、AI 头像淡底、system 更轻；suggestions 去左条与双层影（1px border + hover stripe）；chat-input 边框归一 1px + 单层 focus 环；welcome 降饱和；terminal 深色令牌化；source 轻量化（去实色 primary 序号圆/主题色标题/底色边框，改纯文本行：muted 序号与标题、hover 才显链接色，视觉权重低于正文）。
+- **事件出口统一**：thumb `like{value:up|down}`、source `open{url,title}`、code/terminal/copy/artifact `copy{}`、command `select{value,text}`、sidebar `toggle{collapsed}`、ft-folder `toggle{name,open}`、attach `delete{name,url,type}`、welcome-feature `select{value}` 全部接入 `createReporter` 统一出口；全局 bus 直连清零（conv/thumb/attach/command 改 `renderer.eventBus`，多实例安全）；原 `clk` 通道行为保持不变。
+- **error/danger 双类名补齐**：tool-call / agent / think-step 的 `--error` 规则双写 `--danger`，DSL 写 `status:danger` 不再失色。
+- **流式 fade-in 收敛**：`tokui-fade-in` 仅顶层流式挂载元素挂载（嵌套元素与文本 chunk 不挂），动画改 opacity-only 关键帧。
+- **流式 Text 合并**：连续文本 chunk 合并进同一 Text 节点（`textContent +=`），大对话 DOM 节点数收敛。
+
 ## [0.2.2] - 2026-08-09
 
 a11y 无障碍巡检专项 + Phase 5 体系债务清理收官。

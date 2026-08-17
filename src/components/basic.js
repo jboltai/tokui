@@ -13,6 +13,23 @@ var _t = (typeof require === 'function')
     || function (key) { return key; };
 
 /**
+ * 惰性图标解析：basic.js 在拓扑序中先于 icons.js 加载，故不能在模块加载期取
+ * window.TokUI._internal.iconSvg；改为调用期（渲染时）懒求值，此时 icons.js 已注册。
+ * Node 走 require('./icons')，浏览器/UMD 构建走 window._internal.iconSvg（render 时已就绪）。
+ * 解析失败兜底返回 ''（不致抛错）。
+ * @param {string} name - ICONS 注册表键名
+ * @param {number} [size=16]
+ * @returns {string} <svg>...</svg> 字符串
+ */
+function _iconSvg(name, size) {
+  if (typeof require === 'function') {
+    try { return require('./icons').iconSvg(name, size); } catch (e) { return ''; }
+  }
+  var i = (typeof window !== 'undefined') && window.TokUI && window.TokUI._internal;
+  return (i && i.iconSvg) ? i.iconSvg(name, size) : '';
+}
+
+/**
  * 颜色解析函数
  * 支持语义命名（primary/success/warning/danger/info/dark/light）
  * 和 6 位 hex 格式（不带 #，如 FF0000）。
@@ -1374,6 +1391,8 @@ function registerBasicComponents(renderer) {
       }
     }
     // 复制按钮：复制原始累积文本（含换行），不用 textContent（已被 wrapLines 去换行）
+    // 复制动作经 reporter 进统一事件出口（双通道：无 clk 语义，仅 onEvent/on:"copy:h"）
+    var codeReport = renderer.createReporter('code', node.attrs || {}, pre);
     var copyBtn = el('button', { class: 'tokui-code__copy', type: 'button' });
     copyBtn.textContent = _t('common.copy');
     copyBtn.addEventListener('click', function () {
@@ -1382,6 +1401,7 @@ function registerBasicComponents(renderer) {
       }
       copyBtn.textContent = _t('common.copied');
       copyBtn.classList.add('tokui-code__copy--done');
+      codeReport('copy', {});
       setTimeout(function () {
         copyBtn.textContent = _t('common.copy');
         copyBtn.classList.remove('tokui-code__copy--done');
@@ -1432,7 +1452,10 @@ function registerBasicComponents(renderer) {
     body.appendChild(contentEl);
     wrapper.appendChild(body);
     // 流式插槽：子节点挂到 body 内的 contentEl，而非 wrapper（否则 p 等会落到 body 外）
+    // 双重盖章（对照 bubble）：slot 元素与组件根都盖 _tokuiType，流式闭合匹配不依赖类名回退
+    contentEl._tokuiType = 'callout';
     wrapper._slot = contentEl;
+    wrapper._tokuiType = 'callout';
     return wrapper;
   });
 
@@ -1442,15 +1465,22 @@ function registerBasicComponents(renderer) {
   renderer.register('think', (node, rc) => {
     var attrs = node.attrs || {};
     var title = attrs.tt || _t('think.title');
-    var details = el('details', { class: 'tokui-think' });
+    var detailAttrs = { class: 'tokui-think' };
+    if (attrs.id) detailAttrs.id = attrs.id; // id 落 DOM：del/ins 锚点
+    var details = el('details', detailAttrs);
     if (attrs.open !== undefined) details.setAttribute('open', '');
     var summary = el('summary', { class: 'tokui-think__summary' });
-    var icon = el('span', { class: 'tokui-think__icon' });
-    icon.textContent = '💭';
+    // 顺序：[图标徽章][标题]…(居左)  [折叠箭头](margin-left:auto 居右)
+    var icon = el('span', { class: 'tokui-think__icon', 'aria-hidden': 'true' });
+    icon.innerHTML = _iconSvg('lightbulb', 15);
     summary.appendChild(icon);
     var titleSpan = el('span', { class: 'tokui-think__title' });
     titleSpan.textContent = title;
     summary.appendChild(titleSpan);
+    // 折叠箭头（SVG chevron，最后追加 → margin-left:auto 推到最右；展开时 CSS 旋转 90°）
+    var chevron = el('span', { class: 'tokui-think__chevron', 'aria-hidden': 'true' });
+    chevron.innerHTML = _iconSvg('chevron-right', 16);
+    summary.appendChild(chevron);
     details.appendChild(summary);
     var body = el('div', { class: 'tokui-think__body' });
     if (node.content) body.textContent = node.content;
@@ -1472,15 +1502,22 @@ function registerBasicComponents(renderer) {
     var status = attrs.status || '';
     var classes = ['tokui-think-chain'];
     if (status) classes.push('tokui-think-chain--' + status);
-    var details = el('details', { class: classes.join(' ') });
+    var chainAttrs = { class: classes.join(' ') };
+    if (attrs.id) chainAttrs.id = attrs.id; // id 落 DOM：del/ins 锚点
+    var details = el('details', chainAttrs);
     if (attrs.open !== undefined) details.setAttribute('open', '');
     var summary = el('summary', { class: 'tokui-think-chain__summary' });
-    var icon = el('span', { class: 'tokui-think-chain__icon' });
-    icon.textContent = '\u{1F9E0}';
+    // 顺序：[图标徽章][标题]…(居左)  [折叠箭头](margin-left:auto 居右)
+    var icon = el('span', { class: 'tokui-think-chain__icon', 'aria-hidden': 'true' });
+    icon.innerHTML = _iconSvg('sparkles', 15);
     summary.appendChild(icon);
     var titleSpan = el('span', { class: 'tokui-think-chain__title' });
     titleSpan.textContent = title;
     summary.appendChild(titleSpan);
+    // 折叠箭头（SVG chevron，最后追加 → 居右）
+    var chevron = el('span', { class: 'tokui-think-chain__chevron', 'aria-hidden': 'true' });
+    chevron.innerHTML = _iconSvg('chevron-right', 16);
+    summary.appendChild(chevron);
     details.appendChild(summary);
     var stepsBody = el('div', { class: 'tokui-think-chain__steps' });
     rc(node.children || []).forEach(function (child) {
@@ -1507,18 +1544,21 @@ function registerBasicComponents(renderer) {
     var header = el('div', { class: 'tokui-think-step__header' });
 
     if (status === 'done') {
-      var icon = el('span', { class: 'tokui-think-step__icon' });
-      icon.textContent = '✓';
+      var icon = el('span', { class: 'tokui-think-step__icon', 'aria-hidden': 'true' });
+      // 白色 check（stroke=currentColor=#fff，sw=3 在小圆内更清晰），替换原 ✓ 文本
+      icon.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
       header.appendChild(icon);
     } else if (status === 'running') {
-      var spinner = el('span', { class: 'tokui-think-step__spinner' });
+      var spinner = el('span', { class: 'tokui-think-step__spinner', 'aria-hidden': 'true' });
       header.appendChild(spinner);
-    } else if (status === 'error') {
-      var errIcon = el('span', { class: 'tokui-think-step__icon tokui-think-step__icon--error' });
-      errIcon.textContent = '✗';
+    } else if (status === 'error' || status === 'danger') {
+      // error/danger 双类名（与 CSS 双写对齐，danger 为别名）
+      var errIcon = el('span', { class: 'tokui-think-step__icon tokui-think-step__icon--' + status, 'aria-hidden': 'true' });
+      // 白色 close，替换原 ✗ 文本
+      errIcon.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>';
       header.appendChild(errIcon);
     } else {
-      var pendingDot = el('span', { class: 'tokui-think-step__dot' });
+      var pendingDot = el('span', { class: 'tokui-think-step__dot', 'aria-hidden': 'true' });
       header.appendChild(pendingDot);
     }
 
@@ -1561,6 +1601,9 @@ function registerBasicComponents(renderer) {
     var successText = attrs.tt || _t('common.copied');
     var btn = el('button', { class: 'tokui-copy', type: 'button' });
     btn.textContent = btnText;
+    // 复制动作经 reporter 进统一事件出口。attrs.id 语义是「复制目标元素 id」而非组件自身 id，
+    // 故 reporter 不带 attrs（事件 id 恒 null，避免误报成目标 id）
+    var copyReport = renderer.createReporter('copy', {}, btn);
     btn.addEventListener('click', function () {
       var text = '';
       if (attrs.id && typeof document !== 'undefined') {
@@ -1572,6 +1615,7 @@ function registerBasicComponents(renderer) {
       }
       btn.textContent = successText;
       btn.classList.add('tokui-copy--done');
+      copyReport('copy', {});
       setTimeout(function () {
         btn.textContent = btnText;
         btn.classList.remove('tokui-copy--done');
@@ -1635,17 +1679,17 @@ function registerBasicComponents(renderer) {
     var iconWrap = el('span', { class: 'tokui-thumb__icon' });
     iconWrap.innerHTML = svg;
     btn.appendChild(iconWrap);
+    // 双通道事件约定（同 msg-actions）：clk handler 经 renderer.eventBus 直发（多实例安全，
+    // 不读 window 全局 bus），同时经 reporter 进统一事件出口 onEvent('component')
+    var thumbReport = renderer.createReporter('thumb', attrs, btn);
     // 点击切换
     btn.addEventListener('click', function () {
       btn.classList.toggle('tokui-thumb--active');
       btn.setAttribute('aria-pressed', String(btn.classList.contains('tokui-thumb--active')));
-      if (attrs.clk) {
-        var bus = (typeof window !== 'undefined' && window.TokUI && window.TokUI._internal)
-          ? window.TokUI._internal.eventBus : null;
-        if (bus && typeof bus.emit === 'function') {
-          bus.emit(attrs.clk, { direction: direction, active: btn.classList.contains('tokui-thumb--active') });
-        }
+      if (attrs.clk && renderer.eventBus && typeof renderer.eventBus.emit === 'function') {
+        renderer.eventBus.emit(attrs.clk, { direction: direction, active: btn.classList.contains('tokui-thumb--active') });
       }
+      thumbReport('like', { value: direction });
     });
     // 注意：不设 data-tokui-clk——bindEvents 会再绑一次 clickFn 导致 handler 双发。
     // thumb 的点击回调统一走上方内部 emit（payload 含 direction/active，比 bindEvents 的表单数据语义更贴切）
@@ -1729,7 +1773,9 @@ function registerBasicComponents(renderer) {
     var role = attrs.role || 'ai';
     var model = attrs.model || '';
     var time = attrs.time || '';
-    var wrapper = el('div', { class: 'tokui-bubble tokui-bubble--' + role });
+    var wrapperAttrs = { class: 'tokui-bubble tokui-bubble--' + role };
+    if (attrs.id) wrapperAttrs.id = attrs.id; // id 落 DOM：del/ins 锚点
+    var wrapper = el('div', wrapperAttrs);
 
     // row: avatar + content
     var row = el('div', { class: 'tokui-bubble__row' });
@@ -3564,6 +3610,8 @@ function registerBasicComponents(renderer) {
         scrollEl.addEventListener('scroll', onScroll, { passive: true });
         checkScroll();
         btn._backtopCleanup = function () { scrollEl.removeEventListener('scroll', onScroll); };
+        // 接入 renderer 通用清理机制：destroy 时移除 scroll 监听（_backtopCleanup 属性保留给宿主手动调用）
+        renderer._registerCleanup(btn, btn._backtopCleanup);
       });
     }
 
@@ -3687,6 +3735,8 @@ function registerBasicComponents(renderer) {
             window.removeEventListener('resize', onScroll);
           }
         };
+        // 接入 renderer 通用清理机制：destroy 时移除 window 级监听（_affixCleanup 属性保留给宿主手动调用）
+        renderer._registerCleanup(wrapper, wrapper._affixCleanup);
       });
     }
 
@@ -4006,7 +4056,10 @@ function registerBasicComponents(renderer) {
     var autoResize = attrs.auto !== undefined;
     var rows = parseInt(attrs.rows) || 2;
 
-    var wrapper = el('div', { class: 'tokui-chat-input' });
+    var wrapperAttrs = { class: 'tokui-chat-input' };
+    // id 落 DOM：upd/del 指令经 getElementById 定位（对照 tool-call 的 wrapperAttrs 做法）
+    if (attrs.id) wrapperAttrs.id = attrs.id;
+    var wrapper = el('div', wrapperAttrs);
 
     // textarea
     var textarea = el('textarea', {
@@ -4260,7 +4313,8 @@ function registerBasicComponents(renderer) {
     // 动态更新方法
     wrapper._update = function (uAttrs) {
       if (uAttrs.dis !== undefined) {
-        disabled = !!uAttrs.dis;
+        // 布尔语义与下方 streaming 分支一致：DSL 属性值全是字符串，'false' 是主动启用而非禁用
+        disabled = uAttrs.dis !== 'false' && uAttrs.dis !== false;
         if (disabled) {
           textarea.setAttribute('disabled', '');
           textarea.classList.add('tokui-chat-input__textarea--disabled');
@@ -4281,7 +4335,9 @@ function registerBasicComponents(renderer) {
       }
     };
 
-    wrapper._slot = textarea;
+    // 流式插槽对齐挂载态：容器模式子节点（自定义按钮）落 actions 区。
+    // 不可指向 textarea——其内容模型为纯文本，流式子元素 append 进去不渲染（明显错误）。
+    wrapper._slot = actionsWrap;
     wrapper._tokuiType = 'chat-input';
     return wrapper;
   });
@@ -4296,7 +4352,9 @@ function registerBasicComponents(renderer) {
 
     var cls = 'tokui-msg-actions';
     if (attrs.visible) cls += ' tokui-msg-actions--visible';
-    var wrapper = el('div', { class: cls });
+    var wrapperAttrs = { class: cls };
+    if (attrs.id) wrapperAttrs.id = attrs.id; // id 落 DOM：del/ins 锚点
+    var wrapper = el('div', wrapperAttrs);
 
     // SVG 图标定义（统一 24x24 viewBox，Lucide 标准路径，保证绘制正确）
     var ICONS = {
@@ -4373,29 +4431,55 @@ function registerBasicComponents(renderer) {
 
   renderer.register('tool-call', (node, rc) => {
     var attrs = node.attrs || {};
-    var name = attrs.name || 'tool';
+    var name = attrs.name || _t('toolCall.defaultName');
     var status = attrs.status || 'pending';
     var duration = attrs.duration || '';
-    var wrapperAttrs = { class: 'tokui-tool-call tokui-tool-call--' + status };
+    var isCollapsed = attrs.collapsed !== undefined;
+    var wrapperAttrs = { class: 'tokui-tool-call tokui-tool-call--' + status + (isCollapsed ? ' tokui-tool-call--collapsed' : '') };
     if (attrs.id) wrapperAttrs.id = attrs.id;
     var wrapper = el('div', wrapperAttrs);
-    var header = el('div', { class: 'tokui-tool-call__header' });
+    // header 可折叠：点击 / Enter / Space 切换 body 收展（display 切换不销毁内容），aria-expanded 同步
+    var header = el('div', {
+      class: 'tokui-tool-call__header',
+      role: 'button',
+      tabindex: '0',
+      'aria-expanded': String(!isCollapsed)
+    });
     var statusDot = el('span', { class: 'tokui-tool-call__status-dot tokui-tool-call__status-dot--' + status });
     header.appendChild(statusDot);
     var nameEl = el('span', { class: 'tokui-tool-call__name' });
     nameEl.textContent = name;
     header.appendChild(nameEl);
     var statusBadge = el('span', { class: 'tokui-tool-call__status' });
-    var STATUS_TEXT = { pending: _t('status.pending'), running: _t('status.running'), done: _t('status.done'), error: _t('status.error'), denied: _t('status.denied') };
-    statusBadge.textContent = STATUS_TEXT[status] || status;
+    // 状态文案每次经 _t() 现取（不做渲染期闭包固化）——切 locale 后 _update 推状态用新文案
+    function statusText(s) {
+      var m = { pending: _t('status.pending'), running: _t('status.running'), done: _t('status.done'), error: _t('status.error'), denied: _t('status.denied') };
+      return m[s] || s;
+    }
+    statusBadge.textContent = statusText(status);
     header.appendChild(statusBadge);
     if (duration) {
       var durEl = el('span', { class: 'tokui-tool-call__duration' });
       durEl.textContent = duration;
       header.appendChild(durEl);
     }
+    // 收展指示 chevron（--collapsed 类切换 CSS 旋转）
+    var chevron = el('span', { class: 'tokui-tool-call__chevron', 'aria-hidden': 'true' });
+    chevron.textContent = '▾';
+    header.appendChild(chevron);
     wrapper.appendChild(header);
     var body = el('div', { class: 'tokui-tool-call__body' });
+    function toggleCollapse() {
+      var collapsed = wrapper.classList.toggle('tokui-tool-call--collapsed');
+      header.setAttribute('aria-expanded', String(!collapsed));
+    }
+    header.addEventListener('click', toggleCollapse);
+    header.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        toggleCollapse();
+      }
+    });
     if (node.content) {
       var paramsEl = el('div', { class: 'tokui-tool-call__params' });
       paramsEl.textContent = node.content;
@@ -4437,9 +4521,11 @@ function registerBasicComponents(renderer) {
     wrapper._tokuiType = 'tool-call';
     wrapper._update = function (uAttrs) {
       if (uAttrs.status) {
-        wrapper.className = 'tokui-tool-call tokui-tool-call--' + uAttrs.status;
+        // 保留收展态：className 整体重写会把 --collapsed 冲掉
+        var keepCollapsed = wrapper.classList.contains('tokui-tool-call--collapsed');
+        wrapper.className = 'tokui-tool-call tokui-tool-call--' + uAttrs.status + (keepCollapsed ? ' tokui-tool-call--collapsed' : '');
         statusDot.className = 'tokui-tool-call__status-dot tokui-tool-call__status-dot--' + uAttrs.status;
-        statusBadge.textContent = STATUS_TEXT[uAttrs.status] || uAttrs.status;
+        statusBadge.textContent = statusText(uAttrs.status);
       }
       if (uAttrs.duration) {
         var dur = wrapper.querySelector('.tokui-tool-call__duration');
@@ -4449,15 +4535,22 @@ function registerBasicComponents(renderer) {
         }
         dur.textContent = uAttrs.duration;
       }
+      // result/error 幂等：已有对应元素则就地更新内容，同状态重复推送不堆叠新节点
       if (uAttrs.result) {
-        var resEl = el('div', { class: 'tokui-tool-call__result' });
+        var resEl = body.querySelector('.tokui-tool-call__result');
+        if (!resEl) {
+          resEl = el('div', { class: 'tokui-tool-call__result' });
+          body.appendChild(resEl);
+        }
         resEl.textContent = uAttrs.result;
-        body.appendChild(resEl);
       }
       if (uAttrs.error) {
-        var errEl = el('div', { class: 'tokui-tool-call__error' });
+        var errEl = body.querySelector('.tokui-tool-call__error');
+        if (!errEl) {
+          errEl = el('div', { class: 'tokui-tool-call__error' });
+          body.appendChild(errEl);
+        }
         errEl.textContent = uAttrs.error;
-        body.appendChild(errEl);
       }
     };
     return wrapper;
@@ -4465,7 +4558,9 @@ function registerBasicComponents(renderer) {
 
   renderer.register('typing', (node) => {
     var attrs = node.attrs || {};
-    var wrapper = el('div', { class: 'tokui-typing' });
+    var typingAttrs = { class: 'tokui-typing' };
+    if (attrs.id) typingAttrs.id = attrs.id; // id 落 DOM：typing→正文切换经 [del id:x] 移除
+    var wrapper = el('div', typingAttrs);
     var dots = el('span', { class: 'tokui-typing__dots' });
     for (var i = 0; i < 3; i++) {
       var dot = el('span', { class: 'tokui-typing__dot' });
@@ -4478,13 +4573,18 @@ function registerBasicComponents(renderer) {
       textEl.textContent = attrs.text;
       wrapper.appendChild(textEl);
     }
+    // 组件根印章：缺了它，[del id:x] 的 _climbToComponentRoot 会越过 typing 爬到外层容器，
+    // 把包裹它的 card/bubble 整个删掉（typing 位于容器内是 chat 场景的常态布局）
+    wrapper._tokuiType = 'typing';
     return wrapper;
   });
 
   renderer.register('quick-reply', (node, rc) => {
     var attrs = node.attrs || {};
     var handlerName = attrs.clk || '';
-    var wrapper = el('div', { class: 'tokui-quick-reply' });
+    var qrAttrs = { class: 'tokui-quick-reply' };
+    if (attrs.id) qrAttrs.id = attrs.id; // id 落 DOM：del/ins 锚点
+    var wrapper = el('div', qrAttrs);
     var itemsWrap = el('div', { class: 'tokui-quick-reply__items' });
     // 点击上报：clk handler（{value: 标签}）+ reporter 统一出口
     //（修复：此前 quick-reply 的 clk 形同虚设，按钮没有任何接线）
@@ -4519,7 +4619,7 @@ function registerBasicComponents(renderer) {
 
   // === Suggestions 提示建议卡片（容器）===
   // attrs.cols = 列数 (1-4, 默认2), attrs.clk = 全局点击回调
-  // 子节点为 suggestion 卡片
+  // 子节点为 suggestion 卡片；列数纯 __grid--{cols} CSS 类控制（T2.3 去内联样式）
   renderer.register('suggestions', (node, rc) => {
     var attrs = node.attrs || {};
     var cols = Math.min(4, Math.max(1, parseInt(attrs.cols) || 2));
@@ -4529,7 +4629,6 @@ function registerBasicComponents(renderer) {
     var grid = el('div', {
       class: 'tokui-suggestions__grid tokui-suggestions__grid--' + cols
     });
-    grid.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
     if (node.children && node.children.length) {
       rc(node.children).forEach(function(child) {
         if (child && child.nodeType) grid.appendChild(child);
@@ -4601,10 +4700,15 @@ function registerBasicComponents(renderer) {
     numEl.textContent = num;
     wrapper.appendChild(numEl);
     var body = el('div', { class: 'tokui-source__body' });
+    // 点击上报：保持 <a target=_blank> 原生跳转不变，同时经 reporter 进统一事件出口
+    var srcReport = renderer.createReporter('source', attrs, wrapper);
     if (title) {
       var titleEl;
       if (url) {
         titleEl = el('a', { class: 'tokui-source__title', href: url, target: '_blank' });
+        titleEl.addEventListener('click', function () {
+          srcReport('open', { url: url, title: title });
+        });
       } else {
         titleEl = el('span', { class: 'tokui-source__title' });
       }
@@ -4708,7 +4812,9 @@ function registerBasicComponents(renderer) {
 
   renderer.register('diff', (node, rc) => {
     var attrs = node.attrs || {};
-    var wrapper = el('div', { class: 'tokui-diff' });
+    var diffAttrs = { class: 'tokui-diff' };
+    if (attrs.id) diffAttrs.id = attrs.id; // id 落 DOM：del/ins 锚点
+    var wrapper = el('div', diffAttrs);
     if (attrs.title || attrs.lang) {
       var header = el('div', { class: 'tokui-diff__header' });
       if (attrs.title) {
@@ -4771,7 +4877,7 @@ function registerBasicComponents(renderer) {
     return wrapper;
   });
 
-  renderer.register('plan-step', (node, rc) => {
+  renderer.register('plan-step', (node) => {
     var attrs = node.attrs || {};
     // 状态归一化：兼容 AI 常见的同义写法（running/in-progress/complete/...）
     var VALID_STATUS = { pending: 1, doing: 1, done: 1, error: 1, skipped: 1 };
@@ -4782,19 +4888,27 @@ function registerBasicComponents(renderer) {
       wait: 'pending', waiting: 'pending', todo: 'pending', queued: 'pending',
       fail: 'error', failed: 'error', failure: 'error'
     };
-    var rawStatus = String(attrs.status || 'pending').toLowerCase();
-    var status = STATUS_ALIASES[rawStatus] || (VALID_STATUS[rawStatus] ? rawStatus : 'pending');
-    var wrapper = el('div', { class: 'tokui-plan-step tokui-plan-step--' + status });
+    function normStatus(s) {
+      var raw = String(s || 'pending').toLowerCase();
+      return STATUS_ALIASES[raw] || (VALID_STATUS[raw] ? raw : 'pending');
+    }
+    var status = normStatus(attrs.status);
+    var wrapperAttrs = { class: 'tokui-plan-step tokui-plan-step--' + status };
+    // id 落 DOM：[upd id:stepN ...] 步骤推进 / del·ins 锚点定位的前提
+    if (attrs.id) wrapperAttrs.id = attrs.id;
+    var wrapper = el('div', wrapperAttrs);
     var dot = el('span', { class: 'tokui-plan-step__dot' });
     wrapper.appendChild(dot);
     var contentEl = el('div', { class: 'tokui-plan-step__content' });
+    var titleEl = null;
     if (attrs.tt) {
-      var titleEl = el('div', { class: 'tokui-plan-step__title' });
+      titleEl = el('div', { class: 'tokui-plan-step__title' });
       titleEl.textContent = attrs.tt;
       contentEl.appendChild(titleEl);
     }
+    var descEl = null;
     if (attrs.desc) {
-      var descEl = el('div', { class: 'tokui-plan-step__desc' });
+      descEl = el('div', { class: 'tokui-plan-step__desc' });
       descEl.textContent = attrs.desc;
       contentEl.appendChild(descEl);
     }
@@ -4803,18 +4917,39 @@ function registerBasicComponents(renderer) {
       textEl.textContent = node.content;
       contentEl.appendChild(textEl);
     }
-    rc(node.children || []).forEach(function (child) {
-      if (child && child.nodeType) contentEl.appendChild(child);
-    });
+    // plan-step 不入 parser CONTAINERS：入容器会把既有自闭合兄弟写法
+    //（[plan][plan-step A][plan-step B][/plan]）解析成嵌套，属破坏性语义变更。
+    // 保持自闭合叶子，无子节点语义（原 rc(children) 分支为不可达死代码，已删）。
     wrapper.appendChild(contentEl);
     var line = el('div', { class: 'tokui-plan-step__line' });
     wrapper.appendChild(line);
+    // 步骤推进通路：[upd id:stepN status:done tt:/desc:]。
+    // 状态切换改类名即可——dot 的 ✓ 图标是 --done 类的 CSS 伪元素，随类名联动。
+    wrapper._update = function (uAttrs) {
+      if (uAttrs.status) {
+        wrapper.className = 'tokui-plan-step tokui-plan-step--' + normStatus(uAttrs.status);
+      }
+      if (uAttrs.tt !== undefined) {
+        if (!titleEl) {
+          titleEl = el('div', { class: 'tokui-plan-step__title' });
+          contentEl.insertBefore(titleEl, contentEl.childNodes[0] || null);
+        }
+        titleEl.textContent = uAttrs.tt;
+      }
+      if (uAttrs.desc !== undefined) {
+        if (!descEl) {
+          descEl = el('div', { class: 'tokui-plan-step__desc' });
+          contentEl.appendChild(descEl);
+        }
+        descEl.textContent = uAttrs.desc;
+      }
+    };
     return wrapper;
   });
 
   renderer.register('agent', (node, rc) => {
     var attrs = node.attrs || {};
-    var name = attrs.name || 'Agent';
+    var name = attrs.name || _t('agent.defaultName');
     var status = attrs.status || 'idle';
     var action = attrs.action || '';
     var duration = attrs.duration || '';
@@ -4828,8 +4963,12 @@ function registerBasicComponents(renderer) {
     nameEl.textContent = name;
     header.appendChild(nameEl);
     var statusBadge = el('span', { class: 'tokui-agent__status' });
-    var STATUS_TEXT = { idle: _t('status.idle'), running: _t('status.running'), paused: _t('status.paused'), done: _t('status.done'), error: _t('status.error') };
-    statusBadge.textContent = STATUS_TEXT[status] || status;
+    // 文案现取（勿渲染期固化闭包）：切 locale 后 _update 仍用新语言（对齐 tool-call statusText 模式）
+    function statusText(s) {
+      var map = { idle: 'status.idle', running: 'status.running', paused: 'status.paused', done: 'status.done', error: 'status.error' };
+      return map[s] ? _t(map[s]) : s;
+    }
+    statusBadge.textContent = statusText(status);
     header.appendChild(statusBadge);
     if (duration) {
       var durEl = el('span', { class: 'tokui-agent__duration' });
@@ -4842,20 +4981,19 @@ function registerBasicComponents(renderer) {
       actionEl.textContent = action;
       wrapper.appendChild(actionEl);
     }
-    if (node.children && node.children.length) {
-      var body = el('div', { class: 'tokui-agent__body' });
-      rc(node.children).forEach(function (child) {
-        if (child && child.nodeType) body.appendChild(child);
-      });
-      wrapper.appendChild(body);
-      wrapper._slot = body;
-    }
+    // body 无条件创建并设为 _slot：流式 open 时 children 为空，后续流入的子节点须落 __body 而非 wrapper 根
+    var body = el('div', { class: 'tokui-agent__body' });
+    rc(node.children || []).forEach(function (child) {
+      if (child && child.nodeType) body.appendChild(child);
+    });
+    wrapper.appendChild(body);
+    wrapper._slot = body;
     wrapper._tokuiType = 'agent';
     wrapper._update = function (uAttrs) {
       if (uAttrs.status) {
         wrapper.className = 'tokui-agent tokui-agent--' + uAttrs.status;
         statusDot.className = 'tokui-agent__status-dot tokui-agent__status-dot--' + uAttrs.status;
-        statusBadge.textContent = STATUS_TEXT[uAttrs.status] || uAttrs.status;
+        statusBadge.textContent = statusText(uAttrs.status);
       }
       if (uAttrs.action && actionEl) actionEl.textContent = uAttrs.action;
       if (uAttrs.duration && durEl) durEl.textContent = uAttrs.duration;
@@ -4901,11 +5039,14 @@ function registerBasicComponents(renderer) {
       if (child && child.nodeType) children.appendChild(child);
     });
     wrapper.appendChild(children);
+    // 折叠上报：经 reporter 进统一事件出口 onEvent('component')
+    var ftReport = renderer.createReporter('ft-folder', attrs, wrapper);
     function toggleFolder() {
       var open = wrapper.classList.toggle('tokui-file-tree__folder--open');
       toggle.textContent = open ? '▾' : '▸';
       children.style.display = open ? '' : 'none';
       nameRow.setAttribute('aria-expanded', String(open));
+      ftReport('toggle', { name: name, open: open });
     }
     nameRow.addEventListener('click', toggleFolder);
     nameRow.addEventListener('keydown', function (e) {
@@ -4940,9 +5081,11 @@ function registerBasicComponents(renderer) {
 
   renderer.register('terminal', (node, rc) => {
     var attrs = node.attrs || {};
-    var title = attrs.title || 'Terminal';
+    var title = attrs.title || _t('terminal.title');
     var status = attrs.status || '';
-    var wrapper = el('div', { class: 'tokui-terminal' + (status && status !== '0' ? ' tokui-terminal--error' : '') });
+    var termAttrs = { class: 'tokui-terminal' + (status && status !== '0' ? ' tokui-terminal--error' : '') };
+    if (attrs.id) termAttrs.id = attrs.id; // id 落 DOM：del/ins 锚点
+    var wrapper = el('div', termAttrs);
     var titlebar = el('div', { class: 'tokui-terminal__titlebar' });
     var dots = el('span', { class: 'tokui-terminal__dots' });
     ['🔴', '🟡', '🟢'].forEach(function (c) {
@@ -4962,6 +5105,8 @@ function registerBasicComponents(renderer) {
     });
     wrapper.appendChild(content);
     // 标题栏右侧复制按钮：复制终端全文，Copy → Copied 2s 恢复（复用 artifact/code 的复制模式）
+    // 复制动作经 reporter 进统一事件出口（双通道：无 clk 语义，仅 onEvent/on:"copy:h"）
+    var termReport = renderer.createReporter('terminal', attrs, wrapper);
     var copyBtn = el('button', { class: 'tokui-terminal__copy', type: 'button' });
     copyBtn.textContent = _t('actions.copy');
     copyBtn.addEventListener('click', function () {
@@ -4971,6 +5116,7 @@ function registerBasicComponents(renderer) {
       }
       copyBtn.textContent = _t('common.copied');
       copyBtn.classList.add('tokui-terminal__copy--done');
+      termReport('copy', {});
       setTimeout(function () {
         copyBtn.textContent = _t('actions.copy');
         copyBtn.classList.remove('tokui-terminal__copy--done');
@@ -5091,7 +5237,7 @@ function registerBasicComponents(renderer) {
     var content = el('div', { class: 'tokui-quote__content' });
     if (attrs.role) {
       var roleBadge = el('span', { class: 'tokui-quote__role' });
-      roleBadge.textContent = attrs.role === 'user' ? 'User' : 'AI';
+      roleBadge.textContent = attrs.role === 'user' ? _t('bubble.you') : _t('bubble.ai');
       content.appendChild(roleBadge);
     }
     if (attrs.tx) {
@@ -5112,7 +5258,7 @@ function registerBasicComponents(renderer) {
   renderer.register('sandbox', (node, rc) => {
     var attrs = node.attrs || {};
     var lang = attrs.lang || '';
-    var title = attrs.title || 'Preview';
+    var title = attrs.title || _t('sandbox.title');
     var height = attrs.height || '200';
     var wrapper = el('div', { class: 'tokui-sandbox' });
     var header = el('div', { class: 'tokui-sandbox__header' });
@@ -5143,25 +5289,32 @@ function registerBasicComponents(renderer) {
       });
       if (htmlContent) iframe.setAttribute('srcdoc', htmlContent);
       preview.appendChild(iframe);
-      // 流式渲染时 _slot 收集文本追加到 iframe srcdoc
+      // 流式期间只累积原始文本，不写 srcdoc——每 chunk 整写会让 iframe 反复重载、脚本半执行（O(n²)）；
+      // 容器闭合时由 _streamCloseHook 一次性写入完整文档
+      var streamAcc = '';
       var slotProxy = {
         appendChild: function (child) {
-          var text = (child.nodeType === 3) ? child.nodeValue : (child.textContent || '');
-          if (!text) return child;
-          var current = iframe.getAttribute('srcdoc') || '';
-          iframe.setAttribute('srcdoc', current + text);
+          var text = (child.nodeType === 3) ? (child.nodeValue || child.textContent || '') : (child.textContent || '');
+          if (text) streamAcc += text;
           return child;
         }
       };
       wrapper._slot = slotProxy;
+      wrapper._streamCloseHook = function () {
+        if (streamAcc) iframe.setAttribute('srcdoc', streamAcc);
+      };
     } else {
       var codeEl = el('pre', { class: 'tokui-sandbox__code' });
-      if (htmlContent) codeEl.textContent = htmlContent;
+      // pre 内嵌 code 元素作为流式插槽：流式文本落 pre 内 code，而非 preview 根（错位）
+      var codeInner = el('code', {});
+      if (htmlContent) codeInner.textContent = htmlContent;
+      codeEl.appendChild(codeInner);
+      codeEl.__code = codeInner;
       rc((node.children || []).filter(function (c) { return c.type !== '_text'; })).forEach(function (child) {
         if (child && child.nodeType) codeEl.appendChild(child);
       });
       preview.appendChild(codeEl);
-      wrapper._slot = preview;
+      wrapper._slot = codeInner;
     }
     wrapper.appendChild(preview);
     wrapper._tokuiType = 'sandbox';
@@ -5242,7 +5395,7 @@ function registerBasicComponents(renderer) {
     });
     if (attrs.total) {
       var totalEl = el('span', { class: 'tokui-test-result__count tokui-test-result__count--total' });
-      totalEl.textContent = 'Total: ' + attrs.total;
+      totalEl.textContent = _t('testResult.total', { n: attrs.total });
       summary.appendChild(totalEl);
     }
     if (attrs.duration) {
@@ -5328,7 +5481,7 @@ function registerBasicComponents(renderer) {
       // 流式路径：conv 子节点经 renderer._streamChild 逐个到达（一次性路径在下方自带 children 渲染）。
       // 交回父容器统一渲染，保证流式下 conv 点击的 clk emit + report 上报与一次性路径行为一致
       wrapper._renderConvChild = function (convNode) {
-        return renderConvItem(convNode, handlerName, activeAct, wrapper, report);
+        return renderConvItem(convNode, handlerName, activeAct, wrapper, report, renderer.eventBus);
       };
       wrapper._streamCloseHook = function () {
         var hasConv = wrapper.querySelector('.tokui-conv');
@@ -5351,7 +5504,7 @@ function registerBasicComponents(renderer) {
       }
 
       group.items.forEach(function (convNode) {
-        var convEl = renderConvItem(convNode, handlerName, activeAct, wrapper, report);
+        var convEl = renderConvItem(convNode, handlerName, activeAct, wrapper, report, renderer.eventBus);
         wrapper.appendChild(convEl);
       });
     });
@@ -5366,7 +5519,7 @@ function registerBasicComponents(renderer) {
   // 注意: conv 通常作为 conversations 的子节点，由 conversations 渲染器统一渲染
   // 但也注册独立的 conv 渲染器，用于单独渲染
   renderer.register('conv', (node) => {
-    return renderConvItem(node, '', '', null, null);
+    return renderConvItem(node, '', '', null, null, renderer.eventBus);
   });
 
   /**
@@ -5378,7 +5531,8 @@ function registerBasicComponents(renderer) {
 
   /**
    * 将 conv 子节点按时间属性分组
-   * 返回 [{ label: '今天'|'昨天'|'更早', items: [...] }]
+   * 返回 [{ label: 今天|昨天|更早（随 locale）, items: [...] }]
+   * 「昨天」按当前 i18n 字典值比较（后端按页面 locale 发时间串，en-US 发 'Yesterday'）。
    */
   function categorizeConvGroups(convNodes) {
     var today = [];
@@ -5389,7 +5543,7 @@ function registerBasicComponents(renderer) {
       var time = (node.attrs && node.attrs.time) || '';
       if (isTodayTime(time)) {
         today.push(node);
-      } else if (time === '昨天') {
+      } else if (time === _t('time.yesterday')) {
         yesterday.push(node);
       } else {
         earlier.push(node);
@@ -5407,8 +5561,9 @@ function registerBasicComponents(renderer) {
   /**
    * 渲染单个会话项
    * report 为父容器 conversations 的交互上报器（独立渲染 conv 时为 null，不上报）
+   * bus 为渲染器注入的 eventBus（多实例安全，不读 window 全局）
    */
-  function renderConvItem(node, handlerName, activeAct, container, report) {
+  function renderConvItem(node, handlerName, activeAct, container, report, bus) {
     var attrs = node.attrs || {};
     var title = attrs.tt || '';
     var time = attrs.time || '';
@@ -5464,12 +5619,8 @@ function registerBasicComponents(renderer) {
       allItems.forEach(function (el) { el.classList.remove('tokui-conv--active'); el.removeAttribute('aria-current'); });
       item.classList.add('tokui-conv--active');
       item.setAttribute('aria-current', 'true');
-      if (handlerName) {
-        var bus = (typeof window !== 'undefined' && window.TokUI && window.TokUI._internal)
-          ? window.TokUI._internal.eventBus : null;
-        if (bus && typeof bus.emit === 'function') {
-          bus.emit(handlerName, { tt: title, time: time, act: attrs.act || '' });
-        }
+      if (handlerName && bus && typeof bus.emit === 'function') {
+        bus.emit(handlerName, { tt: title, time: time, act: attrs.act || '' });
       }
       if (report) report('change', { value: convKey });
     });
@@ -5615,7 +5766,12 @@ function registerBasicComponents(renderer) {
 
     // 点击事件由 renderer 的通用 data-tokui-clk 绑定处理（bindEvents），
     // 处理器经 (data, e, element) 拿到卡片 DOM，读 data-prompt 等属性。
-    // 不在此自绑 click（旧实现 bus.emit 不传 element，usePrompt 读不到 data-prompt → 点击无效）。
+    // 不在此自绑 clk emit（旧实现 bus.emit 不传 element，usePrompt 读不到 data-prompt → 点击无效）。
+    // 双通道约定（同 msg-actions）：clk 走 bindEvents 原路径，reporter 进统一事件出口 onEvent('component')
+    var wfReport = renderer.createReporter('welcome-feature', attrs, card);
+    card.addEventListener('click', function () {
+      wfReport('select', { value: title || desc });
+    });
 
     card._tokuiType = 'welcome-feature';
     return card;
@@ -5728,6 +5884,9 @@ function registerBasicComponents(renderer) {
 
     // 悬浮操作按钮
     var actions = el('div', { class: 'tokui-attach__actions' });
+    // 双通道事件约定（同 msg-actions）：clk handler 经 renderer.eventBus 直发（多实例安全，
+    // 不读 window 全局 bus），同时经 reporter 进统一事件出口 onEvent('component')
+    var attachReport = renderer.createReporter('attach', attrs, item);
     // 下载按钮
     if (url) {
       var dlBtn = el('a', {
@@ -5747,13 +5906,10 @@ function registerBasicComponents(renderer) {
     delBtn.title = _t('common.delete');
     delBtn.addEventListener('click', function(e) {
       e.stopPropagation();
-      if (handlerName) {
-        var bus = (typeof window !== 'undefined' && window.TokUI && window.TokUI._internal)
-          ? window.TokUI._internal.eventBus : null;
-        if (bus && typeof bus.emit === 'function') {
-          bus.emit(handlerName, { name: fileName, url: url, type: fileType });
-        }
+      if (handlerName && renderer.eventBus && typeof renderer.eventBus.emit === 'function') {
+        renderer.eventBus.emit(handlerName, { name: fileName, url: url, type: fileType });
       }
+      attachReport('delete', { name: fileName, url: url, type: fileType });
       // 移除此附件项
       if (item.parentNode) item.parentNode.removeChild(item);
     });
@@ -5775,7 +5931,9 @@ function registerBasicComponents(renderer) {
     var pos = attrs.pos || 'right';
     var width = attrs.w || '50';
 
-    var wrapper = el('div', { class: 'tokui-artifact' });
+    var artifactAttrs = { class: 'tokui-artifact' };
+    if (attrs.id) artifactAttrs.id = attrs.id; // id 落 DOM：del/ins 锚点
+    var wrapper = el('div', artifactAttrs);
 
     // === Header: title + tab buttons + close ===
     var header = el('div', { class: 'tokui-artifact__header' });
@@ -5792,7 +5950,7 @@ function registerBasicComponents(renderer) {
       role: 'tab',
       'aria-selected': 'true'
     });
-    codeTab.textContent = 'Code';
+    codeTab.textContent = _t('artifact.codeTab');
     tabs.appendChild(codeTab);
 
     var previewTab = el('button', {
@@ -5801,7 +5959,7 @@ function registerBasicComponents(renderer) {
       role: 'tab',
       'aria-selected': 'false'
     });
-    previewTab.textContent = 'Preview';
+    previewTab.textContent = _t('artifact.previewTab');
     tabs.appendChild(previewTab);
 
     header.appendChild(tabs);
@@ -5837,14 +5995,22 @@ function registerBasicComponents(renderer) {
     pre.appendChild(code);
     codeArea.appendChild(pre);
 
+    // 复制留档原始文本（含换行）：textContent 经 wrapLines 后 \n 已丢失，复制会塌成一行。
+    // 仿 code 组件 rawAcc 模式：mount 模式取初值 codeText；流式模式由 _streamAppendHook 累积、
+    // _streamCloseHook 以重算的 raw 终值为准。
+    var rawAcc = codeText;
+
+    // 统一事件出口（close/copy 共用），命名 handler（on:"事件:h"）+ onEvent 双通道
+    var artifactReport = renderer.createReporter('artifact', attrs, wrapper);
+
     // Copy button in code area
     var copyBtn = el('button', { class: 'tokui-artifact__code-copy', type: 'button' });
     copyBtn.textContent = _t('common.copy');
     copyBtn.addEventListener('click', function() {
-      var text = code.textContent || '';
       if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        navigator.clipboard.writeText(text);
+        navigator.clipboard.writeText(rawAcc);
       }
+      artifactReport('copy', {});
       copyBtn.textContent = _t('common.copied');
       copyBtn.classList.add('tokui-artifact__code-copy--done');
       setTimeout(function() {
@@ -5906,9 +6072,7 @@ function registerBasicComponents(renderer) {
     });
 
     // === Close button logic ===
-    // 命名 handler（on:"close:h"）+ 统一事件出口，与全库 clk/on 约定对齐；
     // 保留 tokui-artifact-close CustomEvent（宿主布局恢复全宽的既有契约）
-    var artifactReport = renderer.createReporter('artifact', attrs, wrapper);
     closeBtn.addEventListener('click', function() {
       artifactReport('close', {});
       // Dispatch a custom event so the parent layout can restore full width
@@ -5944,11 +6108,21 @@ function registerBasicComponents(renderer) {
       document.removeEventListener('mouseup', onDragEnd);
     }
 
+    // 拖拽进行中组件被销毁时 document 级 mousemove/mouseup 会残留：登记清理兜底（onDragEnd 幂等）
+    if (typeof document !== 'undefined') {
+      renderer._registerCleanup(wrapper, function () { onDragEnd(); });
+    }
+
     // === Streaming support ===
     // _slot points to code element for streaming text append
     wrapper._slot = code;
     wrapper._tokuiType = 'artifact';
     wrapper._artifactCode = codeText;
+    // 直挂 artifact 的流式文本（无 artifact-code 子容器包裹时）逐块累积进复制留档；
+    // 经 artifact-code 包裹的文本由其子容器收尾，最终由下方 _streamCloseHook 统一重算 rawAcc
+    wrapper._streamAppendHook = function (childNode) {
+      if (childNode && childNode.type === '_text' && childNode.content) rawAcc += childNode.content;
+    };
 
     // Remove standalone preview elements (artifact-preview renders as separate child)
     // Use setTimeout to run after initial DOM mount
@@ -5980,7 +6154,7 @@ function registerBasicComponents(renderer) {
             if (cc) { raw = cc.textContent || ''; break; }
           }
         }
-        if (!raw) raw = wrapper._artifactCode || '';
+        if (!raw) raw = rawAcc || wrapper._artifactCode || '';
       }
       if (lang !== 'text' && HL_LANGS[lang]) {
         code.innerHTML = wrapLines(highlightCode(raw, lang));
@@ -5988,6 +6162,7 @@ function registerBasicComponents(renderer) {
         code.innerHTML = wrapLines(escapeHtml(raw));
       }
       wrapper._artifactCode = raw;
+      rawAcc = raw; // 终态重算：复制留档与最终高亮同源（含流式 artifact-code 路径）
       // Update iframe preview content
       var updatedHtml = '';
       if (lang === 'html') {
@@ -6079,6 +6254,8 @@ function registerBasicComponents(renderer) {
     // （由 selectItem / item click 内部 emit），若用 data-tokui-clk 会被 bindEvents 绑到根上，
     // 点击面板任意处（含搜索框）都冒泡触发、且与内部 emit 双发
     if (attrs.clk) wrapper.setAttribute('data-tokui-cmd-clk', attrs.clk);
+    // 选中上报：经 reporter 进统一事件出口 onEvent('component')（与 clk emit 双通道并存）
+    var cmdReport = renderer.createReporter('command', attrs, wrapper);
 
     // 遮罩层
     var overlay = el('div', { class: 'tokui-command__overlay' });
@@ -6169,24 +6346,31 @@ function registerBasicComponents(renderer) {
       allItems.forEach(function(item) {
         var value = item.getAttribute('data-value') || item.textContent || '';
         var result = fuzzyMatch(value, query);
+        // 可见性数据驱动：_cmdVisible 标记为唯一事实来源（分组显隐/键盘导航/悬浮选中都读它，
+        // 不再用 [style*="display: none"] 脆弱选择器回读内联样式）
+        item._cmdVisible = result.match;
         if (result.match) {
           item.style.display = '';
           visibleCount++;
-          // highlight matched text
+          // highlight matched text（高亮目标是显示文本 _cmdText，不是匹配用的 data-value）
           var textSpan = item.querySelector('.tokui-command__item-text');
           if (textSpan) {
             textSpan.innerHTML = '';
-            textSpan.appendChild(highlightText(value, query));
+            textSpan.appendChild(highlightText(item._cmdText != null ? item._cmdText : value, query));
           }
         } else {
           item.style.display = 'none';
           item.classList.remove('tokui-command__item--selected');
         }
       });
-      // hide empty groups
+      // hide empty groups（按 item 的 _cmdVisible 标记判定）
       allGroups.forEach(function(group) {
-        var visibleItems = group.querySelectorAll('.tokui-command__item:not([style*="display: none"])');
-        group.style.display = visibleItems.length === 0 ? 'none' : '';
+        var groupItems = group.querySelectorAll('.tokui-command__item');
+        var anyVisible = false;
+        for (var gi = 0; gi < groupItems.length; gi++) {
+          if (groupItems[gi]._cmdVisible) { anyVisible = true; break; }
+        }
+        group.style.display = anyVisible ? '' : 'none';
       });
       // empty state
       empty.style.display = visibleCount === 0 ? '' : 'none';
@@ -6207,7 +6391,7 @@ function registerBasicComponents(renderer) {
 
     function getVisibleItems() {
       return allItems.filter(function(item) {
-        return item.style.display !== 'none';
+        return item._cmdVisible !== false;
       });
     }
 
@@ -6228,26 +6412,27 @@ function registerBasicComponents(renderer) {
       });
     }
 
+    // 选中唯一出口：键盘 Enter 与鼠标点击（buildCommandItem 内经 wrapper._selectItem）共用，
+    // 同一 item 一次选中只 emit 一轮（item 级 clk → command 级 clk），不再两处重复实现。
+    // bus 取渲染器注入的 eventBus（多实例安全，不读 window 全局）。
     function selectItem(item) {
       if (!item) return;
       var handlerName = item.getAttribute('data-tokui-cmd-clk');
+      var value = item.getAttribute('data-value');
+      // 显示文本以构建期留档的 _cmdText 为准（高亮重写不污染；shortcut 快捷键提示不混入）
+      var textSpan = item.querySelector ? item.querySelector('.tokui-command__item-text') : null;
+      var text = item._cmdText != null ? item._cmdText : (textSpan ? textSpan.textContent : item.textContent);
+      var bus = renderer.eventBus;
       // dispatch via event bus
-      if (handlerName) {
-        var bus = (typeof window !== 'undefined' && window.TokUI && window.TokUI._internal)
-          ? window.TokUI._internal.eventBus : null;
-        if (bus && typeof bus.emit === 'function') {
-          bus.emit(handlerName, { value: item.getAttribute('data-value'), text: item.textContent });
-        }
+      if (handlerName && bus && typeof bus.emit === 'function') {
+        bus.emit(handlerName, { value: value, text: text });
       }
       // also emit command-level clk
       var rootClk = wrapper.getAttribute('data-tokui-cmd-clk');
-      if (rootClk) {
-        var bus2 = (typeof window !== 'undefined' && window.TokUI && window.TokUI._internal)
-          ? window.TokUI._internal.eventBus : null;
-        if (bus2 && typeof bus2.emit === 'function') {
-          bus2.emit(rootClk, { value: item.getAttribute('data-value'), text: item.textContent, clk: handlerName });
-        }
+      if (rootClk && bus && typeof bus.emit === 'function') {
+        bus.emit(rootClk, { value: value, text: text, clk: handlerName });
       }
+      cmdReport('select', { value: value, text: text });
       closeCommand();
     }
 
@@ -6346,6 +6531,10 @@ function registerBasicComponents(renderer) {
     }
     if (attrs.hotkey !== undefined && typeof document !== 'undefined') {
       document.addEventListener('keydown', handleGlobalKey);
+      // 接入 renderer 通用清理机制：destroy 时解绑全局快捷键，防 document 级监听泄漏
+      renderer._registerCleanup(wrapper, function () {
+        document.removeEventListener('keydown', handleGlobalKey);
+      });
     }
 
     // 公开方法
@@ -6353,6 +6542,16 @@ function registerBasicComponents(renderer) {
     wrapper._slot = list; // 流式 command-group 子节点落入 list（非 wrapper）
     wrapper._openCommand = openCommand;
     wrapper._closeCommand = closeCommand;
+    // item 事件回调入口（buildCommandItem 与本闭包解耦，经 wrapper 方法互调）：
+    // _selectItem 点击/键盘同一选中出口；_hoverSelectItem 悬浮同步键盘选中下标
+    wrapper._selectItem = selectItem;
+    wrapper._hoverSelectItem = function (item) {
+      var visible = getVisibleItems();
+      var idx = visible.indexOf(item);
+      if (idx === -1) return;
+      _selectedIndex = idx;
+      updateSelection();
+    };
     // 流式收尾：子项到齐后重新收集（mount 模式下 idempotent，无副作用）
     wrapper._streamCloseHook = function () { collectItems(); filterItems(input.value || ''); };
 
@@ -6382,6 +6581,9 @@ function registerBasicComponents(renderer) {
     var textSpan = el('span', { class: 'tokui-command__item-text' });
     textSpan.textContent = text;
     item.appendChild(textSpan);
+    // 留档显示文本：filterItems 高亮重写 textSpan 时以它为准（匹配目标 data-value 可能与 tx 不同，
+    // 直接高亮 value 会把显示文本冲掉）；selectItem 的 emit 载荷也读它
+    item._cmdText = text;
 
     // 快捷键提示（可选）
     if (attrs.shortcut) {
@@ -6390,44 +6592,20 @@ function registerBasicComponents(renderer) {
       item.appendChild(shortcut);
     }
 
-    // 点击选中
+    // 点击选中：走父级 command 的 _selectItem（与键盘 Enter 同一出口，emit 仅一次）
     item.addEventListener('click', function() {
-      // 找到父级 command 容器
       var cmd = item.closest ? item.closest('.tokui-command') : null;
-      if (cmd && cmd._closeCommand) {
-        // 触发事件
-        var handlerName = item.getAttribute('data-tokui-cmd-clk');
-        if (handlerName) {
-          var bus = (typeof window !== 'undefined' && window.TokUI && window.TokUI._internal)
-            ? window.TokUI._internal.eventBus : null;
-          if (bus && typeof bus.emit === 'function') {
-            bus.emit(handlerName, { value: value, text: text });
-          }
-        }
-        // command-level clk
-        var rootClk = cmd.getAttribute('data-tokui-cmd-clk');
-        if (rootClk) {
-          var bus2 = (typeof window !== 'undefined' && window.TokUI && window.TokUI._internal)
-            ? window.TokUI._internal.eventBus : null;
-          if (bus2 && typeof bus2.emit === 'function') {
-            bus2.emit(rootClk, { value: value, text: text, clk: handlerName });
-          }
-        }
-        cmd._closeCommand();
+      if (cmd && typeof cmd._selectItem === 'function') {
+        cmd._selectItem(item);
       }
     });
 
-    // 鼠标悬浮选中
+    // 鼠标悬浮选中：同步父级 command 的键盘选中下标（悬浮后按 ↑/↓ 从悬浮项起跳）
     item.addEventListener('mouseenter', function() {
-      var parentList = item.closest ? item.closest('.tokui-command__list') : null;
-      if (!parentList) return;
-      var visible = Array.from(parentList.querySelectorAll('.tokui-command__item:not([style*="display: none"])'));
-      visible.forEach(function(v) {
-        v.classList.remove('tokui-command__item--selected');
-        v.setAttribute('aria-selected', 'false');
-      });
-      item.classList.add('tokui-command__item--selected');
-      item.setAttribute('aria-selected', 'true');
+      var cmd = item.closest ? item.closest('.tokui-command') : null;
+      if (cmd && typeof cmd._hoverSelectItem === 'function') {
+        cmd._hoverSelectItem(item);
+      }
     });
 
     return item;
@@ -6475,7 +6653,7 @@ function registerBasicComponents(renderer) {
   // 子容器: canvas-content(内容区)
   renderer.register('canvas', (node, rc) => {
     var attrs = node.attrs || {};
-    var title = attrs.tt || 'Canvas';
+    var title = attrs.tt || _t('canvas.title');
     var pos = attrs.pos || 'right';
     var width = parseInt(attrs.w) || 400;
     var isOpen = attrs.open !== undefined;

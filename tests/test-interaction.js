@@ -286,14 +286,38 @@ test('chat-input 停止按钮经 on 声明调命名 handler', () => {
   assert.strictEqual(calls, 1);
 });
 
-test('chat-input upd streaming 切换（false 字符串主动关闭）', () => {
-  const rc = makeRenderer();
-  const dom = rc.render({ type: 'chat-input', attrs: { id: 'ci' }, children: [] });
+test('chat-input upd 经 DSL [upd id:] 全通路：dis 禁用/启用真实生效', () => {
+  const TokUI = require('../src/index.js');
+  const container = createElement('div');
+  const ui = new TokUI({ container: container });
+  ui.render('[chat-input id:ci]');
+  const dom = container.querySelector('.tokui-chat-input');
+  assert.ok(dom, 'chat-input 经 id 落 DOM 后可被 upd 定位');
+  const textarea = dom.querySelector('textarea');
+  const sendBtn = dom.querySelector('.tokui-chat-input__send');
+  assert.ok(!textarea.hasAttribute('disabled'), '初始未禁用');
+  // dis:true 经 upd 全通路禁用
+  ui.render('[upd id:ci dis:true]');
+  assert.ok(textarea.hasAttribute('disabled'), 'upd dis:true 后 textarea 禁用');
+  assert.ok(sendBtn.hasAttribute('disabled'), 'upd dis:true 后发送钮禁用');
+  // dis:false（DSL 属性值为字符串 'false'）是主动启用，不得误禁用
+  ui.render('[upd id:ci dis:false]');
+  assert.ok(!textarea.hasAttribute('disabled'), "upd dis:false（字符串）后 textarea 启用");
+  assert.ok(!sendBtn.hasAttribute('disabled'), "upd dis:false（字符串）后发送钮启用");
+});
+
+test('chat-input upd 经 DSL [upd id:] 全通路：streaming:true 生效', () => {
+  const TokUI = require('../src/index.js');
+  const container = createElement('div');
+  const ui = new TokUI({ container: container });
+  ui.render('[chat-input id:ci2]');
+  const dom = container.querySelector('.tokui-chat-input');
   assert.ok(dom.className.indexOf('--streaming') === -1);
-  dom._update({ streaming: 'true' });
-  assert.ok(dom.className.indexOf('tokui-chat-input--streaming') !== -1);
-  dom._update({ streaming: 'false' });
-  assert.ok(dom.className.indexOf('tokui-chat-input--streaming') === -1);
+  ui.render('[upd id:ci2 streaming:true]');
+  assert.ok(dom.className.indexOf('tokui-chat-input--streaming') !== -1, 'upd streaming:true 加 --streaming 类');
+  // false 字符串主动关闭
+  ui.render('[upd id:ci2 streaming:false]');
+  assert.ok(dom.className.indexOf('tokui-chat-input--streaming') === -1, 'upd streaming:false 移除 --streaming 类');
 });
 
 // =============================================
@@ -984,6 +1008,111 @@ test('mention 异步数据源 + Esc 关闭', async () => {
   assert.strictEqual(dropdown.childNodes.length, 1, '异步结果到达渲染');
   fire(textarea, 'keydown', { key: 'Escape', preventDefault() {} });
   assert.strictEqual(dropdown.style.display, 'none');
+});
+
+// =============================================
+// P3 能力补齐（T3.2 typing del / T3.3 事件出口统一）
+// =============================================
+
+test('typing 经 [del id:] 可删除（T3.2，typing→正文切换锚点）', () => {
+  const TokUI = require('../src/index.js');
+  const container = createElement('div');
+  const ui = new TokUI({ container: container });
+  ui.render('[typing id:ty1]');
+  const typing = container.querySelector('.tokui-typing');
+  assert.ok(typing, 'typing 渲染');
+  assert.strictEqual(typing.getAttribute('id'), 'ty1', 'typing id 落 DOM');
+  ui.render('[del id:ty1]');
+  assert.strictEqual(container.querySelector('.tokui-typing'), null, 'del 后 typing 移除');
+});
+
+test('thumb 点击经 onEvent 上报 like（T3.3，clk 原通道不变）', () => {
+  cleanupHandlers();
+  const TokUI = require('../src/index.js');
+  const container = createElement('div');
+  const events = [];
+  const ui = new TokUI({ container: container, onEvent: (name, payload) => events.push(payload) });
+  let clkDetail = null;
+  eventBus.registerHandler('onThumb', (d) => { clkDetail = d; });
+  ui.render('[thumb t:up id:th1 clk:onThumb]');
+  fire(container.querySelector('.tokui-thumb'), 'click');
+  const evt = events.find(e => e.type === 'thumb' && e.event === 'like');
+  assert.ok(evt, 'onEvent 收到 thumb like');
+  assert.strictEqual(evt.id, 'th1');
+  assert.strictEqual(evt.detail.value, 'up', 'payload 含方向 value');
+  assert.ok(clkDetail && clkDetail.direction === 'up' && clkDetail.active === true, 'clk handler 原通道不受影响');
+  cleanupHandlers();
+});
+
+test('source 引用卡点击经 onEvent 上报 open（T3.3，保持 <a target=_blank>）', () => {
+  const TokUI = require('../src/index.js');
+  const container = createElement('div');
+  const events = [];
+  const ui = new TokUI({ container: container, onEvent: (name, payload) => events.push(payload) });
+  ui.render('[source n:1 tt:官方文档 u:https://example.com id:src1]');
+  const link = container.querySelector('.tokui-source__title');
+  assert.strictEqual(link.tagName, 'A', '标题仍是 <a>');
+  assert.strictEqual(link.getAttribute('target'), '_blank', 'target=_blank 行为保持');
+  fire(link, 'click');
+  const evt = events.find(e => e.type === 'source' && e.event === 'open');
+  assert.ok(evt, 'onEvent 收到 source open');
+  assert.strictEqual(evt.id, 'src1');
+  assert.deepStrictEqual(evt.detail, { url: 'https://example.com', title: '官方文档' });
+});
+
+test('command 选中经 onEvent 上报 select（T3.3，value/text payload）', () => {
+  const TokUI = require('../src/index.js');
+  const container = createElement('div');
+  const events = [];
+  const ui = new TokUI({ container: container, onEvent: (name, payload) => events.push(payload) });
+  ui.render('[command id:cmd1][command-group][command-item tx:打开 v:open][/command-group][/command]');
+  const dom = container.querySelector('.tokui-command');
+  dom._openCommand();
+  fire(dom.querySelector('.tokui-command__item'), 'click');
+  const evt = events.find(e => e.type === 'command' && e.event === 'select');
+  assert.ok(evt, 'onEvent 收到 command select');
+  assert.strictEqual(evt.id, 'cmd1');
+  assert.deepStrictEqual(evt.detail, { value: 'open', text: '打开' });
+});
+
+// =============================================
+// P5 测试补全（T5.1：typing 容器内 del / suggestions 流式中途点击）
+// =============================================
+
+// typing 嵌在 card 内（chat 场景常态布局）：del 只删 typing，不波及外层容器。
+// 回归闸门：typing 根须带 _tokuiType 印章，否则 _climbToComponentRoot 越级爬到 card 根。
+test('typing 嵌在 card 内时 [del id:] 只删 typing（T3.2 容器内场景）', () => {
+  const TokUI = require('../src/index.js');
+  const container = createElement('div');
+  const ui = new TokUI({ container: container });
+  ui.render('[card tt:对话][bubble role:user][p 问一个问题][/bubble][typing id:ty2 text:"思考中"][/card]');
+  assert.ok(container.querySelector('.tokui-typing'), 'typing 渲染在 card 内');
+  ui.render('[del id:ty2]');
+  assert.strictEqual(container.querySelector('.tokui-typing'), null, 'typing 被删除');
+  assert.ok(container.querySelector('.tokui-card'), '外层 card 保留（不被误删）');
+  assert.ok(container.querySelector('.tokui-bubble'), '兄弟 bubble 保留');
+});
+
+// suggestions 流式中途（容器未闭合）点击 suggestion：组件自绑 click → reporter，
+// 不经 bindEvents 的容器闭合延迟绑定，onEvent 应立即收到 select。
+test('suggestions 流式中途点击 suggestion 上报 select（容器未闭合已可交互）', () => {
+  const TokUI = require('../src/index.js');
+  const container = createElement('div');
+  const events = [];
+  const ui = new TokUI({ container: container, streaming: true, onEvent: (name, payload) => events.push(payload) });
+  ui.startStream();
+  ui.feed('[suggestions cols:2]');
+  ui.feed('[suggestion tt:"分析数据" tx:"生成图表与结论"]');
+  const sg = container.querySelector('.tokui-suggestion');
+  assert.ok(sg, 'suggestion 流式中途已渲染（suggestions 容器尚未闭合）');
+  fire(sg, 'click');
+  const evt = events.find(e => e.type === 'suggestion' && e.event === 'select');
+  assert.ok(evt, '容器未闭合时点击已上报 select');
+  assert.strictEqual(evt.detail.value, '分析数据', 'detail.value 取标题');
+  ui.feed('[suggestion tt:"写代码" tx:"生成实现"]');
+  ui.feed('[/suggestions]');
+  ui.endStream();
+  assert.strictEqual(container.querySelectorAll('.tokui-suggestion').length, 2, '闭合后第二张卡片也在');
 });
 
 cleanupHandlers();

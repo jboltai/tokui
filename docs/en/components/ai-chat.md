@@ -62,6 +62,7 @@ A tool/function-call card showing the name, status, and duration. Status is colo
 | `duration` | Duration | `duration:1.2s` |
 | `id` | Identifier (updatable via `upd`) | `id:tc1` |
 | `approval` | Human-approval mode (HITL, paired with `status:pending`) | `approval` |
+| `collapsed` | Body initially collapsed (header click / keyboard toggles) | `collapsed` |
 | `clk` | Approval-decision handler | `clk:onApproval` |
 
 <Playground dsl='[tool-call name:web_search status:done duration:1.2s][p 已搜索「TokUI 流式 UI」，找到 8 条结果。[/tool-call][tool-call name:run_code status:running][p 正在执行 Python 代码…[/tool-call][tool-call name:read_file status:error duration:0.4s][p 文件不存在。[/tool-call]' />
@@ -76,6 +77,8 @@ A tool/function-call card showing the name, status, and duration. Status is colo
 [upd id:tc1 status:running]
 [upd id:tc1 status:done duration:0.8s]
 ```
+
+**Collapsible**: the `collapsed` boolean prop starts the card with its body collapsed; clicking the header or pressing Enter/Space toggles it anytime (`aria-expanded` synced, chevron rotates), and the status badge stays visible. The body only toggles `display` without destroying its content, and `upd` status pushes preserve the current collapsed state.
 
 ## Typing Indicator `typing`
 
@@ -130,6 +133,7 @@ A cited retrieval source / reference, self-closing. Typically listed as numbered
 | `u` / `url` | Link | `u:https://tokui.jboltai.com` |
 
 > `tt`/`sn` values containing spaces must be double-quoted, otherwise they get truncated at the first space.
+> **Open reporting**: clicking the title link keeps the native `<a target="_blank">` navigation and also reports an `open` event `{url, title}` to the unified outlet.
 
 <Playground dsl='[card tt:参考来源][source n:1 tt:"TokUI 官方文档" sn:"零依赖流式 UI 描述与渲染框架" u:#][source n:2 tt:"SSE 协议规范" sn:"Server-Sent Events 实时推送" u:#][source n:3 tt:"MDN Web Docs" sn:"Using Server-Sent Events to push updates" u:#][/card]' />
 
@@ -153,11 +157,20 @@ A task-plan checklist container. `plan` sets the title; each `plan-step` is one 
 | Prop | Meaning | Applies to |
 |------|---------|------------|
 | `tt` | Plan title | `plan` |
-| `status` | Step status (`pending`/`running`/`done`/`error`/`skipped`) | `plan-step` |
+| `status` | Step status (`pending`/`doing`/`done`/`error`/`skipped`; synonyms like `running` auto-normalize) | `plan-step` |
 | `tt` | Step title | `plan-step` |
 | `desc` | Step description | `plan-step` |
+| `id` | Step identifier (drivable via `upd`) | `plan-step` |
 
 <Playground dsl='[plan tt:重构登录模块][plan-step status:done tt:梳理现有代码][plan-step status:done tt:抽取校验逻辑][plan-step status:running tt:替换为新组件 desc:迁移到 TokUI form 组件][plan-step status:pending tt:补充单元测试][/plan]' />
+
+**Step progression (upd)**: give a `plan-step` an `id` and the server can drive it step by step — `status` synonyms are normalized (`running`→`doing`, `complete`→`done`, `fail`→`error`, etc.); `tt` / `desc` can be updated too:
+
+```tokui
+[plan tt:发布流程][plan-step id:s1 status:done tt:代码评审][plan-step id:s2 status:doing tt:构建产物][plan-step id:s3 status:pending tt:上线][/plan]
+[upd id:s2 status:done]
+[upd id:s3 status:doing]
+```
 
 ## Agent Status `agent`
 
@@ -195,6 +208,8 @@ A container for terminal commands and output. `title` is the window title; `stat
 | `status` | Execution status | `status:success` |
 
 <Playground dsl='[terminal title:bash status:success]$ npm install\n$ npm run dev\n\n✓ 服务已启动: http://localhost:5173[/terminal]' />
+
+> **Copy reporting**: clicking the title-bar copy button reports a `copy` event (detail `{}`) to the unified outlet.
 
 ## Code Sandbox `sandbox`
 
@@ -324,6 +339,7 @@ A new-session welcome-screen container; child `welcome-feature` nodes (**shortha
 | `clk` | Click handler | `welcome-feature` / `feature` | `clk:onPick` |
 
 > `[feature tt:x tx:y i:code]` is self-closing (recommended); `[welcome-feature ...][/welcome-feature]` is the container form — equivalent. Cards are attr-driven and render as each tag arrives (true streaming).
+> **Select reporting**: clicking a feature card reports a `select` event `{value: title}` to the unified outlet.
 
 <Playground dsl='[welcome tt:"你好，我是 TokUI 助手" st:"有什么可以帮你？"][feature tt:写代码 tx:"生成与调试代码" i:code clk:a][feature tt:画图表 tx:"用纯 SVG 渲染数据" i:chart clk:b][feature tt:查文档 tx:"检索与总结资料" i:doc clk:c][/welcome]' />
 
@@ -342,6 +358,8 @@ An attachment-upload / list container; child `attach` nodes are individual attac
 
 <Playground dsl='[attachments clk:onRemove][attach t:pdf s:需求文档.pdf size:2.4 MB u:#][attach t:code s:app.js size:12 KB u:#][attach t:image s:设计稿.png size:580 KB u:https://picsum.photos/seed/att/120/80][attach t:excel s:数据统计.xlsx size:32 KB u:#][/attachments]' />
 
+> **Delete reporting**: clicking an attachment's delete button reports a `delete` event `{name, url, type}` to the unified outlet.
+
 ## Artifact `artifact` / `artifact-code` / `artifact-preview`
 
 A side-preview Artifact container: use `artifact-code` for the code slot and `artifact-preview` for the live-preview slot inside.
@@ -354,6 +372,8 @@ A side-preview Artifact container: use `artifact-code` for the code slot and `ar
 | `w` | Panel width | `artifact` |
 
 <Playground dsl='[artifact tt:登录卡片 lang:html][artifact-code]<div class="card">\n  <h3>登录</h3>\n  <input placeholder="用户名"/>\n  <input placeholder="密码"/>\n  <button>提交</button>\n</div>[/artifact-code][artifact-preview]<div style="padding:16px;font-family:sans-serif"><h3 style="margin:0 0 8px">登录</h3><input placeholder="用户名" style="display:block;margin-bottom:8px;padding:6px"/><input placeholder="密码" style="display:block;margin-bottom:8px;padding:6px"/><button style="padding:6px 12px;background:#4f46e5;color:#fff;border:0;border-radius:4px">提交</button></div>[/artifact-preview][/artifact]' />
+
+> **Event reporting**: the close button reports `close` and the code copy button reports `copy` (both with detail `{}`); copying uses the raw source text captured at render time (line breaks preserved), unaffected by line-number wrapping.
 
 ## Chat Input `chat-input`
 
@@ -384,6 +404,8 @@ A chat-input container with a send button. `auto` enables auto-growing height, `
 [upd id:ci streaming:false]   ;; generation finished, restore the send button
 ```
 
+`dis` works through `upd` end-to-end too: `[upd id:ci dis:true]` disables the input area, `[upd id:ci dis:false]` re-enables it (the string `'false'` means "actively turn off disabled").
+
 ## Message Actions `msg-actions`
 
 A message-action bar container at the bottom of a bubble; supports copy / regenerate / like-dislike toggles.
@@ -408,9 +430,23 @@ A like / dislike button, self-closing. `t` decides the variant.
 | `clk` | Click handler | `clk:onLike` |
 | `v` | State / value | `v:12` |
 
-> When `clk` fires, the handler's first argument is `{ direction: 'up' | 'down', active: boolean }` (active state toggles on click).
+> When `clk` fires, the handler's first argument is `{ direction: 'up' | 'down', active: boolean }` (active state toggles on click); a `like` event `{value: 'up'/'down'}` is also reported to the unified outlet.
 
 <Playground dsl='[toolbar][thumb t:up v:12 clk:onLike][thumb t:down clk:onDislike][/toolbar]' />
+
+## id Anchors & Dynamic Updates
+
+Every AI component lands its `id` on the DOM, serving as an anchor for `[del]` / `[ins]`; components with `_update` can additionally be driven directly by `[upd]`:
+
+| Component | `id` capability |
+|-----------|-----------------|
+| `chat-input` | `upd`: `dis` / `streaming` (`dis:false` actively re-enables) |
+| `tool-call` | `upd`: `status` / `duration` / `result` / `error` (result/error are idempotent — repeated pushes update in place) |
+| `agent` | `upd`: `status` / `action` / `duration` |
+| `plan-step` | `upd`: `status` / `tt` / `desc` (status synonyms normalized) |
+| `bubble` / `typing` / `terminal` / `diff` / `artifact` / `quick-reply` / `msg-actions` / `think` / `think-chain` | anchor only (`del` / `ins` targeting; replace content via del+ins) |
+
+> Typical pattern — swapping a typing placeholder for the real reply: push `[typing id:t1 text:正在生成]` first, then `[del id:t1]` when the content arrives, and stream `[bubble role:ai]…[/bubble]`.
 
 ## Comprehensive Example: A Real AI Reply
 

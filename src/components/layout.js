@@ -2831,11 +2831,14 @@ function registerLayoutComponents(renderer) {
           type: 'button'
         });
         toggle.textContent = '☰'; // hamburger character ☰
+        // 折叠上报：经 reporter 进统一事件出口 onEvent('component')
+        var sbReport = renderer.createReporter('sidebar', attrs, sidebar);
         toggle.addEventListener('click', function() {
           sidebar.classList.toggle('tokui-sidebar--collapsed');
           // Update aria-expanded
           var isCollapsed = sidebar.classList.contains('tokui-sidebar--collapsed');
           toggle.setAttribute('aria-expanded', String(!isCollapsed));
+          sbReport('toggle', { collapsed: isCollapsed });
         });
         sidebar._toggleBtn = toggle; // _update 同步用
         header.appendChild(toggle);

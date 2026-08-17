@@ -263,6 +263,8 @@ A content region with a fixed outer size and custom scrollbar styling. `h`/`w` s
 
 <Playground dsl='[sidebar tt:控制台 w:240][sidebar-content][menu][menu-item tx:仪表盘 clk:goDash][menu-item tx:用户管理 clk:goUsers][menu-item tx:系统设置 clk:goSettings][/menu][/sidebar-content][sidebar-footer][p v:muted v:sm v:center 当前用户：admin][/sidebar-footer][/sidebar]' />
 
+> **Toggle reporting**: flipping the `collapsible` collapse button reports a `toggle` event `{collapsed}` to the unified outlet (declare `on:"toggle:h"` for a named handler).
+
 ## Tooltip `tooltip`
 
 A lightweight hover-revealed text tip. `tt` is the tip content, `tx` is the trigger text, and `pos` controls the direction. It pops up on mouse enter and dismisses on leave/blur/Esc.

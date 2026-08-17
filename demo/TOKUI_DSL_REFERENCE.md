@@ -96,11 +96,11 @@ v:"primary,sm"                               ;; 多变体用逗号分隔，渲�
 ```
 stripe  dis  ro  req  chk  multi  disabled  readonly  required  checked  multiple  striped
 auto  plain  round  closable  bordered  open  pill  dot  leaf  inline  rounded  container
-copy  regenerate  like  dislike  visible  delete  controls  active  collapsible  toggle
+copy  regenerate  like  dislike  visible  delete  controls  active  collapsible  collapsed  toggle
 search  thumb  reset  print  approval  streaming  mask
 ```
 
-> `reset` / `print` 是按钮内置动作；`thumb`/`delete` 多用于 `msg-actions` 等生成默认按钮；`controls` 用于 `video` 显示原生控件栏；`leaf` 让 `tn` 自闭合；`collapsible` 用于 `sidebar`；`approval` 让 `tool-call` 进入人工审批模式（§6.4）；`streaming` 让 `chat-input` 显示停止生成按钮（§6.4）。
+> `reset` / `print` 是按钮内置动作；`thumb`/`delete` 多用于 `msg-actions` 等生成默认按钮；`controls` 用于 `video` 显示原生控件栏；`leaf` 让 `tn` 自闭合；`collapsible` 用于 `sidebar`；`collapsed` 让 `tool-call` 初始收起（§6.4）；`approval` 让 `tool-call` 进入人工审批模式（§6.4）；`streaming` 让 `chat-input` 显示停止生成按钮（§6.4）。
 
 > ⚠️ **布尔属性没有「false 值」**：出现即为 true。想表达「初始不禁用」就**省略该属性**，不要写 `dis:false`——初始渲染时 `'false'` 是字符串（truthy），照样禁用。只有 `upd` 指令里 `dis:false` / `ro:false` / `chk:false` 才是「主动关闭」语义（渲染端判 `=== 'false'`，见 §8.1）。
 
@@ -213,7 +213,7 @@ resizable canvas canvas-content chart p tour affix preview-group segmented ancho
 | `progress` | 自闭合 | `v` `t` `l` `s` `stripe` `status` `id` | 进度条。`v` 百分比 0-100；`t:line`/`circle`/`span`；`status:success`/`error` |
 | `stat` | 自闭合 | `tt` `v` `pre` `suf` `trend` `anim` `dec` `id` | 统计数字。`pre:¥` `suf:%` `trend:up`/`down` `anim` 滚动动画 ms `dec` 小数位 |
 | `countdown` | 自闭合 | `target`/`dur` `fmt` `tx` `l` `s` `clk` `id` | 倒计时。`target` ms 时间戳或 `dur` 秒；`fmt:dhms`/`hms`/`ms`/`s`（每字母启用一单位）；`clk` 结束回调 |
-| `thumb` | 自闭合 | `t` `v` `s` `clk` | 赞/踩。`t:up`/`down`，点击 emit `{direction, active}` |
+| `thumb` | 自闭合 | `t` `v` `s` `clk` | 赞/踩。`t:up`/`down`，点击 emit `{direction, active}`（clk 通道）；统一出口上报 `like` `{value:'up'/'down'}`（§8.4） |
 | `toggle` | 自闭合 | `tx` `chk` `clk` `s` `dis` | 切换按钮 |
 | `toggle-group` | 容器 | `multi` `s` `clk` | 切换按钮组。单选互斥（默认）/`multi` 多选；子项 `toggle` |
 | `copy` | 自闭合 | `id` `tx` `tt` | 复制到剪贴板。`id` 目标元素，`tx` 按钮文字，`tt` 成功提示 |
@@ -233,7 +233,7 @@ resizable canvas canvas-content chart p tour affix preview-group segmented ancho
 | `watermark` | 容器 | `tx` `s` `font` `c` `gap` `ro` | 水印容器。`ro` 旋转角度（默认 -22），`gap` 间距（默认 40），canvas 平铺 |
 | `avatar` | 自闭合 | `s` `tx` `size` `bg` `fc` | 头像。无 src 时文字头像（取前 2 字），无 bg 时按 hash 自动配色 |
 | `file` | 自闭合 | `n` `s` `t` `u` `tt` | 文件卡片。`t:pdf`/`word`/`excel`/`ppt`/`image`/`zip`/`code`/`default` |
-| `chat-input` | 容器 | `ph` `clk` `dis` `max` `auto` `rows` `streaming` `mention` `on` | 对话输入框。Enter 发送/Shift+Enter 换行；Enter/发送按钮触发 clk handler，负载 `{value}`；`streaming` 显示停止生成按钮（`on:"stop:h"` 或默认断开 SSE，见 §8.4）；`mention:数据源handler名` 启用 @ 提及下拉（数据源 fn({value:查询词}) 返回数组或 Promise，项为字符串或 `{v,tx}`；↑↓ 导航 Enter 选定，选定上报 `mention` 事件） |
+| `chat-input` | 容器 | `ph` `clk` `dis` `max` `auto` `rows` `streaming` `mention` `on` | 对话输入框。Enter 发送/Shift+Enter 换行；Enter/发送按钮触发 clk handler，负载 `{value}`；`streaming` 显示停止生成按钮（`on:"stop:h"` 或默认断开 SSE，见 §8.4）；`mention:数据源handler名` 启用 @ 提及下拉（数据源 fn({value:查询词}) 返回数组或 Promise，项为字符串或 `{v,tx}`；↑↓ 导航 Enter 选定，选定上报 `mention` 事件）；`id` 落 DOM，`dis`/`streaming` 经 `[upd id:x …]` 全通路生效（§8.1） |
 | `msg-actions` | 容器 | `clk` `copy` `regenerate` `like`/`dislike` `delete` `visible` | 消息操作栏。布尔属性生成默认按钮 |
 | `tour` | 容器 | `open` `mask` `id` `on` | 漫游引导；子项 `tour-step`（自闭合标记：`tgt` 目标元素 id（可带 `#`）/`tt` 标题/`tx` 说明/`pos` 面板方位，默认 bottom；无 `tgt` 居中显示）。`open` 容器闭合后自动开启；`mask:false` 关遮罩（默认开）；键盘 Esc 关、←/→ 切步；事件 `change`（切步 `{index,target}`）/`finish`（完成）/`close`（跳过·✕·Esc）；upd 契约 `act:open`（`v` 可选起始步）/`act:goto v:N`/`act:close`，程序化均 silent 不上报 |
 | `modal.confirm` | 命令式 API | `TokUI.modal.confirm(opts)` / `TokUI.confirm(opts)` | 命令式确认对话框（宿主侧 JS API，非 DSL）。opts `{tt, tx, t:'danger'|'primary', 'ok-text', 'cancel-text', onOk, onCancel}` → `Promise<boolean>`；Esc/遮罩点击=取消；按钮与 aria 文案走 i18n（`common.ok`/`common.cancel`/`modal.aria`） |
@@ -246,7 +246,7 @@ resizable canvas canvas-content chart p tour affix preview-group segmented ancho
 | `think-chain` | 容器 | `tt` `status` `open` | 推理链。`status:running`/`done`；子项 `think-step` |
 | `think-step` | 容器 | `status` `tt` `dur` | 推理步骤。`status:done`/`running`/`pending`/`error` |
 | `plan` | 容器 | `tt` | 执行计划；子项 `plan-step` |
-| `plan-step` | 自闭合 | `status` `tt` `desc` | 计划步骤。`status:pending`/`doing`/`done`/`error`/`skipped`（接受 `running`/`complete`/`fail` 等同义词） |
+| `plan-step` | 自闭合 | `status` `tt` `desc` `id` | 计划步骤。`status:pending`/`doing`/`done`/`error`/`skipped`（接受 `running`/`complete`/`fail` 等同义词，upd 同表归一化）；带 `id` 可经 `[upd id:x status:doing]` 逐步推进（支持 `status`/`tt`/`desc`，见 §8.1） |
 | `agent` | 自闭合 | `name` `status` `action` `duration` `id` | 智能体状态。`status:idle`/`running`/`paused`/`done`/`error` |
 
 ### 6.4 AI / 对话
@@ -255,7 +255,7 @@ resizable canvas canvas-content chart p tour affix preview-group segmented ancho
 |-----|------|----------|------|
 | `bubble` | 容器 | `role` `model` `time` | 对话气泡。`role:user`/`ai`/`system`（chat 场景系统已包气泡，勿嵌套） |
 | `toolbar` | 容器 | `pos` `align` | 工具栏。`pos:top`/`bottom`，`align:left`/`center`/`right` |
-| `tool-call` | 容器 | `name` `status` `duration` `id` `approval` `clk` | 工具调用卡片。`status:pending`/`running`/`done`/`error`/`denied`；`approval` + `status:pending` 渲染批准/拒绝按钮（HITL 人工审批），决定经 `clk` handler 或 `on:"approval:h"` 回传 `{approved, id, name}`（§8.4），后续状态用 `upd` 推送 |
+| `tool-call` | 容器 | `name` `status` `duration` `id` `approval` `collapsed` `clk` | 工具调用卡片。`status:pending`/`running`/`done`/`error`/`denied`；`collapsed` 初始收起 body（header 点击 / Enter/Space 收展，`aria-expanded` 同步，状态徽章常显；body 只切 display 不销毁内容，`upd` 改状态保留收展态）；`approval` + `status:pending` 渲染批准/拒绝按钮（HITL 人工审批），决定经 `clk` handler 或 `on:"approval:h"` 回传 `{approved, id, name}`（§8.4），后续状态用 `upd` 推送 |
 | `typing` | 自闭合 | `text` | 输入中指示（注意用 `text` 非 `tx`） |
 | `quick-reply` | 容器 | `items` `clk` | 快捷回复。`items` 逗号标签；或子节点追加 |
 | `suggestions` | 容器 | `cols` `clk` `id` | 建议卡片网格。`cols` 1-4（默认 2）；子项 `suggestion` |
@@ -283,7 +283,7 @@ resizable canvas canvas-content chart p tour affix preview-group segmented ancho
 | `artifact` | 容器 | `tt` `lang` `pos` `w` | Artifact 侧边预览。`pos:left`/`right`，`w` 百分比；子项 `artifact-code` + `artifact-preview` |
 | `artifact-code` | 容器·原始 | — | Artifact 代码槽 |
 | `artifact-preview` | 容器 | — | Artifact 预览槽 |
-| `command` | 容器 | `ph` `clk` `id` `hotkey` | 命令面板。`hotkey` 启用 Cmd/Ctrl+K（页面只应一个）；按钮唤起 `clk:openCommand data-target:"<id>"`；子项 `command-group`。选中项时根 `clk` 回调 emit `{value, text, clk}`；点面板空白不触发 |
+| `command` | 容器 | `ph` `clk` `id` `hotkey` | 命令面板。`hotkey` 启用 Cmd/Ctrl+K（页面只应一个）；按钮唤起 `clk:openCommand data-target:"<id>"`；子项 `command-group`。选中项时根 `clk` 回调 emit `{value, text, clk}`；统一出口上报 `select` `{value, text}`（§8.4）；点面板空白不触发 |
 | `command-group` | 容器 | `tt` | 命令分组；子项 `command-item` 或 `item`（等价，推荐 `item`） |
 | `command-item` | 自闭合 | `tx` `v` `clk` `shortcut` | 命令项，`clk` 选中回调 emit `{value, text}`；推荐改用 `item`（command-group 内行为一致） |
 | `canvas` | 容器 | `tt` `pos` `w` `tx` `open` `closable` | 画布面板。`pos:left`/`right`，`w` px；子项 `canvas-content` |
@@ -704,8 +704,9 @@ sort  star  link  menu
 - `input`/`pwd`/`select`/`slider`/`rate`/`numinput`/`switch`/`textarea`/`chat-input`/`input-tag`：`v` / `dis` / `ph` / `ro` / `hint` / `chk` 等
 - `input`/`pwd` 另支持 `status:error` / `status:success`：联动输入框变体类、hint 配色与 `aria-invalid`（校验反馈场景）；`status:` 空值清除状态
 - `steps`/`tabs`：`v`（切当前步 / 激活页）
-- `chat-input` 另支持 `streaming`：`streaming:true` 显示停止按钮、`streaming:false` 恢复发送按钮
-- `tool-call`：`status` / `duration` / `result` / `error`（审批后续状态由此推送）
+- `chat-input` 另支持 `streaming`：`streaming:true` 显示停止按钮、`streaming:false` 恢复发送按钮。chat-input 的 `id` 落 DOM，`dis` / `streaming` 经 `[upd id:x …]` 全通路生效（`dis:false` 字符串按「主动启用」处理）
+- `tool-call`：`status` / `duration` / `result` / `error`（审批后续状态由此推送；`result`/`error` 幂等——同状态重复推送就地更新，不堆叠新节点；改 `status` 保留当前收展态）
+- `plan-step`：`status`（同义词归一化，`running`→`doing` 等）/ `tt` / `desc`——`[upd id:step1 status:done]` 逐步推进计划
 - `menu`：`act:activate` + `v:项标识`（程序化激活菜单项）
 - `calendar`：`v` / `sel`（重设选中天，逗号分隔日号，全量替换）
 - `upload`：`act:clear`（清空已选文件列表）
@@ -713,6 +714,8 @@ sort  star  link  menu
 > `upd` 的 `dis:false` / `ro:false` / `chk:false` 是「主动关闭」语义（渲染端判 `=== 'false'`）；初始渲染的 `dis:false` 会被 parser 读成字符串 `'false'`（truthy），故初始禁用应省略而非写 `false`。
 
 > 目标查找：页面存在多个同 `id` 元素时（多轮消息重名常见），`upd` 优先命中当前流式容器内的元素，容器内无匹配才回退全文档查找。
+
+> **AI 组件 `id` 锚点**：`bubble` / `typing` / `terminal` / `diff` / `artifact` / `quick-reply` / `msg-actions` / `think` / `think-chain` 的 `id` 均落 DOM，作 `del`/`ins` 定位锚点（无 `_update`，改内容用 del+ins 替换）。典型模式——typing 占位切换正文：`[typing id:t1 text:正在生成]` → 正文到达后 `[del id:t1]`，再流式推 `[bubble role:ai]…[/bubble]`。
 
 ### 8.2 `del` 删除指令（自闭合）
 
@@ -768,11 +771,19 @@ handler 签名 `(detail, event, element)`，`detail` 携带上下文（如 `{val
 | `carousel` | `change`（手动切换，autoplay 不报） | `{index}` |
 | `conversations` | `change`（选中会话）/ `delete`（删除会话） | `{value}`（会话标识） |
 | `dialog`/`drawer` | `close`（仅用户路径；程序化 `act:close` 不报） | `{}` |
-| `artifact` | `close` | `{}` |
+| `artifact` | `close`（关闭面板）/ `copy`（复制代码） | `{}` |
 | `chat-input` | `send`（发送）/ `stop`（streaming 态点停止按钮）/ `mention`（@ 提及选定） | `{value}` / `{}` / `{value, name}` |
 | `msg-actions` | `action`（默认按钮） | `{act: 'copy'/'regenerate'/'like'/'dislike'/'delete'}` |
 | `quick-reply` / `suggestion` | `select`（点击项） | `{value: 标签/标题}` |
 | `tool-call` | `approval`（HITL 审批，也可用 `clk:` 收） | `{approved, id, name}` |
+| `thumb` | `like`（赞/踩；`clk` 通道负载 `{direction, active}` 不变） | `{value: 'up'/'down'}` |
+| `source` | `open`（点击标题链接，原生跳转不变） | `{url, title}` |
+| `code` / `terminal` / `copy` | `copy`（复制按钮） | `{}` |
+| `command` | `select`（选中命令项；`clk` 通道 `{value, text, clk}` 不变） | `{value, text}` |
+| `sidebar` | `toggle`（折叠钮切换） | `{collapsed}` |
+| `ft-folder`（file-tree 文件夹） | `toggle`（折叠/展开） | `{name, open}` |
+| `attach` | `delete`（删除附件） | `{name, url, type}` |
+| `welcome-feature` | `select`（点击特性卡片） | `{value: 标题}` |
 
 > `chat-input` 停止按钮未声明 `on:"stop:…"` 时，默认行为是断开**该组件所属** TokUI 实例的 SSE 连接（`disconnect()`，幂等安全；多实例页面不会误停别的实例）。点击后输入框立即恢复发送态（乐观 UI，流未停时服务端可 `upd streaming:true` 恢复）。
 

@@ -132,7 +132,9 @@ const NAV_DATA = [
     items: [
       { trigger: 'demo-welcome', name: { zh: 'Welcome 欢迎页', en: 'Welcome' }, desc: { zh: '新对话欢迎界面+功能卡片', en: 'New chat welcome + feature cards' }, icon: '👋' },
       { trigger: 'demo-tool-call', name: { zh: 'Tool Call 工具调用', en: 'Tool Call' }, desc: { zh: '5种状态：等待/运行/完成/出错/拒绝', en: '5 statuses: pending/running/done/error/denied' }, icon: '🔧' },
+      { trigger: 'demo-tool-call-collapse', name: { zh: 'Tool Call 折叠', en: 'Tool Call Collapse' }, desc: { zh: 'collapsed收起/展开对比/审批组合', en: 'Collapsed/expanded/HITL combo' }, icon: '📁' },
       { trigger: 'demo-typing', name: { zh: 'Typing 打字指示', en: 'Typing' }, desc: { zh: 'AI等待动画/弹跳圆点/文字标签', en: 'Bounce dots/Text label' }, icon: '⏳' },
+      { trigger: 'demo-typing-to-bubble', name: { zh: 'Typing→正文切换', en: 'Typing→Bubble' }, desc: { zh: 'del移除typing后正文流式涌入', en: 'del typing then stream body' }, icon: '💬' },
       { trigger: 'demo-quick-reply', name: { zh: 'Quick Reply 快捷回复', en: 'Quick Reply' }, desc: { zh: '一键回复建议/对话引导', en: 'Quick suggestion chips' }, icon: '💬' },
       { trigger: 'demo-suggestions', name: { zh: 'Suggestions 提示卡片', en: 'Suggestions' }, desc: { zh: '富文本提示建议卡片/网格布局', en: 'Rich suggestion cards with grid' }, icon: '💡' },
       { trigger: 'demo-source', name: { zh: 'Source 引用来源', en: 'Source' }, desc: { zh: 'RAG引用卡片/编号+链接+摘要', en: 'RAG citation cards' }, icon: '📚' },
@@ -163,6 +165,7 @@ const NAV_DATA = [
       { trigger: 'demo-artifact', name: { zh: 'Artifact 代码预览', en: 'Artifact Preview' }, desc: { zh: '侧边面板Code/Preview切换+拖拽', en: 'Side panel Code/Preview toggle + drag resize' }, icon: '◫' },
       { trigger: 'demo-conversations', name: { zh: 'Conversations 会话列表', en: 'Conversations' }, desc: { zh: '时间分组/激活/删除', en: 'Time grouping/active/delete' }, icon: '💬' },
       { trigger: 'demo-interaction', name: { zh: '交互回路', en: 'Interaction Loop' }, desc: { zh: 'HITL审批/事件上报/del/ins/停止生成', en: 'HITL approval/events/del/ins/stop' }, icon: '🔁' },
+      { trigger: 'demo-ai-chat-full', name: { zh: '★ AI 综合对话页', en: '★ Full Chat' }, desc: { zh: 'welcome/suggestions/正文/tool-call/plan/source 全链路', en: 'welcome/suggestions/body/tool-call/plan/source full flow' }, icon: '★' },
     ]
   },
   {
@@ -273,7 +276,8 @@ const NAV_DATA = [
       { trigger: 'demo-upd-switch', name: { zh: '开关切换', en: 'Switch' }, desc: { zh: '自动启用/禁用', en: 'Auto enable/disable' }, icon: '🔄' },
       { trigger: 'demo-upd-drawer', name: { zh: '抽屉更新', en: 'Drawer' }, desc: { zh: '自动弹出/关闭', en: 'Auto open/close' }, icon: '◧' },
       { trigger: 'demo-upd-agent', name: { zh: 'Agent 状态', en: 'Agent' }, desc: { zh: '多Agent协作流转', en: 'Multi-agent flow' }, icon: '🤖' },
-      { trigger: 'demo-upd-chat-input', name: { zh: '输入状态', en: 'Chat Input' }, desc: { zh: '禁用/启用输入框', en: 'Disable/enable input' }, icon: '⌨' },
+      { trigger: 'demo-upd-chat-input', name: { zh: '输入状态', en: 'Chat Input' }, desc: { zh: '禁用/启用输入框+生成中停止态', en: 'Disable/enable + streaming stop' }, icon: '⌨' },
+      { trigger: 'demo-plan-progress', name: { zh: 'Plan 计划推进', en: 'Plan Progress' }, desc: { zh: 'plan-step 逐步 doing→done', en: 'plan-step doing→done progression' }, icon: '📋' },
       { trigger: 'demo-upd-form', name: { zh: '表单联动', en: 'Form Linkage' }, desc: { zh: '多控件联动更新', en: 'Linked form updates' }, icon: '🔗' },
       { trigger: 'demo-upd-stat', name: { zh: '统计数值', en: 'Stat' }, desc: { zh: '实时数据监控', en: 'Live data monitor' }, icon: '📊' },
       { trigger: 'demo-upd-dup-id', name: { zh: '同 id 冲突', en: 'Duplicate ID' }, desc: { zh: 'upd 命中本流容器内元素', en: 'upd hits in-stream element' }, icon: '⌖' },
@@ -334,7 +338,7 @@ const I18N = {
   eventPanelClear: { zh: '清空', en: 'Clear' },
   editClicked:    { zh: '编辑按钮被点击', en: 'Edit button clicked' },
   deleteClicked:  { zh: '删除按钮被点击', en: 'Delete button clicked' },
-  footerVer:      { zh: '当前版本:v0.2.2', en: 'Version: v0.2.2' },
+  footerVer:      { zh: '当前版本:v0.2.3', en: 'Version: v0.2.3' },
   footerCopy:     { zh: '零依赖 · 流式UI描述与渲染框架', en: 'Zero Deps · Streaming UI Framework' },
   dslRef:         { zh: 'DSL 语法速查', en: 'DSL Syntax Ref' },
   clearBtn:       { zh: '清空', en: 'Clear' },
@@ -628,6 +632,25 @@ TokUI.registerHandler('iaOpenDlg', () => {
   } catch (e) {
     addSystemMessage('打开弹窗失败', String(e && e.message || e));
   }
+});
+
+// === Tool Call 折叠（demo-tool-call-collapse）handler：审批决定回显 ===
+TokUI.registerHandler('tcApproval', (data) => addSystemMessage('HITL 审批结果', JSON.stringify(data, null, 2)));
+
+// === AI 综合对话页（demo-ai-chat-full）handler：fcXxx 点击回显 ===
+// clk handler 签名 (data, event, element)：非表单组件 data 为 null，从 element 取展示文本
+TokUI.registerHandler('fcFeat', (_d, _e, el) => {
+  const t = el && el.querySelector ? el.querySelector('.tokui-welcome-feature__title') : null;
+  addSystemMessage('Welcome 功能卡点击', (t && t.textContent) || '(无标题)');
+});
+TokUI.registerHandler('fcSug', (_d, _e, el) => {
+  const t = el && el.querySelector ? el.querySelector('.tokui-suggestion__title') : null;
+  addSystemMessage('Suggestions 点击', (t && t.textContent) || '(无标题)');
+});
+TokUI.registerHandler('fcAct', (_d, _e, el) => {
+  // msg-actions 组件自身委托监听先把动作盖章到 data-tokui-clk-act，再冒泡到 clk 绑定
+  const act = el && el.getAttribute ? el.getAttribute('data-tokui-clk-act') : '';
+  addSystemMessage('Msg Actions 操作', act || '(未知动作)');
 });
 // 交互式服务端校验模拟（demo-form-feedback）：用 [upd] 把校验结论推回输入框 hint
 TokUI.registerHandler('checkReg', (data, _e, el) => {

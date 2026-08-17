@@ -470,6 +470,43 @@ test('think-step dur attr renders duration text', function() {
   assert.strictEqual(durEl.textContent, '1.2s');
 });
 
+test('think / think-chain 头部不再使用 Emoji（💭/🧠），改为 SVG 图标徽章 + chevron', function() {
+  var rc = makeRenderer();
+  // think：lightbulb 徽章 + chevron
+  var thinkDom = rc.render({ type: 'think', attrs: { tt: '思考' }, children: [], content: '' });
+  var thinkIcon = thinkDom.querySelector('.tokui-think__icon');
+  var thinkChev = thinkDom.querySelector('.tokui-think__chevron');
+  assert.notStrictEqual(thinkIcon, null, 'think 图标徽章存在');
+  assert.notStrictEqual(thinkChev, null, 'think chevron 存在');
+  assert.ok(thinkIcon.textContent.indexOf('\u{1F4AD}') === -1, 'think 不再含 💭');
+  assert.ok(thinkChev.textContent.indexOf('\u25B6') === -1, 'think chevron 不再含 ▶');
+
+  // think-chain：sparkles 徽章 + chevron
+  var chainDom = rc.render({
+    type: 'think-chain', attrs: { tt: '推理' },
+    children: [{ type: 'think-step', attrs: { status: 'done', tt: 'S1' }, children: [], content: '' }]
+  });
+  var chainIcon = chainDom.querySelector('.tokui-think-chain__icon');
+  var chainChev = chainDom.querySelector('.tokui-think-chain__chevron');
+  assert.notStrictEqual(chainIcon, null, 'think-chain 图标徽章存在');
+  assert.notStrictEqual(chainChev, null, 'think-chain chevron 存在');
+  assert.ok(chainIcon.textContent.indexOf('\u{1F9E0}') === -1, 'think-chain 不再含 🧠');
+  assert.ok(chainChev.textContent.indexOf('\u25B6') === -1, 'think-chain chevron 不再含 ▶');
+});
+
+test('think-step done/error 状态标记不再使用 ✓/✗ 文本字符', function() {
+  var rc = makeRenderer();
+  var doneDom = rc.render({ type: 'think-step', attrs: { status: 'done', tt: '完成' }, children: [], content: '' });
+  var doneIcon = doneDom.querySelector('.tokui-think-step__icon');
+  assert.notStrictEqual(doneIcon, null);
+  assert.ok(doneIcon.textContent.indexOf('\u2713') === -1, 'done 不再含 ✓ 文本');
+
+  var errDom = rc.render({ type: 'think-step', attrs: { status: 'error', tt: '失败' }, children: [], content: '' });
+  var errIcon = errDom.querySelector('.tokui-think-step__icon--error');
+  assert.notStrictEqual(errIcon, null);
+  assert.ok(errIcon.textContent.indexOf('\u2717') === -1, 'error 不再含 ✗ 文本');
+});
+
 // ===== Builder 测试 =====
 
 var TokUIBuilder = require('../src/server/tokui-builder').TokUIBuilder;
@@ -728,8 +765,9 @@ test('suggestions basic render - div.tokui-suggestions with grid', function() {
   // Should have grid container inside
   var grid = dom.querySelector('.tokui-suggestions__grid');
   assert.notStrictEqual(grid, null);
-  // Grid should have style for 3 columns
-  assert.ok(grid.style.gridTemplateColumns.indexOf('3') !== -1 || grid.className.indexOf('tokui-suggestions__grid--3') !== -1);
+  // 列数纯 __grid--{cols} 类控制，不再写内联 gridTemplateColumns（T2.3）
+  assert.ok(grid.className.indexOf('tokui-suggestions__grid--3') !== -1);
+  assert.ok(!grid.style.gridTemplateColumns);
 });
 
 test('suggestions renders suggestion children as cards', function() {
@@ -751,7 +789,7 @@ test('suggestions renders suggestion children as cards', function() {
   assert.strictEqual(cards[0].getAttribute('data-tokui-clk'), 'auth');
 });
 
-test('suggestion card has colored left border', function() {
+test('suggestion card styling is class-driven (no inline border)', function() {
   var rc = makeRenderer();
   var dom = rc.render({
     type: 'suggestions',
@@ -762,9 +800,9 @@ test('suggestion card has colored left border', function() {
   });
   var card = dom.querySelector('.tokui-suggestion');
   assert.notStrictEqual(card, null);
-  // Should have border-left styling (set via inline style or CSS class)
-  var hasBorderLeft = card.style.borderLeftWidth || card.classList.contains('tokui-suggestion');
-  assert.ok(hasBorderLeft);
+  // T2.3 减重：去左 3px primary 条，样式全走类，卡片无内联边框
+  assert.ok(card.classList.contains('tokui-suggestion'));
+  assert.ok(!card.style.borderLeftWidth);
 });
 
 test('suggestions default cols is 2 when not specified', function() {
@@ -778,8 +816,9 @@ test('suggestions default cols is 2 when not specified', function() {
   });
   var grid = dom.querySelector('.tokui-suggestions__grid');
   assert.notStrictEqual(grid, null);
-  // Default should be 2 columns
-  assert.ok(grid.style.gridTemplateColumns.indexOf('2') !== -1 || grid.className.indexOf('2') !== -1);
+  // Default should be 2 columns（__grid--2 类，无内联样式）
+  assert.ok(grid.className.indexOf('tokui-suggestions__grid--2') !== -1);
+  assert.ok(!grid.style.gridTemplateColumns);
 });
 
 test('suggestions clk attr sets data-tokui-clk on wrapper', function() {
@@ -1620,6 +1659,29 @@ test('badge-box count renders number badge (regression after tx change)', functi
   var count = dom.querySelector('.tokui-badge-box__count');
   assert.notStrictEqual(count, null, 'count 数字模式不应被 tx 改动破坏');
   assert.strictEqual(count.textContent, '5');
+});
+
+// ===== T3.2/T3.4 P3 能力补齐 =====
+
+test('bubble/think/think-chain attrs.id 落 DOM（T3.2，del/ins 锚点）', function() {
+  var rc = makeRenderer();
+  var cases = [
+    [{ type: 'bubble', attrs: { id: 'bid' }, children: [] }, '.tokui-bubble'],
+    [{ type: 'think', attrs: { id: 'thid' }, children: [] }, '.tokui-think'],
+    [{ type: 'think-chain', attrs: { id: 'tcid' }, children: [] }, '.tokui-think-chain']
+  ];
+  cases.forEach(function(c) {
+    var dom = rc.render(c[0]);
+    assert.ok(dom, c[1] + ' 渲染');
+    assert.strictEqual(dom.getAttribute('id'), c[0].attrs.id, c[1] + ' id 落 DOM');
+  });
+});
+
+test('think-step status:danger 生成 --danger 图标类（T3.4，与 error 双写对齐）', function() {
+  var rc = makeRenderer();
+  var dom = rc.render({ type: 'think-step', attrs: { status: 'danger', tt: '失败步骤' }, children: [], content: '' });
+  assert.ok(dom.querySelector('.tokui-think-step__icon--danger'), 'danger 图标类');
+  assert.ok(dom.classList.contains('tokui-think-step--danger'), 'danger 状态类');
 });
 
 run();

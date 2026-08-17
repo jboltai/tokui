@@ -106,12 +106,19 @@
   --tokui-callout-error-border: var(--tokui-danger);
   --tokui-callout-tip-bg: #2A1654;
   --tokui-callout-tip-border: #9254DE;
-  --tokui-think-bg: rgba(255, 255, 255, 0.04);
+  --tokui-think-bg: rgba(255, 255, 255, 0.022);
   --tokui-think-border: var(--tokui-border);
   --tokui-chart-grid: var(--tokui-border);
   --tokui-chart-text: var(--tokui-text-muted);
   --tokui-chart-today-line: #FF7A45;
   --tokui-chart-task-dep: var(--tokui-text-disabled);
+  /* Bubble 气泡（user 深蓝软底 + 提亮字；AI 头像中性灰） */
+  --tokui-bubble-user-bg: var(--tokui-primary-bg);
+  --tokui-bubble-user-text: var(--tokui-primary-7);
+  --tokui-bubble-user-avatar-bg: var(--tokui-primary-bg);
+  --tokui-bubble-user-avatar-text: var(--tokui-primary-7);
+  --tokui-bubble-ai-avatar-bg: var(--tokui-bg-muted);
+  --tokui-bubble-ai-avatar-text: var(--tokui-text-secondary);
   --tokui-warning-text: var(--tokui-warning);
 
   /* ========== 阴影：纯黑高 alpha（dark 才显层次） ========== */
@@ -617,14 +624,11 @@
    C 组：AI 组件（dark）
    ============================================================ */
 
-/* Bubble：user body 深蓝软底 + 提亮字；avatar 药丸 */
+/* Bubble：avatar 药丸；user body 非对称圆角 + 柔光；system 药丸；配色走 --tokui-bubble-* 令牌 */
 [data-tokui-theme='modern-dark'] .tokui-bubble__avatar { border-radius: 999px; }
 [data-tokui-theme='modern-dark'] .tokui-bubble--user .tokui-bubble__body {
-  background: var(--tokui-primary-bg); color: var(--tokui-primary-7);
   border-radius: 16px 16px 4px 16px; box-shadow: var(--tokui-surface-shadow);
 }
-[data-tokui-theme='modern-dark'] .tokui-bubble--user .tokui-bubble__avatar { background: var(--tokui-primary-bg); color: var(--tokui-primary-7); }
-[data-tokui-theme='modern-dark'] .tokui-bubble--ai .tokui-bubble__avatar { background: var(--tokui-bg-muted); color: var(--tokui-text-secondary); }
 [data-tokui-theme='modern-dark'] .tokui-bubble--system .tokui-bubble__body { background: var(--tokui-bg-muted); color: var(--tokui-text-muted); border-radius: 999px; }
 
 /* Agent */
@@ -646,18 +650,17 @@
 [data-tokui-theme='modern-dark'] .tokui-tool-call__result { background: var(--tokui-success-bg); border-left-color: var(--tokui-success); color: var(--tokui-text); }
 [data-tokui-theme='modern-dark'] .tokui-tool-call__error { background: var(--tokui-danger-bg); border-left-color: var(--tokui-danger); color: var(--tokui-danger); }
 
-/* Think / Think-chain */
+/* Think / Think-chain：透气淡底 + 柔边 + 大圆角（底/边走 token，不再用 bg-muted/border-strong） */
 [data-tokui-theme='modern-dark'] .tokui-think,
-[data-tokui-theme='modern-dark'] .tokui-think-chain { background: var(--tokui-bg-muted); border-left-color: var(--tokui-border-strong); border-radius: var(--tokui-control-radius); }
-[data-tokui-theme='modern-dark'] .tokui-think__summary::before,
-[data-tokui-theme='modern-dark'] .tokui-think-chain__summary::before { color: var(--tokui-text-muted); }
+[data-tokui-theme='modern-dark'] .tokui-think-chain { border-radius: var(--tokui-control-radius); }
+[data-tokui-theme='modern-dark'] .tokui-think__icon,
+[data-tokui-theme='modern-dark'] .tokui-think-chain__icon { background: var(--tokui-primary-1); color: var(--tokui-primary); border-radius: 7px; }
+[data-tokui-theme='modern-dark'] .tokui-think__chevron,
+[data-tokui-theme='modern-dark'] .tokui-think-chain__chevron { color: var(--tokui-text-muted); }
 
-/* Think-step */
-[data-tokui-theme='modern-dark'] .tokui-think-step__line { background: var(--tokui-border); }
-[data-tokui-theme='modern-dark'] .tokui-think-step--done .tokui-think-step__line { background: var(--tokui-success); }
-[data-tokui-theme='modern-dark'] .tokui-think-step--running .tokui-think-step__line { background: var(--tokui-primary-7); }
-[data-tokui-theme='modern-dark'] .tokui-think-step__dot { background: var(--tokui-border-strong); }
-[data-tokui-theme='modern-dark'] .tokui-think-step__dur { background: var(--tokui-bg-muted); color: var(--tokui-text-muted); border-radius: 999px; }
+/* Think-step：连接线统一柔灰（不再按 done/running 上色）；pending 环走 border */
+[data-tokui-theme='modern-dark'] .tokui-think-step__dot { border-color: var(--tokui-border-strong); }
+[data-tokui-theme='modern-dark'] .tokui-think-step__dur { background: var(--tokui-think-bg); color: var(--tokui-text-muted); border-radius: 999px; }
 
 /* Chat-input：凹陷 bg-subtle + 边框 + 双环 focus */
 [data-tokui-theme='modern-dark'] .tokui-chat-input { border-radius: 24px; border-color: var(--tokui-border); background: var(--tokui-bg-subtle); box-shadow: var(--tokui-shadow-sm); }
@@ -671,7 +674,7 @@
 
 /* Suggestion */
 [data-tokui-theme='modern-dark'] .tokui-suggestion { border-radius: var(--tokui-control-radius); border-color: var(--tokui-border); background: var(--tokui-bg); box-shadow: var(--tokui-surface-shadow); }
-[data-tokui-theme='modern-dark'] .tokui-suggestion:hover { box-shadow: var(--tokui-surface-shadow-hover); border-left-color: var(--tokui-primary-hover); }
+[data-tokui-theme='modern-dark'] .tokui-suggestion:hover { box-shadow: var(--tokui-surface-shadow-hover); }
 [data-tokui-theme='modern-dark'] .tokui-suggestion__icon { background: var(--tokui-primary-bg); color: var(--tokui-primary-7); border-radius: var(--tokui-control-radius); }
 
 /* Msg-actions */

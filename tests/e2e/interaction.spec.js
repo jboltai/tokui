@@ -67,6 +67,9 @@ test('demo-interaction 交互回路全链路', async ({ page }) => {
   await expect(page.locator('.msg--system').last()).toContainText('停止生成');
 
   // --- dialog：打开 → × 关闭 → close 事件上报 ---
+  // 等流收尾：流式容器内子元素的事件在容器闭合时统一绑定（renderer 设计），
+  // 流未结束时点击已可见的按钮是空操作（静默 no-op）。按 demo 约定等 body[data-sending] 归零。
+  await page.waitForFunction(() => document.body.dataset.sending !== '1', null, { timeout: 20000 });
   await page.locator('button', { hasText: '打开弹窗' }).click();
   const dlg = page.locator('#dlg');
   await expect(dlg).toBeVisible();

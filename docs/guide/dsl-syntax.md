@@ -54,14 +54,14 @@ v:"primary,sm"                               ; 多变体用逗号分隔
 
 ```
 stripe dis ro req chk multi auto plain round closable bordered open
-pill dot leaf inline rounded container reset print approval streaming
+pill dot leaf inline rounded container reset print approval streaming collapsed
 ```
 
 完整列表以 `parser.js` 的 `BOOLEAN_ATTRS` Set 为准。
 
 > ⚠️ 布尔属性**没有「false 值」**：出现即为 true。想表达「初始不禁用」就**省略该属性**，不要写 `dis:false`——初始渲染时 `'false'` 是字符串（truthy），照样禁用。只有 `upd` 指令里的 `dis:false` / `ro:false` / `chk:false` 才是「主动关闭」语义（见[动态更新](#动态更新)）。
 
-> `approval` 让 `tool-call` 进入人工审批模式（见 [AI 对话 · 工具调用](/components/ai-chat#工具调用-tool-call)），`streaming` 让 `chat-input` 显示停止生成按钮（见 [AI 对话 · 对话输入](/components/ai-chat#对话输入-chat-input)）。
+> `approval` 让 `tool-call` 进入人工审批模式（见 [AI 对话 · 工具调用](/components/ai-chat#工具调用-tool-call)），`collapsed` 让 `tool-call` 初始收起，`streaming` 让 `chat-input` 显示停止生成按钮（见 [AI 对话 · 对话输入](/components/ai-chat#对话输入-chat-input)）。
 
 ## 变体系统
 
@@ -152,6 +152,14 @@ DSL 用 `on:"事件:处理器,…"`（**必须双引号**）声明组件交互�
 | `msg-actions` | `action`（默认按钮） | `{act: 'copy'/'regenerate'/'like'/'dislike'/'delete'}` |
 | `quick-reply` / `suggestion` | `select`（点击项） | `{value: 标签/标题}` |
 | `tool-call` | `approval`（HITL 人工审批） | `{approved, id, name}` |
+| `thumb` | `like`（赞/踩；`clk` 通道负载 `{direction, active}` 不变） | `{value: 'up'/'down'}` |
+| `source` | `open`（点击标题链接，原生跳转不变） | `{url, title}` |
+| `code` / `terminal` / `copy` / `artifact` | `copy`（复制按钮） | `{}` |
+| `command` | `select`（选中命令项） | `{value, text}` |
+| `sidebar` | `toggle`（折叠钮切换） | `{collapsed}` |
+| `ft-folder`（file-tree 文件夹） | `toggle`（折叠/展开） | `{name, open}` |
+| `attach` | `delete`（删除附件） | `{name, url, type}` |
+| `welcome-feature` | `select`（点击特性卡片） | `{value: 标题}` |
 
 > 各组件事件详情见对应组件文档：[表单](/components/form)、[布局](/components/layout)、[AI 对话](/components/ai-chat)；完整说明见 [DSL 参考](https://github.com/jboltai/tokui/blob/master/demo/TOKUI_DSL_REFERENCE.md) §8.4。
 

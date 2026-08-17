@@ -263,6 +263,8 @@
 
 <Playground dsl='[sidebar tt:控制台 w:240][sidebar-content][menu][menu-item tx:仪表盘 clk:goDash][menu-item tx:用户管理 clk:goUsers][menu-item tx:系统设置 clk:goSettings][/menu][/sidebar-content][sidebar-footer][p v:muted v:sm v:center 当前用户：admin][/sidebar-footer][/sidebar]' />
 
+> **折叠上报**：`collapsible` 折叠钮切换时经统一出口上报 `toggle` 事件 `{collapsed}`（可用 `on:"toggle:h"` 声明命名 handler）。
+
 ## 文字提示 `tooltip`
 
 悬浮显示的轻量文字提示，`tt` 为提示内容、`tx` 为触发文本、`pos` 控制方向。鼠标移入即弹出，移出/失焦/Esc 收起。

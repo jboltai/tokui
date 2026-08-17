@@ -78,6 +78,16 @@ Body streams char-by-char...[/md]
 
 `stat`/`img`/`avatar`/`result`/`empty`/`video`/`audio`/`file`/`attach`/`commit` cannot be containerized; the framework auto-mounts a skeleton placeholder during streaming (no DSL change needed), swapped to the real node at `]` to avoid a jarring pop-in hole. Small widgets (tag/btn/…) stay pop-in (a skeleton flash is worse than a quick pop).
 
+## Streaming entrance animation (`streamAnimation`)
+
+Components mounted at the **top level** during streaming get a `tokui-fade-in` entrance by default: the animation is opacity-only (no translate), and only top-level mounts receive it — nested children and plain-text chunks skip it, so not every token replays an animation. For large conversations / high-frequency streams you can turn it off entirely:
+
+```js
+const tokui = new TokUI.TokUI({ container: '#app', streamAnimation: false });
+```
+
+`streamAnimation` (default `true`) only affects the streaming path; one-shot `render()` entrance animations are unaffected.
+
 ## Resource guards
 
 - `maxBuffer` (default **1MB**) — single parse buffer ceiling.

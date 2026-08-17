@@ -102,4 +102,8 @@ export declare class TokUIBuilder {
 
   // —— 代码块（容器）——
   code(attrs?: BuilderAttrs): this;
+
+  // —— AI 对话组件（plan-step 支持 [upd id:] 步骤推进）——
+  plan(attrs?: BuilderAttrs): this;
+  planStep(attrs?: BuilderAttrs): this;
 }

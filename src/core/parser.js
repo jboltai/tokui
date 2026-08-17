@@ -164,6 +164,7 @@ const BOOLEAN_ATTRS = new Set([
   'controls',
   'active',
   'collapsible',
+  'collapsed',
   'toggle',
   'search',
   'thumb',

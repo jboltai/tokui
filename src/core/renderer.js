@@ -295,8 +295,28 @@ class TokUIRenderer {
     this.eventBus = eventBus;
     this.slotStack = [];  // 流式渲染时的插槽栈
     this._boundElements = []; // 记录绑定过事件的元素，用于 destroy
+    this._cleanupElements = []; // 登记过组件级清理函数的元素，用于 destroy
     this._onError = null; // 全局错误回调
     this._onComponentEvent = null; // 组件交互事件出口（TokUI 实例接到 options.onEvent('component', evt)）
+    this.streamAnimation = true; // 流式入场动画总开关（TokUI options.streamAnimation 透传；false = 流式路径全关）
+  }
+
+  /**
+   * 流式入场动画闸门（fade-in 收敛）：仅「顶层」流式挂载元素（slotStack 为空、
+   * 直接挂根容器）挂 tokui-fade-in；容器内流式追加的嵌套元素与纯文本 chunk 不挂——
+   * 大对话/流式表格场景每 chunk 一个动画是帧率主因，而嵌套项在容器已入场后出现，
+   * 逐项淡入几乎不被单独感知（对现有视觉影响最小的收敛点）。
+   * 选「仅顶层」而非「容器闭合时才加」的依据：闭合时加会让已流式展示的整棵子树
+   * 在闭合瞬间从 opacity 0 重播一次（全树闪烁），视觉影响反而更大。
+   * streamAnimation:false 时全部跳过。一次性 mount() 的 fade-in 不经此闸门。
+   *
+   * @param {HTMLElement} dom - 待挂载元素（非元素节点安全跳过）
+   */
+  _streamFadeIn(dom) {
+    if (!this.streamAnimation) return;
+    if (!dom || dom.nodeType !== 1) return;
+    if (this.slotStack.length > 0) return; // 嵌套流式元素：跳过入场动画
+    dom.classList.add('tokui-fade-in');
   }
 
   /**
@@ -547,7 +567,7 @@ class TokUIRenderer {
     const dom = this.render(node);
     const parentEntry = this.slotStack.length > 0 ? this.slotStack[this.slotStack.length - 1] : null;
     const target = parentEntry ? parentEntry.slot : rootContainer;
-    if (dom.nodeType === 1) dom.classList.add('tokui-fade-in');
+    this._streamFadeIn(dom);
     target.appendChild(dom);
     this._pendingCharts[key] = dom;
     return dom;
@@ -574,7 +594,7 @@ class TokUIRenderer {
     // 传 tbody 元素给 tr（列位追踪状态 _tokuiOccupancy 在其上），用于 rowspan 偏移修正的按列对齐
     if (_pe && _pe.el) node._tbodyEl = _pe.el;
     var dom = this.render(node, _pe ? _pe.containerType : undefined);
-    if (dom && dom.nodeType === 1) dom.classList.add('tokui-fade-in');
+    this._streamFadeIn(dom);
     var parentSlot = _pe ? _pe.slot : rootContainer;
     parentSlot.appendChild(dom);
     this._trRegistry = this._trRegistry || {};
@@ -608,7 +628,7 @@ class TokUIRenderer {
     var parentEntry = this.slotStack.length > 0 ? this.slotStack[this.slotStack.length - 1] : null;
     var target = parentEntry ? parentEntry.slot : rootContainer;
     var skel = this._buildSkeleton(node.type);
-    if (skel && skel.nodeType === 1) skel.classList.add('tokui-fade-in');
+    this._streamFadeIn(skel);
     if (target) target.appendChild(skel);
     this._pendingSkeletons[node._skelKey] = skel;
     return skel;
@@ -655,7 +675,7 @@ class TokUIRenderer {
     if (dom && dom.nodeType === 1) dom._tokuiStreamActive = true;
     // 跳过隐藏元素的 fadeIn 动画（如 hover-content 临时容器）
     if (dom.nodeType === 1 && !dom.classList.contains('tokui-hover-card__content-temp')) {
-      dom.classList.add('tokui-fade-in');
+      this._streamFadeIn(dom);
     }
     // 确定父级插槽：栈顶的 slot 或根容器
     let parentSlot = this.slotStack.length > 0
@@ -790,7 +810,7 @@ class TokUIRenderer {
         var radioInput = radioLabel.querySelector('input[type=radio]');
         if (radioInput) radioInput.name = radioName;
       }
-      if (radioLabel.nodeType === 1) radioLabel.classList.add('tokui-fade-in');
+      this._streamFadeIn(radioLabel);
       target.appendChild(radioLabel);
       return radioLabel;
     }
@@ -803,7 +823,7 @@ class TokUIRenderer {
         var cbInput = cbLabel.querySelector('input[type=checkbox]');
         if (cbInput) cbInput.name = cbName;
       }
-      if (cbLabel.nodeType === 1) cbLabel.classList.add('tokui-fade-in');
+      this._streamFadeIn(cbLabel);
       target.appendChild(cbLabel);
       return cbLabel;
     }
@@ -816,7 +836,7 @@ class TokUIRenderer {
         var segInput = segLabel.querySelector('input[type=radio]');
         if (segInput) segInput.name = segName2;
       }
-      if (segLabel.nodeType === 1) segLabel.classList.add('tokui-fade-in');
+      this._streamFadeIn(segLabel);
       target.appendChild(segLabel);
       return segLabel;
     }
@@ -825,7 +845,7 @@ class TokUIRenderer {
     if (node.type === 'opt' && parentEntry && parentEntry.containerType === 'picker') {
       var pickerDropdown = parentEntry.slot;
       var optLi = this.render(node, 'picker');
-      if (optLi.nodeType === 1) optLi.classList.add('tokui-fade-in');
+      this._streamFadeIn(optLi);
       var emptyTip = pickerDropdown.querySelector('.tokui-picker-empty');
       if (emptyTip) {
         pickerDropdown.insertBefore(optLi, emptyTip);
@@ -838,7 +858,7 @@ class TokUIRenderer {
     // 特殊处理：opt 在 transfer 内 → 立即追加为穿梭项到对应栏（真流式，边收边显）
     if (node.type === 'opt' && parentEntry && parentEntry.containerType === 'transfer' && parentEntry.el._tokuiTransferAppend) {
       var transferItem = parentEntry.el._tokuiTransferAppend(node);
-      if (transferItem && transferItem.nodeType === 1) transferItem.classList.add('tokui-fade-in');
+      this._streamFadeIn(transferItem);
       return null; // 不进 staging，避免重复
     }
 
@@ -846,15 +866,39 @@ class TokUIRenderer {
     // 保证流式下 conv 点击的 clk emit + report 上报与一次性渲染路径行为一致
     if (node.type === 'conv' && parentEntry && parentEntry.el && typeof parentEntry.el._renderConvChild === 'function') {
       var convEl = parentEntry.el._renderConvChild(node);
-      if (convEl && convEl.nodeType === 1) convEl.classList.add('tokui-fade-in');
+      this._streamFadeIn(convEl);
       target.appendChild(convEl);
       return convEl;
     }
 
-    var dom = this.render(node, parentType);
-    if (dom.nodeType === 1) {
-      dom.classList.add('tokui-fade-in');
+    // 流式文本节点合并：目标插槽尾子节点为 Text 时原地累加（textContent +=），
+    // 不为每个 chunk 新建兄弟 Text 节点——长 bubble/md 正文场景 DOM 节点数从 O(chunk) 收敛到 O(文本段)。
+    // 兼容性已逐点核验：_streamAppendHook 收 AST node 而非 DOM（code/diff/artifact 的 rawAcc
+    // 闭包累积与文本节点数量无关）；md/katex/mermaid/artifact-code 的 _streamCloseHook 按
+    // childNodes 拼接全文（合并后总量不变）；code/diff 的增量行渲染会先摘掉尾部游离文本节点
+    //（摘掉 1 个与 N 个同效）；sandbox html 的 _slot 是仅含 appendChild 的代理对象
+    //（无 childNodes → 自然走新建分支，代理逐 chunk 累积语义不变）。
+    if (node.type === '_text') {
+      var slotNodes = target.childNodes;
+      var tailNode = slotNodes && slotNodes.length ? slotNodes[slotNodes.length - 1] : null;
+      var textDom;
+      if (tailNode && tailNode.nodeType === 3) {
+        // Text 节点的 textContent 写等价 nodeValue 写（真实 DOM CharacterData）；dom-mock 文本节点仅有 textContent
+        tailNode.textContent += node.content;
+        textDom = tailNode;
+      } else {
+        textDom = document.createTextNode(node.content);
+        target.appendChild(textDom);
+      }
+      // 与下方通用路径同序：先落 DOM 再触发增量重绘 hook（hook 依赖「文本已入 slot」的前提）
+      if (parentEntry && parentEntry.el && parentEntry.el._streamAppendHook) {
+        parentEntry.el._streamAppendHook(node);
+      }
+      return textDom;
     }
+
+    var dom = this.render(node, parentType);
+    this._streamFadeIn(dom);
     target.appendChild(dom);
     // 原始内容容器（code 等）流式逐字追加子文本时，同步触发增量重绘 hook
     // （代码块边收边重新高亮 + 重排行号），实现真流式而非等到闭合才渲染。
@@ -938,10 +982,36 @@ class TokUIRenderer {
   }
 
   /**
+   * 登记组件级清理函数：destroy() 时统一调用。
+   * 组件把 window/document 级监听（scroll/keydown/mousemove 等）的解绑函数登记到这里，
+   * 防止组件销毁后全局监听器泄漏。与 _boundElements（元素自身事件）机制并存、互补。
+   * 清理函数同时保留在元素 _tokuiCleanupFns 上，要求幂等（重复调用安全）。
+   *
+   * @param {HTMLElement} element - 组件根元素
+   * @param {Function} fn - 清理函数
+   */
+  _registerCleanup(element, fn) {
+    if (!element || typeof fn !== 'function') return;
+    if (!element._tokuiCleanupFns) {
+      element._tokuiCleanupFns = [];
+      this._cleanupElements.push(element);
+    }
+    element._tokuiCleanupFns.push(fn);
+  }
+
+  /**
    * 销毁渲染器，清理所有事件绑定和状态
    * 移除已绑定元素的 DOM 事件监听器，清空插槽栈。
    */
   destroy() {
+    // 组件级清理（window/document 级监听解绑等），与元素自身事件清理互补
+    this._cleanupElements.forEach(function (el) {
+      (el._tokuiCleanupFns || []).forEach(function (fn) {
+        try { fn(); } catch (e) { /* noop */ }
+      });
+      delete el._tokuiCleanupFns;
+    });
+    this._cleanupElements = [];
     // 清理绑定过事件的元素
     this._boundElements.forEach(function (entry) {
       entry.listeners.forEach(function (listener) {

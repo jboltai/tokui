@@ -11,8 +11,16 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
+/* 逐 chunk 挂载元素专用：仅 opacity。transform 动画会为每个挂载元素建合成层，
+   大对话/流式表格下逐 chunk 触发是帧率主因（P4/T4.1）。
+   带位移的 tokuiFadeIn 保留给 lightbox/下拉/弹窗等一次性浮层入场。 */
+@keyframes tokuiFadeInOpacity {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 /* 流式/挂载元素统一淡入类（renderer 加此类，替代逐元素内联 style.animation） */
-.tokui-fade-in { animation: tokuiFadeIn 0.3s ease; }
+.tokui-fade-in { animation: tokuiFadeInOpacity 0.3s ease; }
 
 /* === 主题容器基础样式 === */
 [data-tokui-theme] {
@@ -132,7 +140,7 @@
 [data-tokui-theme="dark"] .tokui-code::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
 .tokui-code code { background: none; padding: 0; }
 .tokui-code .code-line { display: block; padding-left: 3.5em; position: relative; min-height: 1.5em; }
-.tokui-code .code-line::before { counter-increment: line-number; content: counter(line-number); position: absolute; left: 0; width: 2.5em; text-align: right; color: var(--tokui-code-cmt, #5c6370); opacity: 0.5; user-select: none; font-size: 0.85em; }
+.tokui-code .code-line::before { counter-increment: line-number; content: counter(line-number); position: absolute; left: 0; width: 2.5em; text-align: right; color: var(--tokui-code-cmt, #6e7781); opacity: 0.5; user-select: none; font-size: 0.85em; }
 
 /* === 表格 === */
 .tokui-table-wrapper {
@@ -1031,7 +1039,7 @@ textarea.tokui-textarea--auto { resize: none !important; }
   background: transparent; color: var(--tokui-text); font-size: 0.82rem;
   cursor: pointer; transition: all 0.15s; white-space: nowrap; line-height: 1.5;
 }
-.tokui-tbtn:hover { background: var(--tokui-stripe); color: var(--tokui-primary); border-color: var(--tokui-primary-light); }
+.tokui-tbtn:hover { background: var(--tokui-stripe); color: var(--tokui-primary); border-color: var(--tokui-primary-border); }
 .tokui-tbtn--primary { color: var(--tokui-primary); border-color: var(--tokui-primary); }
 .tokui-tbtn--primary:hover { background: var(--tokui-primary); color: #fff; }
 .tokui-tbtn--danger { color: var(--tokui-danger); border-color: var(--tokui-danger); }
@@ -1687,63 +1695,88 @@ textarea.tokui-textarea--auto { resize: none !important; }
   border-left-color: var(--tokui-callout-tip-border, #722ed1);
   background: var(--tokui-callout-tip-bg, #f9f0ff);
 }
-.tokui-callout--tip .tokui-callout__icon { color: #722ed1; }
+.tokui-callout--tip .tokui-callout__icon { color: var(--tokui-callout-tip-border, #722ed1); }
 
-/* === Think 思考块 === */
+/* === Think 思考块（轻量卡片 + SVG 图标徽章）=== */
 .tokui-think {
-  background: var(--tokui-think-bg, var(--tokui-stripe));
+  background: var(--tokui-think-bg, rgba(0, 0, 0, 0.022));
+  border: 1px solid var(--tokui-think-border, var(--tokui-border));
   border-radius: var(--tokui-radius); margin: 0.6em 0;
-  border-left: 3px solid var(--tokui-think-border, var(--tokui-border));
   overflow: hidden;
+  transition: border-color 0.2s ease, background 0.2s ease;
 }
 .tokui-think__summary {
   display: flex; align-items: center; gap: 8px;
-  padding: 10px 14px; cursor: pointer; font-size: 0.9rem;
+  padding: 9px 10px 9px 12px; cursor: pointer; font-size: 0.875rem;
   color: var(--tokui-text-muted); user-select: none; list-style: none;
 }
 .tokui-think__summary::-webkit-details-marker { display: none; }
-.tokui-think__summary::before {
-  content: '▶'; font-size: 0.7em; transition: transform 0.2s;
+/* 折叠箭头（SVG，右对齐；展开时旋转 90° 向下） */
+.tokui-think__chevron {
+  display: inline-flex; align-items: center; margin-left: auto;
+  color: var(--tokui-text-muted); opacity: 0.7;
+  transition: transform 0.2s ease, opacity 0.2s ease; flex-shrink: 0;
 }
-.tokui-think[open] > .tokui-think__summary::before {
+.tokui-think__summary:hover .tokui-think__chevron { opacity: 1; }
+.tokui-think[open] > .tokui-think__summary .tokui-think__chevron {
   transform: rotate(90deg);
 }
-.tokui-think__icon { font-size: 1em; }
+/* 图标徽章：柔色圆角方块承载 lightbulb SVG（替换原 💭 Emoji） */
+.tokui-think__icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 6px; flex-shrink: 0;
+  color: var(--tokui-primary);
+  background: var(--tokui-primary-1, rgba(22, 119, 255, 0.1));
+}
 .tokui-think__title { font-weight: 500; }
 .tokui-think__body {
-  padding: 0 14px 12px 14px; color: var(--tokui-text-muted);
-  font-size: 0.9rem; line-height: 1.6;
+  padding: 2px 14px 12px 40px; color: var(--tokui-text-muted);
+  font-size: 0.875rem; line-height: 1.65;
 }
 
-/* === ThinkChain 推理链 === */
+/* === ThinkChain 推理链（轻量卡片 + sparkles 徽章）=== */
 .tokui-think-chain {
-  background: var(--tokui-think-bg, var(--tokui-stripe));
+  background: var(--tokui-think-bg, rgba(0, 0, 0, 0.022));
+  border: 1px solid var(--tokui-think-border, var(--tokui-border));
   border-radius: var(--tokui-radius); margin: 0.6em 0;
-  border: 1px solid var(--tokui-border);
   overflow: hidden;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
 }
 .tokui-think-chain__summary {
   display: flex; align-items: center; gap: 8px;
-  padding: 10px 14px; cursor: pointer; font-size: 0.9rem;
+  padding: 9px 10px 9px 12px; cursor: pointer; font-size: 0.875rem;
   color: var(--tokui-text-muted); user-select: none; list-style: none;
 }
 .tokui-think-chain__summary::-webkit-details-marker { display: none; }
-.tokui-think-chain__summary::before {
-  content: '▶'; font-size: 0.7em; transition: transform 0.2s;
+.tokui-think-chain__chevron {
+  display: inline-flex; align-items: center; margin-left: auto;
+  color: var(--tokui-text-muted); opacity: 0.7;
+  transition: transform 0.2s ease, opacity 0.2s ease; flex-shrink: 0;
 }
-.tokui-think-chain[open] > .tokui-think-chain__summary::before {
+.tokui-think-chain__summary:hover .tokui-think-chain__chevron { opacity: 1; }
+.tokui-think-chain[open] > .tokui-think-chain__summary .tokui-think-chain__chevron {
   transform: rotate(90deg);
 }
-.tokui-think-chain__icon { font-size: 1em; }
+/* 图标徽章：承载 sparkles SVG（替换原 🧠 Emoji） */
+.tokui-think-chain__icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 6px; flex-shrink: 0;
+  color: var(--tokui-primary);
+  background: var(--tokui-primary-1, rgba(22, 119, 255, 0.1));
+  transition: background 0.2s ease, color 0.2s ease;
+}
 .tokui-think-chain__title { font-weight: 500; }
 .tokui-think-chain__steps {
-  padding: 4px 14px 14px; position: relative;
+  padding: 6px 14px 14px 14px; position: relative;
 }
-.tokui-think-chain--running .tokui-think-chain__summary {
+/* running：徽章 + 标题 primary，容器轻 ring 呼吸 */
+.tokui-think-chain--running .tokui-think-chain__summary { color: var(--tokui-primary); }
+.tokui-think-chain--running .tokui-think-chain__icon {
   color: var(--tokui-primary);
+  background: var(--tokui-primary-1, rgba(22, 119, 255, 0.14));
 }
 
-/* === ThinkStep 推理步骤 === */
+/* === ThinkStep 推理步骤（轻量时间线 + 淡色 ghost 节点）=== */
 .tokui-think-step {
   position: relative; padding-left: 28px; padding-bottom: 16px;
 }
@@ -1753,35 +1786,42 @@ textarea.tokui-textarea--auto { resize: none !important; }
 /* Header row */
 .tokui-think-step__header {
   display: flex; align-items: center; gap: 8px; margin-bottom: 4px;
+  min-height: 22px;
 }
 
-/* Status icon/dot */
+/* 状态节点（ghost）：淡色底 + 同色 SVG（done=check / error=close），替代实心重色圆。
+ * color 驱动 SVG（stroke=currentColor），background 用 *-1 淡 tint。 */
 .tokui-think-step__icon {
-  position: absolute; left: 0; top: 2px;
+  position: absolute; left: 0; top: 1px;
   width: 20px; height: 20px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 0.75rem; color: #fff;
-  background: var(--tokui-success, #22c55e);
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--tokui-success, #22c55e); line-height: 0;
+  background: var(--tokui-success-1, #f6ffed);
 }
-.tokui-think-step__icon--error {
-  background: var(--tokui-danger, #ef4444);
+.tokui-think-step__icon--error,
+.tokui-think-step__icon--danger {
+  color: var(--tokui-danger, #ef4444);
+  background: var(--tokui-danger-1, #fff1f0);
 }
+.tokui-think-step__icon svg { display: block; }
 .tokui-think-step__spinner {
-  position: absolute; left: 0; top: 2px;
+  position: absolute; left: 0; top: 1px;
   width: 20px; height: 20px; border-radius: 50%;
   border: 2px solid var(--tokui-border);
   border-top-color: var(--tokui-primary, #6366f1);
   animation: tokuiThinkStepSpin 0.6s linear infinite;
 }
+/* pending：空心环（轻量），替代实心圆点 */
 .tokui-think-step__dot {
-  position: absolute; left: 4px; top: 6px;
+  position: absolute; left: 4px; top: 5px;
   width: 12px; height: 12px; border-radius: 50%;
-  background: var(--tokui-border, #d1d5db);
+  border: 1.5px solid var(--tokui-border, #d1d5db);
+  background: transparent; box-sizing: border-box;
 }
 
 /* Title */
 .tokui-think-step__title {
-  font-weight: 500; font-size: 0.9rem; color: var(--tokui-text);
+  font-weight: 500; font-size: 0.875rem; color: var(--tokui-text);
 }
 .tokui-think-step--running .tokui-think-step__title {
   color: var(--tokui-primary);
@@ -1789,30 +1829,29 @@ textarea.tokui-textarea--auto { resize: none !important; }
 .tokui-think-step--pending .tokui-think-step__title {
   color: var(--tokui-text-muted);
 }
-.tokui-think-step--error .tokui-think-step__title {
+.tokui-think-step--error .tokui-think-step__title,
+.tokui-think-step--danger .tokui-think-step__title {
   color: var(--tokui-danger);
 }
 
-/* Duration badge */
+/* 耗时药丸：更轻底色 */
 .tokui-think-step__dur {
-  font-size: 0.75rem; color: var(--tokui-text-muted);
-  background: var(--tokui-stripe); padding: 1px 6px;
-  border-radius: 10px; margin-left: auto;
+  font-size: 0.72rem; color: var(--tokui-text-muted);
+  background: var(--tokui-think-bg, var(--tokui-stripe));
+  padding: 1px 7px; border-radius: 10px; margin-left: auto;
+  line-height: 1.5;
 }
 
 /* Body content */
 .tokui-think-step__body {
   font-size: 0.85rem; color: var(--tokui-text-muted);
-  line-height: 1.6; padding-left: 0;
+  line-height: 1.65; padding-left: 0;
 }
 
-/* Connector line */
+/* 连接线：统一柔灰，不再按状态上色（done 不再画绿线，大幅减重） */
 .tokui-think-step__line {
-  position: absolute; left: 9px; top: 24px; bottom: 0;
+  position: absolute; left: 9px; top: 23px; bottom: 0;
   width: 2px; background: var(--tokui-border);
-}
-.tokui-think-step--done .tokui-think-step__line {
-  background: var(--tokui-success, #22c55e);
 }
 
 /* Spinner animation */
@@ -1921,15 +1960,7 @@ textarea.tokui-textarea--auto { resize: none !important; }
 [data-tokui-theme="dark"] .tokui-think-chain {
   border-color: var(--tokui-border);
 }
-[data-tokui-theme="dark"] .tokui-think-step__dot {
-  background: var(--tokui-border);
-}
-[data-tokui-theme="dark"] .tokui-think-step__line {
-  background: var(--tokui-border);
-}
-[data-tokui-theme="dark"] .tokui-think-step--done .tokui-think-step__line {
-  background: var(--tokui-success);
-}
+/* dot/line 走 theme-aware --tokui-border（base 已设），done 不再单独上绿线 */
 
 [data-tokui-theme="dark"] .tokui-conversations {
   border-color: var(--tokui-border);
@@ -2296,7 +2327,7 @@ textarea.tokui-textarea--auto { resize: none !important; }
   background: transparent; color: var(--tokui-text-muted, #999);
   transition: background 0.15s, color 0.15s;
 }
-.tokui-chart__modal-close:hover { background: var(--tokui-fill, #f5f5f5); color: var(--tokui-text, #333); }
+.tokui-chart__modal-close:hover { background: var(--tokui-stripe, #f5f5f5); color: var(--tokui-text, #333); }
 .tokui-chart__modal-close svg { width: 18px; height: 18px; display: block; }
 .tokui-chart__fallback {
   padding: 20px; color: var(--tokui-text-muted); font-size: 0.9rem;
@@ -2514,12 +2545,12 @@ textarea.tokui-textarea--auto { resize: none !important; }
   letter-spacing: 0.5px; margin-top: 2px;
 }
 .tokui-bubble--user .tokui-bubble__avatar {
-  background: var(--tokui-bubble-user-avatar-bg, #e8e4df);
-  color: var(--tokui-bubble-user-avatar-text, #6b6560);
+  background: var(--tokui-bubble-user-avatar-bg, rgba(0,0,0,0.04));
+  color: var(--tokui-bubble-user-avatar-text, rgba(0,0,0,0.65));
 }
 .tokui-bubble--ai .tokui-bubble__avatar {
-  background: var(--tokui-bubble-ai-avatar-bg, #1a1a2e);
-  color: var(--tokui-bubble-ai-avatar-text, #e0e0e0);
+  background: var(--tokui-bubble-ai-avatar-bg, var(--tokui-primary-bg, #e6f4ff));
+  color: var(--tokui-bubble-ai-avatar-text, var(--tokui-primary, #1677ff));
 }
 /* 内容区 */
 .tokui-bubble__content { flex: 1; min-width: 0; }
@@ -2537,10 +2568,10 @@ textarea.tokui-textarea--auto { resize: none !important; }
 .tokui-bubble__body {
   font-size: 0.9rem; line-height: 1.75; word-break: break-word;
 }
-/* user 气泡 */
+/* user 气泡：浅灰圆角块（--tokui-stripe 级），微影经 P1 暗色补丁处理 */
 .tokui-bubble--user .tokui-bubble__body {
-  background: var(--tokui-bubble-user-bg, #f0ebe4);
-  color: var(--tokui-bubble-user-text, #2c2825);
+  background: var(--tokui-bubble-user-bg, rgba(0,0,0,0.04));
+  color: var(--tokui-bubble-user-text, rgba(0,0,0,0.88));
   padding: 10px 16px; border-radius: 16px 16px 4px 16px;
   display: inline-block;
   box-shadow: 0 1px 2px rgba(0,0,0,0.04);
@@ -2550,13 +2581,13 @@ textarea.tokui-textarea--auto { resize: none !important; }
   background: transparent; color: var(--tokui-text);
   padding: 0;
 }
-/* System 气泡 —— 居中胶囊 */
+/* System 气泡 —— 居中轻量文本（无底、muted 字；modern 系主题覆盖为药丸） */
 .tokui-bubble--system .tokui-bubble__row { justify-content: center; }
 .tokui-bubble--system .tokui-bubble__avatar { display: none; }
 .tokui-bubble--system .tokui-bubble__header { display: none; }
 .tokui-bubble--system .tokui-bubble__body {
-  background: var(--tokui-stripe, #f5f5f5);
-  color: var(--tokui-text-secondary, #888);
+  background: transparent;
+  color: var(--tokui-text-muted, #888);
   font-size: 0.78rem; padding: 5px 14px; border-radius: 12px;
   display: inline-block; text-align: center;
 }
@@ -2567,6 +2598,9 @@ textarea.tokui-textarea--auto { resize: none !important; }
 }
 .tokui-bubble--user .tokui-bubble__time { text-align: right; }
 .tokui-bubble--system .tokui-bubble__time { display: none; }
+/* 暗色主题：user 气泡微影在暗底下提高 alpha 才可见（base 0.04 黑影仅对浅色底有效） */
+[data-tokui-theme="dark"] .tokui-bubble--user .tokui-bubble__body,
+[data-tokui-theme="modern-dark"] .tokui-bubble--user .tokui-bubble__body { box-shadow: 0 1px 2px rgba(0,0,0,0.3); }
 
 /* === Toolbar 操作栏 === */
 .tokui-toolbar {
@@ -2771,7 +2805,7 @@ textarea.tokui-textarea--auto { resize: none !important; }
   font-size: 0.72rem;
   font-weight: 500;
   color: var(--tokui-text-secondary, #6b7280);
-  background: var(--tokui-bg-secondary, #f3f4f6);
+  background: var(--tokui-stripe, #f3f4f6);
   border: 1px solid var(--tokui-border, #e5e7eb);
   border-radius: 999px;
   line-height: 1.4;
@@ -2795,7 +2829,7 @@ textarea.tokui-textarea--auto { resize: none !important; }
 .tokui-welcome__footer {
   margin-top: 22px;
   font-size: 0.78rem;
-  color: var(--tokui-text-tertiary, #9ca3af);
+  color: var(--tokui-text-muted, #9ca3af);
   line-height: 1.5;
 }
 
@@ -2821,12 +2855,8 @@ textarea.tokui-textarea--auto { resize: none !important; }
   background: var(--tokui-bg, #fff);
 }
 .tokui-welcome-feature:hover {
-  border-color: transparent;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-  transform: translateY(-1px);
-}
-.tokui-welcome-feature:active {
-  transform: translateY(0);
+  border-color: var(--tokui-primary-border);
+  box-shadow: var(--tokui-overlay-shadow);
 }
 .tokui-welcome-feature:focus-visible {
   outline: 2px solid var(--tokui-primary);
@@ -2841,14 +2871,15 @@ textarea.tokui-textarea--auto { resize: none !important; }
   height: 40px;
   border-radius: 10px;
 }
+/* welcome-feature 图标：全部吃语义令牌淡底（primary/success/warning/danger/info/tip 紫），四主题随令牌自适应 */
 .tokui-welcome-feature--code .tokui-welcome-feature__icon { background: var(--tokui-primary-bg); color: var(--tokui-primary); }
-.tokui-welcome-feature--chart .tokui-welcome-feature__icon { background: rgba(34, 197, 94, 0.1); color: var(--tokui-success, #22c55e); }
-.tokui-welcome-feature--doc .tokui-welcome-feature__icon { background: rgba(245, 158, 11, 0.1); color: var(--tokui-warning, #f59e0b); }
-.tokui-welcome-feature--dashboard .tokui-welcome-feature__icon { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
-.tokui-welcome-feature--print .tokui-welcome-feature__icon { background: rgba(244, 63, 94, 0.1); color: #f43f5e; }
-.tokui-welcome-feature--chat .tokui-welcome-feature__icon { background: rgba(6, 182, 212, 0.1); color: #06b6d4; }
-.tokui-welcome-feature--table .tokui-welcome-feature__icon { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }
-.tokui-welcome-feature--form .tokui-welcome-feature__icon { background: rgba(20, 184, 166, 0.1); color: #14b8a6; }
+.tokui-welcome-feature--chart .tokui-welcome-feature__icon { background: var(--tokui-success-bg); color: var(--tokui-success); }
+.tokui-welcome-feature--doc .tokui-welcome-feature__icon { background: var(--tokui-warning-bg); color: var(--tokui-warning); }
+.tokui-welcome-feature--dashboard .tokui-welcome-feature__icon { background: var(--tokui-primary-bg); color: var(--tokui-primary); }
+.tokui-welcome-feature--print .tokui-welcome-feature__icon { background: var(--tokui-danger-bg); color: var(--tokui-danger); }
+.tokui-welcome-feature--chat .tokui-welcome-feature__icon { background: var(--tokui-info-bg); color: var(--tokui-info); }
+.tokui-welcome-feature--table .tokui-welcome-feature__icon { background: var(--tokui-callout-tip-bg); color: var(--tokui-callout-tip-border); }
+.tokui-welcome-feature--form .tokui-welcome-feature__icon { background: var(--tokui-success-bg); color: var(--tokui-success); }
 .tokui-welcome-feature__body {
   flex: 1;
   min-width: 0;
@@ -2871,27 +2902,15 @@ textarea.tokui-textarea--auto { resize: none !important; }
 [data-tokui-theme="dark"] .tokui-welcome__subtitle { color: var(--tokui-text-secondary, #9ca3af); }
 [data-tokui-theme="dark"] .tokui-welcome__badge {
   color: var(--tokui-text-secondary, #9ca3af);
-  background: var(--tokui-bg-secondary, #2a2a3a);
+  background: var(--tokui-stripe, #2a2a3a);
   border-color: var(--tokui-border, #374151);
 }
 [data-tokui-theme="dark"] .tokui-welcome__section { color: var(--tokui-text-secondary, #9ca3af); }
-[data-tokui-theme="dark"] .tokui-welcome__footer { color: var(--tokui-text-tertiary, #6b7280); }
+[data-tokui-theme="dark"] .tokui-welcome__footer { color: var(--tokui-text-muted, #6b7280); }
 [data-tokui-theme="dark"] .tokui-welcome-feature {
   border-color: var(--tokui-border, #374151);
   background: var(--tokui-bg, #1e1e2e);
 }
-[data-tokui-theme="dark"] .tokui-welcome-feature:hover {
-  border-color: transparent;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-}
-[data-tokui-theme="dark"] .tokui-welcome-feature--code .tokui-welcome-feature__icon { background: rgba(99, 102, 241, 0.15); color: var(--tokui-primary, #818cf8); }
-[data-tokui-theme="dark"] .tokui-welcome-feature--chart .tokui-welcome-feature__icon { background: rgba(74, 222, 128, 0.15); color: #4ade80; }
-[data-tokui-theme="dark"] .tokui-welcome-feature--doc .tokui-welcome-feature__icon { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
-[data-tokui-theme="dark"] .tokui-welcome-feature--dashboard .tokui-welcome-feature__icon { background: rgba(96, 165, 250, 0.15); color: #60a5fa; }
-[data-tokui-theme="dark"] .tokui-welcome-feature--print .tokui-welcome-feature__icon { background: rgba(251, 113, 133, 0.15); color: #fb7185; }
-[data-tokui-theme="dark"] .tokui-welcome-feature--chat .tokui-welcome-feature__icon { background: rgba(34, 211, 238, 0.15); color: #22d3ee; }
-[data-tokui-theme="dark"] .tokui-welcome-feature--table .tokui-welcome-feature__icon { background: rgba(167, 139, 250, 0.15); color: #a78bfa; }
-[data-tokui-theme="dark"] .tokui-welcome-feature--form .tokui-welcome-feature__icon { background: rgba(45, 212, 191, 0.15); color: #2dd4bf; }
 [data-tokui-theme="dark"] .tokui-welcome-feature__title { color: var(--tokui-text, #f3f4f6); }
 [data-tokui-theme="dark"] .tokui-welcome-feature__desc { color: var(--tokui-text-secondary, #9ca3af); }
 
@@ -3707,7 +3726,7 @@ textarea.tokui-textarea--auto { resize: none !important; }
   padding: 0;
 }
 .tokui-sidebar__toggle:hover {
-  background: rgba(0, 0, 0, 0.06);
+  background: var(--tokui-stripe, rgba(0, 0, 0, 0.06));
   color: var(--tokui-primary);
 }
 /* Content area — scrollable */
@@ -3762,9 +3781,6 @@ textarea.tokui-textarea--auto { resize: none !important; }
 [data-tokui-theme="dark"] .tokui-sidebar__footer {
   background: rgba(255,255,255,0.04);
 }
-[data-tokui-theme="dark"] .tokui-sidebar__toggle:hover {
-  background: rgba(255,255,255,0.08);
-}
 
 /* ====== Error Boundary 错误边界 ====== */
 .tokui-error {
@@ -3795,13 +3811,13 @@ textarea.tokui-textarea--auto { resize: none !important; }
 }
 
 /* ====== Syntax Highlighting Token Colors ====== */
-.tokui-code .tok-kw { color: var(--tokui-code-kw, #c678dd); }
-.tokui-code .tok-str { color: var(--tokui-code-str, #98c379); }
-.tokui-code .tok-num { color: var(--tokui-code-num, #d19a66); }
-.tokui-code .tok-cmt { color: var(--tokui-code-cmt, #5c6370); font-style: italic; }
-.tokui-code .tok-fn  { color: var(--tokui-code-fn, #61afef); }
-.tokui-code .tok-op  { color: var(--tokui-code-op, #56b6c2); }
-.tokui-code .tok-type { color: var(--tokui-code-type, #e5c07b); }
+.tokui-code .tok-kw { color: var(--tokui-code-kw, #cf222e); }
+.tokui-code .tok-str { color: var(--tokui-code-str, #0a3069); }
+.tokui-code .tok-num { color: var(--tokui-code-num, #0550ae); }
+.tokui-code .tok-cmt { color: var(--tokui-code-cmt, #6e7781); font-style: italic; }
+.tokui-code .tok-fn  { color: var(--tokui-code-fn, #8250df); }
+.tokui-code .tok-op  { color: var(--tokui-code-op, #24292f); }
+.tokui-code .tok-type { color: var(--tokui-code-type, #953800); }
 
 /* ====== Markdown Enhancement ====== */
 .tokui-md__task-list {
@@ -3973,16 +3989,15 @@ textarea.tokui-textarea--auto { resize: none !important; }
 .tokui-chat-input {
   display: flex; align-items: flex-end; gap: 0;
   padding: 8px 8px 8px 16px;
-  border: 1.5px solid var(--tokui-border, #e2e2e2);
+  border: 1px solid var(--tokui-border, #e2e2e2);
   border-radius: 24px;
   background: var(--tokui-bg, #fff);
   position: relative;
   transition: border-color 0.25s, box-shadow 0.25s;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 .tokui-chat-input:focus-within {
-  border-color: var(--tokui-primary);
-  box-shadow: 0 0 0 3px var(--tokui-primary-focus), 0 1px 3px rgba(0,0,0,0.06);
+  border-color: var(--tokui-primary-border);
+  box-shadow: 0 0 0 3px var(--tokui-primary-focus);
 }
 .tokui-chat-input__textarea {
   flex: 1; border: none; outline: none;
@@ -4005,7 +4020,7 @@ textarea.tokui-textarea--auto { resize: none !important; }
 .tokui-chat-input__send {
   display: inline-flex; align-items: center; justify-content: center;
   width: 32px; height: 32px; border-radius: 50%;
-  background: var(--tokui-primary); color: #fff;
+  background: var(--tokui-primary); color: var(--tokui-btn-text-inverse, #fff);
   border: none; cursor: pointer;
   transition: background 0.2s, transform 0.15s, opacity 0.2s;
   flex-shrink: 0; padding: 0;
@@ -4019,7 +4034,7 @@ textarea.tokui-textarea--auto { resize: none !important; }
 .tokui-chat-input__stop {
   display: none; align-items: center; justify-content: center;
   width: 32px; height: 32px; border-radius: 50%;
-  background: var(--tokui-danger, #ef4444); color: #fff;
+  background: var(--tokui-danger, #ef4444); color: var(--tokui-btn-text-inverse, #fff);
   border: none; cursor: pointer;
   transition: background 0.2s, transform 0.15s, opacity 0.2s;
   flex-shrink: 0; padding: 0;
@@ -4034,7 +4049,7 @@ textarea.tokui-textarea--auto { resize: none !important; }
   background: var(--tokui-bg, #fff);
   border: 1px solid var(--tokui-border, #e2e2e2);
   border-radius: var(--tokui-radius, 12px);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  box-shadow: var(--tokui-overlay-shadow);
   max-height: 220px; overflow-y: auto; z-index: 20;
 }
 .tokui-chat-input__mention-item {
@@ -4043,7 +4058,7 @@ textarea.tokui-textarea--auto { resize: none !important; }
 }
 .tokui-chat-input__mention-item--active,
 .tokui-chat-input__mention-item:hover {
-  background: var(--tokui-primary-focus, rgba(22,119,255,0.1));
+  background: var(--tokui-primary-bg);
 }
 
 /* katex / mermaid 独立组件（md 增强的别名形式） */
@@ -4059,10 +4074,9 @@ textarea.tokui-textarea--auto { resize: none !important; }
 .tokui-chat-input__counter--over { color: var(--tokui-danger); }
 [data-tokui-theme="dark"] .tokui-chat-input {
   background: var(--tokui-bg); border-color: var(--tokui-border, #333);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
 [data-tokui-theme="dark"] .tokui-chat-input:focus-within {
-  box-shadow: 0 0 0 3px var(--tokui-primary-focus), 0 1px 3px rgba(0,0,0,0.3);
+  box-shadow: 0 0 0 3px var(--tokui-primary-focus);
 }
 [data-tokui-theme="dark"] .tokui-chat-input__counter {
   background: var(--tokui-bg);
@@ -4137,7 +4151,11 @@ textarea.tokui-textarea--auto { resize: none !important; }
   background: var(--tokui-stripe, #f9fafb);
   border-bottom: 1px solid var(--tokui-border, #e5e7eb);
   font-size: 0.85rem;
+  cursor: pointer;
+  user-select: none;
 }
+.tokui-tool-call__header:hover { background: var(--tokui-primary-bg); }
+.tokui-tool-call__header:focus-visible { outline: 2px solid var(--tokui-primary-border); outline-offset: -2px; }
 .tokui-tool-call__status-dot {
   width: 8px;
   height: 8px;
@@ -4147,7 +4165,8 @@ textarea.tokui-textarea--auto { resize: none !important; }
 .tokui-tool-call__status-dot--pending { background: var(--tokui-status-idle); }
 .tokui-tool-call__status-dot--running { background: var(--tokui-primary); animation: tokuiSpinRotate 1s linear infinite; }
 .tokui-tool-call__status-dot--done { background: var(--tokui-success, #22c55e); }
-.tokui-tool-call__status-dot--error { background: var(--tokui-danger, #ef4444); }
+.tokui-tool-call__status-dot--error,
+.tokui-tool-call__status-dot--danger { background: var(--tokui-danger, #ef4444); }
 .tokui-tool-call__status-dot--denied { background: var(--tokui-status-idle); }
 .tokui-tool-call__name {
   font-weight: 600;
@@ -4161,14 +4180,26 @@ textarea.tokui-textarea--auto { resize: none !important; }
   background: var(--tokui-stripe, #f9fafb);
   color: var(--tokui-text-secondary, #8c8c8c);
 }
-.tokui-tool-call--done .tokui-tool-call__status { color: var(--tokui-success, #22c55e); background: rgba(34,197,94,0.1); }
-.tokui-tool-call--error .tokui-tool-call__status { color: var(--tokui-danger, #ef4444); background: rgba(239,68,68,0.1); }
+.tokui-tool-call--done .tokui-tool-call__status { color: var(--tokui-success, #22c55e); background: var(--tokui-success-bg); }
+.tokui-tool-call--error .tokui-tool-call__status,
+.tokui-tool-call--danger .tokui-tool-call__status { color: var(--tokui-danger, #ef4444); background: var(--tokui-danger-bg); }
 .tokui-tool-call--running .tokui-tool-call__status { color: var(--tokui-primary); background: var(--tokui-primary-bg); }
 .tokui-tool-call__duration {
   margin-left: auto;
   font-size: 0.75rem;
   color: var(--tokui-text-secondary, #8c8c8c);
 }
+/* 收展指示 chevron：--collapsed 类切换旋转；有 duration 时不再自担右推（duration 已 margin-left:auto） */
+.tokui-tool-call__chevron {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: var(--tokui-text-secondary, #8c8c8c);
+  transition: transform 0.15s;
+}
+.tokui-tool-call__duration + .tokui-tool-call__chevron { margin-left: 0; }
+.tokui-tool-call--collapsed .tokui-tool-call__chevron { transform: rotate(-90deg); }
+/* 收展只切 display，不销毁 body 内容（流式子节点经 _slot 仍可挂入） */
+.tokui-tool-call--collapsed .tokui-tool-call__body { display: none; }
 .tokui-tool-call__body { padding: 10px 12px; font-size: 0.85rem; }
 .tokui-tool-call__params {
   font-family: var(--tokui-font-mono, 'SF Mono', 'Consolas', monospace);
@@ -4181,7 +4212,7 @@ textarea.tokui-textarea--auto { resize: none !important; }
   margin-top: 8px;
   padding: 8px;
   border-radius: var(--tokui-radius, 8px);
-  background: rgba(34,197,94,0.06);
+  background: var(--tokui-success-bg);
   border-left: 3px solid var(--tokui-success, #22c55e);
   font-size: 0.8rem;
 }
@@ -4189,7 +4220,7 @@ textarea.tokui-textarea--auto { resize: none !important; }
   margin-top: 8px;
   padding: 8px;
   border-radius: var(--tokui-radius, 8px);
-  background: rgba(239,68,68,0.06);
+  background: var(--tokui-danger-bg);
   border-left: 3px solid var(--tokui-danger, #ef4444);
   font-size: 0.8rem;
   color: var(--tokui-danger, #ef4444);
@@ -4287,29 +4318,23 @@ textarea.tokui-textarea--auto { resize: none !important; }
   display: grid;
   gap: 12px;
 }
+.tokui-suggestions__grid--1 { grid-template-columns: repeat(1, 1fr); }
+.tokui-suggestions__grid--2 { grid-template-columns: repeat(2, 1fr); }
+.tokui-suggestions__grid--3 { grid-template-columns: repeat(3, 1fr); }
+.tokui-suggestions__grid--4 { grid-template-columns: repeat(4, 1fr); }
 .tokui-suggestion {
   display: flex;
   align-items: flex-start;
   gap: 10px;
   padding: 14px 16px;
-  border-left: 3px solid var(--tokui-primary);
+  border: 1px solid var(--tokui-border, #e5e7eb);
   border-radius: 8px;
   background: var(--tokui-bg, #fff);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
   cursor: pointer;
   transition: all 0.2s ease;
-  border-top: 1px solid var(--tokui-border, #e5e7eb);
-  border-right: 1px solid var(--tokui-border, #e5e7eb);
-  border-bottom: 1px solid var(--tokui-border, #e5e7eb);
 }
 .tokui-suggestion:hover {
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  border-left-color: var(--tokui-primary-hover, #4338ca);
-  transform: translateY(-1px);
-}
-.tokui-suggestion:active {
-  transform: translateY(0);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+  background: var(--tokui-stripe, #f9fafb);
 }
 .tokui-suggestion:focus-visible {
   outline: 2px solid var(--tokui-primary);
@@ -4350,55 +4375,34 @@ textarea.tokui-textarea--auto { resize: none !important; }
   line-height: 1.4;
 }
 
-/* Dark theme adjustments */
-[data-tokui-theme="dark"] .tokui-suggestion {
-  background: var(--tokui-bg, #1f2937);
-  border-top-color: var(--tokui-border, #374151);
-  border-right-color: var(--tokui-border, #374151);
-  border-bottom-color: var(--tokui-border, #374151);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-}
-[data-tokui-theme="dark"] .tokui-suggestion:hover {
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-}
-[data-tokui-theme="dark"] .tokui-suggestion__icon {
-  background: rgba(129,140,248,0.12);
-}
-
-/* --- source 引用来源 --- */
+/* --- source 引用来源（轻量级：无边框无底，纯文本行；视觉权重低于正文） --- */
 .tokui-source {
   display: flex;
-  gap: 10px;
-  padding: 8px 12px;
-  margin: 0.3em 0;
-  border-radius: var(--tokui-radius, 8px);
-  background: var(--tokui-stripe, #f9fafb);
+  gap: 8px;
+  padding: 3px 0;
+  margin: 0.15em 0;
   align-items: flex-start;
 }
 .tokui-source__num {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: var(--tokui-primary);
-  color: #fff;
-  font-size: 0.7rem;
-  font-weight: 700;
+  color: var(--tokui-text-muted, #9ca3af);
+  font-size: 0.72rem;
+  line-height: 1.7;
   flex-shrink: 0;
+  min-width: 14px;
+  text-align: right;
 }
+.tokui-source__num::after { content: '.'; }
 .tokui-source__body { flex: 1; min-width: 0; }
 .tokui-source__title {
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--tokui-primary);
+  font-size: 0.82rem;
+  font-weight: 400;
+  color: var(--tokui-text-secondary, #6b7280);
   text-decoration: none;
 }
-a.tokui-source__title:hover { text-decoration: underline; }
+a.tokui-source__title:hover { color: var(--tokui-primary); text-decoration: underline; }
 .tokui-source__snippet {
-  font-size: 0.8rem;
-  color: var(--tokui-text-secondary, #8c8c8c);
+  font-size: 0.78rem;
+  color: var(--tokui-text-muted, #9ca3af);
   margin-top: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4455,16 +4459,16 @@ a.tokui-source__title:hover { text-decoration: underline; }
   white-space: pre;
   flex: 1;
 }
-.tokui-diff__line--add { background: rgba(34,197,94,0.1); }
+.tokui-diff__line--add { background: var(--tokui-success-bg); }
 .tokui-diff__line--add .tokui-diff__code { color: var(--tokui-success, #22c55e); }
-.tokui-diff__line--remove { background: rgba(239,68,68,0.08); }
+.tokui-diff__line--remove { background: var(--tokui-danger-bg); }
 .tokui-diff__line--remove .tokui-diff__code { color: var(--tokui-danger, #ef4444); }
 .tokui-diff__line--context .tokui-diff__code { color: var(--tokui-text-secondary, #8c8c8c); }
 
 /* --- plan 任务计划 --- */
 @keyframes tokuiPlanPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(79,70,229,0.4); }
-  50% { box-shadow: 0 0 0 6px rgba(79,70,229,0); }
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--tokui-primary) 40%, transparent); }
+  50% { box-shadow: 0 0 0 6px transparent; }
 }
 .tokui-plan { margin: 0.6em 0; }
 .tokui-plan__title {
@@ -4537,7 +4541,8 @@ a.tokui-source__title:hover { text-decoration: underline; }
 .tokui-agent__status-dot--running { background: var(--tokui-primary); animation: tokuiSpinRotate 1s linear infinite; }
 .tokui-agent__status-dot--paused { background: var(--tokui-warning, #f59e0b); }
 .tokui-agent__status-dot--done { background: var(--tokui-success, #22c55e); }
-.tokui-agent__status-dot--error { background: var(--tokui-danger, #ef4444); }
+.tokui-agent__status-dot--error,
+.tokui-agent__status-dot--danger { background: var(--tokui-danger, #ef4444); }
 .tokui-agent__name { font-weight: 600; color: var(--tokui-text); }
 .tokui-agent__status {
   font-size: 0.75rem;
@@ -4546,9 +4551,10 @@ a.tokui-source__title:hover { text-decoration: underline; }
   background: var(--tokui-stripe, #f9fafb);
   color: var(--tokui-text-secondary, #8c8c8c);
 }
-.tokui-agent--done .tokui-agent__status { color: var(--tokui-success, #22c55e); background: rgba(34,197,94,0.1); }
+.tokui-agent--done .tokui-agent__status { color: var(--tokui-success, #22c55e); background: var(--tokui-success-bg); }
 .tokui-agent--running .tokui-agent__status { color: var(--tokui-primary); background: var(--tokui-primary-bg); }
-.tokui-agent--error .tokui-agent__status { color: var(--tokui-danger, #ef4444); background: rgba(239,68,68,0.1); }
+.tokui-agent--error .tokui-agent__status,
+.tokui-agent--danger .tokui-agent__status { color: var(--tokui-danger, #ef4444); background: var(--tokui-danger-bg); }
 .tokui-agent__duration {
   margin-left: auto;
   font-size: 0.75rem;
@@ -4560,6 +4566,8 @@ a.tokui-source__title:hover { text-decoration: underline; }
   padding: 4px 0 0;
 }
 .tokui-agent__body { margin-top: 8px; }
+/* P0 后 __body 恒建：空 body 去掉上间距，有内容才留 8px */
+.tokui-agent__body:empty { margin-top: 0; }
 
 /* --- file-tree 文件树 --- */
 .tokui-file-tree {
@@ -4602,13 +4610,13 @@ a.tokui-source__title:hover { text-decoration: underline; }
   color: var(--tokui-text-secondary, #8c8c8c);
 }
 
-/* --- terminal 终端 --- */
+/* --- terminal 终端（深色孤岛为行业惯例，配色走 --tokui-terminal-* 令牌） --- */
 .tokui-terminal {
   border-radius: var(--tokui-radius, 8px);
   margin: 0.6em 0;
   overflow: hidden;
-  background: #1e1e1e;
-  color: #d4d4d4;
+  background: var(--tokui-terminal-bg, #1e1e1e);
+  color: var(--tokui-terminal-text, #d4d4d4);
   font-family: var(--tokui-font-mono, 'SF Mono', 'Consolas', monospace);
 }
 .tokui-terminal__titlebar {
@@ -4616,7 +4624,7 @@ a.tokui-source__title:hover { text-decoration: underline; }
   align-items: center;
   gap: 8px;
   padding: 6px 12px;
-  background: #2d2d2d;
+  background: var(--tokui-terminal-titlebar, #2d2d2d);
   font-size: 0.75rem;
   color: #999;
 }
@@ -4633,16 +4641,19 @@ a.tokui-source__title:hover { text-decoration: underline; }
 }
 .tokui-terminal--error .tokui-terminal__content { border-left-color: var(--tokui-danger, #ef4444); }
 .tokui-terminal__copy {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #999;
+  background: color-mix(in srgb, var(--tokui-terminal-text, #d4d4d4) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--tokui-terminal-text, #d4d4d4) 15%, transparent);
+  color: color-mix(in srgb, var(--tokui-terminal-text, #d4d4d4) 60%, transparent);
   padding: 1px 8px;
   border-radius: 4px;
   font-size: 0.7rem;
   cursor: pointer;
   transition: all 0.2s;
 }
-.tokui-terminal__copy:hover { background: rgba(255, 255, 255, 0.15); color: #d4d4d4; }
+.tokui-terminal__copy:hover {
+  background: color-mix(in srgb, var(--tokui-terminal-text, #d4d4d4) 15%, transparent);
+  color: var(--tokui-terminal-text, #d4d4d4);
+}
 .tokui-terminal__copy--done { background: var(--tokui-success, #22c55e); border-color: var(--tokui-success, #22c55e); color: #fff; }
 
 /* --- shimmer 闪光加载 --- */
@@ -4684,9 +4695,9 @@ a.tokui-source__title:hover { text-decoration: underline; }
 .tokui-latency__icon { font-size: 0.8rem; }
 .tokui-latency__value { font-weight: 600; color: var(--tokui-text); }
 .tokui-latency__label { opacity: 0.7; }
-.tokui-latency--thinking { background: rgba(245,158,11,0.08); }
+.tokui-latency--thinking { background: var(--tokui-warning-bg); }
 .tokui-latency--generating { background: var(--tokui-primary-bg); }
-.tokui-latency--total { background: rgba(34,197,94,0.08); }
+.tokui-latency--total { background: var(--tokui-success-bg); }
 
 /* --- video 视频播放器 --- */
 .tokui-video {
@@ -4892,7 +4903,7 @@ a.tokui-source__title:hover { text-decoration: underline; }
   margin: 2px 0 4px 24px;
   padding: 6px 8px;
   border-radius: 4px;
-  background: rgba(239,68,68,0.06);
+  background: var(--tokui-danger-bg);
   color: var(--tokui-danger, #ef4444);
   font-size: 0.78rem;
   font-family: var(--tokui-font-mono, monospace);
@@ -4903,11 +4914,15 @@ a.tokui-source__title:hover { text-decoration: underline; }
 [data-tokui-theme="dark"] .tokui-diff { border-color: var(--tokui-border); }
 [data-tokui-theme="dark"] .tokui-agent { border-color: var(--tokui-border); }
 [data-tokui-theme="dark"] .tokui-file-tree { border-color: var(--tokui-border); }
+/* 暗色主题下 terminal 深色孤岛与页面底近乎相融，加边框分层（dark / modern-dark 同补） */
+[data-tokui-theme="dark"] .tokui-terminal,
+[data-tokui-theme="modern-dark"] .tokui-terminal { border: 1px solid var(--tokui-border); }
 [data-tokui-theme="dark"] .tokui-terminal__content { border-left-color: var(--tokui-success); }
 [data-tokui-theme="dark"] .tokui-terminal--error .tokui-terminal__content { border-left-color: var(--tokui-danger); }
 [data-tokui-theme="dark"] .tokui-audio { border-color: var(--tokui-border); }
 [data-tokui-theme="dark"] .tokui-sandbox { border-color: var(--tokui-border); }
-[data-tokui-theme="dark"] .tokui-sandbox__preview { background: #1e1e1e; }
+[data-tokui-theme="dark"] .tokui-sandbox__preview,
+[data-tokui-theme="modern-dark"] .tokui-sandbox__preview { background: #1e1e1e; }
 [data-tokui-theme="dark"] .tokui-commit { border-color: var(--tokui-border); }
 [data-tokui-theme="dark"] .tokui-test-result { border-color: var(--tokui-border); }
 [data-tokui-theme="dark"] .tokui-plan-step__line { background: var(--tokui-border); }
@@ -5001,8 +5016,8 @@ a.tokui-source__title:hover { text-decoration: underline; }
 }
 
 .tokui-artifact__close:hover {
-  background: rgba(239, 68, 68, 0.1);
-  color: #ef4444;
+  background: var(--tokui-danger-bg);
+  color: var(--tokui-danger);
 }
 
 .tokui-artifact__code {
@@ -5017,9 +5032,12 @@ a.tokui-source__title:hover { text-decoration: underline; }
 .tokui-artifact__code::-webkit-scrollbar-track { background: transparent; }
 .tokui-artifact__code::-webkit-scrollbar-thumb { border-radius: 3px; background: rgba(0, 0, 0, 0.1); }
 .tokui-artifact__code::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.2); }
-[data-tokui-theme="dark"] .tokui-artifact__code { scrollbar-color: rgba(255, 255, 255, 0.12) transparent; }
-[data-tokui-theme="dark"] .tokui-artifact__code::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); }
-[data-tokui-theme="dark"] .tokui-artifact__code::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
+[data-tokui-theme="dark"] .tokui-artifact__code,
+[data-tokui-theme="modern-dark"] .tokui-artifact__code { scrollbar-color: rgba(255, 255, 255, 0.12) transparent; }
+[data-tokui-theme="dark"] .tokui-artifact__code::-webkit-scrollbar-thumb,
+[data-tokui-theme="modern-dark"] .tokui-artifact__code::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); }
+[data-tokui-theme="dark"] .tokui-artifact__code::-webkit-scrollbar-thumb:hover,
+[data-tokui-theme="modern-dark"] .tokui-artifact__code::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
 
 .tokui-artifact__code pre {
   margin: 0;
@@ -5099,7 +5117,9 @@ a.tokui-source__title:hover { text-decoration: underline; }
 }
 
 [data-tokui-theme="dark"] .tokui-artifact__preview iframe,
-[data-tokui-theme="dark"] .tokui-artifact__iframe {
+[data-tokui-theme="dark"] .tokui-artifact__iframe,
+[data-tokui-theme="modern-dark"] .tokui-artifact__preview iframe,
+[data-tokui-theme="modern-dark"] .tokui-artifact__iframe {
   background: #1e1e1e;
 }
 
@@ -5135,7 +5155,7 @@ a.tokui-source__title:hover { text-decoration: underline; }
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--tokui-overlay-bg, rgba(0, 0, 0, 0.5));
+  background: var(--tokui-mask-bg, rgba(0, 0, 0, 0.5));
 }
 .tokui-command__panel {
   position: relative;
@@ -5265,8 +5285,8 @@ a.tokui-source__title:hover { text-decoration: underline; }
   color: var(--tokui-text, #f9fafb);
 }
 [data-tokui-theme="dark"] .tokui-command__item--selected {
-  background: rgba(59, 130, 246, 0.15);
-  color: #60a5fa;
+  background: var(--tokui-primary-bg);
+  color: var(--tokui-primary);
 }
 
 /* === Resizable 分割面板 === */
@@ -5405,7 +5425,7 @@ a.tokui-source__title:hover { text-decoration: underline; }
   background: var(--tokui-text-muted, #9ca3af);
 }
 [data-tokui-theme="dark"] .tokui-resizable__handle:hover {
-  background: rgba(59, 130, 246, 0.15);
+  background: var(--tokui-primary-bg);
 }
 
 /* === Canvas 侧边预览面板 === */
@@ -5541,8 +5561,8 @@ a.tokui-source__title:hover { text-decoration: underline; }
   color: var(--tokui-text-muted, #9ca3af);
 }
 [data-tokui-theme="dark"] .tokui-canvas__toggle:hover {
-  background: rgba(59, 130, 246, 0.15);
-  color: #60a5fa;
+  background: var(--tokui-primary-bg);
+  color: var(--tokui-primary);
 }
 [data-tokui-theme="dark"] .tokui-canvas__header {
   border-bottom-color: var(--tokui-border, #374151);
@@ -5798,9 +5818,6 @@ a.tokui-source__title:hover { text-decoration: underline; }
   background: var(--tokui-callout-error-bg, var(--tokui-danger-1));
 }
 .tokui-callout--danger .tokui-callout__icon { color: var(--tokui-danger); }
-.tokui-think-step--danger .tokui-think-step__title {
-  color: var(--tokui-danger);
-}
 .tokui-badge--danger { background: var(--tokui-danger); color: #fff; }
 .tokui-toast--danger { background: var(--tokui-danger); }
 .tokui-dot--danger .tokui-dot__circle,
@@ -5809,9 +5826,7 @@ a.tokui-source__title:hover { text-decoration: underline; }
 .tokui-result--danger .tokui-result__icon svg path { stroke: var(--tokui-danger); }
 .tokui-notification--danger .tokui-notification__bar { background: var(--tokui-danger); }
 .tokui-notification--danger .tokui-notification__icon { color: var(--tokui-danger); }
-.tokui-tool-call--danger .tokui-tool-call__status { color: var(--tokui-danger, #ef4444); background: rgba(239,68,68,0.1); }
 .tokui-plan-step--danger .tokui-plan-step__dot { background: var(--tokui-danger, #ef4444); }
-.tokui-agent--danger .tokui-agent__status { color: var(--tokui-danger, #ef4444); background: rgba(239,68,68,0.1); }
 .tokui-terminal--danger .tokui-terminal__content { border-left-color: var(--tokui-danger, #ef4444); }
 [data-tokui-theme="dark"] .tokui-terminal--danger .tokui-terminal__content { border-left-color: var(--tokui-danger); }
 
@@ -6248,6 +6263,9 @@ a.tokui-source__title:hover { text-decoration: underline; }
 }
 .tokui-kbd--sm { padding: 0 4px; font-size: 0.72em; }
 .tokui-kbd--lg { padding: 2px 10px; font-size: 0.95em; }
+/* 暗色主题：kbd 键帽底影在暗底下提高 alpha（保持按键厚度感） */
+[data-tokui-theme="dark"] .tokui-kbd,
+[data-tokui-theme="modern-dark"] .tokui-kbd { box-shadow: 0 1px 0 rgba(0, 0, 0, 0.4); }
 
 /* --- Editable 行内编辑 --- */
 .tokui-editable { display: inline-block; }

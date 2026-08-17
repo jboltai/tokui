@@ -136,4 +136,10 @@ test('msg-actions buttons contain icon span', () => {
   assert.ok(hasIcon, 'button has icon span');
 });
 
+test('msg-actions attrs.id 落 DOM（T3.2，del/ins 锚点）', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'msg-actions', attrs: { id: 'maid', copy: true }, children: [] });
+  assert.strictEqual(dom.getAttribute('id'), 'maid', 'msg-actions id 落 DOM');
+});
+
 run();

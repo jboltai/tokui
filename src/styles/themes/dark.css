@@ -117,6 +117,14 @@
   /* 代码块 */
   --tokui-code-bg: #0f172a;
   --tokui-code-text: #e2e8f0;
+  /* 代码语法高亮（One Dark 系，暗底适配） */
+  --tokui-code-kw: #c678dd;
+  --tokui-code-str: #98c379;
+  --tokui-code-num: #d19a66;
+  --tokui-code-fn: #61afef;
+  --tokui-code-type: #e5c07b;
+  --tokui-code-op: #56b6c2;
+  --tokui-code-cmt: #5c6370;
   --tokui-code-copy-bg: rgba(255,255,255,0.08);
   --tokui-code-copy-border: rgba(255,255,255,0.15);
   --tokui-code-copy-text: rgba(255,255,255,0.6);
@@ -190,8 +198,8 @@
   --tokui-callout-tip-bg: #2a1654;
   --tokui-callout-tip-border: #9254de;
 
-  /* Think 思考块 */
-  --tokui-think-bg: rgba(255, 255, 255, 0.04);
+  /* Think 思考块（轻量卡片底） */
+  --tokui-think-bg: rgba(255, 255, 255, 0.03);
   --tokui-think-border: rgba(255, 255, 255, 0.08);
 
   /* Chart 图表 */
@@ -200,13 +208,13 @@
   --tokui-chart-today-line: #ff7a45;
   --tokui-chart-task-dep: rgba(255, 255, 255, 0.35);
 
-  /* Bubble 气泡 */
+  /* Bubble 气泡（user 12% 白底与 #141414 页面分层；AI 头像 primary 暗色淡底 + 提亮字） */
   --tokui-bubble-user-bg: rgba(255, 255, 255, 0.12);
-  --tokui-bubble-user-text: rgba(255, 255, 255, 0.85);
+  --tokui-bubble-user-text: var(--tokui-text);
   --tokui-bubble-user-avatar-bg: rgba(255, 255, 255, 0.15);
-  --tokui-bubble-user-avatar-text: rgba(255, 255, 255, 0.65);
-  --tokui-bubble-ai-avatar-bg: #3b3b5c;
-  --tokui-bubble-ai-avatar-text: #d0d0e0;
+  --tokui-bubble-user-avatar-text: var(--tokui-text-secondary);
+  --tokui-bubble-ai-avatar-bg: var(--tokui-primary-bg);
+  --tokui-bubble-ai-avatar-text: var(--tokui-primary-7);
 
   /* ========== 浮层 / 遮罩 / 反转（供 tokui.css 基类写死值引用） ========== */
   /* dark 浮层阴影：纯黑高 alpha 才显层次 + 浅发丝边 */
