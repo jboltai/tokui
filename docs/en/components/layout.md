@@ -29,11 +29,62 @@ Responsive layout based on a 12-column grid system. `row` is the container row, 
 | Prop | Meaning | Applies to | Example |
 |------|---------|------------|---------|
 | `v` | Alignment | `row` | `v:center` |
+| `gutter` | Uniform column/row gap (plain number = px, or CSS length) | `row` | `gutter:16` |
+| `gy` | Row gap (overrides the row-axis part of gutter) | `row` | `gy:8` |
 | `span` | Column width (1-12) | `col` | `span:4` |
+| `offset` | Columns left empty on the left (1-11; offset+span clamped to ≤ 12) | `col` | `offset:2` |
+| `rspan` | Row span (1-12), for spanning rows in a multi-row `row` | `col` | `rspan:2` |
 
 **`row` variants**: `left` / `center` / `right` (horizontal alignment), `inline` (inline layout).
 
 <Playground dsl='[row][col span:4][callout t:info]span:4[/callout][/col][col span:4][callout t:success]span:4[/callout][/col][col span:4][callout t:warning]span:4[/callout][/col][/row][row][col span:6][callout t:info]span:6[/callout][/col][col span:3][callout t:tip]span:3[/callout][/col][col span:3][callout t:tip]span:3[/callout][/col][/row]' />
+
+<Playground dsl='[row gutter:16 gy:12][col span:4][callout t:info]gutter:16[/callout][/col][col span:4 offset:2][callout t:success]span:4 offset:2[/callout][/col][col span:2][callout t:tip]span:2[/callout][/col][/row]' />
+
+## Advanced Grid `grid` / `cell`
+
+An explicit two-dimensional grid that runs alongside the 12-column `row`/`col` system: `grid` declares tracks and template areas, and `cell` positions child items (any component allowed). **Rule of thumb: use `row`/`col` for one-dimensional evenly-split rows; use `grid`/`cell` for asymmetric 2-D layouts, named areas, mixed fixed+flexible tracks, row/column spanning, and full-page skeletons.**
+
+`grid` props:
+
+| Prop | Meaning | Example |
+|------|---------|---------|
+| `cols` | Column tracks: plain number N(1-24) → `repeat(N,1fr)`; `auto:180px` → auto-fill adaptive columns; or a space-separated explicit track list | `cols:"200px 1fr 1fr"` |
+| `rows` | Row tracks, same syntax as `cols`, optional | `rows:"64px 1fr"` |
+| `areas` | Template areas: `\|` separates rows, spaces separate columns, `.` is an empty slot (names limited to `[a-zA-Z][a-zA-Z0-9_-]*`) | `areas:"nav main\|nav aside"` |
+| `gap` / `gx` / `gy` | Gap / column gap / row gap (plain number = px, or CSS length) | `gap:12` |
+| `h` / `minh` | Height / min height (plain number = px) | `h:480` |
+| `v` | Variants: `dense` (grid-auto-flow:dense backfills gaps), `flush` (zero gap) | `v:dense` |
+| `theme` | Subtree theme: `dark`/`modern`/`modern-dark`/`default` — sets `data-tokui-theme` on the element; tokens (stat/chart/btn/text) follow for it and all descendants. Supported by `grid`/`cell`/`card` | `theme:dark` |
+
+Track token whitelist: lengths (px/%/em/rem/vw/vh), `Nfr`, `auto`, `min-content`, `max-content`, `minmax(a,b)`, `fit-content(len)`. **Every value is whitelist-validated; any invalid token drops the whole property** (prevents style injection).
+
+> ⚠️ Fixed-track overflow: with `rows`/`h` pinned, taller content does not expand the track — it overflows over neighboring areas. A `chart`'s `h` is only the viewBox height; the SVG scales to 100% width keeping aspect, so it renders taller in wide cells. When content height is uncertain, **omit `rows` and let tracks auto-size**; use `h` only for skeletons with known content height (e.g. car HMI). Do not put `card` inside thin tracks (<100px, e.g. top bars/docks) — card chrome (header+padding) is ~110px; use bare `p`/`btngroup` instead. A single only-child inside a cell auto-fills the cell height.
+
+`cell` props:
+
+| Prop | Meaning | Example |
+|------|---------|---------|
+| `area` | Template area name (matching `grid`'s `areas`) | `area:nav` |
+| `c` | Column span N(1-24) or `"start/end"` grid lines | `c:2`, `c:"1/3"` |
+| `r` | Row span N(1-24) | `r:2` |
+| `align` / `justify` | Cell content alignment (`start`/`center`/`end`/`stretch`) | `align:center` |
+
+Holy-grail layout (named `areas`, full-width header/footer, full-height nav):
+
+<Playground dsl='[grid cols:"160px 1fr 160px" rows:"56px 1fr 48px" gap:8 h:360 areas:"hd hd hd|nav main aside|ft ft ft"][cell area:hd][callout t:info]头部 hd[/callout][/cell][cell area:nav][callout t:tip]导航 nav[/callout][/cell][cell area:main][callout t:success]主区 main[/callout][/cell][cell area:aside][callout t:warning]侧栏 aside[/callout][/cell][cell area:ft][callout t:info]页脚 ft[/callout][/cell][/grid]' />
+
+Monitoring dashboard (mixed `c`/`r` row/column spans, no `areas` needed):
+
+<Playground dsl='[grid cols:4 rows:2 gap:8 h:320][cell c:2 r:2][card tt:实时流量][chart t:line area smooth l:"00:00,04:00,08:00,12:00,16:00,20:00" d:"120,240,180,320,560,480"][/card][/cell][cell c:2][card tt:资源水位][stat tt:CPU v:62 suf:% trend:up][stat tt:内存 v:71 suf:%][/card][/cell][cell][card tt:磁盘][stat v:48 suf:%][/card][/cell][cell][card tt:在线节点][stat v:128][/card][/cell][/grid]' />
+
+Auto-fill card wall (column count adapts to container width; components that need no area/span can be direct `grid` children without a `cell` wrapper):
+
+<Playground dsl='[grid cols:"auto:150px" gap:12][card tt:Alpha tx:自动填满整行][card tt:Beta tx:每张最小 150px][card tt:Gamma tx:无需媒体查询][card tt:Delta tx:宽度自适应][card tt:Epsilon tx:响应式卡片墙][card tt:Zeta tx:auto-fill 轨道][/grid]' />
+
+Car HMI (mixed tracks + named areas + `dense` backfill):
+
+<Playground dsl='[grid cols:"96px 1fr 1fr" rows:"1fr 1fr 64px" gap:10 h:380 v:dense areas:"nav media media|nav climate seat|bar bar bar"][cell area:nav][card tt:导航][list][item 地图][item 音乐][item 电话][/list][/card][/cell][cell area:media][card tt:媒体][p 正在播放：星际穿越 原声][/card][/cell][cell area:climate][card tt:空调][stat v:22 suf:°C][/card][/cell][cell area:seat][card tt:座椅][stat v:加热·二档][/card][/cell][cell area:bar][card tt:状态栏 tx:车速 60 km/h · 续航 320 km][/card][/cell][/grid]' />
 
 ## List `list` / `item`
 

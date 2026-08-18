@@ -90,6 +90,10 @@ A "typing" three-dot animation, self-closing. `text` shows text alongside it.
 
 <Playground dsl='[bubble role:ai][typing text:正在生成回复][/bubble]' />
 
+With `[del id:x delay:ms]` you can simulate the "typing swaps to real reply" flow — the typing dots vanish after 2.5s and the body takes their place (plays automatically):
+
+<Playground dsl='[bubble role:ai id:tyB1][typing id:tyT1 text:正在生成回复][/bubble][ins into:tyB1][p 已为你生成 3 套方案，详见下方卡片。[/ins][del id:tyT1 delay:2500]' />
+
 ## Quick Reply `quick-reply`
 
 A one-line quick-reply suggestion, self-closing container. `items` separates multiple suggestions with `|`.
@@ -447,6 +451,8 @@ Every AI component lands its `id` on the DOM, serving as an anchor for `[del]` /
 | `bubble` / `typing` / `terminal` / `diff` / `artifact` / `quick-reply` / `msg-actions` / `think` / `think-chain` | anchor only (`del` / `ins` targeting; replace content via del+ins) |
 
 > Typical pattern — swapping a typing placeholder for the real reply: push `[typing id:t1 text:正在生成]` first, then `[del id:t1]` when the content arrives, and stream `[bubble role:ai]…[/bubble]`.
+
+> `id:` lands on the DOM for every component (centrally backfilled by the renderer, `tcol` excepted) — `del`/`ins` are not limited to the table above; a `del` hitting a still-streaming container is queued and executes on close.
 
 ## Comprehensive Example: A Real AI Reply
 

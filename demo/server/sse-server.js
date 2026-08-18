@@ -1371,7 +1371,7 @@ const DEMOS = [
             .cardTx('快捷操作', '点击左侧导航选择更多组件示例。')
           .end()
           .col_layout({ span: 6 })
-            .cardTx('版本更新', 'TokUI v0.2.3 已发布，支持卡片自闭合模式。')
+            .cardTx('版本更新', 'TokUI v0.2.4 已发布，支持卡片自闭合模式。')
           .end()
         .end()
         .hr()
@@ -1561,7 +1561,7 @@ const DEMOS = [
                 .a({ tx: '帮助文档', u: '/docs' })
                 .p(' | ')
                 .a({ tx: '联系我们', u: '/contact' })
-                .p('版本 v0.2.3')
+                .p('版本 v0.2.4')
               .end()
             .end()
           .end()
@@ -1675,6 +1675,247 @@ const DEMOS = [
               .end()
             .end()
           .end()
+        .end();
+      return b;
+    }
+  },
+  {
+    trigger: 'demo-grid-holygrail',
+    title: '圣杯布局（grid areas）',
+    desc: 'grid/cell 高级网格：模板区域一句描述整页骨架（头/侧栏/主区/底栏）',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('圣杯布局 — grid 模板区域')
+        .p('cols 显式轨道 + areas 区域命名：header/nav/main/aside/footer，一句 DSL 描述整页骨架。')
+        .grid({ cols: '180px 1fr 180px', areas: 'header header header|nav main aside|footer footer footer', gap: 8 })
+          .cell({ area: 'header' }).card({ tt: 'header 顶栏' }).p('logo / 搜索 / 用户区').end().end()
+          .cell({ area: 'nav' }).card({ tt: 'nav 导航' }).list().item('仪表盘').item('订单').item('报表').item('设置').end().end().end()
+          .cell({ area: 'main' }).card({ tt: 'main 主内容区' }).p('侧栏固定 180px，主区弹性 1fr —— row/col 12 栅格表达不了的混合轨道。').chart({ t: 'line', d: '30,45,28,60,55,80,72,90', tt: '访问趋势', h: 160 }).end().end()
+          .cell({ area: 'aside' }).card({ tt: 'aside 侧栏' }).stat({ v: '99.7%', l: '可用性', trend: 'up' }).stat({ v: '2.3s', l: '平均响应', trend: 'down' }).end().end()
+          .cell({ area: 'footer' }).card().p('footer 底栏 © 2026').end().end()
+        .end();
+      return b;
+    }
+  },
+  {
+    trigger: 'demo-grid-dashboard',
+    title: '运维监控大屏（grid 行列混跨）',
+    desc: 'stat 指标行 + 图表区 cell c/r 跨格组合，固定视口高',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('运维监控大屏 — grid 行列混跨')
+        .p('指标行 4 等分；图表区 cell 用 c/r 跨格，大图占 2×2，小图环绕。')
+        .grid({ cols: '4', gap: 12 })
+          .cell().card().stat({ v: '12,847', l: '在线实例', trend: 'up' }).end().end()
+          .cell().card().stat({ v: '99.95%', l: 'SLA 可用性', trend: 'up' }).end().end()
+          .cell().card().stat({ v: '38ms', l: 'P99 延迟', trend: 'down' }).end().end()
+          .cell().card().stat({ v: '3', l: '告警中', trend: 'down' }).end().end()
+        .end()
+        .grid({ cols: '2fr 1fr 1fr', gap: 12 })
+          .cell({ c: 1, r: 2 }).card({ tt: 'QPS 总览（跨 2 行）' }).chart({ t: 'line', d: '120,200,150,80,250,180,220,260', l: '00,04,08,12,16,20,24,28', h: 320, area: true }).end().end()
+          .cell().card({ tt: 'CPU 分布' }).chart({ t: 'donut', d: '40,30,20,10', l: '计算,存储,网络,空闲', h: 160 }).end().end()
+          .cell().card({ tt: '区域流量' }).chart({ t: 'bar', d: '80,120,100,60', l: '华东,华北,华南,西南', h: 160 }).end().end()
+          .cell({ c: 2 }).card({ tt: '错误率趋势（跨 2 列）' }).chart({ t: 'line', d: '2,5,3,8,4,6,3,2', l: '00,04,08,12,16,20,24,28', h: 160 }).end().end()
+        .end();
+      return b;
+    }
+  },
+  {
+    trigger: 'demo-grid-carhmi',
+    title: '车机 HMI 主屏（grid 复杂区域）',
+    desc: '车载中控：状态栏 + 导航大图 + 媒体/空调卡 + 底部快捷 Dock，不规则区域拼接',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('车机 HMI 主屏 — 复杂模板区域')
+        .p('areas 五行拼接：顶栏通栏、导航大图占左 2×2、媒体/空调上下分、Dock 通底。')
+        .grid({ cols: '1fr 1fr 1fr', rows: '48px 150px 150px 64px', areas: 'top top top|map map media|map map climate|dock dock dock', h: '440px', gap: 10, theme: 'dark' })
+          .cell({ area: 'top' }).p('☀ 26°C　14:30　📶 5G　🔋 82%').end()
+          .cell({ area: 'map' }).card({ tt: '导航', v: 'highlight' }).p('前方 300m 右转进入高架').row_layout().col_layout({ span: 6 }).stat({ v: '12.4km', l: '剩余里程' }).end().col_layout({ span: 6 }).stat({ v: '18min', l: '预计到达' }).end().end().end().end()
+          .cell({ area: 'media' }).card({ tt: '♪ 正在播放' }).p('晴天 — 周杰伦').end().end()
+          .cell({ area: 'climate' }).card({ tt: '空调' }).row_layout().col_layout({ span: 6 }).stat({ v: '22°C', l: '主驾' }).end().col_layout({ span: 6 }).stat({ v: '23°C', l: '副驾' }).end().end().end().end()
+          .cell({ area: 'dock' }).btngroup().btn({ tx: '🏠 主页' }).btn({ tx: '🗺 导航' }).btn({ tx: '♪ 音乐' }).btn({ tx: '☎ 电话' }).btn({ tx: '⚙ 设置' }).end().end()
+        .end();
+      return b;
+    }
+  },
+  {
+    trigger: 'demo-grid-autofit',
+    title: '自适应卡片墙（auto-fill）',
+    desc: 'cols:"auto:160px" → repeat(auto-fill,minmax(160px,1fr))，宽度变列数自适应',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('自适应卡片墙 — auto-fill')
+        .p('不写死列数：容器越宽列越多，窄了自动减列，masonry 之外的另一选择。')
+        .grid({ cols: 'auto:160px', gap: 10 })
+          .cell().card().stat({ v: '1,024', l: '文章' }).end().end()
+          .cell().card().stat({ v: '86', l: '作者' }).end().end()
+          .cell().card().stat({ v: '12k', l: '评论' }).end().end()
+          .cell().card().stat({ v: '340', l: '标签' }).end().end()
+          .cell().card().stat({ v: '56', l: '分类' }).end().end()
+          .cell().card().stat({ v: '9.2k', l: '订阅', trend: 'up' }).end().end()
+          .cell().card().stat({ v: '78%', l: '完读率' }).end().end()
+          .cell().card().stat({ v: '4.8', l: '评分' }).end().end()
+        .end();
+      return b;
+    }
+  },
+  {
+    trigger: 'demo-grid-magazine',
+    title: '杂志混排 + 栅格新属性',
+    desc: 'grid cell c/r 跨格做杂志排版；row gutter/offset、col rspan 新能力',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('杂志混排 — cell 跨格')
+        .grid({ cols: '2fr 1fr 1fr', rows: '140px 140px', gap: 10, v: 'dense' })
+          .cell({ c: 1, r: 2 }).card({ tt: '头版头条（2 行跨）', v: 'highlight' }).p('dense 变体自动填坑，小卡环绕大卡排布。').end().end()
+          .cell().card({ tt: '快讯 A' }).p('一条短讯').end().end()
+          .cell().card({ tt: '快讯 B' }).p('另一条短讯').end().end()
+          .cell({ c: 2 }).card({ tt: '专题（跨 2 列）' }).p('横跨两列的专题条').end().end()
+        .end()
+        .h2('row/col 新属性：gutter / offset / rspan')
+        .p('gutter:24 加宽间距；offset:2 左空 2 列；rspan 跨行。')
+        .row_layout({ gutter: 24 })
+          .col_layout({ span: 4, offset: 2 }).card({ tt: 'offset:2 + span:4' }).p('左侧空 2 列').end().end()
+          .col_layout({ span: 4 }).card({ tt: 'span:4' }).p('紧随其右').end().end()
+        .end()
+        .row_layout({ gutter: 12 })
+          .col_layout({ span: 4, rspan: 2 }).card({ tt: 'rspan:2 跨行卡' }).p('纵向跨两行，右侧小卡环绕。').stat({ v: '66%', l: '进度' }).end().end()
+          .col_layout({ span: 4 }).card().p('右上 1').end().end()
+          .col_layout({ span: 4 }).card().p('右上 2').end().end()
+          .col_layout({ span: 4 }).card().p('右下 1').end().end()
+          .col_layout({ span: 4 }).card().p('右下 2').end().end()
+        .end();
+      return b;
+    }
+  },
+  {
+    trigger: 'demo-poi-gas',
+    title: 'AI 找加油站（POI 三列对比卡）',
+    desc: '对话式出行搜索：筛选摘要 + 加油站对比卡（距离/油价/营业 + 操作）',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('附近加油站 — POI 三列对比卡')
+        .p('AI 对话典型输出：一句话摘要 + grid 三列对比卡，距离/价格/操作平铺。')
+        .callout({ t: 'info', tx: '📍 G60 沪昆高速 嘉兴方向 · 沿途 30km 内找到 3 座加油站，按距离排序' })
+        .grid({ cols: '3', gap: 12 })
+          .cell().card({ tt: '中石化 王江泾站', v: 'highlight' })
+            .row_layout({ gutter: 8 })
+              .col_layout({ span: 4 }).stat({ v: '1.2km', l: '距离' }).end()
+              .col_layout({ span: 4 }).stat({ v: '7.85', l: '92# 元/L' }).end()
+              .col_layout({ span: 4 }).stat({ v: '24h', l: '营业' }).end()
+            .end()
+            .p('⛽ 92/95/0# · 🔋 充电 · 🏪 便利店')
+            .btngroup().btn({ tx: '导航前往', v: 'primary' }).btn({ tx: '详情' }).end()
+          .end().end()
+          .cell().card({ tt: '中石油 新塍站' })
+            .row_layout({ gutter: 8 })
+              .col_layout({ span: 4 }).stat({ v: '3.5km', l: '距离' }).end()
+              .col_layout({ span: 4 }).stat({ v: '7.79', l: '92# 元/L' }).end()
+              .col_layout({ span: 4 }).stat({ v: '24h', l: '营业' }).end()
+            .end()
+            .p('⛽ 92/95 · 🏪 便利店 · 🚻 卫生间')
+            .btngroup().btn({ tx: '导航前往', v: 'primary' }).btn({ tx: '详情' }).end()
+          .end().end()
+          .cell().card({ tt: '壳牌 油车港站' })
+            .row_layout({ gutter: 8 })
+              .col_layout({ span: 4 }).stat({ v: '6.8km', l: '距离' }).end()
+              .col_layout({ span: 4 }).stat({ v: '7.92', l: '92# 元/L' }).end()
+              .col_layout({ span: 4 }).stat({ v: '06-23', l: '营业' }).end()
+            .end()
+            .p('⛽ 92/95/98 · 🔋 快充 · ☕ 咖啡')
+            .btngroup().btn({ tx: '导航前往', v: 'primary' }).btn({ tx: '详情' }).end()
+          .end().end()
+        .end();
+      return b;
+    }
+  },
+  {
+    trigger: 'demo-poi-hotel',
+    title: 'AI 找酒店（信息+价格双列卡）',
+    desc: '酒店列表：左信息右价格的两栏卡面，grid 2 列排布',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('附近酒店 — 信息+价格双列卡')
+        .p('卡内 row/col 分栏：8 列放评分/设施/位置，4 列放价格 stat，底部操作行。')
+        .grid({ cols: '2', gap: 12 })
+          .cell().card({ tt: '全季酒店 嘉兴南站店', v: 'highlight' })
+            .row_layout({ gutter: 8 })
+              .col_layout({ span: 8 })
+                .p('⭐ 4.8 分 · 2.1km · 距高速口 5min')
+                .p('🛏 大床/双床 · 含双早 · 免费停车')
+              .end()
+              .col_layout({ span: 4 }).stat({ v: '¥358', l: '今晚价' }).end()
+            .end()
+            .btngroup().btn({ tx: '查看房型', v: 'primary' }).btn({ tx: '导航' }).end()
+          .end().end()
+          .cell().card({ tt: '汉庭酒店 嘉兴中关村店' })
+            .row_layout({ gutter: 8 })
+              .col_layout({ span: 8 })
+                .p('⭐ 4.6 分 · 3.4km · 近万达广场')
+                .p('🛏 大床/家庭房 · 自助早 · 充电桩')
+              .end()
+              .col_layout({ span: 4 }).stat({ v: '¥269', l: '今晚价' }).end()
+            .end()
+            .btngroup().btn({ tx: '查看房型', v: 'primary' }).btn({ tx: '导航' }).end()
+          .end().end()
+          .cell().card({ tt: '亚朵酒店 嘉兴八佰伴店' })
+            .row_layout({ gutter: 8 })
+              .col_layout({ span: 8 })
+                .p('⭐ 4.9 分 · 4.0km · 商圈核心')
+                .p('🛏 几木大床 · 深夜粥到 · 健身房')
+              .end()
+              .col_layout({ span: 4 }).stat({ v: '¥489', l: '今晚价' }).end()
+            .end()
+            .btngroup().btn({ tx: '查看房型', v: 'primary' }).btn({ tx: '导航' }).end()
+          .end().end()
+          .cell().card({ tt: '维也纳国际 嘉兴学院店' })
+            .row_layout({ gutter: 8 })
+              .col_layout({ span: 8 })
+                .p('⭐ 4.5 分 · 5.2km · 近嘉兴学院')
+                .p('🛏 豪华双床 · 含早 · 会议室')
+              .end()
+              .col_layout({ span: 4 }).stat({ v: '¥318', l: '今晚价' }).end()
+            .end()
+            .btngroup().btn({ tx: '查看房型', v: 'primary' }).btn({ tx: '导航' }).end()
+          .end().end()
+        .end();
+      return b;
+    }
+  },
+  {
+    trigger: 'demo-poi-route',
+    title: 'AI 沿途服务区（摘要行+设施卡）',
+    desc: '长途导航：行程摘要 stat 行 + 服务区设施卡（餐饮/加油/商店）',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('沿途服务区 — 摘要行 + 设施卡')
+        .p('row/col 摘要行给行程概况，grid 两列服务区卡列设施与商店。')
+        .row_layout({ gutter: 12 })
+          .col_layout({ span: 4 }).card().stat({ v: '186km', l: '剩余里程' }).end().end()
+          .col_layout({ span: 4 }).card().stat({ v: '4', l: '沿途服务区' }).end().end()
+          .col_layout({ span: 4 }).card().stat({ v: '12km', l: '下一个', trend: 'down' }).end().end()
+        .end()
+        .grid({ cols: '2', gap: 12 })
+          .cell().card({ tt: '嘉兴服务区', v: 'highlight' })
+            .p('📍 前方 12km · G60 沪昆高速')
+            .p('🍜 五芳斋/肯德基 · ⛽ 中石化 · 🏪 嘉兴粽子商店 · 🔋 快充 8 桩')
+            .btngroup().btn({ tx: '设为途经点', v: 'primary' }).btn({ tx: '详情' }).end()
+          .end().end()
+          .cell().card({ tt: '长安服务区' })
+            .p('📍 前方 47km · G60 沪昆高速')
+            .p('🍜 老娘舅/星巴克 · ⛽ 中石油 · 🏪 便利蜂 · 🚻 母婴室')
+            .btngroup().btn({ tx: '设为途经点', v: 'primary' }).btn({ tx: '详情' }).end()
+          .end().end()
+          .cell().card({ tt: '杭州湾北岸服务区' })
+            .p('📍 前方 89km · G15 沈海高速')
+            .p('🍜 海鲜面/麦当劳 · ⛽ 中石化 · 🏪 特产超市 · 🚿 淋浴')
+            .btngroup().btn({ tx: '设为途经点', v: 'primary' }).btn({ tx: '详情' }).end()
+          .end().end()
+          .cell().card({ tt: '慈城服务区' })
+            .p('📍 前方 132km · G15 沈海高速')
+            .p('🍜 年糕饺/咖啡 · ⛽ 中海油 · 🏪 年糕特产店 · 🔋 超充 12 桩')
+            .btngroup().btn({ tx: '设为途经点', v: 'primary' }).btn({ tx: '详情' }).end()
+          .end().end()
         .end();
       return b;
     }
@@ -8329,6 +8570,125 @@ const DEMOS = [
         { _wait: 700 },
         '渲染器把节点实时挂载为真实 DOM——你现在看到的逐段出现，就是这条链路在干活。',
         '[/bubble]'
+      ];
+    }
+  },
+
+  // ===== 动态编排专题（del / ins / upd）=====
+
+  {
+    trigger: 'demo-del-delay',
+    title: 'del delay 延迟删除',
+    desc: '4 个自动退场实战：限时提示 / 上传完成自清 / 骨架屏错峰替换 / 新手引导气泡',
+    _ids: null,
+    build() {
+      const uid = Math.random().toString(36).slice(2, 6);
+      this._ids = { c1: 'dl-c1-' + uid, p1: 'dl-p1-' + uid, s1: 'dl-s1-' + uid, s2: 'dl-s2-' + uid, s3: 'dl-s3-' + uid, g1: 'dl-g1-' + uid };
+      const ids = this._ids;
+      const b = new TokUIBuilder();
+      b.card({ tt: 'del delay：自动退场场景（无需操作，自动播放）' })
+        .p('[del id:x delay:毫秒] 到点后重新查找目标再删除；期间目标保持可见，已被删则告警跳过。定时器随 destroy() 取消。')
+        .callout({ id: ids.c1, t: 'warning', tt: '限时优惠', tx: '新人 8 折券已放入账户——本提示 5 秒后自动消失（delay:5000）' })
+        .p('文件上传完成：')
+        .progress({ id: ids.p1, v: '100' })
+        .p('数据加载中（骨架屏错峰替换为真实内容）：')
+        .skeleton({ id: ids.s1 })
+        .skeleton({ id: ids.s2 })
+        .skeleton({ id: ids.s3 })
+        .callout({ id: ids.g1, t: 'info', tt: '新手引导', tx: '点击右上角可切换主题——本引导 8 秒后自动关闭（delay:8000）' })
+      .end();
+      return b;
+    },
+    extraChunks() {
+      const ids = this._ids;
+      return [
+        // 限时提示 / 引导气泡：纯延迟删除
+        '[del id:' + ids.c1 + ' delay:5000]',
+        '[del id:' + ids.g1 + ' delay:8000]',
+        // 上传完成：先补成功标记，进度条 2.5 秒后自清
+        '[ins after:' + ids.p1 + '][tag t:success tx:✓ report.pdf 已同步到 3 台设备][/ins]',
+        '[del id:' + ids.p1 + ' delay:2500]',
+        // 骨架屏：真实内容先 ins 到骨架后面，骨架按 2s/3.5s/5s 错峰删除 → 逐行浮现
+        '[ins after:' + ids.s1 + '][stat tt:本月营收 v:¥128,400][del id:' + ids.s1 + ' delay:2000][/ins]',
+        '[ins after:' + ids.s2 + '][stat tt:活跃用户 v:8,932][del id:' + ids.s2 + ' delay:3500][/ins]',
+        '[ins after:' + ids.s3 + '][stat tt:转化率 v:24.8%][del id:' + ids.s3 + ' delay:5000][/ins]'
+      ];
+    }
+  },
+
+  {
+    trigger: 'demo-del-queue',
+    title: 'del 流式排队容错',
+    desc: 'del 先于容器闭标签到达不再丢失：排队后闭合自动执行（LLM 时序乱序容错）',
+    _ids: null,
+    build() {
+      const uid = Math.random().toString(36).slice(2, 6);
+      this._ids = { b1: 'dq-b1-' + uid };
+      const b = new TokUIBuilder();
+      b.card({ tt: 'del 排队：时序乱序容错' })
+        .p('真实场景：LLM 生成的指令流可能乱序——[del id:x] 先于 [/bubble] 到达。旧版会告警丢弃；现在自动排队，容器闭合后立即执行。')
+        .bubble({ role: 'user', time: '15:02' })
+          .p('演示一下 del 排队的容错能力')
+        .end()
+      .end();
+      return b;
+    },
+    extraChunks() {
+      const ids = this._ids;
+      return [
+        { _wait: 1200 },
+        '[bubble id:' + ids.b1 + ' role:ai model:TokUI][typing text:正在生成回复]',
+        { _wait: 600 },
+        '[del id:' + ids.b1 + ']',   // 故意早到：bubble 仍在流式栈上 → 排队（console 可见 queued 告警）
+        { _wait: 1500 },
+        '[/bubble]',                  // 闭合 → 排队 del 自动执行，整个气泡（含 typing）消失
+        { _wait: 800 },
+        '[bubble role:ai model:TokUI time:"15:02"]',
+        '看到了吗？del 早到 1.5 秒也没丢——排队后闭合一到位，那个只装了 typing 的气泡就被精确移除了。',
+        '[/bubble]'
+      ];
+    }
+  },
+
+  {
+    trigger: 'demo-ins-flow',
+    title: 'ins 动态插入实战',
+    desc: 'into 日志追加 / before 审批插队 / del+ins 旧件替换 / after 后续推荐',
+    _ids: null,
+    build() {
+      const uid = Math.random().toString(36).slice(2, 6);
+      this._ids = { log: 'if-log-' + uid, old: 'if-old-' + uid };
+      const ids = this._ids;
+      const b = new TokUIBuilder();
+      b.card({ tt: 'ins：部署流水线实时编排' })
+        .p('ins after:/before:/into: 三向插入。子节点先入暂存区，[/ins] 闭合一次性搬迁，页面无错位闪动。')
+        .card({ tt: '部署日志', id: ids.log })
+          .p('[10:00] 开始部署 v2.4.1 → 生产集群')
+        .end()
+        .card({ tt: '部署摘要 v1（待替换）', id: ids.old })
+          .p('状态：进行中…')
+        .end()
+      .end();
+      return b;
+    },
+    extraChunks() {
+      const ids = this._ids;
+      return [
+        { _wait: 900 },
+        '[ins into:' + ids.log + '][p [10:01] 镜像拉取完成（342MB）][/ins]',
+        { _wait: 900 },
+        '[ins into:' + ids.log + '][p [10:02] 健康检查通过 3/3][/ins]',
+        { _wait: 900 },
+        '[ins into:' + ids.log + '][p [10:02] 流量切换完成，v2.4.1 已上线][/ins]',
+        // 审批卡插到旧摘要之前（before 插队）
+        '[ins before:' + ids.old + '][callout t:warning tt:审批请求 tx:生产环境配置变更需人工确认——请在工单系统处理][/ins]',
+        { _wait: 1500 },
+        // 旧摘要替换：新卡先 ins 到旧卡之后，再 del 旧卡 → 原位替换
+        '[ins after:' + ids.old + '][card tt:"部署摘要 v2"][p 状态：][tag t:success tx:部署成功][/card][/ins]',
+        '[del id:' + ids.old + ']',
+        { _wait: 1000 },
+        // after 后续推荐
+        '[ins after:' + ids.log + '][quick-reply items:"查看监控,回滚版本,通知值班群"][/ins]'
       ];
     }
   },

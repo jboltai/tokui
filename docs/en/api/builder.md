@@ -41,7 +41,20 @@ These pick self-closing vs container based on args:
 
 ## Name avoidance
 
-Grid rows/columns use `row_layout()` / `col_layout()` to avoid clashing with the table's `row()`.
+Grid rows/columns use `row_layout()` / `col_layout()` to avoid clashing with the table's `row()`. Supported grid props: `gutter` (uniform column/row gap) and `gy` (row gap) on `row_layout()`; `span` (column width 1-12), `offset` (columns left empty, 1-11, offset+span clamped to ≤ 12) and `rspan` (row span 1-12) on `col_layout()`.
+
+The advanced grid uses `grid(attrs)` / `cell(attrs)` (both containers, closed with `end()`; values containing spaces are auto-quoted during serialization):
+
+```js
+b.grid({ cols: '200px 1fr 1fr', rows: '64px 1fr', gap: 12, areas: 'nav main main|nav aside aside' })
+  .cell({ area: 'nav' }).p('Nav').end()
+  .cell({ area: 'main' }).p('Main').end()
+  .cell({ area: 'aside' }).p('Aside').end()
+  .end();
+// → [grid cols:"200px 1fr 1fr" rows:"64px 1fr" gap:12 areas:"nav main main|nav aside aside"][cell area:nav][p Nav][/cell][cell area:main][p Main][/cell][cell area:aside][p Aside][/cell][/grid]
+```
+
+`grid` props: `cols`/`rows` (tracks), `areas` (template areas), `gap`/`gx`/`gy` (gaps), `h`/`minh` (height), `v` (`dense`/`flush`); `cell` props: `area`, `c` (column span N or `"1/3"`), `r` (row span N), `align`/`justify`. See [Layout Components · Advanced Grid](/components/layout).
 
 ## Internals
 

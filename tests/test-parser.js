@@ -1368,6 +1368,46 @@ test('漏空格：流式场景同样生效', () => {
   assert.strictEqual(events[0].attrs.tx, '¥48.20');
 });
 
+// ===== 引号跨属性吞噬容错（AI 引号只开不关，多属性写进一个引号段）=====
+test('引号吞噬：l:"商品金额 tx:¥6,299" → 拆出 tx', () => {
+  const nodes = [];
+  new TokUIParser((n) => nodes.push(n)).parse('[item l:"商品金额 tx:¥6,299"]');
+  assert.strictEqual(nodes[0].attrs.l, '商品金额');
+  assert.strictEqual(nodes[0].attrs.tx, '¥6,299');
+});
+
+test('引号吞噬：l:"表带 tx:"¥0（含）" → 剥残留孤引号', () => {
+  const nodes = [];
+  new TokUIParser((n) => nodes.push(n)).parse('[item l:"表带 tx:"¥0（含）"]');
+  assert.strictEqual(nodes[0].attrs.l, '表带');
+  assert.strictEqual(nodes[0].attrs.tx, '¥0（含）');
+});
+
+test('引号吞噬：l:"预计送达 tx:"2026-08-20 周四" → 残余正文尾巴拼回 tx', () => {
+  const nodes = [];
+  new TokUIParser((n) => nodes.push(n)).parse('[item l:"预计送达 tx:"2026-08-20 周四"]');
+  assert.strictEqual(nodes[0].attrs.l, '预计送达');
+  assert.strictEqual(nodes[0].attrs.tx, '2026-08-20 周四');
+  assert.strictEqual(nodes[0].content, '', '残余正文应并入 tx，不留孤儿文本');
+});
+
+test('引号吞噬：英文长标签值同样修复', () => {
+  const nodes = [];
+  new TokUIParser((n) => nodes.push(n)).parse('[item l:"Apple Watch Ultra 2 tx:¥6,299"]');
+  assert.strictEqual(nodes[0].attrs.l, 'Apple Watch Ultra 2');
+  assert.strictEqual(nodes[0].attrs.tx, '¥6,299');
+});
+
+test('引号吞噬：正常引号值/裸写不受影响', () => {
+  const nodes = [];
+  new TokUIParser((n) => nodes.push(n)).parse('[card tt:"我的 标题"][item l:姓名 tx:张三][/card]');
+  const card = nodes.find(n => n.type === 'card');
+  assert.strictEqual(card.attrs.tt, '我的 标题');
+  const item = card.children.find(n => n.type === 'item');
+  assert.strictEqual(item.attrs.l, '姓名');
+  assert.strictEqual(item.attrs.tx, '张三');
+});
+
 // === checkbox 三态 + opt 简写自闭合 ===
 test('checkbox 在 CONTAINERS 内', () => {
   assert.ok(CONTAINERS.has('checkbox'), 'checkbox 应在 CONTAINERS');

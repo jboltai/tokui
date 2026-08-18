@@ -63,7 +63,20 @@ b.printArea({ id: 'invoice', tt: '收款单' })
 
 ## 命名避让
 
-布局的栅格行/列用 `row_layout()` / `col_layout()`，以避让表格的 `row()`。
+布局的栅格行/列用 `row_layout()` / `col_layout()`，以避让表格的 `row()`。两者支持栅格属性：`row_layout()` 的 `gutter`（列/行统一间距）与 `gy`（行间距）；`col_layout()` 的 `span`（列宽 1-12）、`offset`（左空列数 1-11，offset+span 钳制不超 12）与 `rspan`（行跨 1-12）。
+
+高级网格用 `grid(attrs)` / `cell(attrs)`（均为容器，需 `end()` 闭合；含空格的属性值序列化时自动加双引号）：
+
+```js
+b.grid({ cols: '200px 1fr 1fr', rows: '64px 1fr', gap: 12, areas: 'nav main main|nav aside aside' })
+  .cell({ area: 'nav' }).p('导航').end()
+  .cell({ area: 'main' }).p('主区').end()
+  .cell({ area: 'aside' }).p('侧栏').end()
+  .end();
+// → [grid cols:"200px 1fr 1fr" rows:"64px 1fr" gap:12 areas:"nav main main|nav aside aside"][cell area:nav][p 导航][/cell][cell area:main][p 主区][/cell][cell area:aside][p 侧栏][/cell][/grid]
+```
+
+`grid` 属性：`cols`/`rows`（轨道）、`areas`（模板区域）、`gap`/`gx`/`gy`（间距）、`h`/`minh`（高度）、`v`（`dense`/`flush`）；`cell` 属性：`area`、`c`（列跨 N 或 `"1/3"`）、`r`（行跨 N）、`align`/`justify`。详见[布局组件 · 高级网格](/components/layout)。
 
 ## 内部约定
 

@@ -283,7 +283,11 @@ cell 尾缀覆盖列级：同格 cell 级生效，列级 align/color 让位。
 
 <Playground dsl='[progress id:demo v:30 l:下载中][upd id:demo v:80 status:success]' />
 
-**删除与插入指令**：`[del id:x]` 移除指定 id 的组件（目标不存在静默跳过；目标是仍在流式输出中、未闭合的容器时 `console.warn` 并跳过——等它闭合后再发 `del`）；`[ins after:ID]` / `before:ID` / `into:ID` 容器指令把子节点插到目标之后 / 之前 / 内部（`into` 追加为目标内容插槽的子元素），流式期间先入暂存区、`[/ins]` 闭合时一次性搬迁。详见 [DSL 语法 · 动态更新](/guide/dsl-syntax#动态更新)。
+**删除与插入指令**：`[del id:x]` 移除指定 id 的组件（目标不存在时 `console.warn` 告警；目标是仍在流式输出中、未闭合的容器时排队、闭合后自动执行）；`del` 支持 `delay:毫秒` 延迟删除（到点重新查找目标，定时器随 `destroy()` 取消）；`[ins after:ID]` / `before:ID` / `into:ID` 容器指令把子节点插到目标之后 / 之前 / 内部（`into` 追加为目标内容插槽的子元素），流式期间先入暂存区、`[/ins]` 闭合时一次性搬迁。详见 [DSL 语法 · 动态更新](/guide/dsl-syntax#动态更新)。
+
+`del delay` 实战——进度条 100% 后延迟 2.5 秒自清，成功标记原位留下（打开页面自动播放）：
+
+<Playground dsl='[progress id:dp1 v:100][ins after:dp1][tag t:success tx:"✓ report.pdf 已同步到 3 台设备"][/ins][del id:dp1 delay:2500]' />
 
 **`calendar` 动态更新**：`[upd id:cal v:"8,15"]` / `[upd id:cal sel:"8,15"]` 重设选中日（逗号分隔日号，全量替换）。
 

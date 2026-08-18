@@ -530,6 +530,17 @@ a + .tokui-btn, .tokui-link + .tokui-btn, .tokui-tag + .tokui-btn { margin-left:
 .tokui-row { display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px; margin-bottom: 12px; }
 .tokui-col { box-sizing: border-box; min-width: 0; }
 
+/* === 高级网格布局（grid/cell，与 12 栅格并行） === */
+/* 轨道/区域/间距由 attrs 经白名单校验后写内联 style；此处只给基础与变体 */
+.tokui-grid { display: grid; gap: 12px; margin-bottom: 12px; }
+.tokui-cell { box-sizing: border-box; min-width: 0; min-height: 0; }
+/* 独生子女填满 cell（grid 区域内单卡自适应撑满，多子项不受影响） */
+.tokui-cell > :only-child { height: 100%; box-sizing: border-box; }
+/* 子树级主题（theme 属性）：grid 自带底色，裸文本/按钮等浅令牌色在深色块上可读 */
+.tokui-grid[data-tokui-theme] { background: var(--tokui-bg); border-radius: calc(var(--tokui-radius) + 4px); padding: 12px; box-sizing: border-box; }
+.tokui-grid--dense { grid-auto-flow: dense; }
+.tokui-grid--flush { gap: 0; }
+
 /* === 列表 === */
 .tokui-list { padding-left: 1.5em; margin: 0.5em 0; }
 .tokui-list--plain { list-style: none; padding-left: 0; }
@@ -3164,6 +3175,9 @@ textarea.tokui-textarea--auto { resize: none !important; }
 }
 .tokui-stat__title {
   font-size: 0.85rem; color: var(--tokui-text-muted, #666); font-weight: 400;
+}
+.tokui-stat__label {
+  font-size: 0.82rem; color: var(--tokui-text-muted, #666); font-weight: 400;
 }
 .tokui-stat__value {
   display: flex; align-items: baseline; gap: 2px;

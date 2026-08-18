@@ -1012,29 +1012,70 @@ function registerBasicComponents(renderer) {
 
   // === Del 删除指令（自闭合） ===
   // [del id:xxx] — 移除已渲染的组件（命中内层元素时向上爬到组件根再删），不产生 DOM
+  // 目标在流式栈上（自身未闭合或含未闭合子容器）时不丢弃，排队待闭合后自动执行：
+  // LLM 时序稍偏（del 先于 [/xxx] 到达）不再丢指令。
+  function _execDel(id) {
+    var removed = false;
+    var target = _findById(id);
+    if (!target) {
+      // 未命中告警：LLM 拼错 id / 目标从未渲染时此前完全静默，极难排查
+      console.warn('TokUI: del 目标 "' + id + '" 不存在（组件未渲染或 id 拼写有误），已跳过');
+      _reportDirective('del', id, { removed: false });
+      return;
+    }
+    var rootEl = _climbToComponentRoot(target);
+    // 目标自己在流式插槽栈中，或包含未闭合的栈内容器（删除会让栈项悬空）：排队等闭合。
+    // 注意方向：目标位于某个未闭合祖先「内部」是正常场景（外层 card 包裹整个流），
+    // 栈里没有它的条目，删除是安全的——不能误拦。
+    var inStream = (renderer.slotStack || []).some(function (entry) {
+      return entry.el === rootEl
+        || (typeof rootEl.contains === 'function' && rootEl.contains(entry.el));
+    });
+    if (inStream) {
+      renderer._pendingDels = renderer._pendingDels || [];
+      if (renderer._pendingDels.indexOf(id) === -1) {
+        renderer._pendingDels.push(id);
+        console.warn('TokUI: del 目标 "' + id + '" 正在流式输出中（未闭合），已排队，容器闭合后自动执行');
+      }
+      _reportDirective('del', id, { removed: false, queued: true });
+      return;
+    }
+    if (rootEl.parentNode) {
+      rootEl.parentNode.removeChild(rootEl);
+      removed = true;
+    }
+    _reportDirective('del', id, { removed: removed });
+  }
+
+  // 流式闭合 / 强制结束后的排队冲刷钩子（renderer._streamClose / resetSlotStack 调用）
+  renderer._flushPendingDels = function () {
+    var q = renderer._pendingDels;
+    if (!q || !q.length) return;
+    renderer._pendingDels = [];
+    q.forEach(function (id) { _execDel(id); });
+  };
+
   renderer.register('del', (node) => {
     var attrs = node.attrs || {};
     var id = attrs.id;
     if (id && typeof document !== 'undefined') {
-      var removed = false;
-      var target = _findById(id);
-      if (target) {
-        var rootEl = _climbToComponentRoot(target);
-        // 目标自己在流式插槽栈中，或包含未闭合的栈内容器（删除会让栈项悬空）：告警跳过。
-        // 注意方向：目标位于某个未闭合祖先「内部」是正常场景（外层 card 包裹整个流），
-        // 栈里没有它的条目，删除是安全的——不能误拦。
-        var inStream = (renderer.slotStack || []).some(function (entry) {
-          return entry.el === rootEl
-            || (typeof rootEl.contains === 'function' && rootEl.contains(entry.el));
-        });
-        if (inStream) {
-          console.warn('TokUI: del 目标 "' + id + '" 正在流式输出中（未闭合），已跳过；请在容器闭合后再发 del');
-        } else if (rootEl.parentNode) {
-          rootEl.parentNode.removeChild(rootEl);
-          removed = true;
-        }
+      var sid = String(id);
+      var delay = parseInt(attrs.delay, 10);
+      if (delay > 0) {
+        // 延迟删除：到点后重新查找目标（期间可能已被替换/删除），目标未闭合仍走排队。
+        // 定时器登记到 renderer._delTimers，destroy() 统一清除，防销毁后触发。
+        var timer = setTimeout(function () {
+          var timers = renderer._delTimers || [];
+          var ti = timers.indexOf(timer);
+          if (ti !== -1) timers.splice(ti, 1);
+          _execDel(sid);
+        }, delay);
+        renderer._delTimers = renderer._delTimers || [];
+        renderer._delTimers.push(timer);
+        _reportDirective('del', sid, { removed: false, delayed: delay });
+      } else {
+        _execDel(sid);
       }
-      _reportDirective('del', String(id), { removed: removed });
     }
     return document.createTextNode('');
   });
@@ -2634,6 +2675,13 @@ function registerBasicComponents(renderer) {
     }
 
     wrapper.appendChild(valueWrap);
+
+    // attrs.l = 底部小标签（与 tt 顶部标题互补；大量存量 DSL 用 l: 写标签，此前静默丢弃）
+    if (attrs.l) {
+      var labelEl = el('div', { class: 'tokui-stat__label' });
+      labelEl.textContent = attrs.l;
+      wrapper.appendChild(labelEl);
+    }
 
     // 动态更新方法：供 [upd id:xxx v:新值 trend:up] 调用
     wrapper._update = function (uAttrs) {

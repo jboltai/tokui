@@ -98,9 +98,11 @@ DSL 写 `v:primary`，渲染器生成 CSS 类 `tokui-{type}--primary`。多个�
 
 ### 删除 `del` 与插入 `ins`
 
-`[del id:x]` 自闭合指令，移除指定 `id` 的组件——命中内层元素时向上爬到组件根再整体删除；目标不存在静默跳过，不产生 DOM。
+`[del id:x]` 自闭合指令，移除指定 `id` 的组件——命中内层元素时向上爬到组件根再整体删除；目标不存在时 `console.warn` 告警，不产生 DOM。`id:` 对全组件落 DOM（渲染器集中兜底，仅 `tcol` 除外），`del`/`ins` 全组件可达。
 
-> 目标是**仍在流式输出中**（未闭合）的容器时，`del` 会 `console.warn` 并跳过——删半个组件会把插槽栈打乱。要删就等它闭合后再发 `del`。
+- `delay:毫秒`：延迟删除，到点后重新查找目标再执行；先回报 `{removed:false, delayed:ms}`，定时器随 `destroy()` 取消。
+
+> 目标是**仍在流式输出中**（未闭合）的容器时，`del` 会排队（回报 `queued:true`），待容器闭合（或流结束）后自动执行——`del` 先于闭标签到达不再丢指令。
 
 `[ins]` 是容器指令，按位置属性把子节点插到目标组件之后 / 之前 / 内部：
 
@@ -116,6 +118,10 @@ DSL 写 `v:primary`，渲染器生成 CSS 类 `tokui-{type}--primary`。多个�
 > `into` 只适用于「内容是普通子元素流」的容器（card / list / callout / bubble / dialog 的 body 等）。结构性容器（`tabs` / `table` / `chart` / `select` / `radio` / `checkbox` / `picker` / `transfer` / `cascader` / `steps` / `menu` / `tree` 等子节点有专用挂载协议）禁止 `into`，会 `console.warn` 并跳过——往这类组件追加内容请用各自的流式子节点协议。
 
 <Playground dsl='[card tt:目标卡片 id:insDemo][p 卡片原有内容][/card][ins into:insDemo][p 由 ins 追加的一段][/ins][p id:delDemo 这一段渲染后会被 del 移除][del id:delDemo]' />
+
+`delay` 实战——限时提示自动退场 + 上传完成自清 + 骨架屏错峰替换（页面打开后自动播放）：
+
+<Playground dsl='[callout id:dlyC1 t:warning tt:限时优惠 tx:新人 8 折券已放入账户——本提示 5 秒后自动消失][del id:dlyC1 delay:5000][progress id:dlyP1 v:100][ins after:dlyP1][tag t:success tx:"✓ report.pdf 已同步到 3 台设备"][/ins][del id:dlyP1 delay:2500][skeleton id:dlyS1][ins after:dlyS1][stat tt:本月营收 v:¥128,400][/ins][del id:dlyS1 delay:2000][skeleton id:dlyS2][ins after:dlyS2][stat tt:活跃用户 v:8,932][/ins][del id:dlyS2 delay:3500]' />
 
 > **指令回执**：`upd` / `del` / `ins` 执行后向统一出口回报执行结果：`{type:'upd'|'del'|'ins', id, event:'applied', detail:{applied}}` / `{removed}` / `{moved}`——服务端可借此确认指令落地（目标不存在时 `applied` / `removed` 为 `false`、`moved` 为 `0`）。
 

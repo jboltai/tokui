@@ -95,6 +95,10 @@ export declare class TokUIBuilder {
   floatButton(attrs?: BuilderAttrs): this;
   masonry(attrs?: BuilderAttrs): this;
 
+  // —— 高级网格布局（容器，需 end() 闭合）——
+  grid(attrs?: BuilderAttrs): this;
+  cell(attrs?: BuilderAttrs): this;
+
   // —— 表格辅助 ——
   thead(attrs?: BuilderAttrs): this;
   theadCols(cols: any[]): this;

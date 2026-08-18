@@ -147,11 +147,68 @@ test('del 命中内层元素时爬到组件根删除', () => {
   assert.strictEqual(container.querySelector('.tokui-card'), null);
 });
 
-test('del 目标不存在时静默跳过', () => {
+test('del 目标不存在时告警跳过（不抛错）', () => {
   const rc = makeRenderer();
   const container = createElement('div');
-  rc.mount({ type: 'del', attrs: { id: 'ghost' }, children: [] }, container);
-  assert.ok(true);
+  const warns = [];
+  const origWarn = console.warn;
+  console.warn = function (m) { warns.push(String(m)); };
+  try {
+    rc.mount({ type: 'del', attrs: { id: 'ghost' }, children: [] }, container);
+  } finally {
+    console.warn = origWarn;
+  }
+  assert.ok(warns.some(w => w.indexOf('不存在') !== -1), '未命中应告警');
+});
+
+// 回归：此前仅部分组件手动把 id 落 DOM，其余组件 del 静默无效。
+// 现由 renderer 集中兜底：子树无该 id 时补到组件根。
+test('del 对未手动落 id 的组件生效（id 集中兜底落根）', () => {
+  const rc = makeRenderer();
+  const container = createElement('div');
+  rc.mount({ type: 'tag', attrs: { id: 'tg1' }, content: '标签', children: [] }, container);
+  assert.ok(container.querySelector('[id="tg1"]'), 'tag id 落 DOM');
+  rc.mount({ type: 'del', attrs: { id: 'tg1' }, children: [] }, container);
+  assert.strictEqual(container.querySelector('[id="tg1"]'), null, 'tag 被删除');
+});
+
+// 回归：无 _tokuiType 的组件嵌在容器内时，_climbToComponentRoot 曾越级爬到
+// 外层容器根，del 误删整个 card。现由 renderer 集中盖 _tokuiType 印章。
+test('del 嵌套 h1（card 内）只删自身，不误删外层 card', () => {
+  const rc = makeRenderer();
+  const container = createElement('div');
+  rc.mount({
+    type: 'card', attrs: { tt: 'T' },
+    children: [{ type: 'h1', attrs: { id: 'nh1' }, content: 'A', children: [] }]
+  }, container);
+  assert.ok(container.querySelector('[id="nh1"]'));
+  rc.mount({ type: 'del', attrs: { id: 'nh1' }, children: [] }, container);
+  assert.strictEqual(container.querySelector('[id="nh1"]'), null, 'h1 被删除');
+  assert.ok(container.querySelector('.tokui-card'), '外层 card 保留');
+});
+
+// 回归：input 的 id 挂内层 <input>，嵌 form 内 del 曾误删整个 form。
+// 集中盖章后爬层停在 input 字段根（_tokuiType=input）。
+test('del 嵌套 input（form 内，id 在内层）只删字段，不误删 form', () => {
+  const rc = makeRenderer();
+  const container = createElement('div');
+  rc.mount({
+    type: 'form', attrs: { n: 'f1' },
+    children: [{ type: 'input', attrs: { id: 'ni1', n: 'x' }, children: [] }]
+  }, container);
+  const inner = container.querySelector('[id="ni1"]');
+  assert.ok(inner, '内层 input 带 id');
+  rc.mount({ type: 'del', attrs: { id: 'ni1' }, children: [] }, container);
+  assert.strictEqual(container.querySelector('[id="ni1"]'), null, 'input 字段被删除');
+  assert.ok(container.querySelector('.tokui-form'), '外层 form 保留');
+});
+
+// 集中落 id 不破坏既有布局：id 已在内层 input 时，字段根不重复盖 id
+test('id 集中兜底不覆盖内层 id（input 根无重复 id）', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'input', attrs: { id: 'ni2', n: 'x' }, children: [] });
+  assert.strictEqual(dom.getAttribute('id'), null, '字段根不盖 id');
+  assert.ok(dom.querySelector('[id="ni2"]'), '内层 input 保持 id');
 });
 
 // =============================================
@@ -788,7 +845,7 @@ test('del 回执 removed:true/false', () => {
   assert.strictEqual(receipts[1].detail.removed, false);
 });
 
-test('del 打未闭合流式容器：告警跳过 + removed:false', () => {
+test('del 打未闭合流式容器：排队 queued:true，闭合后自动执行', () => {
   cleanupHandlers();
   const rc = makeRenderer();
   let receipt = null;
@@ -804,7 +861,13 @@ test('del 打未闭合流式容器：告警跳过 + removed:false', () => {
     rc.mount({ type: 'del', attrs: { id: 'vc' }, children: [] }, container);
     assert.ok(container.querySelector('#vc'), '未闭合容器应保留');
     assert.strictEqual(receipt.detail.removed, false);
+    assert.strictEqual(receipt.detail.queued, true, '未闭合 del 入队而非丢弃');
     assert.ok(warns.some(w => w.indexOf('未闭合') !== -1 || w.indexOf('流式') !== -1));
+    // 容器闭合后排队 del 自动执行（LLM 时序偏早不再丢指令）
+    receipt = null;
+    rc._streamClose({ type: 'card' });
+    assert.strictEqual(container.querySelector('#vc'), null, '闭合后排队 del 自动执行');
+    assert.ok(receipt && receipt.detail.removed === true, '闭合后回执 removed:true');
   } finally {
     console.warn = origWarn;
     rc.slotStack = [];
@@ -829,7 +892,7 @@ test('del 目标仅嵌在未闭合祖先内部（自身不在栈上）：允许�
   rc.slotStack = [];
 });
 
-test('del 目标包含未闭合的栈内容器：告警跳过', () => {
+test('del 目标包含未闭合的栈内容器：排队，resetSlotStack 后执行', () => {
   cleanupHandlers();
   const rc = makeRenderer();
   let receipt = null;
@@ -849,11 +912,59 @@ test('del 目标包含未闭合的栈内容器：告警跳过', () => {
     rc.mount({ type: 'del', attrs: { id: 'outer-c' }, children: [] }, container);
     assert.ok(container.querySelector('[id="outer-c"]'), '包含未闭合子容器的目标应保留');
     assert.strictEqual(receipt.detail.removed, false);
+    assert.strictEqual(receipt.detail.queued, true, '入队而非丢弃');
     assert.ok(warns.some(w => w.indexOf('未闭合') !== -1));
+    // 流被强制结束（endStream → resetSlotStack）：栈清空，排队 del 自动执行
+    receipt = null;
+    rc.resetSlotStack();
+    assert.strictEqual(container.querySelector('[id="outer-c"]'), null, '流结束后排队 del 执行');
+    assert.ok(receipt && receipt.detail.removed === true, '结束后回执 removed:true');
   } finally {
     console.warn = origWarn;
     rc.slotStack = [];
   }
+});
+
+// [del id:x delay:ms]：到点后才执行删除，期间目标保持可见
+test('del delay 延迟执行：先回报 delayed，到点后删除并回报 removed:true', async () => {
+  cleanupHandlers();
+  const rc = makeRenderer();
+  const receipts = [];
+  rc._onComponentEvent = (e) => { if (e.type === 'del') receipts.push(e); };
+  const container = createElement('div');
+  rc.mount({ type: 'card', attrs: { id: 'dd1', tt: 'T' }, children: [] }, container);
+  rc.mount({ type: 'del', attrs: { id: 'dd1', delay: '50' }, children: [] }, container);
+  assert.ok(container.querySelector('[id="dd1"]'), '延迟期间目标保留');
+  assert.strictEqual(receipts.length, 1);
+  assert.strictEqual(receipts[0].detail.delayed, 50, '首个回执 delayed:50');
+  assert.strictEqual(receipts[0].detail.removed, false);
+  await new Promise(r => setTimeout(r, 90));
+  assert.strictEqual(container.querySelector('[id="dd1"]'), null, '到点后目标删除');
+  assert.strictEqual(receipts.length, 2);
+  assert.strictEqual(receipts[1].detail.removed, true, '执行回执 removed:true');
+});
+
+test('del delay 到点重新查找：期间目标已被删则不报错', async () => {
+  cleanupHandlers();
+  const rc = makeRenderer();
+  const container = createElement('div');
+  rc.mount({ type: 'card', attrs: { id: 'dd2', tt: 'T' }, children: [] }, container);
+  rc.mount({ type: 'del', attrs: { id: 'dd2', delay: '40' }, children: [] }, container);
+  // 延迟未到期，目标先被另一条 del 立即删除
+  rc.mount({ type: 'del', attrs: { id: 'dd2' }, children: [] }, container);
+  assert.strictEqual(container.querySelector('[id="dd2"]'), null);
+  await new Promise(r => setTimeout(r, 70)); // 到点：目标不存在，告警跳过，不抛错
+});
+
+test('del delay 定时器随 destroy 取消：销毁后不再触发删除', async () => {
+  cleanupHandlers();
+  const rc = makeRenderer();
+  const container = createElement('div');
+  rc.mount({ type: 'card', attrs: { id: 'dd3', tt: 'T' }, children: [] }, container);
+  rc.mount({ type: 'del', attrs: { id: 'dd3', delay: '40' }, children: [] }, container);
+  rc.destroy();
+  await new Promise(r => setTimeout(r, 70));
+  assert.ok(container.querySelector('[id="dd3"]'), 'destroy 后延迟 del 不再执行');
 });
 
 test('ins 回执 moved 计数 + into 结构性容器黑名单', () => {
@@ -1091,6 +1202,20 @@ test('typing 嵌在 card 内时 [del id:] 只删 typing（T3.2 容器内场景�
   assert.strictEqual(container.querySelector('.tokui-typing'), null, 'typing 被删除');
   assert.ok(container.querySelector('.tokui-card'), '外层 card 保留（不被误删）');
   assert.ok(container.querySelector('.tokui-bubble'), '兄弟 bubble 保留');
+});
+
+// 用户真实场景回归：流式中 del 先于 [/bubble] 到达——排队，闭标签到位自动执行
+test('流式 del 早于容器闭标签到达：排队后自动删除（typing→正文切换）', () => {
+  const TokUI = require('../src/index.js');
+  const container = createElement('div');
+  const ui = new TokUI({ container: container, streaming: true });
+  ui.startStream();
+  ui.feed('[bubble id:bd1 role:ai][typing text:正在生成回复][/bubble]');
+  ui.feed('[del id:bd1]');   // 时序偏早：外层流容器未闭合，bubble 仍在栈上
+  ui.feed('[p 正文内容]');
+  ui.endStream();            // 强制收尾：resetSlotStack 冲刷排队 del
+  assert.strictEqual(container.querySelector('.tokui-bubble'), null, 'bubble 最终被删除');
+  assert.ok(container.querySelector('p') || /正文/.test(container.textContent || ''), '正文保留');
 });
 
 // suggestions 流式中途（容器未闭合）点击 suggestion：组件自绑 click → reporter，

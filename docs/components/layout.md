@@ -29,11 +29,62 @@
 | 属性 | 含义 | 适用 | 示例 |
 |------|------|------|------|
 | `v` | 对齐方式 | `row` | `v:center` |
+| `gutter` | 列/行统一间距（数字按 px 或 CSS 长度） | `row` | `gutter:16` |
+| `gy` | 行间距（单独覆盖行向间距） | `row` | `gy:8` |
 | `span` | 列宽（1-12） | `col` | `span:4` |
+| `offset` | 左侧空出的列数（1-11，offset+span 钳制不超 12） | `col` | `offset:2` |
+| `rspan` | 行跨（1-12），配合多行 `row` 跨行 | `col` | `rspan:2` |
 
 **`row` 变体**：`left` / `center` / `right`（水平对齐）、`inline`（行内排列）。
 
 <Playground dsl='[row][col span:4][callout t:info]span:4[/callout][/col][col span:4][callout t:success]span:4[/callout][/col][col span:4][callout t:warning]span:4[/callout][/col][/row][row][col span:6][callout t:info]span:6[/callout][/col][col span:3][callout t:tip]span:3[/callout][/col][col span:3][callout t:tip]span:3[/callout][/col][/row]' />
+
+<Playground dsl='[row gutter:16 gy:12][col span:4][callout t:info]gutter:16[/callout][/col][col span:4 offset:2][callout t:success]span:4 offset:2[/callout][/col][col span:2][callout t:tip]span:2[/callout][/col][/row]' />
+
+## 高级网格 `grid` / `cell`
+
+显式二维网格，与 12 栅格的 `row`/`col` 并行：`grid` 声明轨道与模板区域，`cell` 作为子项落位（可装任意组件）。**选型规则：一维并排均分用 `row`/`col`；二维不对称、区域命名、固定+弹性混合轨道、跨行跨列、整页骨架用 `grid`/`cell`。**
+
+`grid` 属性：
+
+| 属性 | 含义 | 示例 |
+|------|------|------|
+| `cols` | 列轨道：纯数字 N(1-24) → `repeat(N,1fr)`；`auto:180px` → auto-fill 自适应列；或空格分隔显式轨道列表 | `cols:"200px 1fr 1fr"` |
+| `rows` | 行轨道，语法同 `cols`，可省 | `rows:"64px 1fr"` |
+| `areas` | 模板区域：`\|` 分行、空格分列、`.` 空位（区名限 `[a-zA-Z][a-zA-Z0-9_-]*`） | `areas:"nav main\|nav aside"` |
+| `gap` / `gx` / `gy` | 间距 / 列间距 / 行间距（纯数字按 px，或 CSS 长度） | `gap:12` |
+| `h` / `minh` | 高度 / 最小高度（纯数字按 px） | `h:480` |
+| `v` | 变体：`dense`（grid-auto-flow:dense 自动填坑）、`flush`（零间距） | `v:dense` |
+| `theme` | 子树级主题：`dark`/`modern`/`modern-dark`/`default`，落 `data-tokui-theme` 到该元素，自身及后代令牌（stat/chart/btn 等）全部跟随。`grid`/`cell`/`card` 均支持 | `theme:dark` |
+
+轨道 token 白名单：长度（px/%/em/rem/vw/vh）、`Nfr`、`auto`、`min-content`、`max-content`、`minmax(a,b)`、`fit-content(len)`。**所有值白名单校验，任一非法则该属性整体不输出**（防样式注入）。
+
+> ⚠️ 固定轨道溢出：`rows`/`h` 定死轨道后，内容超高不会撑开行轨，会溢出盖住相邻区域。`chart` 的 `h` 只是 viewBox 高度，SVG 按宽度 100% 等比缩放，宽 cell 内实际渲染会更高。内容高度不确定时**省略 `rows` 用自动行**，`h` 只用于确知内容高度的骨架（如车机 HMI）。薄轨（<100px，如顶栏/Dock）内不要放 `card`（卡壳 header+padding 就 ~110px），用裸 `p`/`btngroup`；cell 内独生子女（`:only-child`）会自动撑满 cell 高度。
+
+`cell` 属性：
+
+| 属性 | 含义 | 示例 |
+|------|------|------|
+| `area` | 模板区域名（对应 `grid` 的 `areas`） | `area:nav` |
+| `c` | 列跨 N(1-24) 或 `"start/end"` 起止线 | `c:2`、`c:"1/3"` |
+| `r` | 行跨 N(1-24) | `r:2` |
+| `align` / `justify` | 单元格内容对齐（`start`/`center`/`end`/`stretch`） | `align:center` |
+
+圣杯布局（`areas` 区域命名，头脚通栏、nav 通高）：
+
+<Playground dsl='[grid cols:"160px 1fr 160px" rows:"56px 1fr 48px" gap:8 h:360 areas:"hd hd hd|nav main aside|ft ft ft"][cell area:hd][callout t:info]头部 hd[/callout][/cell][cell area:nav][callout t:tip]导航 nav[/callout][/cell][cell area:main][callout t:success]主区 main[/callout][/cell][cell area:aside][callout t:warning]侧栏 aside[/callout][/cell][cell area:ft][callout t:info]页脚 ft[/callout][/cell][/grid]' />
+
+监控大屏（`c`/`r` 行列混跨，无需 `areas`）：
+
+<Playground dsl='[grid cols:4 rows:2 gap:8 h:320][cell c:2 r:2][card tt:实时流量][chart t:line area smooth l:"00:00,04:00,08:00,12:00,16:00,20:00" d:"120,240,180,320,560,480"][/card][/cell][cell c:2][card tt:资源水位][stat tt:CPU v:62 suf:% trend:up][stat tt:内存 v:71 suf:%][/card][/cell][cell][card tt:磁盘][stat v:48 suf:%][/card][/cell][cell][card tt:在线节点][stat v:128][/card][/cell][/grid]' />
+
+auto-fill 卡片墙（随容器宽度自动列数；无需跨区/跨行列时子组件可直接作 `grid` 子项，不必包 `cell`）：
+
+<Playground dsl='[grid cols:"auto:150px" gap:12][card tt:Alpha tx:自动填满整行][card tt:Beta tx:每张最小 150px][card tt:Gamma tx:无需媒体查询][card tt:Delta tx:宽度自适应][card tt:Epsilon tx:响应式卡片墙][card tt:Zeta tx:auto-fill 轨道][/grid]' />
+
+车机 HMI（混合轨道 + 区域命名 + `dense` 填坑）：
+
+<Playground dsl='[grid cols:"96px 1fr 1fr" rows:"1fr 1fr 64px" gap:10 h:380 v:dense areas:"nav media media|nav climate seat|bar bar bar"][cell area:nav][card tt:导航][list][item 地图][item 音乐][item 电话][/list][/card][/cell][cell area:media][card tt:媒体][p 正在播放：星际穿越 原声][/card][/cell][cell area:climate][card tt:空调][stat v:22 suf:°C][/card][/cell][cell area:seat][card tt:座椅][stat v:加热·二档][/card][/cell][cell area:bar][card tt:状态栏 tx:车速 60 km/h · 续航 320 km][/card][/cell][/grid]' />
 
 ## 列表 `list` / `item`
 

@@ -330,4 +330,19 @@ test('code 组件输出行包装 .code-line（CSS counter 行号载体）', () =
   assert.strictEqual(count, 3, '每行应包一个 .code-line（行号由 CSS counter 生成）');
 });
 
+// === stat 底部标签（l 属性）===
+test('stat l 属性渲染底部 .tokui-stat__label；缺省不渲染', () => {
+  const rc = makeRenderer();
+  const withL = rc.render({ type: 'stat', attrs: { v: '1.2km', l: '距离' }, children: [] });
+  const label = withL.querySelector('.tokui-stat__label');
+  assert.ok(label, 'l 属性应生成底部标签');
+  assert.strictEqual(label.textContent, '距离');
+  const withoutL = rc.render({ type: 'stat', attrs: { v: '42' }, children: [] });
+  assert.ok(!withoutL.querySelector('.tokui-stat__label'), '无 l 不渲染标签');
+  // tt 顶部标题与 l 底部标签可共存
+  const both = rc.render({ type: 'stat', attrs: { tt: '本周', v: '99', l: '新增' }, children: [] });
+  assert.ok(both.querySelector('.tokui-stat__title'), 'tt 顶部标题保留');
+  assert.ok(both.querySelector('.tokui-stat__label'), 'l 底部标签同在');
+});
+
 run();

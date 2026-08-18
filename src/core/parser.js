@@ -22,6 +22,10 @@ function findCloseBracket(str) {
   let inQuote = false;
   for (let i = 0; i < str.length; i++) {
     if (str[i] === '"') {
+      // 悬空引号容错：!inQuote 时紧跟 ] 的 " 不可能是合法开引号（空值未闭合），
+      // 是 AI 引号只开不关的残留（如 [item l:"表带 tx:"¥0（含）"]），不切换引号状态，
+      // 否则 ] 被误判为引号内字符、标签永不闭合。
+      if (!inQuote && str[i + 1] === ']') continue;
       inQuote = !inQuote;
     } else if (str[i] === ']' && !inQuote) {
       return i;
@@ -44,6 +48,8 @@ function findTrCloseBracket(str) {
   for (let i = 0; i < str.length; i++) {
     const ch = str[i];
     if (ch === '"') {
+      // 悬空引号容错（同 findCloseBracket）：!inQuote 且紧跟 ] 的 " 是残留垃圾，不切换
+      if (!inQuote && str[i + 1] === ']') continue;
       inQuote = !inQuote;
     } else if (!inQuote) {
       if (ch === '[') depth++;
@@ -65,6 +71,7 @@ function findTrCloseBracket(str) {
 const CONTAINERS = new Set([
   'form', 'table', 'thead', 'tbody',
   'card', 'ft', 'row', 'col', 'list',
+  'grid', 'cell',
   'select', 'radio', 'checkbox', 'code', 'imgs', 'md',
   'textarea', 'tabs', 'tab', 'accordion', 'collapse', 'dialog',
   'btngroup', 'picker', 'timeline', 'steps', 'drawer',
@@ -304,6 +311,39 @@ function parseTag(raw) {
   // 拼接所有非属性 token 为节点文本内容
   node.content = contentParts.join(' ');
 
+  // 引号跨属性吞噬容错：AI 常把多属性写进一个引号段（引号只开不关），
+  // 如 [item l:"商品金额 tx:¥6,299"] → l 值吞掉 tx。
+  // 特征：属性值内含「空格 + 已知key + :」（未引号的同类写法分词时已正常拆成属性，
+  // 值里能残留此形态只可能来自引号段）。拆出后续属性；拆出值为空且正文非空时
+  // （[item l:"预计送达 tx:"2026-08-20 周四"]），正文才是真值，回填并清正文。
+  for (let guard = 0; guard < 4; guard++) {
+    let repaired = false;
+    for (const k of Object.keys(node.attrs)) {
+      const v = node.attrs[k];
+      if (typeof v !== 'string') continue;
+      const m = v.match(/^([\s\S]*?)\s+([a-zA-Z][a-zA-Z0-9]{0,6}):([\s\S]*)$/);
+      if (!m || !m[1] || !ATTR_KEYS.has(m[2])) continue;
+      if (node.attrs[m[2]] !== undefined) continue; // 目标 key 已存在，不覆盖
+      node.attrs[k] = m[1];
+      let rest = m[3];
+      if (!rest && node.content) {
+        rest = node.content;
+        node.content = '';
+      }
+      node.attrs[m[2]] = rest.replace(/^"|"$/g, ''); // 剥吞咽残留的孤引号
+      node._lastRepairKey = m[2];
+      repaired = true;
+    }
+    if (!repaired) break;
+  }
+  // 吞噬引号的残余正文尾巴（如 [item l:"预计送达 tx:"2026-08-20 周四"] 漏出的 `周四"`）：
+  // 以孤立尾引号为证，拼回最后修出的属性值
+  if (node._lastRepairKey && node.content && node.content.endsWith('"')) {
+    node.attrs[node._lastRepairKey] += ' ' + node.content.slice(0, -1);
+    node.content = '';
+  }
+  delete node._lastRepairKey;
+
   // 别名映射：ol/ul → list, i → item
   const ALIASES = { ol: 'list', ul: 'list', i: 'item' };
   if (ALIASES[node.type]) {
@@ -524,9 +564,12 @@ class TokUIParser {
    */
   _flush() {
     // 先尝试解析缓冲区中剩余的完整标签
+    // _flushing 期间放开引号不平衡标签的朴素 ] 闭合（见 TAG_OPEN 处容错注释）
+    this._flushing = true;
     if (this.buffer.trim()) {
       this._tryParse();
     }
+    this._flushing = false;
     // 输出缓冲区中剩余的文本
     if (this.buffer.trim()) {
       let leftover;
@@ -746,7 +789,13 @@ class TokUIParser {
         }
         // 查找闭合 ] 并解析标签
         // tr 单元格可能含内联 [btn]/[img]（内层 ] 须按深度跳过），用深度感知闭合查找
-        const closeIdx = /^tr\b/.test(this.buffer) ? findTrCloseBracket(this.buffer) : findCloseBracket(this.buffer);
+        let closeIdx = /^tr\b/.test(this.buffer) ? findTrCloseBracket(this.buffer) : findCloseBracket(this.buffer);
+        // 引号不平衡容错（仅 flush 收尾时启用）：AI 引号只开不关（[item l:"表带 tx:"¥0（含）"]），
+        // 引号感知扫描会把 ] 误判为引号内字符 → 找不到闭合。此时输入已完整，不平衡即损坏，
+        // 回退朴素扫描闭合 ]，属性拆分交给 parseTag 的引号吞噬修复。
+        if (closeIdx === -1 && this._flushing) {
+          closeIdx = this.buffer.indexOf(']');
+        }
         if (closeIdx === -1) break; // 标签不完整，等待更多数据
         // 容错：容器开标签跨行漏写 ]、直接接子标签（AI 习惯 HTML <li> 裸开），
         // 例 [item 文本\n[list] —— closeIdx 命中的其实是子标签的 ]，父标签头被吞进 content。
@@ -920,7 +969,8 @@ class TokUIParser {
       || isOptShorthandSelfClosing(node) || isCheckboxSingleSelfClosing(node);
     // desc/suggestions/masonry use cols as layout attribute, not as self-closing trigger
     // chart 的 cols 是数据列标签（heatmap），非布局自闭合触发，须豁免（否则容器写法 [/chart] 报错）
-    const hasColsTrigger = node.attrs.cols && node.type !== 'desc' && node.type !== 'suggestions' && node.type !== 'chart' && node.type !== 'masonry';
+    // grid 的 cols 是显式轨道定义（高级网格布局），同为布局属性，须豁免
+    const hasColsTrigger = node.attrs.cols && node.type !== 'desc' && node.type !== 'suggestions' && node.type !== 'chart' && node.type !== 'masonry' && node.type !== 'grid';
   // chart 带 d/tasks 内联数据 → 自闭合（旧用法）；无内联数据 → 容器模式收 pt/task/ms 子节点（流式）
     const hasInlineData = chartHasInline(node);
     // 自闭合 chart 带 preview key，与流式预览配对（renderer finalize 复用 pending wrapper）
@@ -981,7 +1031,8 @@ class TokUIParser {
       || isOptShorthandSelfClosing(node) || isCheckboxSingleSelfClosing(node);
     // desc/suggestions/masonry use cols as layout attribute, not as self-closing trigger
     // chart 的 cols 是数据列标签（heatmap），非布局自闭合触发，须豁免（否则容器写法 [/chart] 报错）
-    const hasColsTrigger = node.attrs.cols && node.type !== 'desc' && node.type !== 'suggestions' && node.type !== 'chart' && node.type !== 'masonry';
+    // grid 的 cols 是显式轨道定义（高级网格布局），同为布局属性，须豁免
+    const hasColsTrigger = node.attrs.cols && node.type !== 'desc' && node.type !== 'suggestions' && node.type !== 'chart' && node.type !== 'masonry' && node.type !== 'grid';
   // chart 带 d/tasks 内联数据 → 自闭合（旧用法）；无内联数据 → 容器模式收 pt/task/ms 子节点（流式）
     const hasInlineData = chartHasInline(node);
     // 自闭合 chart 带 preview key，与流式预览配对（renderer finalize 复用 pending wrapper）

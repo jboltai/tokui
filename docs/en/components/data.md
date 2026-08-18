@@ -283,7 +283,11 @@ A self-closing directive. `id` targets an already-rendered component's ID, and t
 
 <Playground dsl='[progress id:demo v:30 l:下载中][upd id:demo v:80 status:success]' />
 
-**Delete & insert directives**: `[del id:x]` removes the component with the given id (a missing target is silently skipped; if the target is a container that is still streaming and not yet closed, `del` warns via `console.warn` and skips — wait for it to close before sending `del`); the container directives `[ins after:ID]` / `before:ID` / `into:ID` insert their children after / before / inside the target (`into` appends to the target's content slot) — children are staged off-document during streaming and moved in one shot when `[/ins]` closes. See [DSL Syntax · Dynamic update](/en/guide/dsl-syntax#dynamic-update).
+**Delete & insert directives**: `[del id:x]` removes the component with the given id (a missing target triggers a `console.warn`; if the target is a container that is still streaming and not yet closed, the `del` is queued and executes automatically once it closes); `del` supports `delay:ms` for delayed removal (the target is re-looked-up when the timer fires, and the timer is cancelled on `destroy()`); the container directives `[ins after:ID]` / `before:ID` / `into:ID` insert their children after / before / inside the target (`into` appends to the target's content slot) — children are staged off-document during streaming and moved in one shot when `[/ins]` closes. See [DSL Syntax · Dynamic update](/en/guide/dsl-syntax#dynamic-update).
+
+`del delay` in action — once the progress hits 100% it clears itself after 2.5s, leaving the success tag in place (plays automatically):
+
+<Playground dsl='[progress id:dp1 v:100][ins after:dp1][tag t:success tx:"✓ report.pdf synced to 3 devices"][/ins][del id:dp1 delay:2500]' />
 
 **`calendar` live update**: `[upd id:cal v:"8,15"]` / `[upd id:cal sel:"8,15"]` resets the selected days (comma-separated day numbers, full replacement).
 

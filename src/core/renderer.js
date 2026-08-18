@@ -257,6 +257,7 @@ const VARIANTS = {
   a:  new Set(['muted', 'danger', 'success', 'underline']),
   ft: new Set(['left', 'center', 'right']),
   row: new Set(['left', 'center', 'right', 'inline']),
+  grid: new Set(['dense', 'flush']),
   dv: new Set(['dashed', 'dotted', 'sm', 'md', 'lg', 'vert', 'plain']),
   dot: new Set(['sm', 'lg']),
   avatar: new Set(['sm', 'md', 'lg', 'xl']),
@@ -462,6 +463,18 @@ class TokUIRenderer {
     // 只盖普通元素（nodeType===1），文本节点 / fragment / null 跳过。
     if (dom && dom.nodeType === 1 && node.type && node.type !== '_text') {
       dom.setAttribute('data-tokui-tag', node.type);
+      // 组件根类型印章：del/ins 的 _climbToComponentRoot 以此为组件根锚点。
+      // 缺印章时爬层会越过组件根直到外层容器（card/form 等），嵌套场景 del 误删祖先。
+      if (!dom._tokuiType) dom._tokuiType = node.type;
+      // id 集中落 DOM：组件自身未把 attrs.id 放到任何元素（含内层 input）时补到根，
+      // 保证 [del id:] / [ins before:] 等指令对所有组件可达——此前仅部分组件手动落 id，
+      // 其余组件 del 静默无效。根已有 id 或子树已含该 id（input 等 id 在内层）时不覆盖。
+      var nodeId = node.attrs && node.attrs.id != null && node.attrs.id !== '' ? String(node.attrs.id) : null;
+      if (nodeId && !dom.getAttribute('id')
+          && !(typeof dom.querySelector === 'function'
+               && dom.querySelector('[id="' + nodeId.replace(/"/g, '\\"') + '"]'))) {
+        dom.setAttribute('id', nodeId);
+      }
     }
     return dom;
   }
@@ -498,6 +511,8 @@ class TokUIRenderer {
   mount(node, targetContainer) {
     this._mountRoot = targetContainer; // 供 upd 指令做容器内 id 作用域查找
     const dom = this.render(node);
+    // 渲染函数可合法返回 null（如空 ft 不渲染空白页脚条）——跳过挂载
+    if (!dom || !dom.nodeType) return null;
     if (dom.nodeType === 1) {
       dom.classList.add('tokui-fade-in');
     }
@@ -776,6 +791,8 @@ class TokUIRenderer {
         break;
       }
     }
+    // 容器闭合后冲刷排队的 del：目标此前因未闭合被挂起，闭合到位即自动执行
+    if (this._flushPendingDels) this._flushPendingDels();
     return null;
   }
 
@@ -1022,6 +1039,10 @@ class TokUIRenderer {
     });
     this._boundElements = [];
     this.slotStack = [];
+    // 未到点的延迟 del 定时器：销毁后不再触发
+    (this._delTimers || []).forEach(function (t) { clearTimeout(t); });
+    this._delTimers = [];
+    this._pendingDels = [];
   }
 
   /**
@@ -1033,6 +1054,8 @@ class TokUIRenderer {
       const entry = this.slotStack.pop();
       this.bindEvents(entry.el);
     }
+    // 流被强制结束：排队的 del 目标已全部脱离流式栈，可安全执行
+    if (this._flushPendingDels) this._flushPendingDels();
   }
 
   /**

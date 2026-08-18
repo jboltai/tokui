@@ -296,6 +296,10 @@ class TokUIBuilder {
   row_layout(attrs) { return this._open('row', attrs); }
   /** 栅格列 */
   col_layout(attrs) { return this._open('col', attrs); }
+  /** 高级网格容器（显式二维网格：cols/rows 轨道、areas 模板区域、gap/h 等） */
+  grid(attrs) { return this._open('grid', attrs); }
+  /** 网格单元（grid 子容器：area 区域名 / c 列跨 / r 行跨 / align / justify） */
+  cell(attrs) { return this._open('cell', attrs); }
   /** 列表 */
   list(attrs) { return this._open('list', attrs); }
   /** 列表项（有内容自闭合 [item 文本]，无内容开容器供嵌套子 list）。

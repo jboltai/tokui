@@ -156,6 +156,7 @@ function registerLayoutComponents(renderer) {
     var safeStyle = _filterStyle(node.attrs.style);
     if (safeStyle) attrs.style = safeStyle;
     const card = el('div', attrs);
+    _applyTheme(card, node.attrs); // theme 属性：子树级主题（深色卡等）
     if (node.attrs.w) card.style.width = /^\d+$/.test(node.attrs.w) ? node.attrs.w + 'px' : node.attrs.w;
     if (node.attrs.tt) {
       var headerCls = 'tokui-card-header';
@@ -254,9 +255,91 @@ function registerLayoutComponents(renderer) {
     return footer;
   });
 
+  // === 高级网格布局辅助：白名单校验，防内联 style 注入（禁 ; { } @ 等） ===
+  // CSS 长度：数字 + px/%/em/rem/vw/vh
+  var _GRID_LEN_RE = /^\d+(\.\d+)?(px|%|em|rem|vw|vh)$/;
+  function _gridLength(v) {
+    if (v === undefined || v === null) return null;
+    var s = String(v).trim();
+    if (/^\d+(\.\d+)?$/.test(s)) return s + 'px'; // 纯数字按 px
+    return _GRID_LEN_RE.test(s) ? s : null;
+  }
+  // 子树级主题：grid/cell/card 支持 theme 属性 → data-tokui-theme 落到该元素，
+  // 主题令牌（CSS 自定义属性）对自身及全部后代生效——深色区块一片切换，stat/chart 全跟随。
+  var _THEME_NAMES = { 'default': 1, 'dark': 1, 'modern': 1, 'modern-dark': 1 };
+  function _applyTheme(dom, attrs) {
+    var t = attrs && attrs.theme;
+    if (t && _THEME_NAMES[t]) dom.setAttribute('data-tokui-theme', t);
+  }
+  // 单条轨道：长度 / fr / auto / min-content / max-content / minmax(a,b) / fit-content(len)
+  function _gridTrack(tok) {
+    if (_GRID_LEN_RE.test(tok) || /^\d+(\.\d+)?fr$/.test(tok)) return tok;
+    if (tok === 'auto' || tok === 'min-content' || tok === 'max-content') return tok;
+    var mm = tok.match(/^minmax\(([^,]+),([^)]+)\)$/);
+    if (mm) {
+      var a = mm[1].trim(), b = mm[2].trim();
+      var okA = _GRID_LEN_RE.test(a) || a === 'auto' || a === 'min-content' || a === 'max-content';
+      var okB = _GRID_LEN_RE.test(b) || /^\d+(\.\d+)?fr$/.test(b) || b === 'auto' || b === 'min-content' || b === 'max-content';
+      if (okA && okB) return 'minmax(' + a + ', ' + b + ')';
+      return null;
+    }
+    var fc = tok.match(/^fit-content\(([^)]+)\)$/);
+    if (fc && _GRID_LEN_RE.test(fc[1].trim())) return 'fit-content(' + fc[1].trim() + ')';
+    return null;
+  }
+  // 轨道列表："3" → repeat(3,1fr)；"auto:180px" → repeat(auto-fill,minmax(180px,1fr))；
+  // 否则按空格分隔逐 token 白名单校验。任一非法 → 整体拒绝（不输出该属性）。
+  function _gridTrackList(spec) {
+    if (!spec) return null;
+    var s = String(spec).trim();
+    if (!s) return null;
+    if (/^\d{1,2}$/.test(s)) {
+      var n = parseInt(s);
+      return (n >= 1 && n <= 24) ? 'repeat(' + n + ', 1fr)' : null;
+    }
+    var auto = s.match(/^auto:(.+)$/);
+    if (auto) {
+      var min = _gridLength(auto[1]);
+      return min ? 'repeat(auto-fill, minmax(' + min + ', 1fr))' : null;
+    }
+    var tokens = s.split(/\s+/);
+    if (tokens.length > 24) return null;
+    var out = [];
+    for (var i = 0; i < tokens.length; i++) {
+      var t = _gridTrack(tokens[i]);
+      if (!t) return null;
+      out.push(t);
+    }
+    return out.join(' ');
+  }
+  // 模板区域："nav main|nav aside" → '"nav main" "nav aside"'；区名限 [a-zA-Z0-9_-]，'.' 为空位
+  var _GRID_AREA_RE = /^[a-zA-Z][a-zA-Z0-9_-]*$/;
+  function _gridAreas(spec) {
+    if (!spec) return null;
+    var rows = String(spec).split('|');
+    if (rows.length > 24) return null;
+    var out = [];
+    for (var i = 0; i < rows.length; i++) {
+      var names = rows[i].trim().split(/\s+/).filter(Boolean);
+      if (!names.length || names.length > 24) return null;
+      for (var j = 0; j < names.length; j++) {
+        if (names[j] !== '.' && !_GRID_AREA_RE.test(names[j])) return null;
+      }
+      out.push('"' + names.join(' ') + '"');
+    }
+    return out.join(' ');
+  }
+
   // === 行容器组件（栅格行）===
+  // attrs.gutter = 列/行统一间距（数字按 px，或 CSS 长度）；attrs.gy = 行间距单独覆盖
   renderer.register('row', (node, rc) => {
     const row = el('div', { class: 'tokui-row' });
+    if (node.attrs) {
+      const gutter = _gridLength(node.attrs.gutter);
+      if (gutter) row.style.gap = gutter;
+      const gy = _gridLength(node.attrs.gy);
+      if (gy) row.style.rowGap = gy;
+    }
     rc(node.children).forEach(child => {
       if (child && child.nodeType) row.appendChild(child);
     });
@@ -268,14 +351,31 @@ function registerLayoutComponents(renderer) {
   // === 列容器组件（栅格列）===
   // attrs.span = 列宽占比（1-12，基于 12 栅格系统）。超界 clamp 到 [1,12]，
   // 避免误用 24 列思维（span:14/24）时静默塌缩成 1 列破坏布局。
+  // attrs.offset = 左侧空出的列数（1-11），offset+span clamp 不超 12。
+  // attrs.rspan = 行跨（1-12），配合多行 row 做跨行卡片墙。
   renderer.register('col', (node, rc) => {
     const spanVal = (node.attrs && (node.attrs.span || node.attrs.cols));
     const col = el('div', { class: 'tokui-col' });
+    let span = 0;
     if (spanVal) {
       const n = parseInt(spanVal);
-      const span = isNaN(n) ? 1 : Math.min(12, Math.max(1, n));
+      span = isNaN(n) ? 1 : Math.min(12, Math.max(1, n));
       col.classList.add('tokui-col--' + span);
       col.style.gridColumn = `span ${span}`;
+    }
+    if (node.attrs && node.attrs.offset) {
+      const off = parseInt(node.attrs.offset);
+      if (!isNaN(off) && off >= 1 && off <= 11) {
+        const effSpan = span || 1;
+        const start = Math.min(off + 1, 13 - effSpan); // 保证 start+span-1 ≤ 12
+        col.style.gridColumn = `${start} / span ${effSpan}`;
+      }
+    }
+    if (node.attrs && node.attrs.rspan) {
+      const rs = parseInt(node.attrs.rspan);
+      if (!isNaN(rs) && rs >= 1 && rs <= 12) {
+        col.style.gridRow = `span ${rs}`;
+      }
     }
     // 处理列内直接文本内容
     if (node.content) {
@@ -287,6 +387,83 @@ function registerLayoutComponents(renderer) {
     col._slot = col;
     col._tokuiType = 'col';
     return col;
+  });
+
+  // === 高级网格容器（显式二维网格，与 12 栅格并行）===
+  // 面向 AI/Agent 描述复杂布局：圣杯骨架、车机 HMI、监控大屏、杂志混排等。
+  // attrs.cols / attrs.rows = 轨道列表（"3"=repeat(3,1fr)；"auto:180px"=auto-fill；
+  //   或显式列表 "200px 1fr 1fr"，白名单校验）；
+  // attrs.areas = 模板区域（"|" 分行，空格分列，"." 空位）；
+  // attrs.gap / gx / gy = 间距（数字按 px）；attrs.h / minh = 高度约束；
+  // 变体 v: dense（grid-auto-flow:dense 填坑）/ flush（无间距），见 VARIANTS 白名单。
+  renderer.register('grid', (node, rc) => {
+    const attrs = node.attrs || {};
+    const grid = el('div', { class: 'tokui-grid' });
+    _applyTheme(grid, attrs); // theme 属性：子树级主题（深色布局区块）
+    const cols = _gridTrackList(attrs.cols);
+    if (cols) grid.style.gridTemplateColumns = cols;
+    const rows = _gridTrackList(attrs.rows);
+    if (rows) grid.style.gridTemplateRows = rows;
+    const areas = _gridAreas(attrs.areas);
+    if (areas) grid.style.gridTemplateAreas = areas;
+    const gap = _gridLength(attrs.gap);
+    if (gap) grid.style.gap = gap;
+    const gx = _gridLength(attrs.gx);
+    if (gx) grid.style.columnGap = gx;
+    const gy = _gridLength(attrs.gy);
+    if (gy) grid.style.rowGap = gy;
+    const h = _gridLength(attrs.h);
+    if (h) grid.style.height = h;
+    const minh = _gridLength(attrs.minh);
+    if (minh) grid.style.minHeight = minh;
+    rc(node.children).forEach(child => {
+      if (child && child.nodeType) grid.appendChild(child);
+    });
+    grid._slot = grid;
+    grid._tokuiType = 'grid';
+    return grid;
+  });
+
+  // === 网格单元（grid 的子容器，可装任意组件）===
+  // attrs.area = 模板区域名；attrs.c = 列跨 N 或 "start/end"；attrs.r = 行跨 N；
+  // attrs.align / attrs.justify = 单元格内容对齐（start/center/end/stretch）。
+  renderer.register('cell', (node, rc) => {
+    const attrs = node.attrs || {};
+    const cell = el('div', { class: 'tokui-cell' });
+    _applyTheme(cell, attrs); // theme 属性：子树级主题
+    if (attrs.area && _GRID_AREA_RE.test(String(attrs.area))) {
+      cell.style.gridArea = String(attrs.area);
+    }
+    if (attrs.c) {
+      const cs = String(attrs.c).trim();
+      if (/^\d{1,2}$/.test(cs)) {
+        const n = Math.min(24, Math.max(1, parseInt(cs)));
+        cell.style.gridColumn = 'span ' + n;
+      } else if (/^\d{1,2}\s*\/\s*-?\d{1,2}$/.test(cs)) {
+        cell.style.gridColumn = cs.replace(/\s+/g, ' ');
+      }
+    }
+    if (attrs.r) {
+      const rn = parseInt(attrs.r);
+      if (!isNaN(rn) && rn >= 1 && rn <= 24) {
+        cell.style.gridRow = 'span ' + rn;
+      }
+    }
+    if (/^(start|center|end|stretch)$/.test(attrs.align || '')) {
+      cell.style.alignSelf = attrs.align;
+    }
+    if (/^(start|center|end|stretch)$/.test(attrs.justify || '')) {
+      cell.style.justifySelf = attrs.justify;
+    }
+    if (node.content) {
+      cell.textContent = node.content;
+    }
+    rc(node.children).forEach(child => {
+      if (child && child.nodeType) cell.appendChild(child);
+    });
+    cell._slot = cell;
+    cell._tokuiType = 'cell';
+    return cell;
   });
 
   // === 列表容器组件 ===

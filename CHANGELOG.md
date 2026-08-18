@@ -2,9 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.2.4] - 2026-08-18
 
-AI 对话组件专项：缺陷修复 + 令牌体系统一 + 视觉重设计 + upd/事件能力补齐 + 流式性能。
+高级网格布局系统 grid/cell + 子树级主题 + parser 引号容错。
+
+### 新增
+
+- **grid/cell 高级网格布局**（与 12 栅格 row/col 并行的新布局系统）：`grid` 容器支持 `cols`/`rows` 轨道定义（纯数字 `N` → `repeat(N,1fr)`；`auto:180px` → `auto-fill` 自适应列数；显式列表支持 `fr`/`px`/`%`/`minmax()`/`fit-content`，白名单校验防 CSS 注入）、`areas` 模板区域（`|` 分行、`.` 空位）、`gap`/`gx`/`gy`、`h`/`minh`、变体 `v:dense`/`flush`；`cell` 子项支持 `area`（命名区域落位）、`c`/`r`（跨列/跨行，`N` 或 `"1/3"` 线号写法）、`align`/`justify`。`grid` 入 parser `CONTAINERS`，`cols` 属性在 `_emitStreaming`/`_emitBuffered` 两处加自闭合豁免。Builder 新增 `.grid(attrs)`/`.cell(attrs)`（含 `.d.ts`）。
+- **row/col 增强**：`row` 新增 `gutter`/`gy`（行列间距）；`col` 新增 `offset`（1-11，clamp 不超 12）与 `rspan`（行高跨距 1-12）。
+- **子树级主题**：`grid`/`cell`/`card` 支持 `theme` 属性（default/dark/modern/modern-dark），落 `data-tokui-theme` 到元素自身，主题令牌对自身及后代级联——车机 HMI 等局部暗色场景不再依赖臆造的 `bg:`/`fc:` 属性；`.tokui-grid[data-tokui-theme]` 自带底色。
+- **stat 底部小标签**：`stat` 支持 `l` 属性（`.tokui-stat__label`），存量 `l:` 写法此前被静默丢弃。
+- **parser 引号容错**：①属性值内「空格+已知 key+冒号」误拆分修复（引号只开不关时的吞噬）；②`findCloseBracket`/`findTrCloseBracket` 对紧跟 `]` 的悬空引号不切换引号状态；③`_flush` 期间（`_flushing`）引号不平衡的标签允许朴素 `]` 闭合——AI 生成 `l:"商品金额 tx:¥6,299"` 这类缺引号 DSL 不再整树解析崩坏。
+- **demo 布局案例扩容**：新增 9 个布局案例——圣杯布局、监控大屏（grid 行列混跨图表墙）、车机 HMI（不规则区域拼接中控）、auto-fill 自适应卡片墙、杂志混排（cell 跨格 + offset/rspan），及 AI 对话场景找加油站/找酒店/沿途服务区 3 个 POI 数据布局；NAV_DATA 拆分为「布局系统」与「容器类组件」两组。
+- **文档对齐**：`docs/components/layout.md` 双语新增「高级网格 grid/cell」章（含固定轨道溢出警示：chart `h` 是 viewBox 非实高、薄轨道不放 card）、`demo/TOKUI_DSL_REFERENCE.md` §6.5、`demo/llms.txt`、`docs/api/builder.md` 双语；CLAUDE.md `cols` 豁免名单、AGENTS.md 布局条目同步。
+
+### 修复
+
+- **grid 布局渲染不撑起外层**：修复圣杯/HMI 等 grid 案例中内容溢出盖住 footer、外层 card 不被撑开的问题；`.tokui-cell > :only-child` 独生子女撑满 cell（`height:100%`）。
+- **无标题 card 空 header**（demo 页）：源码按钮注入不再为无 `tt` 的 card 创建空 header 区域，改绝对定位右上角（`demo/assets/js/demo.js` injectCardSourceButtons），消除 card 顶部空白带。
+
+
+## [0.2.3] - 2026-08-13
+
+AI 对话组件专项（缺陷修复 + 令牌体系统一 + 视觉重设计 + upd/事件能力补齐 + 流式性能）。
 
 ### 新增
 
@@ -267,6 +287,7 @@ Phase 4 新组件补位 + P2 社区组件落地，配色体系整体柔化。
 - `test-layout.js` 的 `item content + nested list` 断言改为符合真实 DOM 聚合语义。
 - `src/index.js` 与 `src/components/index.js` 的模块求值期裸读 `window.TokUI._internal` 改为运行期懒解析，SSR 导入不再依赖 bundler 保留 `require` 的怪癖。
 
+[0.2.4]: https://github.com/jboltai/tokui/releases/tag/v0.2.4
 [0.2.1]: https://github.com/jboltai/tokui/releases/tag/v0.2.1
 [0.2.0]: https://github.com/jboltai/tokui/releases/tag/v0.2.0
 [0.1.9]: https://github.com/jboltai/tokui/releases/tag/v0.1.9

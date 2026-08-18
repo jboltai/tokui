@@ -169,11 +169,41 @@ const NAV_DATA = [
     ]
   },
   {
+    id: 'dynamic',
+    name: { zh: '动态编排', en: 'Dynamic Ops' },
+    icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',
+    items: [
+      { trigger: 'demo-del-delay', name: { zh: 'del 延迟删除', en: 'del delay' }, desc: { zh: '自动退场/完成自清/骨架错峰替换', en: 'Auto-dismiss/staggered swap' }, icon: '⏲' },
+      { trigger: 'demo-del-queue', name: { zh: 'del 流式排队', en: 'del Queue' }, desc: { zh: 'del早到不丢/闭合自动执行', en: 'Early del queued, runs on close' }, icon: '🧩' },
+      { trigger: 'demo-ins-flow', name: { zh: 'ins 动态插入', en: 'ins Insert' }, desc: { zh: '日志追加/审批插队/旧件替换', en: 'Append/insert-before/replace' }, icon: '➕' },
+      { trigger: 'demo-typing-to-bubble', name: { zh: 'Typing→正文切换', en: 'Typing→Bubble' }, desc: { zh: 'del移除typing后正文流式涌入', en: 'del typing then stream body' }, icon: '💬' },
+      { trigger: 'demo-interaction', name: { zh: '交互回路', en: 'Interaction Loop' }, desc: { zh: 'HITL审批/事件上报/del/ins/停止生成', en: 'HITL approval/events/del/ins/stop' }, icon: '🔁' },
+    ]
+  },
+  {
     id: 'layout',
-    name: { zh: '布局容器', en: 'Layout' },
+    name: { zh: '布局系统', en: 'Layout System' },
     icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="9" x2="9" y2="21"/></svg>',
     items: [
       { trigger: 'demo-grid', name: { zh: '栅格布局', en: 'Grid' }, desc: { zh: '12列网格系统', en: '12-column grid' }, icon: '⊞' },
+      { trigger: 'demo-grid-holygrail', name: { zh: '圣杯布局', en: 'Holy Grail' }, desc: { zh: 'grid areas 整页骨架', en: 'grid template areas page' }, icon: '▤' },
+      { trigger: 'demo-grid-dashboard', name: { zh: '监控大屏', en: 'Dashboard' }, desc: { zh: 'grid 行列混跨图表墙', en: 'grid span chart wall' }, icon: '📊' },
+      { trigger: 'demo-grid-carhmi', name: { zh: '车机 HMI', en: 'Car HMI' }, desc: { zh: '不规则区域拼接中控', en: 'Irregular areas cockpit' }, icon: '🚗' },
+      { trigger: 'demo-grid-autofit', name: { zh: '自适应卡片墙', en: 'Auto-fit Cards' }, desc: { zh: 'auto-fill 自适应列数', en: 'auto-fill minmax grid' }, icon: '▦' },
+      { trigger: 'demo-grid-magazine', name: { zh: '杂志混排', en: 'Magazine Mix' }, desc: { zh: 'cell跨格+offset/rspan', en: 'cell spans + offset/rspan' }, icon: '📰' },
+      { trigger: 'demo-poi-gas', name: { zh: 'AI 找加油站', en: 'POI Gas' }, desc: { zh: 'POI三列对比卡', en: '3-col POI compare cards' }, icon: '⛽' },
+      { trigger: 'demo-poi-hotel', name: { zh: 'AI 找酒店', en: 'POI Hotel' }, desc: { zh: '信息+价格双列卡', en: 'info+price dual-col cards' }, icon: '🏨' },
+      { trigger: 'demo-poi-route', name: { zh: 'AI 沿途服务区', en: 'POI Service Area' }, desc: { zh: '摘要行+设施卡', en: 'summary row + facility cards' }, icon: '🛣️' },
+      { trigger: 'demo-masonry', name: { zh: 'Masonry 瀑布流', en: 'Masonry' }, desc: { zh: '多列卡片流自动平衡', en: 'Auto-balanced card columns' }, icon: '▦' },
+      { trigger: 'demo-resizable', name: { zh: '分割面板', en: 'Resizable' }, desc: { zh: '可拖拽分割线/水平垂直', en: 'Draggable split pane H/V' }, icon: '↔' },
+      { trigger: 'demo-sidebar', name: { zh: '侧边栏', en: 'Sidebar' }, desc: { zh: '可折叠侧边导航', en: 'Collapsible sidebar nav' }, icon: '◧' },
+    ]
+  },
+  {
+    id: 'container',
+    name: { zh: '容器类组件', en: 'Containers' },
+    icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><line x1="3" y1="8" x2="12" y2="13"/><line x1="21" y1="8" x2="12" y2="13"/><line x1="12" y1="13" x2="12" y2="21"/></svg>',
+    items: [
       { trigger: 'demo-card', name: { zh: '卡片组件', en: 'Card' }, desc: { zh: '多变体卡片含footer', en: 'Card with footer' }, icon: '▢' },
       { trigger: 'demo-list', name: { zh: '列表', en: 'List' }, desc: { zh: '有序/无序列表', en: 'Ordered/unordered' }, icon: '≡' },
       { trigger: 'demo-tabs', name: { zh: '标签页', en: 'Tabs' }, desc: { zh: '纯CSS标签切换', en: 'Pure CSS tabs' }, icon: '◇' },
@@ -184,8 +214,6 @@ const NAV_DATA = [
       { trigger: 'demo-carousel', name: { zh: '轮播图', en: 'Carousel' }, desc: { zh: '图片轮播/自动播放/手动切换', en: 'Image carousel/auto-play' }, icon: '◀▶' },
       { trigger: 'demo-desc', name: { zh: '描述列表', en: 'Descriptions' }, desc: { zh: '键值对详情/边框/斑马纹', en: 'Key-value detail list' }, icon: '≡' },
       { trigger: 'demo-scroll-area', name: { zh: '滚动区域', en: 'Scroll Area' }, desc: { zh: '自定义滚动条容器', en: 'Custom scrollbar container' }, icon: '⇕' },
-      { trigger: 'demo-sidebar', name: { zh: '侧边栏', en: 'Sidebar' }, desc: { zh: '可折叠侧边导航', en: 'Collapsible sidebar nav' }, icon: '◧' },
-      { trigger: 'demo-resizable', name: { zh: '分割面板', en: 'Resizable' }, desc: { zh: '可拖拽分割线/水平垂直', en: 'Draggable split pane H/V' }, icon: '↔' },
       { trigger: 'demo-canvas', name: { zh: 'Canvas 侧面板', en: 'Canvas Panel' }, desc: { zh: '侧滑预览面板/展开折叠', en: 'Slide-in preview panel' }, icon: '◫' },
       { trigger: 'demo-tooltip', name: { zh: 'Tooltip 提示', en: 'Tooltip' }, desc: { zh: '四方向悬浮提示', en: '4-direction tooltip' }, icon: '💡' },
       { trigger: 'demo-popover', name: { zh: '气泡卡片', en: 'Popover' }, desc: { zh: '点击/悬浮触发富内容', en: 'Click/hover rich content' }, icon: '💬' },
@@ -200,7 +228,6 @@ const NAV_DATA = [
       { trigger: 'demo-tree', name: { zh: '树形控件', en: 'Tree' }, desc: { zh: '目录树/组织架构', en: 'Directory/org tree' }, icon: '🌲' },
       { trigger: 'demo-anchor', name: { zh: 'Anchor 锚点导航', en: 'Anchor' }, desc: { zh: '层级锚点/横向模式/spy偏移', en: 'Nested/horizontal/spy offset' }, icon: '🔗' },
       { trigger: 'demo-affix', name: { zh: 'Affix 固钉', en: 'Affix' }, desc: { zh: '固顶/固底/嵌套滚动容器', en: 'Top/bottom/nested scroll box' }, icon: '📌' },
-      { trigger: 'demo-masonry', name: { zh: 'Masonry 瀑布流', en: 'Masonry' }, desc: { zh: '多列卡片流自动平衡', en: 'Auto-balanced card columns' }, icon: '▦' },
       { trigger: 'demo-tour', name: { zh: 'Tour 漫游式引导', en: 'Tour' }, desc: { zh: '分步引导/目标高亮', en: 'Step guide/target highlight' }, icon: '🧭' },
       { trigger: 'demo-modal', name: { zh: 'Modal 确认框', en: 'Modal Confirm' }, desc: { zh: 'TokUI.confirm() 命令式确认', en: 'Imperative confirm promise' }, icon: '❓' },
     ]
@@ -338,7 +365,7 @@ const I18N = {
   eventPanelClear: { zh: '清空', en: 'Clear' },
   editClicked:    { zh: '编辑按钮被点击', en: 'Edit button clicked' },
   deleteClicked:  { zh: '删除按钮被点击', en: 'Delete button clicked' },
-  footerVer:      { zh: '当前版本:v0.2.3', en: 'Version: v0.2.3' },
+  footerVer:      { zh: '当前版本:v0.2.4', en: 'Version: v0.2.4' },
   footerCopy:     { zh: '零依赖 · 流式UI描述与渲染框架', en: 'Zero Deps · Streaming UI Framework' },
   dslRef:         { zh: 'DSL 语法速查', en: 'DSL Syntax Ref' },
   clearBtn:       { zh: '清空', en: 'Clear' },
@@ -1414,14 +1441,8 @@ function injectCardSourceButtons(cardEl) {
   let header = cardEl.querySelector('.tokui-card-header');
   const isPill = header && header.classList.contains('tokui-card-header--pill');
 
-  if (!header) {
-    header = document.createElement('div');
-    header.className = 'tokui-card-header';
-    cardEl.insertBefore(header, cardEl.firstChild);
-  }
-
-  if (isPill) {
-    // pill 变体：按钮组放在 header 外面，绝对定位到 card 右上角
+  if (!header || isPill) {
+    // 无标题卡（不创建空 header 留空白带）/ pill 变体：按钮组绝对定位到 card 右上角
     cardEl.style.position = 'relative';
     var btnContainer = document.createElement('span');
     btnContainer.className = 'tokui-card-source-btns';

@@ -170,6 +170,204 @@ test('col span over max (13) clamps to 12 - emits col--12, gridColumn span 12', 
   assert.strictEqual(dom.style.gridColumn, 'span 12', 'span:13 clamp 后 gridColumn = span 12');
 });
 
+// ===== Row gutter / Col offset·rspan 增强测试 =====
+
+test('row gutter:12 → style.gap = 12px', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const dom = rc.render({ type: 'row', attrs: { gutter: '12' }, children: [] });
+  assert.strictEqual(dom.style.gap, '12px');
+});
+
+test('row gutter CSS 长度合法值直传；非法值拒绝', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const ok = rc.render({ type: 'row', attrs: { gutter: '1.5rem', gy: '8px' }, children: [] });
+  assert.strictEqual(ok.style.gap, '1.5rem');
+  assert.strictEqual(ok.style.rowGap, '8px');
+  const bad = rc.render({ type: 'row', attrs: { gutter: '12px;color:red' }, children: [] });
+  assert.ok(!bad.style.gap, '注入式 gutter 应被拒绝');
+});
+
+test('col offset:2 span:4 → gridColumn = 3 / span 4', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const dom = rc.render({ type: 'col', attrs: { span: '4', offset: '2' }, children: [] });
+  assert.strictEqual(dom.style.gridColumn, '3 / span 4');
+});
+
+test('col offset 超界 clamp：offset:10 span:6 → start clamp 到 7（7+6-1=12）', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const dom = rc.render({ type: 'col', attrs: { span: '6', offset: '10' }, children: [] });
+  assert.strictEqual(dom.style.gridColumn, '7 / span 6');
+});
+
+test('col offset 非法值（0/12/abc）不改变 gridColumn', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const dom = rc.render({ type: 'col', attrs: { span: '4', offset: '12' }, children: [] });
+  assert.strictEqual(dom.style.gridColumn, 'span 4');
+});
+
+test('col rspan:2 → gridRow = span 2；超界拒绝', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const ok = rc.render({ type: 'col', attrs: { span: '4', rspan: '2' }, children: [] });
+  assert.strictEqual(ok.style.gridRow, 'span 2');
+  const bad = rc.render({ type: 'col', attrs: { span: '4', rspan: '99' }, children: [] });
+  assert.ok(!bad.style.gridRow, 'rspan:99 超 12 应拒绝');
+});
+
+// ===== Grid/Cell 高级网格组件测试 =====
+
+test('grid 默认渲染 div.tokui-grid', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const dom = rc.render({ type: 'grid', attrs: {}, children: [] });
+  assert.strictEqual(dom.tagName, 'DIV');
+  assert.ok(dom.classList.contains('tokui-grid'));
+  assert.strictEqual(dom._tokuiType, 'grid');
+  assert.strictEqual(dom._slot, dom, '_slot 指向自身（流式子节点挂载点）');
+});
+
+test('grid cols:3 → repeat(3, 1fr)；超界 25 拒绝', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const dom = rc.render({ type: 'grid', attrs: { cols: '3' }, children: [] });
+  assert.strictEqual(dom.style.gridTemplateColumns, 'repeat(3, 1fr)');
+  const bad = rc.render({ type: 'grid', attrs: { cols: '25' }, children: [] });
+  assert.ok(!bad.style.gridTemplateColumns, 'cols:25 超上限应拒绝');
+});
+
+test('grid cols:"auto:180px" → repeat(auto-fill, minmax(180px, 1fr))', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const dom = rc.render({ type: 'grid', attrs: { cols: 'auto:180px' }, children: [] });
+  assert.strictEqual(dom.style.gridTemplateColumns, 'repeat(auto-fill, minmax(180px, 1fr))');
+});
+
+test('grid 显式轨道列表（fr/px/minmax/auto）', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const dom = rc.render({ type: 'grid', attrs: { cols: '200px 1fr minmax(100px,2fr) auto' }, children: [] });
+  assert.strictEqual(dom.style.gridTemplateColumns, '200px 1fr minmax(100px, 2fr) auto');
+});
+
+test('grid 注入式 cols/rows 整体拒绝（; { } 等非法字符）', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const dom = rc.render({ type: 'grid', attrs: { cols: '1fr;color:red', rows: '1fr } html{' }, children: [] });
+  assert.ok(!dom.style.gridTemplateColumns, '非法 cols 应整体拒绝');
+  assert.ok(!dom.style.gridTemplateRows, '非法 rows 应整体拒绝');
+});
+
+test('grid areas → grid-template-areas 带引号行', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const dom = rc.render({ type: 'grid', attrs: { areas: 'nav main main|nav aside aside' }, children: [] });
+  assert.strictEqual(dom.style.gridTemplateAreas, '"nav main main" "nav aside aside"');
+});
+
+test('grid areas 非法区名（含中文/冒号/点开头）整体拒绝', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const dom = rc.render({ type: 'grid', attrs: { areas: '导航 main|nav aside' }, children: [] });
+  assert.ok(!dom.style.gridTemplateAreas, '中文区名应拒绝');
+  const bad2 = rc.render({ type: 'grid', attrs: { areas: 'a:b c' }, children: [] });
+  assert.ok(!bad2.style.gridTemplateAreas, '冒号区名应拒绝');
+});
+
+test('grid gap 数字按 px，gx/gy 分列行间距，h/minh 高度', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const dom = rc.render({ type: 'grid', attrs: { gap: '16', gx: '20px', gy: '4px', h: '100vh', minh: '480' }, children: [] });
+  assert.strictEqual(dom.style.gap, '16px');
+  assert.strictEqual(dom.style.columnGap, '20px');
+  assert.strictEqual(dom.style.rowGap, '4px');
+  assert.strictEqual(dom.style.height, '100vh');
+  assert.strictEqual(dom.style.minHeight, '480px');
+});
+
+test('cell area/c/r 渲染', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const dom = rc.render({ type: 'cell', attrs: { area: 'nav', c: '2', r: '3' }, children: [] });
+  assert.ok(dom.classList.contains('tokui-cell'));
+  assert.strictEqual(dom.style.gridArea, 'nav');
+  assert.strictEqual(dom.style.gridColumn, 'span 2');
+  assert.strictEqual(dom.style.gridRow, 'span 3');
+  assert.strictEqual(dom._tokuiType, 'cell');
+});
+
+test('cell c:"1/3" start/end 写法直传（去多余空格）', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const dom = rc.render({ type: 'cell', attrs: { c: '1 / 3' }, children: [] });
+  assert.strictEqual(dom.style.gridColumn, '1 / 3');
+});
+
+test('cell 非法 area/c/r 拒绝；align/justify 白名单', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const dom = rc.render({ type: 'cell', attrs: { area: 'a;b', c: 'abc', r: '99', align: 'middle', justify: 'center' }, children: [] });
+  assert.ok(!dom.style.gridArea, '非法 area 应拒绝');
+  assert.ok(!dom.style.gridColumn, '非法 c 应拒绝');
+  assert.ok(!dom.style.gridRow, 'r:99 超 24 应拒绝');
+  assert.ok(!dom.style.alignSelf, 'align:middle 非白名单应拒绝');
+  assert.strictEqual(dom.style.justifySelf, 'center');
+});
+
+test('grid 容器带 cols 属性仍收子节点（cols 不自闭合法闭环）', () => {
+  // parser 层验证：grid 在 cols 豁免名单，开标签后 children 正常入栈
+  const { TokUIParser } = require('../src/core/parser');
+  const nodes = [];
+  new TokUIParser(n => nodes.push(n)).parse('[grid cols:3][cell area:a]x[/cell][/grid]');
+  // buffered 模式：容器闭合后整体 emit，grid 应带 cell 子节点（cols 豁免生效则 children 不丢）
+  const gridNode = nodes.find(n => n.type === 'grid');
+  assert.ok(gridNode, 'grid 节点存在');
+  assert.ok(gridNode.children && gridNode.children.some(c => c.type === 'cell'),
+    'grid 带 cols 属性仍应收 cell 子节点（cols 不自闭合）');
+});
+
+test('grid/cell/card theme 属性 → data-tokui-theme 子树级主题', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const grid = rc.render({ type: 'grid', attrs: { theme: 'dark' }, children: [] });
+  assert.strictEqual(grid.getAttribute('data-tokui-theme'), 'dark');
+  const cell = rc.render({ type: 'cell', attrs: { theme: 'modern-dark' }, children: [] });
+  assert.strictEqual(cell.getAttribute('data-tokui-theme'), 'modern-dark');
+  const card = rc.render({ type: 'card', attrs: { theme: 'dark', tt: 'x' }, children: [] });
+  assert.strictEqual(card.getAttribute('data-tokui-theme'), 'dark');
+  const bad = rc.render({ type: 'grid', attrs: { theme: 'blue' }, children: [] });
+  assert.ok(!bad.getAttribute('data-tokui-theme'), '非白名单主题名不落属性');
+  const none = rc.render({ type: 'card', attrs: {}, children: [] });
+  assert.ok(!none.getAttribute('data-tokui-theme'), '无 theme 不影响默认');
+});
+
+test('grid/cell 真流式：开标签即挂载，子 cell 逐个流入，闭合弹栈正确', () => {
+  const TokUI = require('../src/index');
+  const container = document.createElement('div');
+  const t = new TokUI({ container, streaming: true });
+  t.startStream(container);
+  t.feed('[grid cols:"200px 1fr" areas:"nav main|nav main"]');
+  let grid = container.querySelector('.tokui-grid');
+  assert.ok(grid, 'grid 开标签到即挂载');
+  assert.strictEqual(grid.style.gridTemplateColumns, '200px 1fr');
+  t.feed('[cell area:nav][p 导航][/cell]');
+  const navCell = container.querySelector('.tokui-cell');
+  assert.ok(navCell, 'cell 流入即挂载');
+  assert.strictEqual(navCell.style.gridArea, 'nav');
+  assert.ok(navCell.textContent.indexOf('导航') >= 0, 'cell 内文本流入');
+  t.feed('[cell area:main][row][col span:6][card tt:图]x[/card][/col][/row][/cell][/grid]');
+  t.endStream();
+  grid = container.querySelector('.tokui-grid');
+  const cells = grid.querySelectorAll('.tokui-cell');
+  assert.strictEqual(cells.length, 2, '两个 cell 均在 grid 内');
+  assert.ok(cells[1].querySelector('.tokui-row'), 'grid 内嵌套 row/col 流式正常');
+  assert.ok(cells[1].querySelector('.tokui-card'), 'cell 内 card 渲染');
+});
+
 // ===== List/Item 列表组件测试 =====
 
 test('list renders with ul tag', () => {

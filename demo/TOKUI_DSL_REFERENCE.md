@@ -211,7 +211,7 @@ resizable canvas canvas-content chart p tour affix preview-group segmented ancho
 | `toast` | 自闭合 | `id` `t` `tx` `duration` `pos` | 全局 Toast。`pos:top`/`bottom`，`duration` 默认 2000ms |
 | `notification` | 自闭合 | `id` `t` `tt` `tx` `duration` `pos` `clk` | 全局通知。`pos:top-right` 等，`duration` 默认 4500ms（0=手动） |
 | `progress` | 自闭合 | `v` `t` `l` `s` `stripe` `status` `id` | 进度条。`v` 百分比 0-100；`t:line`/`circle`/`span`；`status:success`/`error` |
-| `stat` | 自闭合 | `tt` `v` `pre` `suf` `trend` `anim` `dec` `id` | 统计数字。`pre:¥` `suf:%` `trend:up`/`down` `anim` 滚动动画 ms `dec` 小数位 |
+| `stat` | 自闭合 | `tt` `v` `pre` `suf` `trend` `anim` `dec` `l` `id` | 统计数字。`pre:¥` `suf:%` `trend:up`/`down` `anim` 滚动动画 ms `dec` 小数位；`tt` 顶部标题、`l` 底部小标签 |
 | `countdown` | 自闭合 | `target`/`dur` `fmt` `tx` `l` `s` `clk` `id` | 倒计时。`target` ms 时间戳或 `dur` 秒；`fmt:dhms`/`hms`/`ms`/`s`（每字母启用一单位）；`clk` 结束回调 |
 | `thumb` | 自闭合 | `t` `v` `s` `clk` | 赞/踩。`t:up`/`down`，点击 emit `{direction, active}`（clk 通道）；统一出口上报 `like` `{value:'up'/'down'}`（§8.4） |
 | `toggle` | 自闭合 | `tx` `chk` `clk` `s` `dis` | 切换按钮 |
@@ -295,8 +295,10 @@ resizable canvas canvas-content chart p tour affix preview-group segmented ancho
 |-----|------|----------|------|
 | `card` | 容器 | `tt` `tx` `v` `w` `hc` `ht` | 卡片。`hc` 头部自定义色；`ht:fill`/`accent`/`underline`/`dot`/`pill` 头部类型。**`tx`=自闭合叶子卡**，有子元素时禁用 |
 | `ft` | 容器 | `tx`/裸内容 `v` | 卡片页脚（card/dialog/drawer 内自动分离为页脚区）。无内容时不渲染 |
-| `row` | 容器 | `v` | 栅格行。默认 12 列 grid；`v:inline` 转 flex（并排标题+徽标用） |
-| `col` | 容器 | `span` | 栅格列（`span` 1-12，默认 1） |
+| `row` | 容器 | `v` `gutter` `gy` | 栅格行。默认 12 列 grid；`v:inline` 转 flex（并排标题+徽标用）；`gutter` 统一间距、`gy` 行间距（数字按 px 或 CSS 长度） |
+| `col` | 容器 | `span` `offset` `rspan` | 栅格列（`span` 1-12，默认 1）；`offset` 左空列数（1-11，offset+span 钳制不超 12）；`rspan` 行跨（1-12，多行 row 跨行用） |
+| `grid` | 容器 | `cols` `rows` `areas` `gap`/`gx`/`gy` `h` `minh` `theme` `v` | 高级二维网格（与 12 栅格并行），语法见下方「高级网格 grid/cell」专节 |
+| `cell` | 容器 | `area` `c` `r` `align` `justify` | grid 子项（可装任意组件）。`area` 模板区域名；`c` 列跨 N(1-24) 或 `"start/end"`；`r` 行跨 N(1-24)；`align`/`justify` 对齐 start/center/end/stretch |
 | `list` | 容器 | `t` `plain` | 列表。`t:ol` 有序/默认无序；`plain` 去标记 |
 | `item` | 容器 | `tx`/裸内容 `l` `span` | 同名按父级区分：`list` 内=`<li>`（文本当首段，可嵌套子 `list`，靠 `[/item]`/下个 `[item]`/父闭标签隐式闭合）；`desc` 内=描述项（`l` 标签 `tx` 值）；`carousel` 内=幻灯片；`command-group` 内=命令项。别名 `i` |
 | `tabs` | 容器 | — | 标签页容器；子项 `tab`；默认激活第 0 个 |
@@ -326,6 +328,36 @@ resizable canvas canvas-content chart p tour affix preview-group segmented ancho
 | `affix` | 容器 | `top` `bottom` `target` `on` | 固钉。滚动越过偏移即 `position:fixed` 固定：`top` 固顶（缺省 0）/ `bottom` 固底（经过原位置后释放）/ `target` 显式滚动容器；自动插占位防跳动；`change` 上报 `{fixed}`；监听 window 捕获阶段，嵌套滚动容器可感知 |
 | `masonry` | 容器 | `cols` `minw` `gap` | 瀑布流。`cols` 固定列数(1-6 缺省2)、`minw` 自动列（子项最小宽度 px，列数随宽度自适应，优先于 cols）、`gap` 间距(px 缺省8)；CSS columns 自动分列，子项 break-inside: avoid 不截断 |
 | `float-button` | 容器 | `pos` `offset` | 浮动按钮组。`pos` 四角固位(right-bottom 缺省/right-top/left-bottom/left-top)、`offset` 边距(px 缺省24)；子组件自动圆形悬浮化 |
+
+#### 高级网格 grid/cell（显式二维网格，与 12 栅格并行）
+
+面向圣杯骨架、监控大屏、车机 HMI、杂志混排等二维不对称布局。**选型规则：一维并排均分用 `row`/`col`；二维不对称 / 区域命名 / 固定+弹性混合轨道 / 跨行跨列 / 整页骨架用 `grid`/`cell`。**
+
+**`grid` 属性**（所有值白名单校验，任一非法 → 该属性整体不输出）：
+
+| 属性 | 说明 |
+|------|------|
+| `cols` | 列轨道。纯数字 N(1-24) → `repeat(N,1fr)`；`auto:180px` → `repeat(auto-fill,minmax(180px,1fr))`；或空格分隔显式轨道列表 |
+| `rows` | 行轨道，语法同 `cols`，可省 |
+| `areas` | 模板区域。`\|` 分行、空格分列、`.` 空位；区名限 `[a-zA-Z][a-zA-Z0-9_-]*` |
+| `gap` / `gx` / `gy` | 间距 / 列间距 / 行间距。纯数字按 px，或 CSS 长度 |
+| `h` / `minh` | 高度 / 最小高度（纯数字按 px） |
+| `v` | 变体：`dense`（grid-auto-flow:dense 自动填坑）、`flush`（gap:0） |
+| `theme` | 子树级主题：`dark`/`modern`/`modern-dark`/`default`。落 `data-tokui-theme` 到该元素，自身及后代令牌（stat/chart/btn/文本）全部跟随。`grid`/`cell`/`card` 均支持 |
+
+轨道 token 白名单：长度（px/%/em/rem/vw/vh）、`Nfr`、`auto`、`min-content`、`max-content`、`minmax(a,b)`、`fit-content(len)`。
+
+> ⚠️ 固定轨道溢出：`rows`/`h` 定死后内容超高不会撑开行轨，会溢出盖住相邻区域（`chart` 的 `h` 仅 viewBox 高，SVG 按宽度 100% 等比缩放，宽 cell 内实际更高）。内容高度不确定时省略 `rows` 用自动行；`h` 只用于确知内容高度的骨架（如车机 HMI）。
+
+**`cell` 属性**：`area` 模板区域名；`c` 列跨 N(1-24) 或 `"start/end"`（如 `c:"1/3"`）；`r` 行跨 N(1-24)；`align`/`justify` 单元格内容对齐（`start`/`center`/`end`/`stretch`）。无需跨区/跨行列时，子组件可直接作 `grid` 子项，不必包 `cell`。
+
+```tokui
+;; 圣杯布局：areas 区域命名，nav 通高、main 两列宽
+[grid cols:"200px 1fr 1fr" rows:"64px 1fr" gap:12 h:480 areas:"nav main main|nav aside aside"][cell area:nav][card tt:导航][list][item 仪表盘][item 订单][item 设置][/list][/card][/cell][cell area:main][card tt:主内容区][p 两列宽的主区域。][/card][/cell][cell area:aside][card tt:侧栏][p 辅助信息。][/card][/cell][/grid]
+
+;; auto-fill 卡片墙：随容器宽度自动列数，每张最小 180px（子组件直接作 grid 子项）
+[grid cols:"auto:180px" gap:12][card tt:Alpha tx:自动填满整行][card tt:Beta tx:无需媒体查询][card tt:Gamma tx:最小 180px][card tt:Delta tx:宽度自适应][/grid]
+```
 
 ### 6.6 表单组件
 
@@ -717,15 +749,19 @@ sort  star  link  menu
 
 > **AI 组件 `id` 锚点**：`bubble` / `typing` / `terminal` / `diff` / `artifact` / `quick-reply` / `msg-actions` / `think` / `think-chain` 的 `id` 均落 DOM，作 `del`/`ins` 定位锚点（无 `_update`，改内容用 del+ins 替换）。典型模式——typing 占位切换正文：`[typing id:t1 text:正在生成]` → 正文到达后 `[del id:t1]`，再流式推 `[bubble role:ai]…[/bubble]`。
 
+> **`id` 全组件兜底**：所有组件的 `id:` 都会落 DOM（组件自身未放置时由渲染器补到组件根），`del`/`ins` 对全组件可用——仅 `tcol`（列定义，无独立 DOM）除外。`input`/`select` 等表单组件的 `id` 仍挂内层输入元素（`upd` 兼容），根不重复盖。
+
 ### 8.2 `del` 删除指令（自闭合）
 
 ```tokui
 [del id:old-card]
 ```
 
-移除指定 `id` 的组件。命中内层元素（如 hidden input）时向上爬到组件根再整体删除；目标不存在静默跳过（并向统一出口回报 `removed:false`）。不产生 DOM。
+移除指定 `id` 的组件。命中内层元素（如 hidden input）时向上爬到组件根再整体删除；目标不存在时 `console.warn` 告警（并向统一出口回报 `removed:false`）。不产生 DOM。
 
-> 目标是**仍在流式输出中**（未闭合）的容器时，`del` 会 `console.warn` 并跳过——删半个组件会把插槽栈打乱。要删就等它闭合后再发 `del`。
+- `delay:毫秒`：延迟删除，到点后重新查找目标再执行（期间目标已被删则告警跳过）；先回报 `{removed:false, delayed:ms}`，执行时再回报 `{removed}`。定时器随 `destroy()` 取消。典型场景——toast 式自动退场：`[notification id:n1 …][del id:n1 delay:3000]`。
+
+> 目标是**仍在流式输出中**（未闭合）的容器时，`del` 会排队（回报 `queued:true`），待容器闭合（或流结束）后自动执行——`del` 先于闭标签到达不再丢指令。
 
 ### 8.3 `ins` 插入指令（容器）
 

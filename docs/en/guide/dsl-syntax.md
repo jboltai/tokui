@@ -90,9 +90,11 @@ pill dot leaf inline rounded container reset print approval streaming collapsed
 
 ### Delete `del` & Insert `ins`
 
-`[del id:x]` is a self-closing directive that removes the component with the given `id` — when an inner element is hit, it climbs to the component root and removes the whole component; a missing target is silently skipped and no DOM is produced.
+`[del id:x]` is a self-closing directive that removes the component with the given `id` — when an inner element is hit, it climbs to the component root and removes the whole component; a missing target triggers a `console.warn` and no DOM is produced. `id:` lands on the DOM for every component (centrally backfilled by the renderer, `tcol` excepted), so `del`/`ins` work on all components.
 
-> If the target is a container that is **still streaming** (not yet closed), `del` warns via `console.warn` and skips — deleting half a component would scramble the slot stack. Wait for it to close before sending `del`.
+- `delay:ms`: delayed removal — the target is re-looked-up when the timer fires; reports `{removed:false, delayed:ms}` first, and the timer is cancelled on `destroy()`.
+
+> If the target is a container that is **still streaming** (not yet closed), `del` is queued (reported as `queued:true`) and executes automatically once the container closes (or the stream ends) — sending `del` before the closing tag no longer drops the directive.
 
 `[ins]` is a container directive that inserts its children after / before / inside a target component, depending on the position prop:
 
@@ -108,6 +110,10 @@ pill dot leaf inline rounded container reset print approval streaming collapsed
 > `into` only works on containers whose content is a plain child flow (card / list / callout / bubble / dialog body, etc.). Structural containers (`tabs` / `table` / `chart` / `select` / `radio` / `checkbox` / `picker` / `transfer` / `cascader` / `steps` / `menu` / `tree` — their children mount through dedicated protocols) forbid `into`: it warns via `console.warn` and skips. To append content to those, use their own streaming child-node protocols.
 
 <Playground dsl='[card tt:"Target card" id:insDemo][p Original card content][/card][ins into:insDemo][p A paragraph appended by ins][/ins][p id:delDemo This paragraph is removed by del right after render][del id:delDemo]' />
+
+`delay` in action — auto-dismissing banner + self-clearing progress + staggered skeleton swap (plays automatically when the page opens):
+
+<Playground dsl='[callout id:dlyC1 t:warning tt:"Limited offer" tx:"Your 20% coupon is in the account — this banner disappears in 5s"][del id:dlyC1 delay:5000][progress id:dlyP1 v:100][ins after:dlyP1][tag t:success tx:"✓ report.pdf synced to 3 devices"][/ins][del id:dlyP1 delay:2500][skeleton id:dlyS1][ins after:dlyS1][stat tt:Revenue v:¥128,400][/ins][del id:dlyS1 delay:2000][skeleton id:dlyS2][ins after:dlyS2][stat tt:"Active users" v:8,932][/ins][del id:dlyS2 delay:3500]' />
 
 > **Directive receipts**: after `upd` / `del` / `ins` executes, the result is reported to the unified outlet: `{type:'upd'|'del'|'ins', id, event:'applied', detail:{applied}}` / `{removed}` / `{moved}` — the server can use this to confirm the directive landed (when the target doesn't exist, `applied` / `removed` is `false` and `moved` is `0`).
 

@@ -90,6 +90,10 @@
 
 <Playground dsl='[bubble role:ai][typing text:正在生成回复][/bubble]' />
 
+配合 `[del id:x delay:毫秒]` 可模拟「typing 自动切换正文」——2.5 秒后 typing 消失、正文原位出现（打开页面自动播放）：
+
+<Playground dsl='[bubble role:ai id:tyB1][typing id:tyT1 text:正在生成回复][/bubble][ins into:tyB1][p 已为你生成 3 套方案，详见下方卡片。[/ins][del id:tyT1 delay:2500]' />
+
 ## 快捷回复 `quick-reply`
 
 一行式快捷回复建议，自闭合容器。`items` 用 `|` 分隔多个建议。
@@ -452,6 +456,8 @@ AI 组件的 `id` 均落 DOM，可作 `[del]` / `[ins]` 的定位锚点；带 `_
 | `bubble` / `typing` / `terminal` / `diff` / `artifact` / `quick-reply` / `msg-actions` / `think` / `think-chain` | 仅锚点（`del` / `ins` 定位；改内容用 del+ins 替换） |
 
 > 典型模式——typing 占位切换正文：先推 `[typing id:t1 text:正在生成]`，正文到达后 `[del id:t1]` 移除指示，再流式推 `[bubble role:ai]…[/bubble]`。
+
+> `id:` 落 DOM 对全组件生效（渲染器集中兜底，仅 `tcol` 除外），`del`/`ins` 不限于上表组件；`del` 打未闭合流式容器会排队、闭合后自动执行。
 
 ## 综合示例：一段真实 AI 回复
 
