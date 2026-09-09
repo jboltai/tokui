@@ -33,10 +33,25 @@ v:"primary,sm"                                ; comma-separated variants
 | `form` | button → bind a form id | `reset` | reset action (`reset` or `reset:H`) |
 | `print` | print action (`print:ID` / `print:self`) | `target` | `a` open target |
 | `icon` | SVG icon name (btn / action col) | `i` | emoji icon (btn / action col / menu-item) |
+| `cls` | custom class names (root-level, all components, see below) | `style` | whitelisted inline styles (root-level, all components, see below) |
 | `on` | event reporting declaration `on:"event:handler,…"` (**double quotes required**, see [Interaction event reporting](#interaction-event-reporting)) | | |
 
 > `clk:` / `sub:` handlers must be pre-registered via `TokUI.registerHandler(name, fn)` — the server ships no executable code.
 > `sub` / `reset` / `print` are button **built-in actions**, resolved automatically by the renderer; `reset` / `print` need no registered handler. See [Form components](/en/components/form#form-actions-submit-reset-data-collection).
+
+### Style customization: `cls:` / `style:` (root-level, all components)
+
+These two universal attributes apply to **every registered component**, landing on the component **root element** (sanitized by `src/core/style-guard.js`):
+
+```html
+[card tt:Brand card cls:"pricing fade-in" style:"background:linear-gradient(135deg,var(--tokui-primary-1),var(--tokui-bg));border-radius:16px"]
+[btn t:primary cls:cta-btn style:"border-radius:16px"]  ← single class / no-space value needs no quotes
+[p Lead text cls:lead style:"font-size:22px;letter-spacing:1px"]
+```
+
+- **`style:` safety whitelist**: allows `background(-image/-color/…)`, `color`, `border` (incl. radius), `padding`/`margin`, `box-shadow`, `opacity`, `font-*`, `text-align`, `letter-spacing`, `max/min-width/height`, `gap`, `flex` family, `align/justify-*`, `transform` (translate/scale/rotate only), `backdrop-filter`, `aspect-ratio`, `object-fit`, `transition`, `z-index`, etc.; `url()` only allows http(s) and site-relative paths. Rejects `position`/`top`/`left` (layout escape), `expression()`/`javascript:`/`behavior:`/`@import` (injection). **Violating declarations are silently dropped**; the rest still apply.
+- **`cls:` rules**: each name must match `^[a-zA-Z][\w-]{0,63}$`; the **`tokui-` prefix is reserved and rejected**; max 8 names, deduplicated; invalid tokens are silently dropped one by one.
+- The channel is a "root-level enhancement": no pass-through to inner elements; coexists with component-private `w:`/`bg:`/`fc:` props (`style:` wins on the same property). The unknown-component fallback does not go through this channel.
 
 > Form validation: `input` / `pwd` / `textarea` / `select` support declarative rules via `rule:"required|email|…"` + `msg:"custom message"` — enforced uniformly on submit; failures block submission, mark the field red with a hint, and focus the first error. See [Form · DSL validation rules](/en/components/form#dsl-validation-rules).
 
@@ -174,6 +189,24 @@ The 150+ components are organized into seven categories, each with full prop tab
 | Chart | bar, line, area, pie, donut, rose, funnel, radar, scatter, bubble, heatmap, histogram, waterfall, boxplot, treemap, sankey, candlestick, progress, gauge, gantt (20 types, pure SVG, zero deps) | [chart](/en/components/chart) |
 | AI Chat | bubble, tool-call, thought chain, diff, plan, terminal, sandbox, artifact | [ai-chat](/en/components/ai-chat) |
 | Showcase | signup form, CRUD, form+table linkage, report-style cards | [showcase](/en/components/showcase) |
+
+## Responsive breakpoints
+
+`col` and `grid` accept five breakpoint attributes `xs`/`sm`/`md`/`lg`/`xl` — declarative responsiveness based on the **container width (the row/grid itself), not the viewport**, so nested layouts respond independently:
+
+```html
+[row]
+  [col span:4 xs:12 sm:6 lg:3 content]   ← desktop 3-col → tablet 2-col → phone 1-col
+  [col xs:"8/2" content]                 ← combined "span/offset"
+[/row]
+[grid gap:12 xs:1 sm:2 lg:3]            ← grid breakpoint value = column count 1-12
+  ...
+[/grid]
+```
+
+- Ascending overrides: `xs` base (all widths) → `sm` ≥576 → `md` ≥768 → `lg` ≥992 → `xl` ≥1200 (container px); an unwritten tier inherits the previous one.
+- Breakpoints only override — without them, `span`/`offset` behave exactly as before; invalid values drop that tier silently.
+- Browsers without container-query support fall back to the global 1024/640 media-query tiers (mobile grid collapses to one column) — no broken layouts.
 
 ## Raw content mode
 

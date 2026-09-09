@@ -18,6 +18,62 @@ var DEFAULT_COLORS = [
   '#1677ff', '#52c41a', '#faad14', '#f5222d', '#722ed1',
   '#13c2c2', '#eb2f96', '#fa8c16', '#2f54eb', '#a0d911'
 ];
+// T0.5 主题色板：优先读 --tokui-chart-c1..c10（页面主题锚点），无 DOM / 变量缺失时回退 DEFAULT_COLORS。
+// 缓存 + invalidateChartColors()（theme.setSeedColor/setTheme 后调用）。
+var _themeColorsCache = null;
+var _paletteByTheme = {};
+function invalidateChartColors() { _themeColorsCache = null; _paletteByTheme = {}; }
+// 导出画布底色随主题（--tokui-bg；无 DOM 回退 #fff）——修复暗色主题导出白底浅字不可读
+function _exportBgColor() {
+  if (typeof window !== 'undefined' && window.getComputedStyle && typeof document !== 'undefined' && document.querySelector) {
+    try {
+      var anchor = document.querySelector('[data-tokui-theme]') || document.documentElement;
+      var bg = window.getComputedStyle(anchor).getPropertyValue('--tokui-bg');
+      bg = bg ? String(bg).trim() : '';
+      if (bg) return bg;
+    } catch (e) { /* 回退 #fff */ }
+  }
+  return '#fff';
+}
+// 从主题作用域元素（含 :root）读取 10 色板；失败返回 null
+function _readPalette(scope) {
+  try {
+    var cs = window.getComputedStyle(scope);
+    var arr = [];
+    for (var i = 1; i <= 10; i++) {
+      var v = cs.getPropertyValue('--tokui-chart-c' + i);
+      v = v ? String(v).trim() : '';
+      if (!isValidColor(v)) return null;
+      arr.push(v);
+    }
+    return arr;
+  } catch (e) { return null; }
+}
+// el 提供时优先取其最近主题作用域（多主题并存正确——T1.1 修复锚点歧义）；
+// 否则回退页面第一个锚点（向后兼容）。缓存按主题名分桶，invalidateChartColors 全清。
+function _resolveThemeColors(el) {
+  if (typeof window !== 'undefined' && window.getComputedStyle && typeof document !== 'undefined' && document.querySelector) {
+    var scope = null;
+    if (el && typeof el.closest === 'function') {
+      try { scope = el.closest('[data-tokui-theme]'); } catch (e) { scope = null; }
+    }
+    if (scope) {
+      var key = scope.getAttribute('data-tokui-theme') || 'root';
+      if (!_paletteByTheme[key]) _paletteByTheme[key] = _readPalette(scope) || DEFAULT_COLORS;
+      return _paletteByTheme[key];
+    }
+  }
+  if (_themeColorsCache) return _themeColorsCache;
+  var out = null;
+  if (typeof window !== 'undefined' && window.getComputedStyle && typeof document !== 'undefined' && document.querySelector) {
+    try {
+      var anchor = document.querySelector('[data-tokui-theme]') || document.documentElement;
+      out = _readPalette(anchor);
+    } catch (e) { out = null; }
+  }
+  _themeColorsCache = out || DEFAULT_COLORS;
+  return _themeColorsCache;
+}
 var LEGEND_H = 22;
 
 // === 工具函数 ===
@@ -82,7 +138,7 @@ function isValidColor(v) {
   return false;
 }
 
-function getColors(attrs) {
+function getColors(attrs, ctxEl) {
   if (attrs.c) {
     // 去引号 + 校验每个色值；流式半成品（c:"#16、c:" 等）会被过滤掉
     var list = String(attrs.c).split(',').map(function (v) {
@@ -91,7 +147,7 @@ function getColors(attrs) {
     var valid = list.filter(isValidColor);
     if (valid.length) return valid;
   }
-  return DEFAULT_COLORS;
+  return _resolveThemeColors(ctxEl);
 }
 
 function maxOf(arr) {
@@ -129,6 +185,15 @@ function autoSize(attrs, key, n, padX, minSlot, floor, cap) {
 function bandHeight(w, h, maxRatio, hCap) {
   if (w / h > maxRatio) h = Math.round(w / maxRatio);
   return Math.min(h, hCap);
+}
+
+// 图表体高统一入口：**w 与 h 同时显式给出时视为作者定向设计**（如大屏宽幅底条趋势图
+// 1540×200，宽高比 7.7 超 band 但正是所需），跳过比例带仅受 hCap；其余（h 缺省/自动）
+// 仍走 bandHeight 防意外超宽 letterbox。
+function chartH(attrs, w, defH) {
+  var eh = parseInt(attrs.h, 10);
+  if (attrs.w !== undefined && !isNaN(eh) && eh > 0) return Math.min(eh, 560);
+  return bandHeight(w, eh || defH, 4, 560);
 }
 
 // === Tooltip 顶层系统 ===
@@ -215,8 +280,13 @@ function bindTooltips(svg) {
   svg._tokuiTipsDelegated = true;
   function findGroup(node) {
     while (node && node !== svg) {
-      // SVG 元素 className 是 SVGAnimatedString，须用 getAttribute('class') 判
-      if (node.getAttribute && (node.getAttribute('class') || '').indexOf('tokui-chart-tip-group') !== -1) return node;
+      // SVG 元素 className 是 SVGAnimatedString，须用 getAttribute('class') 判。
+      // 地图等渲染器把 data-tip-id 直接落在裸 path/circle 上（无 tip-group 包装 g），
+      // 命中条件因此为「tip-group 类祖先」或「自带 data-tip-id」，两种注册方式共用同一委托。
+      if (node.getAttribute && (
+        (node.getAttribute('class') || '').indexOf('tokui-chart-tip-group') !== -1 ||
+        node.getAttribute('data-tip-id') !== null
+      )) return node;
       node = node.parentNode;
     }
     return null;
@@ -760,7 +830,11 @@ function axisBound(attrs, explicit, cachedKey, fallback) {
 // 窄容器下 font-size 被 bump 抬高，按裸 fs7 估算会严重低估致拥挤（见 chart 50/40 点用例）。
 // 少量标签（n≤10）宁可旋转重叠也不隐藏（旋转仍可读）；多量则按步长跳过、保留首末。
 // 返回 {rotate, padB, interval}。
-var X_LABEL_MIN_SLOT = 38; // 短标签可读槽位下限（viewBox 单位）
+var X_LABEL_MIN_SLOT = 24; // 短标签可读槽位下限（viewBox 单位）：38 过宽——纯数字短标签（"30"≈20 单位）
+                           // 30 点序列每点仅 ~23 单位，恒被抽稀显示不全；24 允许数字序列横排全显，
+                           // CJK/长标签不受影响（其槽位由文字宽度 effW×1.15 主导，恒大于本下限）。
+var X_LABEL_ROT_FLOOR = 38 * 0.72; // 旋转判定维持保守口径（旧 MIN_SLOT=38 折算）：高密度标签仍走抽稀
+                                    // 而非「全部旋转」，与既有行为/测试一致。
 var X_LABEL_ROT_GAP = 12;  // 旋转标签锚点低于轴线的距离（viewBox 单位）
 function axisXLayout(labels, slotW, basePadB, availW, intervalAttr, xUnit) {
   var n = labels.length;
@@ -776,7 +850,7 @@ function axisXLayout(labels, slotW, basePadB, availW, intervalAttr, xUnit) {
   }
   var effW = maxW7 * (MAX_CHART_PX / PIE_FS_REF);              // 折算到渲染目标 px 的标签宽
   var slotNeeded = Math.max(X_LABEL_MIN_SLOT, effW * 1.15);    // 横排每标签需宽（+15% 间隙）
-  var rotNeeded = Math.max(X_LABEL_MIN_SLOT * 0.72, effW * 0.72); // 旋转 -45° 水平足迹
+  var rotNeeded = Math.max(X_LABEL_ROT_FLOOR, effW * 0.72); // 旋转 -45° 水平足迹（保守口径）
   var fitH = Math.max(1, Math.floor(cw / slotNeeded));         // 横排最多容纳数
   var fitR = Math.max(1, Math.floor(cw / rotNeeded));          // 旋转最多容纳数
 
@@ -953,7 +1027,7 @@ function renderBar(data, labels, colors, attrs) {
     h = autoSize(attrs, 'h', n, 36, 26, 200, 1200);     // padTop+padBot≈36，每类一行
   } else {
     w = autoSize(attrs, 'w', n, 52, 26, 360, 2400);
-    h = bandHeight(w, parseInt(attrs.h) || 200, 4, 560);
+    h = chartH(attrs, w, 200);
   }
   var hasLegend = series.length > 1;
   var zoomOn = !horizontal && zoomEnabled(attrs, n);
@@ -1306,7 +1380,7 @@ function renderLine(data, labels, colors, attrs) {
   var n = Math.max.apply(null, series.map(function (s) { return s.length; }));
   // 宽按点数动态（每点最小 slot 24），高度经 bandHeight 防过扁；显式 w/h 优先。
   var w = autoSize(attrs, 'w', n, 52, 24, 360, 2400);
-  var h = bandHeight(w, parseInt(attrs.h) || 200, 4, 560);
+  var h = chartH(attrs, w, 200);
   var hasLegend = series.length > 1;
   var zoomOn = zoomEnabled(attrs, n);
   var ZOOM_H = zoomOn ? 28 : 0;
@@ -1645,6 +1719,284 @@ function renderDonut(data, labels, colors, attrs) {
   return svg;
 }
 
+// === T1.5：入场动画 + 渐变填充 ===
+var _gradUidCounter = 0;
+function _gradUid() { return 'g' + (++_gradUidCounter); }
+function _applyChartEnter(svg, wrapper, attrs) {
+  if (!svg || !wrapper) return;
+  if (attrs.enter === 'false' || attrs.enter === false) return; // DSL 级关闭
+  if (wrapper._enterPlayed) return;                               // 仅首渲染
+  wrapper._enterPlayed = true;
+  // 类挂外层 wrapper（HTML div）：不进 SVG 序列化（流式/一次性逐字节一致测试），
+  // CSS 经 .tokui-chart--enter .tokui-chart__svg 后代选择器驱动动画
+  wrapper.classList.add('tokui-chart--enter');
+  if (typeof window !== 'undefined' && window.setTimeout) {
+    window.setTimeout(function () {
+      if (wrapper.classList && wrapper.classList.remove) wrapper.classList.remove('tokui-chart--enter');
+    }, 850);
+  }
+}
+function _applyGradientFill(svg, colors, attrs, uid) {
+  if (!attrs.grad || !svg || !colors || !colors.length) return;
+  var defs = svgEl('defs', {});
+  colors.forEach(function (c, i) {
+    var gid = 'tokui-grad-' + uid + '-' + i;
+    var lg = svgEl('linearGradient', { id: gid, x1: '0', y1: '0', x2: '0', y2: '1' });
+    lg.appendChild(svgEl('stop', { offset: '0%', 'stop-color': c, 'stop-opacity': '0.9' }));
+    lg.appendChild(svgEl('stop', { offset: '100%', 'stop-color': c, 'stop-opacity': '0.06' }));
+    defs.appendChild(lg);
+  });
+  if (defs.childNodes && defs.childNodes.length && svg.insertBefore) {
+    svg.insertBefore(defs, svg.firstChild);
+  }
+  (function walk(n) {
+    if (n.nodeType !== 1 || !n.getAttribute) return;
+    var f = n.getAttribute('fill');
+    if (f) {
+      var ci = colors.indexOf(f);
+      if (ci !== -1) n.setAttribute('fill', 'url(#tokui-grad-' + uid + '-' + ci + ')');
+    }
+    for (var k = 0; k < (n.childNodes || []).length; k++) walk(n.childNodes[k]);
+  })(svg);
+}
+
+// === Map 中国地图（T1.4：choropleth 热力 + 散点两层） ===
+// 数据面：region:"浙江:86|江苏:74"（省级热力，值经多 stop 色阶插值复用 lerpColor）
+//        d:"lng,lat,val,name:杭州|..."（散点层，val 对数映射半径，name 进 tooltip）
+// 源数据 src/vendor/china-geo.js（34 省简化轮廓，DataV GeoAtlas 加工，按需 require 不进主路径）。
+function _loadChinaGeo() {
+  if (typeof require === 'function') {
+    try { return require('../vendor/china-geo').CHINA_GEO; } catch (e) { /* fallthrough */ }
+  }
+  if (typeof window !== 'undefined' && window.TokUI && window.TokUI._internal) {
+    return window.TokUI._internal.CHINA_GEO || null;
+  }
+  return null;
+}
+var MAP_STOPS = ['#1c7ed6', '#22d3ee', '#40c057', '#ffd43b', '#fa5252'];
+function renderMap(data, labels, colors, attrs) {
+  var w = parseInt(attrs.w) || 560;
+  var geo = _loadChinaGeo();
+  if (!geo) return emptyChartSvg(w, 420, '地图数据未加载(china-geo)');
+  var gw = geo.w, gh = geo.h;
+  var svg = svgEl('svg', { viewBox: '0 0 ' + gw + ' ' + gh, class: 'tokui-chart__svg tokui-chart__svg--map', preserveAspectRatio: 'xMidYMid meet' });
+  var tips = createTipMgr(gw, gh);
+
+  // 省名归一化：vendor 用全名（浙江省/内蒙古自治区），DSL 支持简称（浙江/内蒙古）
+  var ADMIN_SUFFIX = /^(省|市|自治区|特别行政区|维吾尔自治区|壮族自治区|回族自治区)$/;
+  function shortName(full) {
+    return full.replace(/(省|市|特别行政区|维吾尔自治区|壮族自治区|回族自治区|自治区)$/, '');
+  }
+  var nameIndex = {};
+  geo.provinces.forEach(function (pv) {
+    nameIndex[pv.n] = pv.n;
+    nameIndex[shortName(pv.n)] = pv.n;
+  });
+  // choropleth 数据
+  var regions = {};
+  if (attrs.region) {
+    String(attrs.region).split('|').forEach(function (pair) {
+      var i = pair.indexOf(':');
+      if (i <= 0) return;
+      var k = pair.slice(0, i).trim();
+      var v = parseFloat(pair.slice(i + 1));
+      var full = nameIndex[k] || nameIndex[k.replace(/(省|市)$/, '')];
+      if (full && !isNaN(v)) regions[full] = v;
+    });
+  }
+  var rKeys = Object.keys(regions);
+  var vMin = attrs.vmin !== undefined ? parseFloat(attrs.vmin) : (rKeys.length ? Math.min.apply(null, rKeys.map(function (k) { return regions[k]; })) : 0);
+  var vMax = attrs.vmax !== undefined ? parseFloat(attrs.vmax) : (rKeys.length ? Math.max.apply(null, rKeys.map(function (k) { return regions[k]; })) : 1);
+  if (!isFinite(vMin)) vMin = 0;
+  if (!isFinite(vMax) || vMax === vMin) vMax = vMin + 1;
+  // tooltip 增强（T5）：unit 单位（长度 ≤8，textContent 落字无注入面）+ 区域占比
+  var unit = String(attrs.unit || '').slice(0, 8);
+  var rSum = 0;
+  rKeys.forEach(function (k) { rSum += regions[k]; });
+
+  var labeled = [];
+  geo.provinces.forEach(function (pv) {
+    var has = regions[pv.n] !== undefined;
+    var path = svgEl('path', {
+      d: pv.d,
+      class: 'tokui-chart-map-region' + (has ? ' tokui-chart-map-region--val' : ' tokui-chart-map-region--empty'),
+      'stroke-width': '0.8'
+    });
+    path.setAttribute('data-name', pv.n);
+    if (has) path.setAttribute('fill', lerpColor(MAP_STOPS, (regions[pv.n] - vMin) / (vMax - vMin)));
+    var _tip = pv.n;
+    if (has) {
+      var _pct = rSum > 0 ? (regions[pv.n] / rSum * 100).toFixed(1).replace(/\.0$/, '') : '';
+      _tip = pv.n + '  ' + regions[pv.n] + unit + (_pct ? ' · 占比 ' + _pct + '%' : '');
+    }
+    tips.add(path, _tip, pv.x, pv.y);
+    svg.appendChild(path);
+    if (has) labeled.push({ n: pv.n, x: pv.x, y: pv.y, v: regions[pv.n] });
+  });
+
+  // 九段线（主图描 18°N 以北段，其余出画布自然裁剪）+ 南海诸岛右下 inset 小图
+  // （迷你海南同变换压缩 + 全量十段线 + 西沙/中沙黄岩/南沙/曾母暗沙群岛点，ECharts 惯例）
+  if (geo.nanhai) {
+    var nh = geo.nanhai;
+    var dashMain = svgEl('path', { d: nh.d, class: 'tokui-chart-map-dash' });
+    tips.add(dashMain, '南海诸岛', nh.tipX, nh.tipY);
+    svg.appendChild(dashMain);
+    var inset = svgEl('g', { class: 'tokui-chart-map-inset' });
+    var nb = nh.box;
+    var cover = svgEl('rect', { x: nb[0], y: nb[1], width: nb[2], height: nb[3], rx: 3, class: 'tokui-chart-map-inset-box' });
+    inset.appendChild(cover);
+    var hainan = null;
+    geo.provinces.forEach(function (pv) { if (pv.n === '海南省') hainan = pv; });
+    if (hainan) {
+      // stroke-width 用 native 单位（随 scale 0.41 缩成 ~0.82 视觉）
+      inset.appendChild(svgEl('path', { d: hainan.d, class: 'tokui-chart-map-region tokui-chart-map-region--empty', transform: nh.transform, 'stroke-width': '2' }));
+    }
+    inset.appendChild(svgEl('path', { d: nh.d, class: 'tokui-chart-map-dash', transform: nh.transform, 'stroke-width': '2.5' }));
+    (nh.islands || []).forEach(function (pt) {
+      inset.appendChild(svgEl('circle', { cx: pt[0], cy: pt[1], r: 6, transform: nh.transform, class: 'tokui-chart-map-island' }));
+    });
+    var nlabel = svgEl('text', { x: nb[0] + nb[2] / 2, y: nb[1] + nb[3] - 7, 'text-anchor': 'middle', class: 'tokui-chart-map-label', 'font-size': '9' });
+    nlabel.textContent = '南海诸岛';
+    inset.appendChild(nlabel);
+    // tooltip 挂 inset 组：组内任意元素（海南/群岛/线段/盖板）hover 均触发
+    tips.add(inset, '南海诸岛', nb[0] + nb[2] / 2, nb[1] + 4);
+    svg.appendChild(inset);
+  }
+
+  // 省份标注 label:full(默认，含数据省 名+值 两行、无数据省灰名) | name(仅含数据省显名) | off(全关)
+  // 防重叠：估算文字盒碰撞检测，有数据省优先落位，无数据省碰撞让位跳过（京津沪密集区自动避让）
+  var fs = Math.max(10, Math.min(16, gw / 62));
+  var _lmode = String(attrs.label || 'full');
+  if (_lmode !== 'full' && _lmode !== 'name' && _lmode !== 'off') _lmode = 'full';
+  if (_lmode !== 'off') {
+    var placed = [];
+    function overlapBox(x, y, w, h) {
+      for (var pi = 0; pi < placed.length; pi++) {
+        var pb = placed[pi];
+        if (Math.abs(x - pb.x) < (w + pb.w) / 2 && Math.abs(y - pb.y) < (h + pb.h) / 2) return true;
+      }
+      return false;
+    }
+    function putText(txt, x, y, size, cls) {
+      var t = svgEl('text', { x: x.toFixed(1), y: y.toFixed(1), 'text-anchor': 'middle', class: 'tokui-chart-map-label' + (cls ? ' ' + cls : ''), 'font-size': String(Math.round(size)) });
+      t.textContent = txt;
+      svg.appendChild(t);
+    }
+    if (_lmode === 'full') {
+      labeled.forEach(function (it) {
+        var sn = shortName(it.n);
+        if (sn.length > 3) return;
+        var vs = String(it.v);
+        var bw = Math.max(sn.length * fs, vs.length * fs * 0.6), bh = fs * 2.3;
+        if (overlapBox(it.x, it.y, bw, bh)) return;
+        putText(sn, it.x, it.y, fs);
+        putText(vs, it.x, it.y + fs * 1.2, fs * 0.92, 'tokui-chart-map-label--val');
+        placed.push({ x: it.x, y: it.y, w: bw, h: bh });
+      });
+      geo.provinces.forEach(function (pv) {
+        if (regions[pv.n] !== undefined) return;
+        var sn = shortName(pv.n);
+        if (sn.length > 3) return;
+        if (overlapBox(pv.x, pv.y, sn.length * fs * 0.85, fs)) return;
+        putText(sn, pv.x, pv.y, fs * 0.85, 'tokui-chart-map-label--dim');
+        placed.push({ x: pv.x, y: pv.y, w: sn.length * fs * 0.85, h: fs });
+      });
+    } else { // name：仅含数据省显名（T1.4 原行为 + 碰撞检测）
+      labeled.forEach(function (it) {
+        var sn = shortName(it.n);
+        if (sn.length > 3) return;
+        if (overlapBox(it.x, it.y, sn.length * fs, fs)) return;
+        putText(sn, it.x, it.y, fs);
+        placed.push({ x: it.x, y: it.y, w: sn.length * fs, h: fs });
+      });
+    }
+  }
+
+  // 散点层：d:"lng,lat,val,name:杭州"（经纬度 → 投影）；scMax 记录最大值（半径图例用）
+  var scMax = 0;
+  var lngMin = 73.4, lngMax = 135.1, latMin = 17.8, latMax = 53.6;
+  var COS35 = Math.cos(35 * Math.PI / 180);
+  var K = gw / ((lngMax - lngMin) * COS35);
+  if (attrs.d) {
+    String(attrs.d).split('|').forEach(function (item) {
+      var parts = item.split(',');
+      if (parts.length < 2) return;
+      var lng = parseFloat(parts[0]), lat = parseFloat(parts[1]);
+      if (isNaN(lng) || isNaN(lat)) return;
+      var val = parseFloat(parts[2]);
+      val = isNaN(val) ? 1 : val;
+      if (val > scMax) scMax = val;
+      var name = '';
+      var ni = parts[3] ? parts[3].indexOf('name:') : -1;
+      if (ni === 0) name = parts[3].slice(5);
+      var cx = Math.max(6, Math.min(gw - 6, (lng - lngMin) * COS35 * K)); // 越界点钳制画布内
+      var cy = Math.max(6, Math.min(gh - 6, (latMax - lat) * K));
+      var r = Math.max(3, Math.min(16, 3 + Math.log(val + 1) * 2.2));
+      var dot = svgEl('circle', { cx: cx.toFixed(1), cy: cy.toFixed(1), r: r.toFixed(1), class: 'tokui-chart-map-point', fill: colors[0] || '#22d3ee' });
+      tips.add(dot, (name || '点') + (parts[2] !== undefined && !isNaN(val) ? '  ' + parts[2] + unit : ''), cx, cy - r);
+      svg.appendChild(dot);
+      if (name) {
+        var t2 = svgEl('text', { x: cx.toFixed(1), y: (cy - r - 3).toFixed(1), 'text-anchor': 'middle', class: 'tokui-chart-map-label', 'font-size': String(fs) });
+        t2.textContent = name;
+        svg.appendChild(t2);
+      }
+    });
+  }
+
+  // visualMap 色阶条（T4）：左下角 MAP_STOPS 渐变条 + vmin/vmax 刻度 + unit；仅 region 数据存在时渲染
+  if (rKeys.length) {
+    var vuid = _gradUid();
+    var vdefs = svgEl('defs');
+    var vlg = svgEl('linearGradient', { id: 'tokui-map-vmap-' + vuid, x1: '0', y1: '0', x2: '1', y2: '0' });
+    MAP_STOPS.forEach(function (cs, ci) {
+      vlg.appendChild(svgEl('stop', { offset: String(Math.round(ci / (MAP_STOPS.length - 1) * 100)) + '%', 'stop-color': cs }));
+    });
+    vdefs.appendChild(vlg);
+    svg.appendChild(vdefs);
+    var vmap = svgEl('g', { class: 'tokui-chart-map-vmap' });
+    vmap.appendChild(svgEl('rect', { x: 20, y: 672, width: 120, height: 7, rx: 2, fill: 'url(#tokui-map-vmap-' + vuid + ')', stroke: 'var(--tokui-chart-grid, #cbd5e1)', 'stroke-width': '0.5' }));
+    var vt1 = svgEl('text', { x: 20, y: 693, 'text-anchor': 'start', class: 'tokui-chart-map-tick', 'font-size': '8.5' });
+    vt1.textContent = vMin + unit;
+    var vt2 = svgEl('text', { x: 140, y: 693, 'text-anchor': 'end', class: 'tokui-chart-map-tick', 'font-size': '8.5' });
+    vt2.textContent = vMax + unit;
+    vmap.appendChild(vt1); vmap.appendChild(vt2);
+    svg.appendChild(vmap);
+  } else if (scMax > 0) {
+    // 散点半径图例：对数映射 r = 3 + ln(val+1)×2.2，示意 最小(1)/最大 两圆 + 数值
+    var rl = svgEl('g', { class: 'tokui-chart-map-rlegend' });
+    var rlColor = colors[0] || '#22d3ee';
+    var rMaxDisp = Math.max(4, Math.min(8, (3 + Math.log(scMax + 1) * 2.2) / 2));
+    rl.appendChild(svgEl('circle', { cx: 28, cy: 680, r: 2, fill: rlColor, 'fill-opacity': 0.35, stroke: rlColor, 'stroke-width': 1 }));
+    rl.appendChild(svgEl('circle', { cx: 52, cy: 677, r: rMaxDisp.toFixed(1), fill: rlColor, 'fill-opacity': 0.35, stroke: rlColor, 'stroke-width': 1 }));
+    var rt1 = svgEl('text', { x: 28, y: 695, 'text-anchor': 'middle', class: 'tokui-chart-map-tick', 'font-size': '8.5' });
+    rt1.textContent = '1';
+    var rt2 = svgEl('text', { x: 52, y: 695, 'text-anchor': 'middle', class: 'tokui-chart-map-tick', 'font-size': '8.5' });
+    rt2.textContent = scMax + unit;
+    rl.appendChild(rt1); rl.appendChild(rt2);
+    svg.appendChild(rl);
+  }
+
+  // 省份点击上报（T3）：含数据省份 → mapClick {province, value}；委托绑 svg 一次
+  if (typeof attrs._report === 'function') {
+    svg.addEventListener('click', function (e) {
+      var t = e.target;
+      while (t && t !== svg) {
+        var mc = String((t.getAttribute && t.getAttribute('class')) || '');
+        if (mc.indexOf('tokui-chart-map-region--val') !== -1) {
+          var nm = t.getAttribute('data-name') || '';
+          attrs._report('mapClick', { province: nm, value: regions[nm] });
+          return;
+        }
+        t = t.parentNode;
+      }
+    });
+  }
+  // hover 委托：地图省份/散点是裸元素（data-tip-id 直挂），委托统一在 bindTooltips 内命中
+  bindTooltips(svg);
+  svg.appendChild(tips.layer);
+  return svg;
+}
+
 // === Funnel 漏斗图 ===
 // 销售/转化漏斗：自上而下逐层收窄的梯形堆叠，宽度 ∝ 数值，建议数据降序（首层=漏斗口最大）。
 // 数值居中显示在梯形内（过窄层自动改放右侧），名称经 leader 引线置于右侧。
@@ -1946,7 +2298,7 @@ function renderScatter(data, labels, colors, attrs) {
   if (!points.length) return emptyChartSvg(parseInt(attrs.w) || 400, parseInt(attrs.h) || 200);
   // 宽按点数动态（每点最小 slot 22），高度经 bandHeight 防过扁；显式 w/h 优先。
   var w = autoSize(attrs, 'w', points.length, 50, 22, 360, 2400);
-  var h = bandHeight(w, parseInt(attrs.h) || 200, 4, 560);
+  var h = chartH(attrs, w, 200);
   var totalH = h;
   var padL = 40, padB = 30, padT = 18, padR = 10;
   var cw = w - padL - padR;
@@ -2376,7 +2728,7 @@ function renderBubble(data, labels, colors, attrs) {
   var points = parseBubbleData(attrs.d);
   if (!points.length) return emptyChartSvg(parseInt(attrs.w) || 400, parseInt(attrs.h) || 200);
   // 宽按点数动态（每点最小 slot 22），高度经 bandHeight 防过扁；显式 w/h 优先。
-  var w = autoSize(attrs, 'w', points.length, 50, 22, 360, 2400), h = bandHeight(w, parseInt(attrs.h) || 200, 4, 560);
+  var w = autoSize(attrs, 'w', points.length, 50, 22, 360, 2400), h = chartH(attrs, w, 200);
   var padL = 40, padB = 30, padT = 18, padR = 10;
   var cw = w - padL - padR, ch = h - padT - padB;
   // 同 scatter 三级优先：显式轴（锁轴）> 流式缓存（只扩不缩）> 当前点 min/max。
@@ -2545,7 +2897,7 @@ function renderHistogram(data, labels, colors, attrs) {
 function renderWaterfall(data, labels, colors, attrs) {
   if (!data.length) return emptyChartSvg(parseInt(attrs.w) || 400, parseInt(attrs.h) || 200);
   // 宽按项数动态（每项最小 slot 26），高度经 bandHeight 防过扁；显式 w/h 优先。
-  var w = autoSize(attrs, 'w', data.length, 56, 26, 360, 2400), h = bandHeight(w, parseInt(attrs.h) || 200, 4, 560);
+  var w = autoSize(attrs, 'w', data.length, 56, 26, 360, 2400), h = chartH(attrs, w, 200);
   var running = 0, bars = [];
   data.forEach(function (v) {
     var base = running, top = running + v;
@@ -2901,6 +3253,7 @@ function registerChartComponents(renderer) {
   registerChartRenderer('gauge', renderGauge);
   registerChartRenderer('area', renderArea);
   registerChartRenderer('progress', renderProgress);
+  registerChartRenderer('map', renderMap);
   registerChartRenderer('bubble', renderBubble);
   registerChartRenderer('heatmap', renderHeatmap);
   registerChartRenderer('rose', renderRose);
@@ -3001,7 +3354,7 @@ function registerChartComponents(renderer) {
     if (!nlp || nlp.x !== lp.x || nlp.y !== lp.y || (type === 'bubble' && nlp.s !== lp.s)) return false;
     // 画布尺寸随点数变（autoSize/bandHeight）→ 变则回退全量
     var w = autoSize(attrs, 'w', points.length, 50, 22, 360, 2400);
-    var h = bandHeight(w, parseInt(attrs.h) || 200, 4, 560);
+    var h = chartH(attrs, w, 200);
     if (w !== inc.w || h !== inc.totalH) return false;
     // 新点必须全部落在已缓存轴域内（bubble 含 s 维）→ 轴刻度/网格/已画点坐标全不变
     for (var i = inc.count; i < points.length; i++) {
@@ -3020,7 +3373,7 @@ function registerChartComponents(renderer) {
       padL: 40, padT: 18, cw: w - 50, ch: h - 48,
       xMin: inc.xMin, xRange: inc.xMax - inc.xMin || 1,
       yMin: inc.yMin, yRange: inc.yMax - inc.yMin || 1,
-      sMax: inc.sMax || 1, colors: getColors(attrs),
+      sMax: inc.sMax || 1, colors: getColors(attrs, inc.svg),
       xLabel: attrs.xl || 'X', yLabel: attrs.yl || 'Y', attrs: attrs
     };
     var addTip = function (group, text, x, y) {
@@ -3058,8 +3411,10 @@ function registerChartComponents(renderer) {
     olds.forEach(function (s) { wrapper.removeChild(s); });
     var data = parseData(attrs.d);
     var labels = parseLabels(attrs.l);
-    var colors = getColors(attrs);
+    var colors = getColors(attrs, wrapper);
     var fn = chartRenderers[type];
+    if (fn && type === 'map' && wrapper._tokuiChartReport) attrs._report = wrapper._tokuiChartReport;
+    var _gidSeed = _gradUid();
     if (fn) {
       // candlestick：缓存 y 轴范围于 wrapper，流式期单调扩张 + nice 刻度量化。
       // 避免每根新数据重算 lo/hi → 已画柱 y 坐标全跳（闪烁根因）。只扩不缩 → 极值回收后已画柱稳定。
@@ -3164,6 +3519,8 @@ function registerChartComponents(renderer) {
         }
       }
       var svg = fn(data, labels, colors, attrs);
+      _applyChartEnter(svg, wrapper, attrs);          // T1.5 入场动画（首渲染一次，reduced-motion 关）
+      _applyGradientFill(svg, colors, attrs, _gidSeed); // T1.5 grad 渐变填充（系列色 → 同色透明）
       // 打类型标记：CSS 据此设各类型最佳实践响应式尺寸 + 最大高度（防宽容器里高度爆炸）
       if (svg && svg.setAttribute && (svg.tagName || '').toLowerCase() === 'svg') {
         svg.setAttribute('data-chart-type', type);
@@ -3429,7 +3786,7 @@ function registerChartComponents(renderer) {
     clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
     clone.setAttribute('width', w);
     clone.setAttribute('height', h);
-    clone.setAttribute('style', 'background:#fff');
+    clone.setAttribute('style', 'background:' + _exportBgColor());
     var xml;
     try { xml = new XMLSerializer().serializeToString(clone); } catch (e) { cb(null); return; }
     var url = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(xml);
@@ -3439,7 +3796,7 @@ function registerChartComponents(renderer) {
       canvas.width = Math.round(w * scale);
       canvas.height = Math.round(h * scale);
       var ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#fff';
+      ctx.fillStyle = _exportBgColor();
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       if (canvas.toBlob) canvas.toBlob(function (blob) { cb(blob); }, 'image/png');
@@ -3485,6 +3842,13 @@ function registerChartComponents(renderer) {
     overlay.setAttribute('role', 'dialog');
     overlay.setAttribute('aria-modal', 'true');
     if (title) overlay.setAttribute('aria-label', title);
+    // 弹层挂 body，脱离原图 [data-tokui-theme] 子树——图表文字/网格/系列色板等
+    // 令牌会在 body 上下文解析回 default（tech/dark 下弹层主题丢失）。
+    // 把原图最近主题上下文复制到 overlay，令牌级联与原图一致。
+    try {
+      var themeCtx = (typeof srcSvg.closest === 'function') ? srcSvg.closest('[data-tokui-theme]') : null;
+      if (themeCtx) overlay.setAttribute('data-tokui-theme', themeCtx.getAttribute('data-tokui-theme'));
+    } catch (e) { /* closest 不可用时静默跳过 */ }
 
     var card = document.createElement('div');
     card.className = 'tokui-chart__modal-card';
@@ -3622,6 +3986,8 @@ function registerChartComponents(renderer) {
     var type = attrs.t || 'bar';
     var wrapper = document.createElement('div');
     wrapper.className = 'tokui-chart';
+    // 交互上报出口（T3：map 省份点击 mapClick 消费；on:"mapClick:handler" / options.onEvent 双通道）
+    wrapper._tokuiChartReport = renderer.createReporter('chart', node.attrs, wrapper);
     if (attrs.tt) {
       var title = document.createElement('div');
       title.className = 'tokui-chart__title';
@@ -3634,7 +4000,7 @@ function registerChartComponents(renderer) {
     // 判定须与 builder.chart 的 hasInline 一致：rows / nodes+flows / gauge·progress 的 v 也算内联，
     // 否则 heatmap/sankey/gauge 自闭合被误判容器、丢失流式预览钩子 _tokuiChartUpdate（不流式）。
     var _ct = attrs.t;
-    var _hasInline = attrs.d || attrs.tasks || attrs.rows ||
+    var _hasInline = attrs.d || attrs.tasks || attrs.rows || attrs.region ||
       (attrs.nodes && attrs.flows) ||
       (attrs.v !== undefined && (_ct === 'gauge' || _ct === 'progress'));
     if (!_hasInline) {
@@ -3675,6 +4041,7 @@ if (typeof window !== 'undefined') {
   window.TokUI._internal = window.TokUI._internal || {};
   window.TokUI._internal.registerChartComponents = registerChartComponents;
   window.TokUI._internal.registerChartRenderer = registerChartRenderer;
+  window.TokUI._internal.invalidateChartColors = invalidateChartColors;
   window.TokUI._internal.bumpFsUnits = bumpFsUnits;
   window.TokUI._internal.applyTipScale = applyTipScale;
   window.TokUI._internal.axisXLayout = axisXLayout;
@@ -3687,7 +4054,7 @@ if (typeof window !== 'undefined') {
 }
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
-    registerChartComponents, registerChartRenderer,
+    registerChartComponents, registerChartRenderer, invalidateChartColors,
     bumpFsUnits, solvePieFs, pieSizing, MIN_CHART_PX, MAX_CHART_PX, applyTipScale, axisXLayout, zoomBounds, zoomEnabled, bumpZoomTextFs
   };
 }

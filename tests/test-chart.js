@@ -732,6 +732,18 @@ test('chart bar 显式 h 优先且不被压扁：w:400 h:300 → 高 = 300', () 
   assert.strictEqual(sz.h, 300, '比例内显式 h 生效');
 });
 
+test('chart area w+h 同显式跳过比例带：w:1540 h:200（宽高比 7.7 > 4）→ 高不被抬高', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'area', d: nums(30), l: Array.from({ length: 30 }, function (_, i) { return i + 1; }).join(','), w: 1540, h: 200 }, content: '', children: [] });
+  var sz = viewBoxSize(dom.querySelector('.tokui-chart__svg'));
+  assert.ok(sz.h < 300, '作者定向宽幅底条不应被 band 抬到 385，实际 ' + sz.h);
+  assert.ok(sz.h >= 200, '仍不小于显式 h 基准');
+  // 对照：仅 w 显式（h 缺省）仍走 band 兜底
+  var dom2 = renderer.render({ type: 'chart', attrs: { t: 'area', d: nums(30), l: Array.from({ length: 30 }, function (_, i) { return i + 1; }).join(','), w: 1540 }, content: '', children: [] });
+  var sz2 = viewBoxSize(dom2.querySelector('.tokui-chart__svg'));
+  assert.ok(sz2.h >= 385, 'h 缺省时宽超比例仍抬高，实际 ' + sz2.h);
+});
+
 test('chart line 动态宽度：60 点 viewBox 宽 > 默认 400', () => {
   const renderer = new TokUIRenderer(); registerChartComponents(renderer);
   var dom = renderer.render({ type: 'chart', attrs: { t: 'line', d: nums(60) }, content: '', children: [] });
@@ -1179,4 +1191,350 @@ test('bumpZoomTextFs：_tokuiBumpedFs 缺失（SSR/dom-mock）→ 不动字号',
   }
 });
 
+// ========== T1.4：中国地图（choropleth + 散点） ==========
+test('map：34 省轮廓渲染 + region 简称匹配（浙江→浙江省）', () => {
+  const r = new TokUIRenderer(); registerChartComponents(r);
+  const dom = r.render({ type: 'chart', attrs: { t: 'map', region: '浙江:86|江苏:74|内蒙古:30' }, children: [] });
+  let regions = 0, val = 0;
+  (function w(n) {
+    if (n.nodeType !== 1) return;
+    const c = String(n.className || '');
+    // 带 transform 的是南海 inset 内的迷你海南副本，不计主图省份数
+    if (c.indexOf('tokui-chart-map-region') !== -1 && !n.getAttribute('transform')) regions++;
+    if (c.indexOf('map-region--val') !== -1) val++;
+    for (const ch of (n.childNodes || [])) w(ch);
+  })(dom);
+  assert.strictEqual(regions, 34, '34 省级行政区轮廓，实际 ' + regions);
+  assert.strictEqual(val, 3, '简称匹配 3 省，实际 ' + val);
+});
+
+test('map：choropleth 色阶插值（min 蓝 → max 红）+ vmin/vmax 锁定', () => {
+  const r = new TokUIRenderer(); registerChartComponents(r);
+  const dom = r.render({ type: 'chart', attrs: { t: 'map', region: '浙江:0|江苏:100', vmin: '0', vmax: '100' }, children: [] });
+  const fills = [];
+  (function w(n) {
+    if (n.nodeType !== 1) return;
+    if (String(n.className || '').indexOf('map-region--val') !== -1) fills.push(n.getAttribute('fill'));
+    for (const ch of (n.childNodes || [])) w(ch);
+  })(dom);
+  // fills 顺序 = provinces 数组序（江苏先于浙江），按值语义断言
+  assert.ok(fills.some(f => f.indexOf('28,126,214') !== -1), '值 0 应为首 stop 蓝: ' + fills.join('|'));
+  assert.ok(fills.some(f => f.indexOf('250,82,82') !== -1), '值 100 应为末 stop 红: ' + fills.join('|'));
+});
+
+test('map：散点投影（经纬度→viewBox 坐标，越界点不出画布）', () => {
+  const r = new TokUIRenderer(); registerChartComponents(r);
+  const dom = r.render({ type: 'chart', attrs: { t: 'map', d: '120.15,30.28,88,name:杭州|116.4,39.9,120,name:北京|139,35,5' }, children: [] });
+  let points = 0, xs = [];
+  (function w(n) {
+    if (n.nodeType !== 1) return;
+    if (String(n.className || '').indexOf('map-point') !== -1) { points++; xs.push(parseFloat(n.getAttribute('cx'))); }
+    for (const ch of (n.childNodes || [])) w(ch);
+  })(dom);
+  assert.strictEqual(points, 3);
+  xs.forEach(function (x) {
+    assert.ok(x >= 0 && x <= 1000, '散点 x 应在 viewBox 内: ' + x);
+  });
+});
+
+test('map：region 全名匹配亦通 + 空数据占位（无 region 无 d）', () => {
+  const r = new TokUIRenderer(); registerChartComponents(r);
+  const dom = r.render({ type: 'chart', attrs: { t: 'map', region: '广东省:92' }, children: [] });
+  let val = 0;
+  (function w(n) { if (n.nodeType === 1 && String(n.className||'').indexOf('map-region--val') !== -1) val++; for (const ch of (n.childNodes||[])) w(ch); })(dom);
+  assert.strictEqual(val, 1, '全名匹配');
+  const empty = r.render({ type: 'chart', attrs: { t: 'map' }, children: [] });
+  assert.ok(String(empty.className || '').indexOf('tokui-chart') !== -1, '空数据渲染占位不崩');
+});
+
+// ========== T0（地图精修计划）：hover tooltip 委托命中地图元素 ==========
+test('map hover tooltip：svg 绑定委托 + 省份/散点亮灭（裸 data-tip-id 元素命中）', () => {
+  const r = new TokUIRenderer(); registerChartComponents(r);
+  const dom = r.render({ type: 'chart', attrs: { t: 'map', region: '浙江:86', d: '120.15,30.28,88,name:杭州' }, children: [] });
+  let svg = null, path = null, dot = null;
+  (function w(n) {
+    if (n.nodeType !== 1) return;
+    const c = String(n.className || '');
+    if (c.indexOf('tokui-chart__svg--map') !== -1) svg = n;
+    if (c.indexOf('map-region--val') !== -1 && n.getAttribute('data-tip-id') !== null) path = n;
+    if (c.indexOf('tokui-chart-map-point') !== -1) dot = n;
+    for (const ch of (n.childNodes || [])) w(ch);
+  })(dom);
+  assert.ok(svg, 'map svg 存在');
+  assert.ok(svg._events && svg._events.mouseover && svg._events.mouseover.length, 'svg 已绑 mouseover 委托（renderMap 漏绑修复）');
+  assert.ok(path && path.getAttribute('data-tip-id') !== null, '省份 path 携带 data-tip-id');
+  assert.ok(dot && dot.getAttribute('data-tip-id') !== null, '散点 circle 携带 data-tip-id');
+  function fire(type, target) {
+    (svg._events[type] || []).forEach(function (fn) { fn({ target: target, relatedTarget: svg }); });
+  }
+  function tipOpacity(el, id) {
+    let layer = null;
+    (function w(n) { if (n.nodeType === 1 && String(n.className || '').indexOf('tips-layer') !== -1) layer = n; for (const ch of (n.childNodes || [])) w(ch); })(el);
+    if (!layer) return null;
+    for (const c of layer.childNodes) {
+      if (c.getAttribute && c.getAttribute('data-tip-id') === id) return c.style ? c.style.opacity : undefined;
+    }
+    return null;
+  }
+  const pid = path.getAttribute('data-tip-id');
+  fire('mouseover', path);
+  assert.strictEqual(tipOpacity(svg, pid), '1', 'hover 省份 → tooltip 亮起（findGroup 兼容 data-tip-id）');
+  fire('mouseout', path);
+  assert.strictEqual(tipOpacity(svg, pid), '', '移开省份 → 复位');
+  const did = dot.getAttribute('data-tip-id');
+  fire('mouseover', dot);
+  assert.strictEqual(tipOpacity(svg, did), '1', 'hover 散点 → tooltip 亮起');
+  fire('mouseout', dot);
+  assert.strictEqual(tipOpacity(svg, did), '', '移开散点 → 复位');
+});
+
+test('map hover tooltip：柱状图 tip-group 委托不回归（类命中路径保持）', () => {
+  const r = new TokUIRenderer(); registerChartComponents(r);
+  const dom = r.render({ type: 'chart', attrs: { t: 'bar', d: '1,2', l: 'a,b' }, children: [] });
+  let svg = null, grp = null;
+  (function w(n) {
+    if (n.nodeType !== 1) return;
+    const c = String(n.className || '');
+    if (c.indexOf('tokui-chart__svg') !== -1 && !svg) svg = n;
+    if (c.indexOf('tokui-chart-tip-group') !== -1 && n.getAttribute('data-tip-id') !== null && !grp) grp = n;
+    for (const ch of (n.childNodes || [])) w(ch);
+  })(dom);
+  assert.ok(svg && grp, 'bar svg 与 tip-group 就位');
+  (svg._events.mouseover || []).forEach(function (fn) { fn({ target: grp, relatedTarget: svg }); });
+  let opacity = null, layer = null;
+  (function w(n) { if (n.nodeType === 1 && String(n.className || '').indexOf('tips-layer') !== -1) layer = n; for (const ch of (n.childNodes || [])) w(ch); })(svg);
+  for (const c of layer.childNodes) if (c.getAttribute && c.getAttribute('data-tip-id') === grp.getAttribute('data-tip-id')) opacity = c.style.opacity;
+  assert.strictEqual(opacity, '1', 'bar hover 委托行为不回归');
+});
+
+// ========== T2（地图精修计划）：vendor 数据完整性 ==========
+test('map：34 省全具名（含港澳）+ 澳门双写法匹配上色', () => {
+  const r = new TokUIRenderer(); registerChartComponents(r);
+  const dom = r.render({ type: 'chart', attrs: { t: 'map', region: '澳门:75' }, children: [] });
+  let val = 0, named = 0;
+  (function w(n) {
+    if (n.nodeType !== 1) return;
+    const c = String(n.className || '');
+    if (c.indexOf('map-region--val') !== -1) val++;
+    for (const ch of (n.childNodes || [])) w(ch);
+  })(dom);
+  assert.strictEqual(val, 1, '简称「澳门」应匹配 1 省');
+  const dom2 = r.render({ type: 'chart', attrs: { t: 'map', region: '澳门特别行政区:60' }, children: [] });
+  let val2 = 0;
+  (function w(n) { if (n.nodeType === 1 && String(n.className||'').indexOf('map-region--val') !== -1) val2++; for (const ch of (n.childNodes||[])) w(ch); })(dom2);
+  assert.strictEqual(val2, 1, '全名「澳门特别行政区」匹配');
+  const geo = require('../src/vendor/china-geo.js').CHINA_GEO;
+  named = geo.provinces.filter(p => p.n).length;
+  assert.strictEqual(named, 34, 'vendor 34 条目全具名，实际 ' + named);
+  assert.ok(geo.provinces.find(p => p.n === '香港特别行政区') && geo.provinces.find(p => p.n === '台湾省'), '港澳台齐全');
+});
+
+test('map：九段线主图段 + 南海诸岛 inset（迷你海南/群岛点/标签/tooltip 委托）', () => {
+  const r = new TokUIRenderer(); registerChartComponents(r);
+  const dom = r.render({ type: 'chart', attrs: { t: 'map', region: '浙江:86' }, children: [] });
+  let dashMain = 0, inset = null, insetDash = 0, islands = 0, miniHainan = 0, label = '', svg = null, cover = null;
+  (function w(n) {
+    if (n.nodeType !== 1) return;
+    const c = String(n.className || '');
+    if (c.indexOf('tokui-chart__svg--map') !== -1) svg = n;
+    if (c.indexOf('tokui-chart-map-dash') !== -1) { if (n.getAttribute('transform')) insetDash++; else dashMain++; }
+    if (c.indexOf('tokui-chart-map-inset') !== -1 && c.indexOf('inset-box') === -1) inset = n;
+    if (c === 'tokui-chart-map-inset-box' || c.indexOf('tokui-chart-map-inset-box') !== -1) cover = n;
+    if (c.indexOf('tokui-chart-map-island') !== -1) islands++;
+    if (inset && c.indexOf('tokui-chart-map-region--empty') !== -1 && n.getAttribute('transform')) miniHainan++;
+    for (const ch of (n.childNodes || [])) w(ch);
+  })(dom);
+  assert.ok(dashMain >= 1, '主图九段线 path 存在');
+  assert.ok(inset, 'inset 组存在');
+  assert.strictEqual(insetDash, 1, 'inset 内九段线（带 transform）');
+  assert.ok(miniHainan >= 1, 'inset 内迷你海南轮廓');
+  assert.strictEqual(islands, 4, '四大群岛点（西沙/中沙黄岩/南沙/曾母暗沙）');
+  (function w(n) {
+    if (n.nodeType !== 1) return;
+    if (String(n.className || '').indexOf('tokui-chart-map-label') !== -1 && n.textContent === '南海诸岛') label = n.textContent;
+    for (const ch of (n.childNodes || [])) w(ch);
+  })(dom);
+  assert.strictEqual(label, '南海诸岛', 'inset 标签');
+  // 南海诸岛 tooltip 委托命中（data-tip-id 挂 inset 组，组内任意元素 hover 均触发）
+  assert.ok(inset.getAttribute('data-tip-id') !== null, 'inset 组携带 data-tip-id');
+  var coverHit = cover || inset;
+  var nid = inset.getAttribute('data-tip-id'); // 注册在 inset 组上
+  (svg._events.mouseover || []).forEach(function (fn) { fn({ target: coverHit, relatedTarget: svg }); });
+  let op = null, layer = null;
+  (function w(n) { if (n.nodeType === 1 && String(n.className || '').indexOf('tips-layer') !== -1) layer = n; for (const ch of (n.childNodes || [])) w(ch); })(svg);
+  for (const c of layer.childNodes) if (c.getAttribute && c.getAttribute('data-tip-id') === nid) op = c.style.opacity;
+  assert.strictEqual(op, '1', 'hover 南海诸岛 inset → tooltip 亮起');
+});
+
+// ========== T1（地图精修计划）：省份标注数值化 + label 三档 ==========
+function mapLabels(dom) {
+  var out = [];
+  (function w(n) {
+    if (n.nodeType !== 1) return;
+    if (String(n.className || '').indexOf('tokui-chart-map-label') !== -1) {
+      out.push({ text: n.textContent, cls: String(n.className || '') });
+    }
+    for (const ch of (n.childNodes || [])) w(ch);
+  })(dom);
+  return out;
+}
+test('map label:full（默认）：含数据省 名+值 两行、无数据省灰名、碰撞避让', () => {
+  const r = new TokUIRenderer(); registerChartComponents(r);
+  const dom = r.render({ type: 'chart', attrs: { t: 'map', region: '浙江:86|广东:92' }, children: [] });
+  const labels = mapLabels(dom);
+  const texts = labels.map(l => l.text);
+  assert.ok(texts.indexOf('浙江') !== -1, '省名标注');
+  assert.ok(texts.indexOf('86') !== -1, '数值标注');
+  assert.ok(texts.indexOf('92') !== -1, '第二省数值');
+  const dim = labels.filter(l => l.cls.indexOf('--dim') !== -1);
+  assert.ok(dim.length >= 20, '无数据省灰名大量存在（防密集碰撞跳过部分），实际 ' + dim.length);
+  const val = labels.filter(l => l.cls.indexOf('--val') !== -1);
+  assert.strictEqual(val.length, 2, '含数据省值标注恰好 2 个');
+});
+test('map label:name / off / 非法回退 full', () => {
+  const r = new TokUIRenderer(); registerChartComponents(r);
+  const nameDom = r.render({ type: 'chart', attrs: { t: 'map', region: '浙江:86', label: 'name' }, children: [] });
+  const nl = mapLabels(nameDom);
+  assert.ok(nl.map(l => l.text).indexOf('浙江') !== -1, 'name 档显省名');
+  assert.ok(nl.filter(l => l.text === '86').length === 0, 'name 档不显数值');
+  assert.ok(nl.filter(l => l.cls.indexOf('--dim') !== -1).length === 0, 'name 档无灰名');
+  const offDom = r.render({ type: 'chart', attrs: { t: 'map', region: '浙江:86', label: 'off' }, children: [] });
+  const ol = mapLabels(offDom).filter(l => l.text !== '南海诸岛');
+  assert.strictEqual(ol.length, 0, 'off 档省份标注全关（仅剩 inset 南海诸岛标签）');
+  const badDom = r.render({ type: 'chart', attrs: { t: 'map', region: '浙江:86', label: 'xxx' }, children: [] });
+  const bl = mapLabels(badDom);
+  assert.ok(bl.map(l => l.text).indexOf('86') !== -1, '非法值静默回退 full');
+});
+
+// ========== T5（地图精修计划）：tooltip 多行 + unit ==========
+function mapTips(dom) {
+  var out = [];
+  (function w(n) {
+    if (n.nodeType !== 1) return;
+    if (String(n.className || '').indexOf('tokui-chart-tip') !== -1 && String(n.className || '').indexOf('tips-layer') === -1) {
+      var lines = [];
+      for (var i = 0; i < n.childNodes.length; i++) {
+        var c = n.childNodes[i];
+        if (String(c.tagName || '').toLowerCase() === 'text') lines.push(c.textContent);
+      }
+      out.push(lines);
+    }
+    for (const ch of (n.childNodes || [])) w(ch);
+  })(dom);
+  return out;
+}
+test('map tooltip：省名/值+单位+占比 双行 + 无数据省单行 + 散点单位', () => {
+  const r = new TokUIRenderer(); registerChartComponents(r);
+  const dom = r.render({ type: 'chart', attrs: { t: 'map', region: '浙江:60|广东:40', unit: '%', d: '120.15,30.28,88,name:杭州' }, children: [] });
+  const tips = mapTips(dom);
+  const zj = tips.find(t => t[0] === '浙江省');
+  assert.ok(zj, '浙江省 tooltip 存在');
+  assert.strictEqual(zj[1], '60% · 占比 60%', '值+单位+占比双行，实际: ' + zj[1]);
+  const gd = tips.find(t => t[0] === '广东省');
+  assert.strictEqual(gd[1], '40% · 占比 40%');
+  const qh = tips.find(t => t[0] === '青海省');
+  assert.ok(qh && qh.length === 1, '无数据省单行仅省名');
+  const hz = tips.find(t => t[0] === '杭州');
+  assert.ok(hz && hz[1] === '88%', '散点带单位: ' + (hz && hz[1]));
+  // 无 unit 时不拼接
+  const dom2 = r.render({ type: 'chart', attrs: { t: 'map', region: '浙江:60', d: '120.15,30.28,88,name:杭州' }, children: [] });
+  const tips2 = mapTips(dom2);
+  assert.strictEqual(tips2.find(t => t[0] === '浙江省')[1], '60 · 占比 100%');
+  assert.strictEqual(tips2.find(t => t[0] === '杭州')[1], '88');
+});
+
+// ========== T3（地图精修计划）：省份点击上报 ==========
+test('map 点击上报：含数据省份 mapClick 载荷、无数据省份静默', () => {
+  const r = new TokUIRenderer(); registerChartComponents(r);
+  const captured = [];
+  r._onComponentEvent = function (evt) { captured.push(evt); };
+  const dom = r.render({ type: 'chart', attrs: { t: 'map', region: '浙江:86|广东:92' }, children: [] });
+  let svg = null, zj = null, qh = null;
+  (function w(n) {
+    if (n.nodeType !== 1) return;
+    const c = String(n.className || '');
+    if (c.indexOf('tokui-chart__svg--map') !== -1) svg = n;
+    if (c.indexOf('map-region--val') !== -1 && n.getAttribute('data-name') === '浙江省') zj = n;
+    if (c.indexOf('map-region--empty') !== -1 && n.getAttribute('data-name') === '青海省' && !n.getAttribute('transform')) qh = n;
+    for (const ch of (n.childNodes || [])) w(ch);
+  })(dom);
+  assert.ok(svg && zj && qh, 'svg/浙江省/青海省 就位');
+  (svg._events.click || []).forEach(function (fn) { fn({ target: zj }); });
+  assert.strictEqual(captured.length, 1, '点击上报一次');
+  assert.strictEqual(captured[0].type, 'chart');
+  assert.strictEqual(captured[0].event, 'mapClick');
+  assert.deepStrictEqual(captured[0].detail, { province: '浙江省', value: 86 });
+  (svg._events.click || []).forEach(function (fn) { fn({ target: qh }); });
+  assert.strictEqual(captured.length, 1, '无数据省份点击不上报');
+});
+
+// ========== T4（地图精修计划）：visualMap 色阶条 + 散点半径图例 ==========
+test('map visualMap：色阶条 + vmin/vmax 刻度 + unit；vmin/vmax 锁定跟随', () => {
+  const r = new TokUIRenderer(); registerChartComponents(r);
+  const dom = r.render({ type: 'chart', attrs: { t: 'map', region: '浙江:40|广东:92', unit: '%' }, children: [] });
+  let vmap = null, ticks = [], gradStops = 0;
+  (function w(n) {
+    if (n.nodeType !== 1) return;
+    const c = String(n.className || '');
+    if (c.indexOf('tokui-chart-map-vmap') !== -1) vmap = n;
+    if (c.indexOf('tokui-chart-map-tick') !== -1) ticks.push(n.textContent);
+    if (String(n.tagName || '').toLowerCase() === 'stop') gradStops++;
+    for (const ch of (n.childNodes || [])) w(ch);
+  })(dom);
+  assert.ok(vmap, '色阶条组存在');
+  assert.strictEqual(gradStops, 5, 'MAP_STOPS 五档渐变');
+  assert.ok(ticks.indexOf('40%') !== -1 && ticks.indexOf('92%') !== -1, '数据 min/max 刻度带单位: ' + ticks.join(','));
+  const dom2 = r.render({ type: 'chart', attrs: { t: 'map', region: '浙江:40|广东:92', vmin: '0', vmax: '100' }, children: [] });
+  let ticks2 = [];
+  (function w(n) { if (n.nodeType === 1 && String(n.className || '').indexOf('tokui-chart-map-tick') !== -1) ticks2.push(n.textContent); for (const ch of (n.childNodes || [])) w(ch); })(dom2);
+  assert.ok(ticks2.indexOf('0') !== -1 && ticks2.indexOf('100') !== -1, '锁定刻度跟随: ' + ticks2.join(','));
+});
+test('map 半径图例：仅散点（无 region）时两圆示意 + 最大值；纯 region 不出半径图例', () => {
+  const r = new TokUIRenderer(); registerChartComponents(r);
+  const dom = r.render({ type: 'chart', attrs: { t: 'map', d: '120.15,30.28,88,name:杭州|116.4,39.9,5' }, children: [] });
+  let rlegend = null, circles = 0, ticks = [];
+  (function w(n) {
+    if (n.nodeType !== 1) return;
+    const c = String(n.className || '');
+    if (c.indexOf('tokui-chart-map-rlegend') !== -1) rlegend = n;
+    if (String(n.tagName || '').toLowerCase() === 'circle' && rlegend) circles++;
+    if (c.indexOf('tokui-chart-map-tick') !== -1) ticks.push(n.textContent);
+    for (const ch of (n.childNodes || [])) w(ch);
+  })(dom);
+  assert.ok(rlegend, '半径图例存在');
+  assert.strictEqual(circles, 2, '最小/最大两示意圆');
+  assert.ok(ticks.indexOf('1') !== -1 && ticks.indexOf('88') !== -1, '刻度 1 与最大值 88: ' + ticks.join(','));
+  const dom2 = r.render({ type: 'chart', attrs: { t: 'map', region: '浙江:40' }, children: [] });
+  let rlegend2 = null;
+  (function w(n) { if (n.nodeType === 1 && String(n.className || '').indexOf('tokui-chart-map-rlegend') !== -1) rlegend2 = n; for (const ch of (n.childNodes || [])) w(ch); })(dom2);
+  assert.ok(!rlegend2, '纯 region 模式无半径图例');
+});
+
+// ========== T1.5：入场动画 + 渐变填充 ==========
+test('入场动画：首渲染 wrapper 挂 tokui-chart--enter，同 wrapper 重渲不重播；enter:false 关闭', () => {
+  const r = new TokUIRenderer(); registerChartComponents(r);
+  const d1 = r.render({ type: 'chart', attrs: { t: 'bar', d: '1,2', l: 'a,b' }, children: [] });
+  assert.ok(d1.classList.contains('tokui-chart--enter'), '首渲染挂 enter 类');
+  // 一次性 render 每次是新 wrapper（独立图表各自入场）；「不重播」约束流式 rebuild 的同一 wrapper
+  assert.ok(d1._enterPlayed === true, '_enterPlayed 标记机制就位（流式重渲跳过依据）');
+  const d3 = r.render({ type: 'chart', attrs: { t: 'bar', d: '1,2', l: 'a,b', enter: 'false' }, children: [] });
+  assert.ok(!d3.classList.contains('tokui-chart--enter'), 'enter:false 关闭');
+});
+
+test('grad 渐变：defs 注入 linearGradient（每系列色）+ 系列填充替换为 url() 引用', () => {
+  const r = new TokUIRenderer(); registerChartComponents(r);
+  const dom = r.render({ type: 'chart', attrs: { t: 'bar', d: '1,2,3', l: 'a,b,c', grad: true }, children: [] });
+  let grads = 0, urlFills = 0;
+  (function w(n) {
+    if (n.nodeType !== 1) return;
+    if (n._rawTag === 'linearGradient') grads++;
+    if (n.getAttribute && String(n.getAttribute('fill') || '').indexOf('url(#tokui-grad') === 0) urlFills++;
+    for (const c of (n.childNodes || [])) w(c);
+  })(dom);
+  assert.ok(grads >= 3, '每系列一个渐变定义: ' + grads);
+  assert.ok(urlFills >= 3, '系列填充替换 url(): ' + urlFills);
+});
+
 run();
+
+

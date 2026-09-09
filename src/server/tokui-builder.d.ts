@@ -94,6 +94,17 @@ export declare class TokUIBuilder {
   editable(attrs?: BuilderAttrs): this;
   floatButton(attrs?: BuilderAttrs): this;
   masonry(attrs?: BuilderAttrs): this;
+  scrollArea(attrs?: BuilderAttrs): this;
+  /** 科技边框容器（容器） */
+  panel(attrs?: BuilderAttrs): this;
+  /** 指标卡（容器） */
+  kpi(attrs?: BuilderAttrs): this;
+  /** 数字翻牌器（自闭合） */
+  flipNum(attrs?: BuilderAttrs): this;
+  /** 轮播榜单（容器） */
+  scrollboard(attrs?: BuilderAttrs): this;
+  /** 大屏缩放容器 */
+  fitScreen(attrs?: BuilderAttrs): this;
 
   // —— 高级网格布局（容器，需 end() 闭合）——
   grid(attrs?: BuilderAttrs): this;

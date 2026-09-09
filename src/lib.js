@@ -28,19 +28,22 @@ import TokUII18n from './core/i18n.js';                 // CJS 裸对象 → def
 import TokUIEventBus from './core/event-bus.js';        // CJS 裸对象 → default
 import TokUITheme from './core/theme.js';               // CJS 裸对象 → default
 import './core/color-generator.js';
+import './core/style-guard.js';                          // 叶子：写 _internal.StyleGuard（renderer._applyUserStyle 读）
 import './core/parser.js';
 import { TokUIRenderer, el } from './core/renderer.js'; // CJS 对象 → 命名
 import './components/lightbox.js';
 import './components/chart.js';
 import './components/icons.js';                         // 叶子：写 _internal.iconSvg/ICONS（form/table 渲染时读）
 import './components/barcode.js';                       // 叶子：写 _internal.registerBarcode/encode128B（Code128 条码组件）
-import './vendor/qrcode-generator.js';                  // vendored 第三方（Arase, MIT）：求值后挂 _internal._qrcode 供 qrcode 组件用
+import './vendor/qrcode-generator.js';                // vendored 第三方（Arase, MIT）：求值后挂 _internal._qrcode 供 qrcode 组件用
+import './vendor/china-geo.js';                       // vendored 中国地图省界（T1.4, DataV GeoAtlas 加工）：挂 _internal.CHINA_GEO 供 chart t:map 用                  // vendored 第三方（Arase, MIT）：求值后挂 _internal._qrcode 供 qrcode 组件用
 import './components/qrcode.js';                        // 叶子：写 _internal.registerQrcode（QR 二维码组件，读 vendor）
 // —— 中层（读叶子）——
 import './components/basic.js';                         // 读 renderer.el、lightbox
 import './components/table.js';                         // 读 renderer、parser
 import './components/form.js';                          // 读 renderer、basic
 import './components/layout.js';                        // 读 renderer、lightbox
+import './components/dashboard.js';                     // 大屏四件套 panel/kpi/flip-num/scrollboard（读 renderer/icons/i18n）
 // —— 聚合器（读 basic/table/form/layout/chart，写 _internal.registerAllComponents）——
 import './components/index.js';
 // —— 主类（读全部 _internal）——必须最后求值

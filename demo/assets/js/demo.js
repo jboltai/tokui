@@ -11,6 +11,8 @@ let darkMode = localStorage.getItem(THEME_KEY.dark) === '1';
 let styleFamily = localStorage.getItem(THEME_KEY.family) || 'default';
 
 function computeTokuiTheme() {
+  // tech 族本身即深色大屏主题，不参与明暗乘法（T1.1）
+  if (styleFamily === 'tech') return 'tech';
   return darkMode ? (styleFamily === 'modern' ? 'modern-dark' : 'dark') : styleFamily;
 }
 function applyTokuiTheme() {
@@ -19,6 +21,10 @@ function applyTokuiTheme() {
   document.querySelectorAll('[data-tokui-theme]').forEach(function (el) {
     el.setAttribute('data-tokui-theme', theme);
   });
+  // 图表系列色板缓存失效（T0.5：色板随主题联动，切主题后新渲染的图表用新色板）
+  if (window.TokUI && window.TokUI._internal && typeof window.TokUI._internal.invalidateChartColors === 'function') {
+    window.TokUI._internal.invalidateChartColors();
+  }
 }
 function persistTokuiTheme() {
   try {
@@ -27,15 +33,21 @@ function persistTokuiTheme() {
   } catch (e) { /* localStorage 不可用时静默 */ }
 }
 function syncTokuiThemeUI() {
-  document.body.classList.toggle('dark', darkMode);
+  // tech 族本身即深色大屏主题：页面外壳必须联动暗色，否则容器内浅色文字落在浅底上不可见
+  document.body.classList.toggle('dark', darkMode || styleFamily === 'tech');
   const sel = document.getElementById('styleFamily');
   if (sel) sel.value = styleFamily;
   const btn = document.getElementById('themeToggle');
   if (btn) {
+    // tech 为深色专属主题，无明暗可切：置灰按钮，避免点了没反应的死角
+    const techLocked = styleFamily === 'tech';
+    btn.disabled = techLocked;
+    btn.setAttribute('aria-disabled', techLocked ? 'true' : 'false');
+    btn.title = techLocked ? t('themeTechOnly') : t('themeToggle');
     const moon = btn.querySelector('.icon-moon');
     const sun = btn.querySelector('.icon-sun');
-    if (moon) moon.style.display = darkMode ? 'none' : '';
-    if (sun) sun.style.display = darkMode ? '' : 'none';
+    if (moon) moon.style.display = (darkMode || techLocked) ? 'none' : '';
+    if (sun) sun.style.display = (darkMode || techLocked) ? '' : 'none';
   }
 }
 
@@ -45,30 +57,27 @@ function syncTokuiThemeUI() {
 
 const NAV_DATA = [
   {
+    id: 'design',
+    name: { zh: '设计与全局', en: 'Design & Global' },
+    icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>',
+    items: [
+      { trigger: 'demo-design-tokens', name: { zh: 'Design Tokens 尺度', en: 'Design Tokens' }, desc: { zh: '间距/字号/圆角/阴影 scale', en: 'Space/font/radius/shadow scale' }, icon: '📐' },
+      { trigger: 'demo-icons', name: { zh: '图标体系', en: 'Icon System' }, desc: { zh: '61 个内置图标 + registerIcon', en: '61 icons + registerIcon' }, icon: '◆' },
+      { trigger: 'demo-cls-style', name: { zh: '样式定制 cls/style', en: 'cls & style' }, desc: { zh: '全组件根级安全定制通道', en: 'Root-level safe customization' }, icon: '🎨' },
+      { trigger: 'demo-cls-style-guard', name: { zh: '样式安全过滤', en: 'Style Guard' }, desc: { zh: '白名单放行与注入拦截', en: 'Whitelist vs injection' }, icon: '🛡' },
+      { trigger: 'demo-i18n', name: { zh: '多语言 i18n', en: 'i18n' }, desc: { zh: '组件 chrome 文案随语言切换', en: 'Chrome text follows locale toggle' }, icon: '🌐' },
+    ]
+  },
+  {
     id: 'basic',
     name: { zh: '基础组件', en: 'Basic' },
     icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
     items: [
-      { trigger: 'demo-i18n', name: { zh: '多语言 i18n', en: 'i18n' }, desc: { zh: '组件 chrome 文案随语言切换', en: 'Chrome text follows locale toggle' }, icon: '🌐' },
       { trigger: 'demo-heading', name: { zh: '标题组件', en: 'Heading' }, desc: { zh: 'h1-h6 各级标题', en: 'h1-h6 headings' }, icon: 'H' },
       { trigger: 'demo-button', name: { zh: '按钮组件', en: 'Button' }, desc: { zh: '多类型多色彩按钮', en: 'Button types & colors' }, icon: '▶' },
       { trigger: 'demo-btn-size-whitelist', name: { zh: '按钮尺寸白名单', en: 'Btn Size Whitelist' }, desc: { zh: 'w/radius 非法值静默丢弃', en: 'Invalid w/radius dropped' }, icon: '▶' },
       { trigger: 'demo-icon', name: { zh: '图标按钮', en: 'Icon' }, desc: { zh: 'SVG icon + emoji 全场景', en: 'SVG icon + emoji all scenarios' }, icon: '★' },
-      { trigger: 'demo-input', name: { zh: '输入框', en: 'Input' }, desc: { zh: '文本/数字/密码/邮箱', en: 'Text/number/password/email' }, icon: '✎' },
-      { trigger: 'demo-select', name: { zh: '选择 Select', en: 'Select' }, desc: { zh: '下拉单选/多选/简写/inline/取值', en: 'Single/multi/shorthand/inline' }, icon: '☑' },
-      { trigger: 'demo-radio', name: { zh: '单选 Radio', en: 'Radio' }, desc: { zh: '单选组/简写/inline/取值', en: 'Group/shorthand/inline' }, icon: '◉' },
-      { trigger: 'demo-checkbox', name: { zh: '多选 Checkbox', en: 'Checkbox' }, desc: { zh: '单布尔/简写/容器多选/取值', en: 'Boolean/shorthand/multi' }, icon: '☒' },
-      { trigger: 'show-picker', name: { zh: 'Picker选择器', en: 'Picker' }, desc: { zh: '自定义选择器/搜索/多选', en: 'Custom select/search/multi' }, icon: '⬇' },
-      { trigger: 'show-basic', name: { zh: '段落与链接', en: 'Text & Link' }, desc: { zh: '文本段落、超链接、分割线', en: 'Paragraphs, links, hr' }, icon: '↗' },
-      { trigger: 'demo-inline-format', name: { zh: '行内格式', en: 'Inline Format' }, desc: { zh: 'b/em/mark/del/sub/sup 混排', en: 'Inline b/em/mark/del/sub/sup' }, icon: 'B' },
-      { trigger: 'demo-img', name: { zh: '图片组件', en: 'Image' }, desc: { zh: '单图/头像/圆角/边框', en: 'Single image variants' }, icon: '▣' },
-      { trigger: 'demo-imgs', name: { zh: '多图九宫格', en: 'Image Grid' }, desc: { zh: '1-9图自适应网格', en: '1-9 image grid' }, icon: '⊞' },
-      { trigger: 'demo-preview-group', name: { zh: '图片预览组', en: 'Preview Group' }, desc: { zh: '整组灯箱/缩放/旋转/切换', en: 'Group lightbox/zoom/rotate/nav' }, icon: '🖼️' },
-      { trigger: 'demo-kbd', name: { zh: 'Kbd 键盘按键', en: 'Kbd' }, desc: { zh: '行内键帽/快捷键说明', en: 'Inline keycaps' }, icon: '⌨' },
-      { trigger: 'demo-code', name: { zh: '代码块', en: 'Code Block' }, desc: { zh: '多语言语法高亮', en: 'Multi-language highlighting' }, icon: '⌘' },
-      { trigger: 'demo-md', name: { zh: 'Markdown', en: 'Markdown' }, desc: { zh: '富文本Markdown渲染', en: 'Rich Markdown' }, icon: 'M' },
       { trigger: 'demo-align', name: { zh: '对齐方式', en: 'Alignment' }, desc: { zh: '文本/卡片/行对齐', en: 'Text/card/row align' }, icon: '≡' },
-      { trigger: 'demo-textarea', name: { zh: '多行文本框', en: 'Textarea' }, desc: { zh: 'textarea各种状态', en: 'Textarea states' }, icon: '☰' },
       { trigger: 'demo-divider', name: { zh: '分割线', en: 'Divider' }, desc: { zh: '线型/文字/竖向/颜色', en: 'Line/text/vertical/color' }, icon: '─' },
       { trigger: 'demo-tag', name: { zh: '标签', en: 'Tag' }, desc: { zh: '标记与分类', en: 'Labels and categories' }, icon: '●' },
       { trigger: 'demo-progress', name: { zh: '进度条/步骤条', en: 'Progress/Steps' }, desc: { zh: '线形/环形/内联/步骤', en: 'Line/circle/span/steps' }, icon: '◐' },
@@ -78,6 +87,18 @@ const NAV_DATA = [
       { trigger: 'demo-pagination', name: { zh: 'Pagination 分页', en: 'Pagination' }, desc: { zh: '页码/省略号/尺寸', en: 'Pages/ellipsis/size' }, icon: '📄' },
       { trigger: 'demo-dropdown', name: { zh: 'Dropdown 下拉菜单', en: 'Dropdown' }, desc: { zh: '触发按钮/菜单项/禁用', en: 'Trigger/items/disabled' }, icon: '📋' },
       { trigger: 'demo-countdown', name: { zh: '倒计时', en: 'Countdown' }, desc: { zh: '实时倒计时/天时分秒', en: 'Live countdown' }, icon: '⏱' },
+    ]
+  },
+  {
+    id: 'content',
+    name: { zh: '文本与内容', en: 'Text & Content' },
+    icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
+    items: [
+      { trigger: 'show-basic', name: { zh: '段落与链接', en: 'Text & Link' }, desc: { zh: '文本段落、超链接、分割线', en: 'Paragraphs, links, hr' }, icon: '↗' },
+      { trigger: 'demo-inline-format', name: { zh: '行内格式', en: 'Inline Format' }, desc: { zh: 'b/em/mark/del/sub/sup 混排', en: 'Inline b/em/mark/del/sub/sup' }, icon: 'B' },
+      { trigger: 'demo-kbd', name: { zh: 'Kbd 键盘按键', en: 'Kbd' }, desc: { zh: '行内键帽/快捷键说明', en: 'Inline keycaps' }, icon: '⌨' },
+      { trigger: 'demo-code', name: { zh: '代码块', en: 'Code Block' }, desc: { zh: '多语言语法高亮', en: 'Multi-language highlighting' }, icon: '⌘' },
+      { trigger: 'demo-md', name: { zh: 'Markdown', en: 'Markdown' }, desc: { zh: '富文本Markdown渲染', en: 'Rich Markdown' }, icon: 'M' },
       { trigger: 'demo-code-highlight', name: { zh: '语法高亮', en: 'Syntax Highlight' }, desc: { zh: '11语言零依赖着色', en: '11-language zero-dep coloring' }, icon: '🎨' },
     ]
   },
@@ -86,6 +107,12 @@ const NAV_DATA = [
     name: { zh: '表单控件', en: 'Form Controls' },
     icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
     items: [
+      { trigger: 'demo-input', name: { zh: '输入框', en: 'Input' }, desc: { zh: '文本/数字/密码/邮箱', en: 'Text/number/password/email' }, icon: '✎' },
+      { trigger: 'demo-select', name: { zh: '选择 Select', en: 'Select' }, desc: { zh: '下拉单选/多选/简写/inline/取值', en: 'Single/multi/shorthand/inline' }, icon: '☑' },
+      { trigger: 'demo-radio', name: { zh: '单选 Radio', en: 'Radio' }, desc: { zh: '单选组/简写/inline/取值', en: 'Group/shorthand/inline' }, icon: '◉' },
+      { trigger: 'demo-checkbox', name: { zh: '多选 Checkbox', en: 'Checkbox' }, desc: { zh: '单布尔/简写/容器多选/取值', en: 'Boolean/shorthand/multi' }, icon: '☒' },
+      { trigger: 'demo-textarea', name: { zh: '多行文本框', en: 'Textarea' }, desc: { zh: 'textarea各种状态', en: 'Textarea states' }, icon: '☰' },
+      { trigger: 'show-picker', name: { zh: 'Picker选择器', en: 'Picker' }, desc: { zh: '自定义选择器/搜索/多选', en: 'Custom select/search/multi' }, icon: '⬇' },
       { trigger: 'demo-switch', name: { zh: '开关组件', en: 'Switch' }, desc: { zh: '开关切换/尺寸/禁用', en: 'Toggle/sizes/disabled' }, icon: '⊘' },
       { trigger: 'demo-toggle', name: { zh: 'Toggle 切换按钮', en: 'Toggle' }, desc: { zh: '单选/多选按钮组', en: 'Single/multi toggle group' }, icon: '⇅' },
       { trigger: 'demo-slider', name: { zh: '滑块', en: 'Slider' }, desc: { zh: '数值选择/范围/步长', en: 'Value/range/step' }, icon: '≡' },
@@ -121,6 +148,9 @@ const NAV_DATA = [
     name: { zh: '媒体组件', en: 'Media' },
     icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>',
     items: [
+      { trigger: 'demo-img', name: { zh: '图片组件', en: 'Image' }, desc: { zh: '单图/头像/圆角/边框', en: 'Single image variants' }, icon: '▣' },
+      { trigger: 'demo-imgs', name: { zh: '多图九宫格', en: 'Image Grid' }, desc: { zh: '1-9图自适应网格', en: '1-9 image grid' }, icon: '⊞' },
+      { trigger: 'demo-preview-group', name: { zh: '图片预览组', en: 'Preview Group' }, desc: { zh: '整组灯箱/缩放/旋转/切换', en: 'Group lightbox/zoom/rotate/nav' }, icon: '🖼️' },
       { trigger: 'demo-video', name: { zh: 'Video 视频', en: 'Video' }, desc: { zh: '基础/封面/卡片/AI交付/多视频网格', en: 'Basic/poster/card/AI/grid' }, icon: '🎬' },
       { trigger: 'demo-audio', name: { zh: 'Audio 音频', en: 'Audio' }, desc: { zh: '标题/时长/TTS对话/播报系列', en: 'Title/duration/TTS/series' }, icon: '🔊' },
     ]
@@ -185,6 +215,7 @@ const NAV_DATA = [
     name: { zh: '布局系统', en: 'Layout System' },
     icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="9" x2="9" y2="21"/></svg>',
     items: [
+      { trigger: 'demo-responsive', name: { zh: '响应式断点', en: 'Responsive' }, desc: { zh: '容器查询 xs~xl 栅格/网格', en: 'Container-query grid' }, icon: '📱' },
       { trigger: 'demo-grid', name: { zh: '栅格布局', en: 'Grid' }, desc: { zh: '12列网格系统', en: '12-column grid' }, icon: '⊞' },
       { trigger: 'demo-grid-holygrail', name: { zh: '圣杯布局', en: 'Holy Grail' }, desc: { zh: 'grid areas 整页骨架', en: 'grid template areas page' }, icon: '▤' },
       { trigger: 'demo-grid-dashboard', name: { zh: '监控大屏', en: 'Dashboard' }, desc: { zh: 'grid 行列混跨图表墙', en: 'grid span chart wall' }, icon: '📊' },
@@ -213,7 +244,7 @@ const NAV_DATA = [
       { trigger: 'demo-timeline', name: { zh: '时间轴', en: 'Timeline' }, desc: { zh: '纵向/横向/交替/卡片', en: 'Vertical/horizontal/alternate/card' }, icon: '◈' },
       { trigger: 'demo-carousel', name: { zh: '轮播图', en: 'Carousel' }, desc: { zh: '图片轮播/自动播放/手动切换', en: 'Image carousel/auto-play' }, icon: '◀▶' },
       { trigger: 'demo-desc', name: { zh: '描述列表', en: 'Descriptions' }, desc: { zh: '键值对详情/边框/斑马纹', en: 'Key-value detail list' }, icon: '≡' },
-      { trigger: 'demo-scroll-area', name: { zh: '滚动区域', en: 'Scroll Area' }, desc: { zh: '自定义滚动条容器', en: 'Custom scrollbar container' }, icon: '⇕' },
+      { trigger: 'demo-scroll-area', name: { zh: '滚动区域', en: 'Scroll Area' }, desc: { zh: '智能滚动容器·hover浮现滚动条·双向/单向/弹性高度', en: 'Smart scroll container, hover-reveal scrollbar' }, icon: '⇕' },
       { trigger: 'demo-canvas', name: { zh: 'Canvas 侧面板', en: 'Canvas Panel' }, desc: { zh: '侧滑预览面板/展开折叠', en: 'Slide-in preview panel' }, icon: '◫' },
       { trigger: 'demo-tooltip', name: { zh: 'Tooltip 提示', en: 'Tooltip' }, desc: { zh: '四方向悬浮提示', en: '4-direction tooltip' }, icon: '💡' },
       { trigger: 'demo-popover', name: { zh: '气泡卡片', en: 'Popover' }, desc: { zh: '点击/悬浮触发富内容', en: 'Click/hover rich content' }, icon: '💬' },
@@ -264,6 +295,21 @@ const NAV_DATA = [
       { trigger: 'demo-chart-gantt', name: { zh: '甘特图', en: 'Gantt' }, desc: { zh: '项目排期/MES排程', en: 'Project/MES scheduling' }, icon: '📅' },
       { trigger: 'demo-chart-funnel', name: { zh: '漏斗图', en: 'Funnel' }, desc: { zh: '销售/转化漏斗', en: 'Sales/conversion funnel' }, icon: '🔻' },
       { trigger: 'demo-chart-zoom', name: { zh: '缩放 Zoom', en: 'Zoom' }, desc: { zh: 'line/K线/箱线 dataZoom 拖拽缩放', en: 'line/candle/box dataZoom' }, icon: '🔍' },
+      { trigger: 'demo-chart-motion', name: { zh: '动画与渐变', en: 'Motion & Gradient' }, desc: { zh: '入场动画·grad 渐变填充', en: 'Enter animation · grad fill' }, icon: '✨' },
+    ]
+  },
+  {
+    id: 'dashboard',
+    name: { zh: '数据大屏', en: 'Dashboard' },
+    icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>',
+    items: [
+      { trigger: 'demo-dashboard-kit', name: { zh: '大屏四件套', en: 'Dashboard Kit' }, desc: { zh: 'panel/kpi/翻牌/轮播榜', en: 'panel/kpi/flip/scrollboard' }, icon: '📊' },
+      { trigger: 'demo-fit-screen', name: { zh: 'fit-screen 缩放', en: 'Fit Screen' }, desc: { zh: '1920 设计稿三模式适配', en: '3-mode 1920 adaptation' }, icon: '🗗' },
+      { trigger: 'demo-map', name: { zh: '中国地图', en: 'China Map' }, desc: { zh: '热力+散点+标注+点击上报', en: 'Heat + scatter + click' }, icon: '🗺' },
+      { trigger: 'demo-map-heat', name: { zh: '全国热力', en: 'Full Heat' }, desc: { zh: '34 省全量+色阶条', en: '34 provinces + visualMap' }, icon: '🔥' },
+      { trigger: 'demo-map-scatter', name: { zh: '城市散点', en: 'City Scatter' }, desc: { zh: '17 城对数半径+叠加热力', en: '18 cities + overlay' }, icon: '📍' },
+      { trigger: 'demo-map-bigscreen', name: { zh: '地图大屏', en: 'Map Bigscreen' }, desc: { zh: 'tech 主题 fit-screen 单页', en: 'tech fit-screen page' }, icon: '🛰' },
+      { trigger: 'demo-bigscreen', name: { zh: 'ChatBI 监控大屏', en: 'Big Screen' }, desc: { zh: 'M1 金标杆全家桶', en: 'M1 golden benchmark' }, icon: '🖥' },
     ]
   },
   {
@@ -339,6 +385,8 @@ const I18N = {
   tagline:        { zh: '流式UI描述与渲染框架', en: 'Streaming UI Description and Rendering Framework' },
   modeStream:     { zh: '流式渲染', en: 'Streaming' },
   modeSource:     { zh: '源码流', en: 'Source Stream' },
+  themeToggle:    { zh: '切换主题', en: 'Toggle theme' },
+  themeTechOnly:  { zh: 'Tech 为深色专属主题，不支持明暗切换', en: 'Tech is a dark-only theme' },
   langToggle:     { zh: 'EN', en: '中文' },
   welcomeTitle:   { zh: '流式 UI 描述与渲染框架', en: 'Streaming UI Description & Rendering Framework' },
   welcomeHint:    { zh: '从左侧导航选择一个案例开始体验', en: 'Select a demo from the sidebar to start' },
@@ -359,13 +407,14 @@ const I18N = {
   featSSE:        { zh: '轻量 DSL', en: 'Lightweight DSL' },
   regData:        { zh: '注册数据', en: 'Registration Data' },
   loginData:      { zh: '登录数据', en: 'Login Data' },
+  mapClickData:   { zh: '地图点击', en: 'Map Click' },
   addEmpData:     { zh: '添加员工', en: 'Add Employee' },
   action:         { zh: '操作', en: 'Action' },
   eventPanelTitle: { zh: '交互事件', en: 'Events' },
   eventPanelClear: { zh: '清空', en: 'Clear' },
   editClicked:    { zh: '编辑按钮被点击', en: 'Edit button clicked' },
   deleteClicked:  { zh: '删除按钮被点击', en: 'Delete button clicked' },
-  footerVer:      { zh: '当前版本:v0.2.4', en: 'Version: v0.2.4' },
+  footerVer:      { zh: '当前版本:v0.2.5', en: 'Version: v0.2.5' },
   footerCopy:     { zh: '零依赖 · 流式UI描述与渲染框架', en: 'Zero Deps · Streaming UI Framework' },
   dslRef:         { zh: 'DSL 语法速查', en: 'DSL Syntax Ref' },
   clearBtn:       { zh: '清空', en: 'Clear' },
@@ -569,6 +618,7 @@ const SVG_CARD_FORMAT = '<svg width="12" height="12" viewBox="0 0 24 24" fill="n
 
 TokUI.registerHandler('handleRegister', (data) => addSystemMessage(t('regData'), JSON.stringify(data, null, 2)));
 TokUI.registerHandler('handleLogin', (data) => addSystemMessage(t('loginData'), JSON.stringify(data, null, 2)));
+TokUI.registerHandler('handleMapClick', (data) => addSystemMessage(t('mapClickData'), JSON.stringify(data, null, 2)));
 TokUI.registerHandler('handleAddEmployee', (data) => addSystemMessage(t('addEmpData'), JSON.stringify(data, null, 2)));
 TokUI.registerHandler('handleEdit', () => addSystemMessage(t('action'), t('editClicked')));
 TokUI.registerHandler('handleDelete', () => addSystemMessage(t('action'), t('deleteClicked')));
@@ -1814,6 +1864,8 @@ function applyLang() {
   document.getElementById('tagline').textContent = t('tagline');
   document.getElementById('welcomeSubtitle').textContent = '// ' + t('welcomeTitle');
   document.getElementById('langToggle').textContent = t('langToggle');
+  // 主题按钮 title 随语言刷新（含 tech 置灰态的提示文案）
+  syncTokuiThemeUI();
   document.querySelector('.mode-btn[data-mode="stream"]') && (document.querySelector('.mode-btn[data-mode="stream"]').textContent = t('modeStream'));
   document.querySelector('.mode-btn[data-mode="source"]') && (document.querySelector('.mode-btn[data-mode="source"]').textContent = t('modeSource'));
   document.getElementById('modeLabel').textContent = document.getElementById('streamToggle').checked ? t('modeStream') : t('modeSource');

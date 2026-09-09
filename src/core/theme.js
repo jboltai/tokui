@@ -36,8 +36,9 @@ const TokUITheme = {
 
   /**
    * 切换主题
-   * 更新容器的 data-tokui-theme 属性，触发 CSS 变量切换
-   * @param {string} themeName - 主题名称（如 'default', 'dark'）
+   * 更新容器的 data-tokui-theme 属性，触发 CSS 变量切换；
+   * 同步失效图表主题色板缓存（chart.js 惰性读取 --tokui-chart-c1..c10，T0.5）
+   * @param {string} themeName - 主题名称（如 'default', 'dark', 'modern', 'modern-dark'）
    */
   setTheme(themeName) {
     if (typeof themeName !== 'string' || !themeName) {
@@ -48,6 +49,7 @@ const TokUITheme = {
     if (this.container) {
       this.container.setAttribute('data-tokui-theme', themeName);
     }
+    this._invalidateCharts();
   },
 
   /**
@@ -92,10 +94,11 @@ const TokUITheme = {
     if (options.success) seeds.success = options.success;
     if (options.warning) seeds.warning = options.warning;
 
-    var isDark = this.currentTheme === 'dark';
+    // 暗色判断：dark 与 modern-dark 均按暗色生成色板（原实现漏 modern-dark，T0.5 修复）
+    var isDark = this.currentTheme === 'dark' || this.currentTheme === 'modern-dark';
     var tokens = generateThemeTokens(seeds, { dark: isDark });
 
-    var css = ':root, [data-tokui-theme="default"], [data-tokui-theme="dark"] {\n';
+    var css = ':root, [data-tokui-theme="default"], [data-tokui-theme="dark"], [data-tokui-theme="modern"], [data-tokui-theme="modern-dark"] {\n';
     var keys = Object.keys(tokens);
     for (var i = 0; i < keys.length; i++) {
       var val = tokens[keys[i]];
@@ -113,6 +116,15 @@ const TokUITheme = {
     style.setAttribute('data-tokui-dynamic-palette', '');
     style.innerHTML = css;
     doc.head.appendChild(style);
+    this._invalidateCharts();
+  },
+
+  /** 失效图表主题色板缓存（chart.js 惰性求值；浏览器经 _internal，无则跳过） */
+  _invalidateCharts() {
+    if (typeof window !== 'undefined' && window.TokUI && window.TokUI._internal
+        && typeof window.TokUI._internal.invalidateChartColors === 'function') {
+      window.TokUI._internal.invalidateChartColors();
+    }
   }
 };
 

@@ -12,6 +12,7 @@ TokUI ships **4 themes**, paired as "style family × light/dark":
 | `dark` | Dark | dark counterpart of `default` | `[data-tokui-theme="dark"]` |
 | `modern` | Light | Refined Neutral: cool-gray neutrals + restrained blue accent (`#3B6FF5`) + Inter font + soft layered shadows + 12px field radius | `[data-tokui-theme="modern"]` |
 | `modern-dark` | Dark | dark counterpart of `modern`: deep-gray elevation + recessed forms + borderless buttons | `[data-tokui-theme="modern-dark"]` |
+| `tech` | dark | **ChatBI dashboard theme** (M1): deep-blue base `#0a1220` + neon-cyan accent + tech chart palette + glow/grid tokens (`--tokui-glow-*` / `--tokui-tech-*`) | `[data-tokui-theme="tech"]` |
 
 `default` lives on `:root` and is the out-of-the-box default. `modern` only declares under `[data-tokui-theme="modern"]`, so it coexists with and mutually excludes `default` — switch the attribute to swap.
 
@@ -73,6 +74,26 @@ Each theme is a three-layer structure, semanticized bottom-up:
 | **Component** | `--tokui-radius`, `--tokui-shadow-md`, `--tokui-control-radius` | radius / shadow / control shape |
 
 Component styles only reference the **semantic and component layers**, never a specific palette step. So when a theme remaps the semantic layer to a new palette, every component picks up the correct color automatically.
+
+### Typography & density scale (T0.2, provided by all four themes)
+
+Beyond colors, each theme ships six **typography scale token groups** — the physical foundation of refined layout:
+
+| Token group | Steps | Notes |
+|--------|------|------|
+| `--tokui-space-1` … `-8` | 4/8/12/16/20/24/32/40px | spacing (4px base); card header/body/footer, button paddings already migrated |
+| `--tokui-font-xs/sm/md/lg/xl/xxl/display` | 12–32px | font-size scale; body baseline is md |
+| `--tokui-radius-sm/md/lg/xl/pill` | default family 2–12px · modern family 4–16px | radius scale; `--tokui-radius` is an alias of `md` (backward compatible), card defaults to `lg` |
+| `--tokui-shadow-xs/sm/md/lg/xl` | soft light on light themes · deep on dark | elevation scale; overlay tokens stay separate |
+| `--tokui-blur-sm/lg` | 4px / 12px | glass blur (for `backdrop-filter`) |
+| `--tokui-density-v` | 1.5 | line-height rhythm (overridden to 1.35 by `[data-tokui-density="compact"]`) |
+
+Reference them directly through the `style:` channel in DSL (`var()` values are allowed):
+
+```html
+[card tt:Brand card style:"border-radius:var(--tokui-radius-xl);box-shadow:var(--tokui-shadow-lg)"]
+[p Display text cls:display style:"font-size:var(--tokui-font-display);font-weight:700"]
+```
 
 ## Runtime custom palette
 

@@ -221,6 +221,7 @@ var STRINGS = {
 
     // —— 图表 chart ——
     'chart.empty': '暂无数据',
+    'scrollboard.empty': '暂无榜单数据',
     'chart.seriesDefault': '系列{n}',
     'chart.itemDefault': '项目{n}',
     'chart.sliceDefault': '项{n}',
@@ -454,6 +455,7 @@ var STRINGS = {
 
     // —— chart ——
     'chart.empty': 'No data',
+    'scrollboard.empty': 'No ranking data',
     'chart.seriesDefault': 'Series {n}',
     'chart.itemDefault': 'Item {n}',
     'chart.sliceDefault': 'Slice {n}',

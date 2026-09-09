@@ -286,17 +286,25 @@ auto-fill 卡片墙（随容器宽度自动列数；无需跨区/跨行列时子
 
 ## 滚动区域 `scroll-area`
 
-固定外层尺寸 + 自定义滚动条样式的内容区。`h`/`w` 控制视口大小，超长内容即可滚动。
+通用滚动容器：固定尺寸（`h`/`w`）或占满父级（`h:100%`，宽度缺省 100%），可包裹任意布局与组件。视口 `overflow:auto` 双向按需出现滚动条——内容超宽出横向、超高出纵向、不超不出。
+
+**滚动条交互**：默认隐藏不占视觉焦点，三种方式浮现——鼠标悬停容器、滚动进行中（停止约 0.8s 后淡出）、键盘聚焦（`tabindex=0` 方向键滚动，WCAG 2.1.1）。颜色走 `--tokui-scrollbar-*` 主题令牌，四主题 + seed 动态色阶自动适配，thumb 悬停再加深一档。
 
 | 属性 | 含义 | 示例 |
 |------|------|------|
-| `h` | 高度 | `h:160` |
-| `w` | 宽度 | `w:100%` |
+| `h` | 高度（纯数字按 px，亦可 `100%`/`50vh`） | `h:160` |
+| `w` | 宽度（纯数字按 px，缺省 100%） | `w:100%` |
+| `minh` / `maxh` | 弹性高度：内容少时收缩、多时封顶出滚动 | `minh:120 maxh:400` |
+| `dir` | 轴向锁定：`x` 仅横向 / `y` 仅纵向（缺省双向按需） | `dir:x` |
 | `id` | 标识 | `id:myScroll` |
 | `virtual` | 虚拟滚动（均匀行高模式） | `virtual` |
 | `ih` | 行高（px，默认 36） | `ih:40` |
 
-<Playground dsl='[scroll-area h:180][p 第一段：滚动区域内可放任意长内容，超出部分出现自定义滚动条。][p 第二段：固定高度 180px，自动纵向滚动。][p 第三段：常用于侧边栏长列表、聊天记录区、日志面板。][p 第四段：配合 row/col 可做多栏滚动。][p 第五段：滚动到底部。][/scroll-area]' />
+**变体**：`v:flush` 去视口内边距（嵌表格 / 通栏内容）。
+
+<Playground dsl='[scroll-area h:180][p 第一段：滚动区域内可放任意长内容，超出部分出现滚动条；默认隐藏，悬停或滚动时浮现。][p 第二段：固定高度 180px，自动纵向滚动。][p 第三段：常用于侧边栏长列表、聊天记录区、日志面板。][p 第四段：配合 row/col 可做多栏滚动。][p 第五段：滚动到底部。][/scroll-area]' />
+
+<Playground dsl='[h4 横向锁定 dir:x（标签带）][scroll-area h:80 dir:x][row v:inline][tag React][tag Vue][tag Svelte][tag Solid][tag Angular][tag Web Components][tag Qwik][tag Lit][tag Alpine][tag HTMX][tag Astro][/row][/scroll-area][h4 弹性高度 minh:80 maxh:140][scroll-area minh:80 maxh:140][p 内容不足时收缩，超过 maxh 自动封顶出滚动条。][p 第二行。][p 第三行。][p 第四行。][p 第五行。][p 第六行。][/scroll-area]' />
 
 > **虚拟滚动与触底加载**：`virtual` 仅把可视窗口 + buffer 的行挂入 DOM（均匀行高模式，不等高行不适用）；滚动到 80% 阈值触底时上报 `loadmore` 事件（`on:"loadmore:h"`，detail `{}`）——长列表 / 对话历史加载更多用。
 

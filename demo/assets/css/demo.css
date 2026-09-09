@@ -282,6 +282,16 @@ body.dark .app-construction-badge {
   background: var(--primary-light);
 }
 
+/* tech 主题下明暗切换不可用：置灰 + 禁 hover 反馈（native disabled 已拦截点击） */
+.app-header-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.app-header-btn:disabled:hover {
+  background: none;
+}
+
 .app-header-btn--pill {
   background: var(--primary-light);
   padding: 4px 12px;
@@ -818,7 +828,7 @@ body.dark .app-header-btn--icon:hover {
 }
 
 .token-flow-accent {
-  background: linear-gradient(135deg, var(--primary), #a78bfa);
+  background: linear-gradient(135deg, var(--primary), #64748b);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -892,7 +902,7 @@ body.dark .app-header-btn--icon:hover {
   font-weight: 600;
   text-decoration: none;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: linear-gradient(135deg, var(--primary), #a78bfa);
+  background: linear-gradient(135deg, var(--primary), #64748b);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -1473,7 +1483,7 @@ body.dark .app-qr-body p { color: #cbd5e1; }
   font-size: 0.78rem;
   font-weight: 600;
   text-decoration: none;
-  background: linear-gradient(135deg, var(--primary), #a78bfa);
+  background: linear-gradient(135deg, var(--primary), #64748b);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -1916,7 +1926,7 @@ body.dark .token-flow-arrow {
 }
 
 body.dark .token-flow-accent {
-  background: linear-gradient(135deg, #3c9eff, #c084fc);
+  background: linear-gradient(135deg, #3c9eff, #94a3b8);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -2141,3 +2151,18 @@ body.dark .nav-category-header:hover {
 /* mermaid 渲染时注入 body 的全局 tooltip 占位（无交互图用不到）——
    它会把页面撑出滚动条/底部空白，直接隐藏 */
 .mermaidTooltip { display: none !important; }
+
+/* ===== demo-cls-style · 淡雅编辑卡宿主 CSS 明暗适配（配合 cls:demo-brand-card） =====
+   浅色：内联 style 暖纸微渐变 + 墨色文字（编辑风）；
+   暗色：翻转暖炭微渐变，CTA 反转为纸色按钮，标题/正文随主题令牌自动变浅。 */
+body.dark .demo-brand-card {
+  background: linear-gradient(135deg, #2a2721, #1f1d18) !important;
+  border-color: #3d382e !important;
+  color: #e8e4da !important;
+}
+body.dark .demo-brand-card .tokui-btn {
+  background: linear-gradient(180deg, #efe9dc, #ddd4c2) !important;
+  color: #3a362e !important;
+}
+/* 灰绿标题强调色：暗色提亮保持可读 */
+body.dark .demo-title-x { color: #a8b89a !important; }

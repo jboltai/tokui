@@ -3118,7 +3118,9 @@ function registerFormComponents(renderer) {
       selectedFiles.forEach(function(f, idx) {
         var item = el('div', { class: 'tokui-upload-file' });
         var fileIcon = el('span', { class: 'tokui-upload-file-icon' });
-        fileIcon.textContent = '📄';
+        fileIcon.innerHTML = (typeof require === 'function')
+          ? require('./icons').iconSvg('file-text', 14)
+          : ((window.TokUI && window.TokUI._internal && window.TokUI._internal.iconSvg) ? window.TokUI._internal.iconSvg('file-text', 14) : '');
         item.appendChild(fileIcon);
         var name = el('span', { class: 'tokui-upload-file-name' });
         name.textContent = f.name;

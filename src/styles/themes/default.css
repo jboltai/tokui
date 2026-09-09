@@ -111,8 +111,47 @@
   /* ========== 第三层：组件层 ========== */
 
   /* 通用 */
-  --tokui-radius: 4px;
+  --tokui-radius: var(--tokui-radius-md);
   --tokui-avatar-size: 80px;
+
+  /* ========== 版式与密度 scale（产品级表达基建 M0/T0.2） ========== */
+  /* 间距 scale（4px 基数） */
+  --tokui-space-1: 4px;
+  --tokui-space-2: 8px;
+  --tokui-space-3: 12px;
+  --tokui-space-4: 16px;
+  --tokui-space-5: 20px;
+  --tokui-space-6: 24px;
+  --tokui-space-7: 32px;
+  --tokui-space-8: 40px;
+  /* 字号 scale */
+  --tokui-font-xs: 12px;
+  --tokui-font-sm: 13px;
+  --tokui-font-md: 14px;
+  --tokui-font-lg: 16px;
+  --tokui-font-xl: 18px;
+  --tokui-font-xxl: 22px;
+  --tokui-font-display: 32px;
+  /* 圆角 scale（--tokui-radius 为 md 档别名，向后兼容） */
+  --tokui-radius-sm: 2px;
+  --tokui-radius-md: 4px;
+  --tokui-radius-lg: 8px;
+  --tokui-radius-xl: 12px;
+  --tokui-radius-pill: 999px;
+  /* 阴影 scale（浅色系柔光，对齐 modern 体系；浮层 overlay 系令牌保留独立） */
+  --tokui-shadow-xs: 0 1px 2px 0 rgba(9, 9, 11, 0.05);
+  --tokui-shadow-sm: 0 1px 3px 0 rgba(9, 9, 11, 0.07), 0 1px 2px -1px rgba(9, 9, 11, 0.05);
+  --tokui-shadow-md: 0 4px 6px -1px rgba(9, 9, 11, 0.07), 0 2px 4px -2px rgba(9, 9, 11, 0.05);
+  --tokui-shadow-lg: 0 10px 15px -3px rgba(9, 9, 11, 0.08), 0 4px 6px -4px rgba(9, 9, 11, 0.05);
+  --tokui-shadow-xl: 0 25px 50px -12px rgba(9, 9, 11, 0.16), 0 8px 16px -8px rgba(9, 9, 11, 0.07);
+  /* 玻璃态模糊（glass 变体 / 精致浮层用） */
+  --tokui-blur-sm: 4px;
+  --tokui-blur-lg: 12px;
+  /* 排版密度（行高节奏；[data-tokui-density="compact"] 场景覆盖为 1.35） */
+  --tokui-density-v: 1.5;
+  /* 滚动条（scroll-area 视口等自定义滚动区：默认隐藏，hover/滚动中/聚焦浮现，色随主题） */
+  --tokui-scrollbar-thumb: rgba(0, 0, 0, 0.2);
+  --tokui-scrollbar-thumb-hover: rgba(0, 0, 0, 0.35);
   /* 等宽字体栈（tool-call / diff / file-tree / terminal / sandbox 等引用）；
      与主题无关，仅在 :root 定义一次，dark/modern/modern-dark 经 :root 继承 */
   --tokui-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -207,6 +246,17 @@
   --tokui-think-border: var(--tokui-border);
 
   /* Chart 图表 */
+  /* 图表系列色板（T0.5：chart.js 惰性读取，主题切换经 invalidateChartColors 失效缓存） */
+  --tokui-chart-c1: #1677ff;
+  --tokui-chart-c2: #52c41a;
+  --tokui-chart-c3: #faad14;
+  --tokui-chart-c4: #f5222d;
+  --tokui-chart-c5: #722ed1;
+  --tokui-chart-c6: #13c2c2;
+  --tokui-chart-c7: #eb2f96;
+  --tokui-chart-c8: #fa8c16;
+  --tokui-chart-c9: #2f54eb;
+  --tokui-chart-c10: #a0d911;
   --tokui-chart-grid: #e8e8e8;
   --tokui-chart-text: #999;
   --tokui-chart-today-line: #fa541c;

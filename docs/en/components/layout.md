@@ -286,17 +286,25 @@ A two-pane layout with a draggable splitter. `dir` controls the direction; `min`
 
 ## Scroll Area `scroll-area`
 
-A content region with a fixed outer size and custom scrollbar styling. `h`/`w` set the viewport size; overflowing content scrolls.
+A general scroll container: fixed size (`h`/`w`) or fill the parent (`h:100%`; width defaults to 100%), wrapping any layouts and components. The viewport uses `overflow:auto` — scrollbars appear on each axis only when needed.
+
+**Scrollbar behavior**: hidden by default to keep the visuals quiet, and revealed in three ways — hovering the container, while scrolling (fades out ~0.8s after it stops), or keyboard focus (`tabindex=0`, arrow-key scrolling, WCAG 2.1.1). Colors come from `--tokui-scrollbar-*` theme tokens (all four themes + dynamic seed palette); hovering the thumb deepens it a notch.
 
 | Prop | Meaning | Example |
 |------|---------|---------|
-| `h` | Height | `h:160` |
-| `w` | Width | `w:100%` |
+| `h` | Height (bare numbers mean px; also `100%`/`50vh`) | `h:160` |
+| `w` | Width (bare numbers mean px; defaults to 100%) | `w:100%` |
+| `minh` / `maxh` | Elastic height: shrink when short, cap and scroll when tall | `minh:120 maxh:400` |
+| `dir` | Axis lock: `x` horizontal-only / `y` vertical-only (default: both as needed) | `dir:x` |
 | `id` | Identifier | `id:myScroll` |
 | `virtual` | Virtual scrolling (uniform row-height mode) | `virtual` |
 | `ih` | Row height (px, default 36) | `ih:40` |
 
-<Playground dsl='[scroll-area h:180][p 第一段：滚动区域内可放任意长内容，超出部分出现自定义滚动条。][p 第二段：固定高度 180px，自动纵向滚动。][p 第三段：常用于侧边栏长列表、聊天记录区、日志面板。][p 第四段：配合 row/col 可做多栏滚动。][p 第五段：滚动到底部。][/scroll-area]' />
+**Variant**: `v:flush` removes viewport padding (for tables / edge-to-edge content).
+
+<Playground dsl='[scroll-area h:180][p 第一段：滚动区域内可放任意长内容，超出部分出现滚动条；默认隐藏，悬停或滚动时浮现。][p 第二段：固定高度 180px，自动纵向滚动。][p 第三段：常用于侧边栏长列表、聊天记录区、日志面板。][p 第四段：配合 row/col 可做多栏滚动。][p 第五段：滚动到底部。][/scroll-area]' />
+
+<Playground dsl='[h4 dir:x 横向锁定（标签带）][scroll-area h:80 dir:x][row v:inline][tag React][tag Vue][tag Svelte][tag Solid][tag Angular][tag Web Components][tag Qwik][tag Lit][tag Alpine][tag HTMX][tag Astro][/row][/scroll-area][h4 弹性高度 minh:80 maxh:140][scroll-area minh:80 maxh:140][p 内容不足时收缩，超过 maxh 自动封顶出滚动条。][p 第二行。][p 第三行。][p 第四行。][p 第五行。][p 第六行。][/scroll-area]' />
 
 > **Virtual scrolling & load-more**: `virtual` mounts only the visible window plus a buffer into the DOM (uniform row-height mode — not suitable for variable-height rows); scrolling past the 80% threshold near the bottom reports the `loadmore` event (`on:"loadmore:h"`, detail `{}`) — handy for long lists and chat-history "load more".
 

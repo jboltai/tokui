@@ -131,8 +131,21 @@ function registerLayoutComponents(renderer) {
     ? require('../core/renderer')
     : window.TokUI._internal;
 
+  // 图标惰性求值（icons.js 注册表，T0.4 树控件去 emoji 用；Node require / 浏览器 _internal）
+  function _layoutIconSvg(name, size) {
+    if (typeof require === 'function') {
+      try { return require('./icons').iconSvg(name, size); } catch (e) { return ''; }
+    }
+    var i = (typeof window !== 'undefined') && window.TokUI && window.TokUI._internal;
+    return (i && i.iconSvg) ? i.iconSvg(name, size) : '';
+  }
+
   // 命令式确认对话框 API（幂等挂载）
   mountModalConfirm();
+
+  // 响应式断点档位（T0.3 容器查询）：col 值 = span 1-12 或 "span/offset"；grid 值 = 列数 1-12
+  // 断点基于容器（row/grid 自身）宽度而非视口：xs 基础档，sm≥576 / md≥768 / lg≥992 / xl≥1200 递增覆盖
+  const _BREAKPOINTS = ['xs', 'sm', 'md', 'lg', 'xl'];
 
   // === 卡片组件 ===
   // attrs.tt = 标题文本, attrs.tx = body文本（自闭合模式）, attrs.id = 标识
@@ -140,21 +153,11 @@ function registerLayoutComponents(renderer) {
   //   容器模式：[card tt:标题][p 内容][/card]
   //   自闭合：  [card tt:标题 tx:内容]
   // 子节点中的 ft 类型会被渲染为独立的页脚区域
-  var _SAFE_STYLE_PROPS = /^(background-color|color|border(-radius|-top|-bottom|-left|-right)?|padding(-top|-bottom|-left|-right)?|margin(-top|-bottom|-left|-right)?|text-align|max-width|min-height|box-shadow|opacity|font-size|font-weight|line-height|border-radius|overflow|cursor|gap|display|flex-wrap|align-items|justify-content|width|height|float|clear|visibility|white-space|word-break|text-overflow|text-decoration|list-style|vertical-align|transition|transform)$/;
-
-  function _filterStyle(raw) {
-    if (!raw) return undefined;
-    return raw.split(';').filter(function (s) {
-      var prop = s.split(':')[0].trim().toLowerCase();
-      return prop && _SAFE_STYLE_PROPS.test(prop);
-    }).join(';') || undefined;
-  }
-
+  // 注：style: 属性由 renderer._applyUserStyle 白名单过滤后集中落根元素（原 card 私有
+  // _filterStyle 已下线，全组件统一走 src/core/style-guard.js 通道）。
   renderer.register('card', (node, rc) => {
     const attrs = { class: 'tokui-card' };
     if (node.attrs.id) attrs.id = node.attrs.id;
-    var safeStyle = _filterStyle(node.attrs.style);
-    if (safeStyle) attrs.style = safeStyle;
     const card = el('div', attrs);
     _applyTheme(card, node.attrs); // theme 属性：子树级主题（深色卡等）
     if (node.attrs.w) card.style.width = /^\d+$/.test(node.attrs.w) ? node.attrs.w + 'px' : node.attrs.w;
@@ -266,14 +269,18 @@ function registerLayoutComponents(renderer) {
   }
   // 子树级主题：grid/cell/card 支持 theme 属性 → data-tokui-theme 落到该元素，
   // 主题令牌（CSS 自定义属性）对自身及全部后代生效——深色区块一片切换，stat/chart 全跟随。
-  var _THEME_NAMES = { 'default': 1, 'dark': 1, 'modern': 1, 'modern-dark': 1 };
+  var _THEME_NAMES = { 'default': 1, 'dark': 1, 'modern': 1, 'modern-dark': 1, 'tech': 1 }; // T1.1 新增 tech（ChatBI 大屏）
   function _applyTheme(dom, attrs) {
     var t = attrs && attrs.theme;
     if (t && _THEME_NAMES[t]) dom.setAttribute('data-tokui-theme', t);
   }
   // 单条轨道：长度 / fr / auto / min-content / max-content / minmax(a,b) / fit-content(len)
   function _gridTrack(tok) {
-    if (_GRID_LEN_RE.test(tok) || /^\d+(\.\d+)?fr$/.test(tok)) return tok;
+    if (_GRID_LEN_RE.test(tok)) return tok;
+    var fr = tok.match(/^(\d+(?:\.\d+)?)fr$/);      // fr 轨道 → minmax(0, Nfr)：
+    if (fr) return 'minmax(0, ' + fr[1] + 'fr)';     // 裸 1fr = minmax(auto,1fr) 会被内容最小高撑破
+                                                     // 分配（大屏画布底部被顶出裁剪的根因），钳 0 后
+                                                     // 轨道恒等于分配额，内容自适应自负其责。
     if (tok === 'auto' || tok === 'min-content' || tok === 'max-content') return tok;
     var mm = tok.match(/^minmax\(([^,]+),([^)]+)\)$/);
     if (mm) {
@@ -289,9 +296,11 @@ function registerLayoutComponents(renderer) {
   }
   // 轨道列表："3" → repeat(3,1fr)；"auto:180px" → repeat(auto-fill,minmax(180px,1fr))；
   // 否则按空格分隔逐 token 白名单校验。任一非法 → 整体拒绝（不输出该属性）。
+  // 容错：DSL 层已按需引号包裹，值再带首尾引号（builder 端双重引号、AI 手写直译）
+  // 属常见作者误用——剥离首尾引号对后再校验，防整列表被静默丢弃退化为单列。
   function _gridTrackList(spec) {
     if (!spec) return null;
-    var s = String(spec).trim();
+    var s = String(spec).trim().replace(/^"+|"+$/g, '').trim();
     if (!s) return null;
     if (/^\d{1,2}$/.test(s)) {
       var n = parseInt(s);
@@ -313,10 +322,11 @@ function registerLayoutComponents(renderer) {
     return out.join(' ');
   }
   // 模板区域："nav main|nav aside" → '"nav main" "nav aside"'；区名限 [a-zA-Z0-9_-]，'.' 为空位
+  // 容错同 _gridTrackList：剥首尾引号对（双重引号误用）。
   var _GRID_AREA_RE = /^[a-zA-Z][a-zA-Z0-9_-]*$/;
   function _gridAreas(spec) {
     if (!spec) return null;
-    var rows = String(spec).split('|');
+    var rows = String(spec).trim().replace(/^"+|"+$/g, '').split('|');
     if (rows.length > 24) return null;
     var out = [];
     for (var i = 0; i < rows.length; i++) {
@@ -377,6 +387,21 @@ function registerLayoutComponents(renderer) {
         col.style.gridRow = `span ${rs}`;
       }
     }
+    // 响应式断点属性（T0.3）：xs/sm/md/lg/xl → data-bp-{bp}="span"（可选 data-bp-{bp}-off）
+    // 由 tokui.css @container 规则按容器宽应用；非法值静默丢弃
+    for (let bi = 0; bi < _BREAKPOINTS.length; bi++) {
+      const bp = _BREAKPOINTS[bi];
+      const raw = node.attrs && node.attrs[bp];
+      if (raw == null || raw === '') continue;
+      const parts = String(raw).split('/');
+      const bSpan = parseInt(parts[0], 10);
+      if (isNaN(bSpan) || bSpan < 1 || bSpan > 12) continue;
+      col.setAttribute('data-bp-' + bp, String(bSpan));
+      const bOff = parts.length > 1 ? parseInt(parts[1], 10) : NaN;
+      if (!isNaN(bOff) && bOff >= 1 && bOff <= 11) {
+        col.setAttribute('data-bp-' + bp + '-off', String(bOff));
+      }
+    }
     // 处理列内直接文本内容
     if (node.content) {
       col.textContent = node.content;
@@ -416,6 +441,58 @@ function registerLayoutComponents(renderer) {
     if (h) grid.style.height = h;
     const minh = _gridLength(attrs.minh);
     if (minh) grid.style.minHeight = minh;
+    // 响应式断点列数（T0.3）：xs/sm/md/lg/xl = 1-12 → data-bp-cols-{bp}
+    // @container 规则按容器宽覆盖 grid-template-columns；非法值静默丢弃。
+    // 注：元素不能查询自身容器（container-type 只对后代生效），带断点属性时
+    // 外包一层 .tokui-grid-cq 容器 wrapper（opt-in，无断点的 grid 结构零变化）。
+    let hasBpCols = false;
+    for (let gi = 0; gi < _BREAKPOINTS.length; gi++) {
+      const gbp = _BREAKPOINTS[gi];
+      const gRaw = attrs[gbp];
+      if (gRaw == null || gRaw === '') continue;
+      const gN = parseInt(gRaw, 10);
+      if (isNaN(gN) || gN < 1 || gN > 12) continue;
+      grid.setAttribute('data-bp-cols-' + gbp, String(gN));
+      hasBpCols = true;
+    }
+    if (hasBpCols) {
+      const wrap = el('div', { class: 'tokui-grid-cq' });
+      wrap.appendChild(grid);
+      wrap._slot = grid; // 流式子元素仍落 grid 内
+      return wrap;
+    }
+    // 流式骨架占位（areas 区块级）：流式打开且声明 areas 时，按区名先铺骨架 cell——
+    // 布局即终布局（区块各就各位呼吸占位），真实 cell 到达由 renderer._streamOpen 按区名
+    // 原地替换；非具名 cell 到达则全撤降级；skel:"false" 关闭；闭合时剩余骨架经
+    // _streamCloseHook 清除（流结束仍未填充的区不留永续 loading）。
+    if (areas && rc._streamMounting && String(attrs.skel) !== 'false'
+        && !(node.children && node.children.length)) {
+      var _skelMap = {};
+      var _seen = {};
+      var _rowsSpec = String(attrs.areas).split('|');
+      for (var _ri = 0; _ri < _rowsSpec.length; _ri++) {
+        var _names = _rowsSpec[_ri].trim().split(/\s+/);
+        for (var _ni = 0; _ni < _names.length; _ni++) {
+          var _nm = _names[_ni];
+          if (!_nm || _nm === '.' || _seen[_nm] || !_GRID_AREA_RE.test(_nm)) continue;
+          _seen[_nm] = 1;
+          var _skelCell = el('div', { class: 'tokui-cell tokui-cell--skel' });
+          _skelCell.style.gridArea = _nm;
+          _skelCell.appendChild(el('div', { class: 'tokui-stream-skeleton tokui-stream-skeleton--block', role: 'status' }));
+          grid.appendChild(_skelCell);
+          _skelMap[_nm] = _skelCell;
+        }
+      }
+      grid._areaSkel = _skelMap;
+      grid._streamCloseHook = function () {
+        var m = grid._areaSkel;
+        if (!m) return;
+        Object.keys(m).forEach(function (k) {
+          if (m[k] && m[k].parentNode) m[k].parentNode.removeChild(m[k]);
+        });
+        grid._areaSkel = null;
+      };
+    }
     rc(node.children).forEach(child => {
       if (child && child.nodeType) grid.appendChild(child);
     });
@@ -1995,7 +2072,7 @@ function registerLayoutComponents(renderer) {
     header.appendChild(arrow);
 
     var icon = el('span', { class: 'tokui-tree-icon' });
-    icon.textContent = isLeaf ? '📄' : '📁';
+    icon.innerHTML = _layoutIconSvg(isLeaf ? 'file-text' : 'folder', 14);
     header.appendChild(icon);
 
     var text = el('span', { class: 'tokui-tree-text' }, node.attrs.tx || node.attrs.v || '');
@@ -2823,9 +2900,15 @@ function registerLayoutComponents(renderer) {
   });
 
   // === Scroll Area 自定义滚动区域 ===
-  // 容器组件， attrs.h = 高度(px), attrs.w = 宽度
-  // 外层 overflow:hidden 固定尺寸，内层 overflow:auto 可滚动
-  // 自定义滚动条样式（webkit + Firefox）
+  // 通用滚动容器：固定尺寸（h/w 纯数字自动补 px）或占满父级（h:100% / w:100%，宽度缺省 100%），
+  // 可包裹任意布局与组件；视口 overflow:auto 双向按需出现滚动条。
+  // attrs.h / attrs.w = 高/宽（纯数字按 px，亦可写 100% / 50vh 等 CSS 值）
+  // attrs.minh / attrs.maxh = 最小/最大高度（弹性高度：内容少时收缩、多时封顶出滚动）
+  // attrs.dir = 轴向锁定：x 仅横向 / y 仅纵向（缺省双向按需）
+  // 变体 v:flush = 去视口内边距（嵌表格 / 通栏内容用）
+  // 滚动条默认隐藏，三通道浮现：鼠标 hover（CSS）/ 滚动中（--scrolling 状态类，
+  // scroll 后 800ms 摘除，macOS overlay 惯例）/ 键盘聚焦（:focus-within）；
+  // 颜色走 --tokui-scrollbar-* 主题令牌，四主题适配、随 seed 动态色阶联动。
   // attrs.virtual = 虚拟滚动模式（均匀行高假设：attrs.ih = 行高 px，默认 36；
   //   不等高的子项不适用本模式）。全部子项保留在脱离文档的容器里，
   //   仅可视窗口（前后各 5 行 buffer）挂进 DOM，顶部/底部 spacer 撑出总高。
@@ -2834,16 +2917,42 @@ function registerLayoutComponents(renderer) {
   renderer.register('scroll-area', (node, rc) => {
     var attrs = node.attrs || {};
     var isVirtual = attrs.virtual !== undefined;
-    var outerAttrs = { class: 'tokui-scroll-area' + (isVirtual ? ' tokui-scroll-area--virtual' : '') };
+    // 尺寸值归一：纯数字补 px，百分比/ vh 等 CSS 值原样透传（w 与 h 行为一致）
+    function toSize(v) { return String(v).match(/^\d+$/) ? v + 'px' : String(v); }
+
+    var classes = ['tokui-scroll-area'];
+    if (isVirtual) classes.push('tokui-scroll-area--virtual');
+    var dir = String(attrs.dir || '').toLowerCase();
+    if (dir === 'x' || dir === 'y') classes.push('tokui-scroll-area--dir-' + dir);
+    var outerAttrs = { class: classes.join(' ') };
     if (attrs.id) outerAttrs.id = attrs.id;
     var outer = el('div', outerAttrs);
 
     // 设置外层尺寸
-    if (attrs.h) outer.style.height = String(attrs.h).match(/^\d+$/) ? attrs.h + 'px' : attrs.h;
-    if (attrs.w) outer.style.width = attrs.w;
+    if (attrs.h) outer.style.height = toSize(attrs.h);
+    if (attrs.w) outer.style.width = toSize(attrs.w);
+    if (attrs.minh) outer.style.minHeight = toSize(attrs.minh);
+    if (attrs.maxh) outer.style.maxHeight = toSize(attrs.maxh);
 
     // 内层可滚动视口（tabindex=0：键盘用户可聚焦后方向键滚动，WCAG 2.1.1）
     var viewport = el('div', { class: 'tokui-scroll-area__viewport', tabindex: '0' });
+
+    // 滚动中浮现：scroll 即挂 --scrolling（CSS 与 :hover / :focus-within 并列显色），
+    // 停止滚动 800ms 后摘除；鼠标仍在容器内时 hover 通道接管，无缝衔接
+    var revealTimer = null;
+    function revealOnScroll() {
+      outer.classList.add('tokui-scroll-area--scrolling');
+      if (revealTimer) clearTimeout(revealTimer);
+      revealTimer = setTimeout(function () {
+        revealTimer = null;
+        outer.classList.remove('tokui-scroll-area--scrolling');
+      }, 800);
+    }
+    viewport.addEventListener('scroll', revealOnScroll, { passive: true });
+    renderer._registerCleanup(outer, function () {
+      viewport.removeEventListener('scroll', revealOnScroll);
+      if (revealTimer) { clearTimeout(revealTimer); revealTimer = null; }
+    });
 
     if (!isVirtual) {
       // 普通模式：渲染全部子节点到视口（行为与历史版本一致）

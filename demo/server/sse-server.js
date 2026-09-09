@@ -16,8 +16,11 @@ const fs = require('fs');
 const path = require('path');
 const { TokUIBuilder } = require('./tokui-builder');
 
-/** 服务监听端口 */
-const PORT = 3109;
+/** 服务监听端口（可用 TOKUI_DEMO_PORT 覆盖，供离线校验器起隔离实例） */
+const PORT = Number(process.env.TOKUI_DEMO_PORT) || 3109;
+
+// 流式 chunk 间隔（ms，校验器可经 TOKUI_DEMO_CHUNK_DELAY 提速）
+const CHUNK_DELAY = Number(process.env.TOKUI_DEMO_CHUNK_DELAY) || 80;
 
 // ===== 演示场景定义 =====
 
@@ -426,6 +429,537 @@ const DEMOS = [
   },
   // ========== 全量组件独立 Demo ==========
 
+  {
+    trigger: 'demo-cls-style',
+    title: '样式定制 cls/style',
+    desc: '全组件根级安全定制：cls 追加自定义类名，style 白名单内联样式',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('样式定制 · cls: / style:')
+        .callout({ t: 'info', tt: '通用属性', tx: 'cls: 与 style: 对全部组件生效，集中落组件根元素。style 仅放行白名单属性（背景/边距/圆角/阴影/对齐/动画过渡等），值经安全过滤；cls 拒绝 tokui- 前缀。' })
+        .row_layout()
+          .col_layout({ span: 4 })
+            .card({ tt: '渐变品牌卡', cls: 'demo-brand-card', style: 'background:linear-gradient(135deg,#faf8f4,#efe9df);border-radius:16px;border:1px solid #e7e0d3;color:#4a453d' })
+              .p('cls: demo-brand-card', { v: 'sm' })
+              .p('宿主 CSS 可针对该类名做进一步精修：hover 抬升、入场动画、深色模式适配（本卡暗色下自动翻转为暖炭纸）等。')
+              .ft()
+                .btn({ tx: '渐变圆角按钮', v: 'primary', style: 'border-radius:16px;background:linear-gradient(180deg,#3f3c36,#2e2b26);border:none;color:#f5f2ec' })
+              .end()
+            .end()
+          .end()
+          .col_layout({ span: 4 })
+            .card({ tt: '排版微调' })
+              .p('大字导语：font-size:22px + letter-spacing', { cls: 'demo-lead', style: 'font-size:22px;font-weight:700;letter-spacing:1px' })
+              .p('常规正文保持主题默认字号。')
+              .dv()
+              .h4('标题也支持', { cls: 'demo-title-x', style: 'text-align:center;color:#6b7a63' })
+              .p('图片宽高与比例：', { v: 'sm' })
+              .img({ s: 'https://picsum.photos/seed/tokui-style/480/220', alt: 'aspect-ratio 演示', style: 'aspect-ratio:16/9;object-fit:cover;border-radius:12px' })
+            .end()
+          .end()
+          .col_layout({ span: 4 })
+            .card({ tt: '布局微调' })
+              .p('max-width 限宽：', { v: 'sm' })
+              .callout({ t: 'success', tx: 'max-width:260px', style: 'max-width:260px' })
+              .p('透明度与阴影：', { v: 'sm' })
+              .callout({ t: 'warning', tx: 'opacity:.75 + 自定义阴影', style: 'opacity:.75;box-shadow:0 4px 16px rgba(120,113,94,.2)' })
+              .p('transform 位移（白名单函数）：', { v: 'sm' })
+              .btn({ tx: 'translateX(8px)', style: 'transform:translateX(8px)' })
+            .end()
+          .end()
+        .end();
+      return b;
+    }
+  },
+  {
+    trigger: 'demo-cls-style-guard',
+    title: '样式安全过滤',
+    desc: '白名单放行与注入拦截对照演示',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('样式安全过滤 · Style Guard')
+        .callout({ t: 'info', tt: '安全模型', tx: 'style: 属性名白名单 + 值级黑名单（expression()/javascript:/behavior:）+ url() 协议白名单（仅 http(s) 与站内相对路径）+ transform 函数白名单；cls: 类名格式校验 + 拒绝 tokui- 前缀。被滤除的声明静默丢弃，安全声明正常生效。' })
+        .card({ tt: '放行 · 白名单属性' })
+          .desc({ cols: 1 })
+            .descItem({ l: '背景', tx: 'background / background-image / color' })
+            .descItem({ l: '盒模型', tx: 'padding / margin / border / border-radius' })
+            .descItem({ l: '视觉', tx: 'box-shadow / opacity / backdrop-filter / aspect-ratio' })
+            .descItem({ l: '变换', tx: 'transform: translate/scale/rotate 族' })
+            .descItem({ l: '图片源', tx: 'url(https://…) 与 url(/static/…) 与 url(./rel)' })
+          .end()
+          .callout({ t: 'success', tx: '本条 callout 应用 style:"padding:4px 16px;letter-spacing:.5px" —— 正常生效', style: 'padding:4px 16px;letter-spacing:.5px' })
+        .end()
+        .card({ tt: '拦截 · 非法输入静默丢弃' })
+          .desc({ cols: 1 })
+            .descItem({ l: '布局逃逸', tx: 'position:fixed / top / left —— 拒绝' })
+            .descItem({ l: '脚本注入', tx: 'expression(...) / javascript: / behavior: —— 拒绝' })
+            .descItem({ l: '协议注入', tx: 'url(javascript:…) / url(data:text/html…) —— 拒绝' })
+            .descItem({ l: '函数越权', tx: 'transform:matrix(...) —— 拒绝' })
+            .descItem({ l: '保留字', tx: 'cls:tokui-xxx —— 框架前缀拒绝' })
+          .end()
+          .callout({ t: 'danger', tx: '本条 style:"color:red;position:fixed;top:0" —— 仅 color:red 生效，position/top 被过滤', style: 'color:red;position:fixed;top:0' })
+          .p('cls 非法词（数字开头 / tokui- 前缀 / 超 64 字符）逐个丢弃，合法词正常追加。', { cls: 'demo-guard-note ok-word 9bad tokui-hack' })
+        .end();
+      return b;
+    }
+  },
+
+  {
+    trigger: 'demo-design-tokens',
+    title: 'Design Tokens 尺度系统',
+    desc: '间距/字号/圆角/阴影/密度 scale——四主题统一的产品级版式基建',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('Design Tokens 尺度系统')
+        .callout({ t: 'info', tt: '令牌体系', tx: '四主题（default/dark/modern/modern-dark）统一提供 --tokui-space-1~8（间距）、--tokui-font-xs~display（字号）、--tokui-radius-sm~pill（圆角）、--tokui-shadow-xs~xl（阴影）、--tokui-blur-sm/lg（玻璃态模糊）、--tokui-density-v（密度）六组 scale。切换右上角主题，本页所有元素随令牌联动变化。' })
+        .row_layout()
+          .col_layout({ span: 12 })
+            .card({ tt: '圆角 scale（radius-sm → radius-pill）' })
+              .row_layout()
+                .col_layout({ span: 2 }).callout({ t: 'info', tx: 'sm 2/4px', style: 'border-radius:var(--tokui-radius-sm)' }).end()
+                .col_layout({ span: 2 }).callout({ t: 'info', tx: 'md 4/8px', style: 'border-radius:var(--tokui-radius-md)' }).end()
+                .col_layout({ span: 2 }).callout({ t: 'info', tx: 'lg 8/12px', style: 'border-radius:var(--tokui-radius-lg)' }).end()
+                .col_layout({ span: 2 }).callout({ t: 'info', tx: 'xl 12/16px', style: 'border-radius:var(--tokui-radius-xl)' }).end()
+                .col_layout({ span: 2 }).callout({ t: 'info', tx: 'pill', style: 'border-radius:var(--tokui-radius-pill)' }).end()
+              .end()
+              .p('注：值为 default 系 / modern 系两套体系的档位，卡片组件默认即 radius-lg 档。', { v: 'sm' })
+            .end()
+          .end()
+        .end()
+        .row_layout()
+          .col_layout({ span: 12 })
+            .card({ tt: '阴影 scale（shadow-xs → shadow-xl）' })
+              .row_layout()
+                .col_layout({ span: 2 }).callout({ t: 'success', tx: 'xs', style: 'box-shadow:var(--tokui-shadow-xs)' }).end()
+                .col_layout({ span: 2 }).callout({ t: 'success', tx: 'sm', style: 'box-shadow:var(--tokui-shadow-sm)' }).end()
+                .col_layout({ span: 2 }).callout({ t: 'success', tx: 'md', style: 'box-shadow:var(--tokui-shadow-md)' }).end()
+                .col_layout({ span: 2 }).callout({ t: 'success', tx: 'lg', style: 'box-shadow:var(--tokui-shadow-lg)' }).end()
+                .col_layout({ span: 2 }).callout({ t: 'success', tx: 'xl', style: 'box-shadow:var(--tokui-shadow-xl)' }).end()
+              .end()
+              .p('暗色主题为深投影体系、浅色主题为柔光体系，同一档位语义随主题切换。', { v: 'sm' })
+            .end()
+          .end()
+        .end()
+        .row_layout()
+          .col_layout({ span: 6 })
+            .card({ tt: '间距 scale（space-1 → space-8，4px 基数）' })
+              .desc({ cols: 2 })
+                .descItem({ l: 'space-1', tx: '4px' })
+                .descItem({ l: 'space-2', tx: '8px（卡片内边距节奏）' })
+                .descItem({ l: 'space-3', tx: '12px（卡片下边距/头部）' })
+                .descItem({ l: 'space-4', tx: '16px（body 内边距）' })
+                .descItem({ l: 'space-5', tx: '20px（按钮横向）' })
+                .descItem({ l: 'space-6', tx: '24px' })
+                .descItem({ l: 'space-7', tx: '32px' })
+                .descItem({ l: 'space-8', tx: '40px' })
+              .end()
+              .p('本卡 header/body/footer 间距已迁移引用 space 令牌。', { v: 'sm' })
+            .end()
+          .end()
+          .col_layout({ span: 6 })
+            .card({ tt: '字号 scale 与玻璃态' })
+              .p('font-xs 12px 辅助注释', { cls: 'tk-xs', style: 'font-size:var(--tokui-font-xs)' })
+              .p('font-sm 13px 次要说明', { cls: 'tk-sm', style: 'font-size:var(--tokui-font-sm)' })
+              .p('font-md 14px 正文基准', { cls: 'tk-md', style: 'font-size:var(--tokui-font-md)' })
+              .p('font-lg 16px 小节标题', { cls: 'tk-lg', style: 'font-size:var(--tokui-font-lg)' })
+              .p('font-xl 18px 强调', { cls: 'tk-xl', style: 'font-size:var(--tokui-font-xl)' })
+              .p('font-xxl 22px 大标题', { cls: 'tk-xxl', style: 'font-size:var(--tokui-font-xxl);font-weight:700' })
+              .p('font-display 32px 展示级', { cls: 'tk-display', style: 'font-size:var(--tokui-font-display);font-weight:700;letter-spacing:1px' })
+            .end()
+          .end()
+        .end();
+      return b;
+    }
+  },
+
+  {
+    trigger: 'demo-responsive',
+    title: '响应式断点',
+    desc: '容器查询驱动的声明式响应式：col 断点 span/offset + grid 断点列数',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('响应式断点系统（容器查询）')
+        .callout({ t: 'info', tt: '用法', tx: 'col 支持 xs/sm/md/lg/xl 属性（值 = span 1-12，或 "span/offset" 组合须双引号）；grid 支持断点列数。断点基于容器自身宽度：xs 基础档，sm≥576 / md≥768 / lg≥992 / xl≥1200 递增覆盖。拖动浏览器窗口宽度（或缩小到手机宽）观察下方栅格自动重排；dialog 内嵌套栅格同样独立响应。' })
+        .card({ tt: '三断点卡片墙：桌面 3 列 → 平板 2 列 → 手机 1 列' })
+          .grid({ gap: 12, xs: 1, sm: 2, lg: 3 })
+            .card({ tt: '特性一' }).p('lg≥992 时三列并排；sm≥768 两列；更窄单列。').end()
+            .card({ tt: '特性二' }).p('grid 的断点值 = 列数（1-12）。').end()
+            .card({ tt: '特性三' }).p('非断点环境（老浏览器）回退 auto 布局不破版。').end()
+          .end()
+        .end()
+        .card({ tt: 'col 断点：offset 起始位 + 跨度组合' })
+          .row_layout()
+            .col_layout({ span: 12, xs: 12, sm: 6 }).callout({ t: 'info', tx: 'col xs:12 sm:6 — 手机全宽，≥576 半宽' }).end()
+            .col_layout({ span: 12, xs: 12, sm: 6 }).callout({ t: 'success', tx: '第二个半宽列' }).end()
+            .col_layout({ span: 6, xs: 12, md: '6/6' }).callout({ t: 'warning', tx: 'col md:"6/6" — ≥768 时 span6 + offset6 靠右' }).end()
+          .end()
+          .p('提示：md:"6/6" 表示 span 6 / offset 6（从第 7 列起）。', { v: 'sm' })
+        .end()
+        .card({ tt: '经典布局：侧栏 + 主区（窄容器自动堆叠）' })
+          .row_layout()
+            .col_layout({ span: 4, xs: 12, md: 4 })
+              .menu().menuItem({ i: '▣', tx: '导航一' }).menuItem({ i: '▣', tx: '导航二' }).menuItem({ i: '▣', tx: '导航三' }).end()
+            .end()
+            .col_layout({ span: 8, xs: 12, md: 8 })
+              .p('主内容区：md 及以上与侧栏同行（4+8），更窄时上下堆叠（各占 12）。')
+              .callout({ t: 'info', tx: '把窗口缩到 768px 以下试试' })
+            .end()
+          .end()
+        .end();
+      return b;
+    }
+  },
+
+  {
+    trigger: 'demo-icons',
+    title: '图标体系',
+    desc: '61 个内置 Lucide 风格 SVG 图标 + registerIcon 扩展 API + 组件 chrome 去 emoji 实景',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('图标体系（T0.4 统一）')
+        .callout({ t: 'info', tt: '三源归一', tx: '原「27 图标注册表 + emoji + 组件内硬编码 SVG」三源并存已终结：新增 33 个图标（文件/状态圈/方向/人员/常用件），树控件、文件树、音频、警示框、通知、终端三色点等组件 chrome 全部改走注册表。扩展走 TokUI.registerIcon(name, path, {alias})。' })
+        .row_layout()
+          .col_layout({ span: 6 })
+            .card({ tt: '操作与状态类' })
+              .btn({ tx: '查看', icon: 'view', clk: 'noop' })
+              .btn({ tx: '编辑', icon: 'edit', v: 'primary', clk: 'noop' })
+              .btn({ tx: '删除', icon: 'delete', v: 'danger', clk: 'noop' })
+              .btn({ tx: '通过', icon: 'circle-check', v: 'success', clk: 'noop' })
+              .btn({ tx: '驳回', icon: 'circle-x', v: 'danger', clk: 'noop' })
+              .btn({ tx: '提醒', icon: 'bell', clk: 'noop' })
+              .btn({ tx: '导出', icon: 'external-link', clk: 'noop' })
+              .btn({ icon: 'more', l: '更多操作' })
+            .end()
+          .end()
+          .col_layout({ span: 6 })
+            .card({ tt: '方向与导航类' })
+              .btn({ icon: 'chevron-left', l: '上一页' })
+              .btn({ icon: 'chevron-right', l: '下一页' })
+              .btn({ icon: 'arrow-up', l: '上升' })
+              .btn({ icon: 'arrow-down', l: '下降' })
+              .btn({ icon: 'trending-up', l: '趋势上升' })
+              .btn({ icon: 'trending-down', l: '趋势下降' })
+              .btn({ icon: 'panel-left', l: '侧栏' })
+              .btn({ icon: 'calendar', l: '日历' })
+            .end()
+          .end()
+        .end()
+        .row_layout()
+          .col_layout({ span: 6 })
+            .card({ tt: '对象类：树控件实景（原 📁📄 emoji）' })
+              .tree()
+                .tn({ v: 'src', tx: 'src', open: true }).tn({ v: 'app.js', tx: 'app.js', leaf: true }).tn({ v: 'lib.js', tx: 'lib.js', leaf: true }).end()
+                .tn({ v: 'docs', tx: 'docs' }).tn({ v: 'guide.md', tx: 'guide.md', leaf: true }).end()
+                .tn({ v: 'package.json', tx: 'package.json', leaf: true })
+              .end()
+              .audio({ s: 'https://www.w3schools.com/html/horse.ogg', tt: '音频（volume-high 图标）' })
+            .end()
+          .end()
+          .col_layout({ span: 6 })
+            .card({ tt: '状态类：callout 实景（原 ✓✕⚠ℹ 字符）' })
+              .callout({ t: 'success', tx: 'circle-check SVG 图标' })
+              .callout({ t: 'error', tx: 'circle-x SVG 图标' })
+              .callout({ t: 'warning', tx: 'circle-alert SVG 图标' })
+              .callout({ t: 'info', tx: 'circle-info SVG 图标' })
+              .callout({ t: 'tip', tx: 'lightbulb SVG 图标' })
+            .end()
+          .end()
+        .end()
+        .card({ tt: '终端三色点（原 🔴🟡🟢 emoji → 纯 CSS 圆点）' })
+          .terminal().text('$ npm run build\nvite v8 building for production...\nbuilt in 397ms').end()
+        .end();
+      return b;
+    }
+  },
+
+  {
+    trigger: 'demo-dashboard-kit',
+    title: '数据大屏四件套',
+    desc: 'panel 科技边框 + kpi 指标卡 + flip-num 翻牌器 + scrollboard 轮播榜单（tech 主题实景）',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('数据大屏四件套（M1）')
+        .callout({ t: 'info', tt: '用法', tx: '四组件配合 tech 主题（本区 grid theme:tech 子树切换）服务 ChatBI 大屏场景。kpi 数值滚动动画 + 趋势徽章 + [upd id:] 更新；flip-num 逐位翻牌；scrollboard 匀速轮播 + hover 暂停 + 无缝循环。' })
+        .grid({ cols: '360px 1fr 1fr', gap: 12, theme: 'tech' })
+          .cell()
+            .panel({ tt: '今日生产总览', v: 'corner' })
+              .kpi({ tt: '今日产量', v: '12846', unit: '件', trend: '12.4', icon: 'trending-up' }).end()
+              .kpi({ tt: '设备稼动率', v: '92.7', suf: '%', trend: '-1.2', t: 'danger', icon: 'trending-down' }).end()
+              .kpi({ tt: '直通率', v: '98.2', suf: '%', trend: '0.6', t: 'success', icon: 'circle-check' }).end()
+              .kpi({ tt: '能耗预警', v: '3', unit: '项', trend: '-2', t: 'warning', icon: 'bell' }).end()
+            .end()
+          .end()
+          .cell()
+            .panel({ tt: '实时产值（翻牌器）', v: 'glow' })
+              .p('单位：万元 · 逐位 3D 翻牌，reduced-motion 自动降级', { v: 'sm' })
+              .flipNum({ v: '8,642,918', s: 'lg' })
+              .p('今日目标完成率', { v: 'sm' })
+              .flipNum({ v: '86.4%', s: 'sm' })
+            .end()
+          .end()
+          .cell()
+            .panel({ tt: '工单完成榜', v: 'corner' })
+              .scrollboard({ h: 264, cols: '班组,工单,环比', rows: '总装A线,128,↑12|总装B线,96,↓3|焊装线,88,↑8|涂装线,76,↑2|注塑车间,64,↓5|装配三线,52,↑15' }).end()
+            .end()
+          .end()
+        .end()
+        .card({ tt: '默认主题下同样可用（主题表面色令牌）' })
+          .row_layout()
+            .col_layout({ span: 4 }).kpi({ tt: '月活用户', v: '45.2', suf: '万', trend: '3.1', icon: 'users' }).end().end()
+            .col_layout({ span: 4 }).kpi({ tt: '付费转化', v: '6.8', suf: '%', trend: '-0.4', t: 'warning', icon: 'trending-down' }).end().end()
+            .col_layout({ span: 4 })
+              .panel({ tt: '服务可用性', v: 'plain' })
+                .flipNum({ v: '99.99%' })
+              .end()
+            .end()
+          .end()
+        .end();
+      return b;
+    }
+  },
+
+  {
+    trigger: 'demo-bigscreen',
+    title: 'ChatBI 生产监控大屏（金标杆）',
+    desc: 'fit-screen 1920 设计稿 × tech 主题 × 中央大地图环绕式布局 × KPI/翻牌/轮播/渐变图表全家桶（M1 总验收）',
+    build() {
+      const b = new TokUIBuilder();
+      // 中央大地图环绕式布局（1920×1080 精确配格，无滚动无遮挡）：
+      // 顶部 KPI 带 → 左列（产值翻牌 + 良品率）/ 中央地图跨两行居中放大 / 右列工单榜 → 底部（告警 + 宽幅产量趋势）
+      b.fitScreen({ w: 1920, h: 1080, mode: 'scale' })
+        .grid({ cols: '400px 1fr 400px', rows: '132px 150px 1fr 288px', gap: 14, theme: 'tech', h: '100%', areas: "kpi kpi kpi|flip map rank|yield map rank|alarm trend trend" })
+          .cell({ area: 'kpi' })
+            .grid({ cols: '4', gap: 14 })
+              .cell().kpi({ tt: '总产量', v: '12846', unit: '件', trend: '12.4', icon: 'trending-up', id: 'kpi-out' }).end().end()
+              .cell().kpi({ tt: '稼动率', v: '92.7', suf: '%', trend: '-1.2', t: 'danger', icon: 'trending-down' }).end().end()
+              .cell().kpi({ tt: '直通率', v: '98.2', suf: '%', trend: '0.6', t: 'success', icon: 'circle-check' }).end().end()
+              .cell().kpi({ tt: '在线设备', v: '326', unit: '台', trend: '1.8', icon: 'setting' }).end().end()
+            .end()
+          .end()
+          .cell({ area: 'flip' })
+            .panel({ tt: '实时产值（万元）', v: 'glow' })
+              .flipNum({ v: '8,642,918', s: 'lg' })
+              .p('目标完成 86.4% · 每 5 秒刷新', { v: 'sm' })
+            .end()
+          .end()
+          .cell({ area: 'map' })
+            .panel({ tt: '区域稼动率分布', v: 'corner' })
+              .chart({ t: 'map', region: '浙江:86|江苏:74|广东:92|山东:60|四川:45|河南:52|湖南:58|河北:40|湖北:66|福建:78', d: '120.15,30.28,88,name:杭州|116.4,39.9,120,name:北京|113.26,23.13,95,name:广州|121.47,31.23,110,name:上海|104.06,30.67,72,name:成都', style: 'max-width:768px;margin:0 auto' })
+            .end()
+          .end()
+          .cell({ area: 'rank' })
+            .panel({ tt: '班组工单榜', v: 'corner' })
+              .scrollboard({ h: 548, cols: '班组,工单,环比', rows: '总装A线,128,↑12|总装B线,96,↓3|焊装线,88,↑8|涂装线,76,↑2|注塑车间,64,↓5|装配三线,52,↑15|质检一组,48,↑4|物流班组,44,↓2|包材车间,38,↑6|SMT一线,36,↑9|组装二线,33,↓4|包装班组,29,↑3|设备组,26,↓1|仓储一班,22,↑5' }).end()
+            .end()
+          .end()
+          .cell({ area: 'yield' })
+            .panel({ tt: '产线良品率对比（渐变）', v: 'corner' })
+              .chart({ t: 'bar', d: '98.2,97.6,99.1,96.8,98.9', l: 'A线,B线,C线,D线,E线', grad: true, vals: true, h: 300 })
+            .end()
+          .end()
+          .cell({ area: 'alarm' })
+            .panel({ tt: '实时告警趋势', v: 'corner' })
+              .chart({ t: 'line', d: '12,9,15,7,11,6,8', l: '00:00,04:00,08:00,12:00,16:00,20:00,24:00', smooth: true, h: 200 })
+            .end()
+          .end()
+          .cell({ area: 'trend' })
+            .panel({ tt: '近 30 日产量趋势（渐变）· 单位: 日', v: 'glow' })
+              .chart({ t: 'area', d: '3200,3350,3600,3550,3800,4100,3900,4250,4400,4300,4600,4800,4700,4950,5100,5000,5250,5400,5300,5550,5700,5600,5850,6000,5900,6150,6300,6200,6450,6600', l: '1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30', smooth: true, grad: true, h: 200, w: 1540 })
+            .end()
+          .end()
+        .end()
+      .end();
+      return b;
+    }
+  },
+
+  {
+    trigger: 'demo-map',
+    title: '中国地图',
+    desc: 'choropleth 省级热力 + 城市散点两层 + 标注数值化 + 点击上报（34 省含港澳，DataV GeoAtlas 加工）',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('中国地图（t:map）')
+        .callout({ t: 'info', tt: '能力面', tx: 'hover 省份/散点出多行 tooltip（省名 / 值+单位+占比）；含数据省标注「名+值」两行、无数据省灰名；label:off|name|full 三档控制；hover 高亮其余压暗；点击含数据省份上报 mapClick {province,value}（本例 on:handleMapClick → 页面顶部系统消息可见）；左下 visualMap 色阶条（vmin/vmax 刻度带 unit）；右下南海诸岛小图（九段线+四大群岛）。' })
+        .grid({ cols: '1fr 360px', gap: 12 })
+          .cell()
+            .panel({ tt: '区域设备稼动率', v: 'corner', theme: 'tech' })
+              .chart({ t: 'map', region: '浙江:86|江苏:74|广东:92|山东:60|四川:45|河南:52|湖南:58|河北:40|湖北:66|福建:78|安徽:55|江西:48', d: '120.15,30.28,88,name:杭州|116.4,39.9,120,name:北京|113.26,23.13,95,name:广州|121.47,31.23,110,name:上海|104.06,30.67,72,name:成都|114.3,30.6,80,name:武汉', unit: '%', on: 'mapClick:handleMapClick', w: 720 })
+            .end()
+          .end()
+          .cell()
+            .panel({ tt: '区域排名', v: 'corner' })
+              .scrollboard({ h: 300, cols: '省份,稼动率', rows: '广东,92,↑4|浙江,86,↑2|江苏,74,↓1|湖北,66,↑3|山东,60,↑1|河南,52,↓2|安徽,55,↑5|江西,48,↓3|四川,45,↑2|河北,40,↓1' }).end()
+            .end()
+          .end()
+        .end()
+        .grid({ cols: '1fr 1fr', gap: 12 })
+          .cell()
+            .panel({ tt: 'label:name（仅含数据省显名）', v: 'plain' })
+              .chart({ t: 'map', region: '浙江:86|江苏:74|广东:92|山东:60|四川:45', label: 'name', unit: '%', w: 440, h: 320 })
+            .end()
+          .end()
+          .cell()
+            .panel({ tt: 'label:off（纯色块·大屏窄卡场景）', v: 'plain' })
+              .chart({ t: 'map', region: '浙江:86|江苏:74|广东:92|山东:60|四川:45', label: 'off', unit: '%', w: 440, h: 320 })
+            .end()
+          .end()
+        .end();
+      return b;
+    }
+  },
+
+  {
+    trigger: 'demo-map-heat',
+    title: '全国省级热力',
+    desc: '34 省级行政区全量 choropleth（含港澳台）+ visualMap 色阶条特写，配合全局主题切换器对比 light/dark/tech',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('全国热力（34 省全量）')
+        .callout({ t: 'info', tt: '玩法', tx: 'region 覆盖全部 34 省级行政区（含港澳台，省名支持简称/全名双写法）；vmin/vmax 锁定色阶域；左下角 visualMap 渐变条两端刻度即 vmin/vmax（带 unit）；用顶部全局主题选择器切 dark / tech 观察色板与刻度自适应。' })
+        .chart({ t: 'map', region: '北京:78|天津:74|河北:62|山西:55|内蒙古:48|辽宁:58|吉林:52|黑龙江:45|上海:88|江苏:82|浙江:86|安徽:58|福建:72|江西:50|山东:76|河南:60|湖北:66|湖南:59|广东:92|广西:47|海南:63|重庆:70|四川:54|贵州:42|云南:51|西藏:28|陕西:57|甘肃:38|青海:32|宁夏:44|新疆:41|台湾:65|香港:90|澳门:83', vmin: '0', vmax: '100', unit: '%', w: 860, h: 620 })
+        .callout({ t: 'success', tt: '验收要点', tx: '34 省全部上色无灰块（含港澳）；标注碰撞避让后密集区（京津冀/江浙沪）不叠字；hover 高亮描边 + 其余压暗；点击任一省触发 mapClick。' });
+      return b;
+    }
+  },
+
+  {
+    trigger: 'demo-map-scatter',
+    title: '城市散点分布',
+    desc: '17 城经纬度散点（值对数映射半径）+ 半径图例；第二图叠加省级热力双图层',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('城市散点（d 经纬度层）')
+        .callout({ t: 'info', tt: '数据面', tx: 'd:"经度,纬度,值,name:城市"——值经对数映射为半径（越界点自动钳制画布内）；仅散点（无 region）时左下出「半径图例」：小圆=1、大圆=最大值，映射关系一眼可读；散点自带脉冲呼吸动画（reduced-motion 自动关）。' })
+        .chart({ t: 'map', d: '116.41,39.9,180,name:北京|121.47,31.23,160,name:上海|113.26,23.13,150,name:广州|114.06,22.55,140,name:深圳|120.16,30.28,120,name:杭州|104.07,30.57,95,name:成都|114.31,30.59,110,name:武汉|108.94,34.34,80,name:西安|106.55,29.56,85,name:重庆|118.8,32.06,90,name:南京|123.43,41.8,60,name:沈阳|126.53,45.8,45,name:哈尔滨|87.62,43.83,35,name:乌鲁木齐|91.11,29.66,25,name:拉萨|102.83,24.88,40,name:昆明|121.5,25.05,55,name:台北|110.32,20.03,30,name:海口', unit: '店', w: 860, h: 620 })
+        .panel({ tt: '热力 + 散点双图层（region + d 同图叠加）', v: 'corner' })
+          .chart({ t: 'map', region: '广东:92|浙江:86|江苏:82|上海:88|北京:78|四川:54|湖北:66', d: '113.26,23.13,150,name:广州|121.47,31.23,160,name:上海|116.41,39.9,180,name:北京|120.16,30.28,120,name:杭州|104.07,30.57,95,name:成都', unit: '%', w: 720 })
+        .end();
+      return b;
+    }
+  },
+
+  {
+    trigger: 'demo-map-bigscreen',
+    title: '地图监控大屏',
+    desc: 'tech 主题 fit-screen 1920 单页：KPI 行 + 全国热力主体 + 区域榜单（流式推送时区块骨架占位）',
+    build() {
+      const b = new TokUIBuilder();
+      b.fitScreen({ w: 1920, h: 1080, mode: 'scale' })
+        .grid({ cols: '480px 1fr 400px', rows: '120px 1fr', gap: 12, areas: 'kpi map rank|kpi map rank', h: '100%', theme: 'tech' })
+          .cell({ area: 'kpi' })
+            .panel({ tt: '全国门店实时概览', v: 'glow' })
+              .grid({ cols: 2, gap: 8 })
+                .kpi({ tt: '在线门店', v: '1286', unit: '家', trend: '3.2', icon: 'trending-up' }).end()
+                .kpi({ tt: '今日订单', v: '45820', unit: '单', trend: '12.4', icon: 'trending-up' }).end()
+                .kpi({ tt: '平均稼动', v: '87.6', suf: '%', trend: '-0.8', v: 'warn' }).end()
+                .kpi({ tt: '告警门店', v: '7', unit: '家', trend: '-3', v: 'danger', icon: 'bell' }).end()
+              .end()
+            .end()
+          .end()
+          .cell({ area: 'map' })
+            .panel({ tt: '区域产能分布（点击省份下钻）', v: 'corner' })
+              .chart({ t: 'map', region: '北京:78|天津:74|河北:62|山西:55|内蒙古:48|辽宁:58|吉林:52|黑龙江:45|上海:88|江苏:82|浙江:86|安徽:58|福建:72|江西:50|山东:76|河南:60|湖北:66|湖南:59|广东:92|广西:47|海南:63|重庆:70|四川:54|贵州:42|云南:51|西藏:28|陕西:57|甘肃:38|青海:32|宁夏:44|新疆:41|台湾:65|香港:90|澳门:83', d: '113.26,23.13,150,name:广州|121.47,31.23,160,name:上海|116.41,39.9,180,name:北京|120.16,30.28,120,name:杭州|104.07,30.57,95,name:成都', unit: '%', label: 'off', on: 'mapClick:handleMapClick', w: 1100 })
+            .end()
+          .end()
+          .cell({ area: 'rank' })
+            .panel({ tt: '区域排名 TOP10', v: 'glow' })
+              .scrollboard({ h: 760, cols: '区域,指数,环比', rows: '香港,90,↑2|上海,88,↑1|浙江,86,↑4|江苏,82,↓1|北京,78,↑3|山东,76,↑1|天津,74,↓2|福建,72,↑5|重庆,70,↓1|湖北,66,↑2' }).end()
+            .end()
+          .end()
+        .end()
+      .end();
+      return b;
+    }
+  },
+
+  {
+    trigger: 'demo-chart-motion',
+    title: '图表动画与渐变',
+    desc: '入场动画（fade+上浮）与 grad 渐变填充（T1.5）',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('图表动画与渐变（T1.5）')
+        .callout({ t: 'info', tt: '用法', tx: '入场动画默认开启（整图 fade+上浮+微缩放，仅首渲染一次，prefers-reduced-motion 自动关闭，enter:"false" 可单图关闭）；grad 布尔属性开启系列色渐变填充（柱/面积/环等填充型图表，系列色到同色透明垂直渐变）。刷新页面或重新点击本案例可重看入场动画。' })
+        .row_layout()
+          .col_layout({ span: 6 })
+            .card({ tt: '渐变面积图（grad + smooth）' })
+              .chart({ t: 'area', d: '3200,3600,4100,3900,4400,4800,5100', l: '一,二,三,四,五,六,日', smooth: true, grad: true, tt: '件' })
+            .end()
+          .end()
+          .col_layout({ span: 6 })
+            .card({ tt: '渐变柱状图（grad + vals）' })
+              .chart({ t: 'bar', d: '98.2,97.6,99.1,96.8,98.9', l: 'A线,B线,C线,D线,E线', grad: true, vals: true })
+            .end()
+          .end()
+        .end()
+        .row_layout()
+          .col_layout({ span: 6 })
+            .card({ tt: '渐变环图（grad）' })
+              .chart({ t: 'donut', d: '42,28,18,12', l: '直发,分销,电商,其他', grad: true, v: '42%' })
+            .end()
+          .end()
+          .col_layout({ span: 6 })
+            .card({ tt: '对照：动画关闭（enter:"false"）' })
+              .chart({ t: 'line', d: '12,9,15,7,11,6,8', l: '00:00,04:00,08:00,12:00,16:00,20:00,24:00', smooth: true, enter: 'false' })
+              .p('本图无入场动画；上方三图刷新案例可见入场。', { v: 'sm' })
+            .end()
+          .end()
+        .end();
+      return b;
+    }
+  },
+  {
+    trigger: 'demo-fit-screen',
+    title: 'fit-screen 大屏缩放',
+    desc: '设计稿等比适配三模式对照（T1.3）',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('fit-screen 大屏缩放（T1.3）')
+        .callout({ t: 'info', tt: '用法', tx: '[fit-screen w:1920 h:1080 mode:scale]…[/fit-screen]：内容按设计稿尺寸满幅排版（内部容器 h:100% 填满画布），随挂载区等比缩放——拖动浏览器窗口宽度，下方三个示例实时联动。mode:scale 等比居中留空（默认，监控大屏首选）/ mode:width 等宽缩放贴合内容高，配 maxh: 视口高上限后内容超高部分纵向滚动 / mode:full 双轴拉伸铺满。完整实景见「ChatBI 监控大屏」案例。' })
+        .grid({ cols: '3', gap: 12 })
+          .cell()
+            .panel({ tt: 'mode:scale（默认）' })
+              .fitScreen({ w: 640, h: 360, mode: 'scale' })
+                .grid({ cols: '1fr 1fr', rows: '1fr 1fr auto', areas: 'a b|c d|note note', gap: 8, theme: 'tech', h: '100%' })
+                  .cell({ area: 'a' }).kpi({ tt: '产量', v: '12846', unit: '件', trend: '12.4', icon: 'trending-up' }).end().end()
+                  .cell({ area: 'b' }).kpi({ tt: '稼动率', v: '92.7', suf: '%', trend: '-1.2', t: 'danger', icon: 'trending-down' }).end().end()
+                  .cell({ area: 'c' }).kpi({ tt: '直通率', v: '98.2', suf: '%', trend: '0.6', t: 'success', icon: 'circle-check' }).end().end()
+                  .cell({ area: 'd' }).kpi({ tt: '能耗预警', v: '3', unit: '项', trend: '-2', t: 'warning', icon: 'bell' }).end().end()
+                  .cell({ area: 'note' }).p('设计稿 640×360 满幅排版（grid h:100% + rows 1fr）——窄容器时等比缩放上下留空。', { v: 'sm' }).end()
+                .end()
+              .end()
+            .end()
+          .end()
+          .cell({ align: 'start' })
+            .panel({ tt: 'mode:width（等宽纵滚）' })
+              .fitScreen({ w: 640, h: 360, mode: 'width', maxh: 240, theme: 'tech' })
+                .grid({ cols: '1fr', gap: 8, theme: 'tech', h: '100%' })
+                  .cell().kpi({ tt: '在线设备', v: '326', unit: '台', trend: '1.8', icon: 'setting' }).end().end()
+                  .cell().kpi({ tt: '今日产量', v: '12846', unit: '件', trend: '12.4', icon: 'trending-up' }).end().end()
+                  .cell().kpi({ tt: '设备稼动率', v: '92.7', suf: '%', trend: '-1.2', t: 'danger', icon: 'trending-down' }).end().end()
+                  .cell().kpi({ tt: '直通率', v: '98.2', suf: '%', trend: '0.6', t: 'success', icon: 'circle-check' }).end().end()
+                  .cell().kpi({ tt: '能耗预警', v: '3', unit: '项', trend: '-2', t: 'warning', icon: 'bell' }).end().end()
+                  .cell().kpi({ tt: '月订单', v: '4821', unit: '单', trend: '6.5', icon: 'cart' }).end().end()
+                  .cell().p('等宽缩放贴合内容高——maxh:240 限定视口，超出部分纵向滚动（滚轮/触摸板）。', { v: 'sm' }).end()
+                .end()
+              .end()
+            .end()
+          .end()
+          .cell({ align: 'start' })
+            .panel({ tt: 'mode:full（双轴拉伸）' })
+              .fitScreen({ w: 640, h: 360, mode: 'full' })
+                .grid({ cols: '1fr', rows: '1fr auto', gap: 8, h: '100%' })
+                  .cell().flipNum({ v: '99.99%', s: 'lg' }).end()
+                  .cell().p('双轴拉伸铺满挂载区——横纵独立缩放，比例可变场景文字可能轻微变形。', { v: 'sm' }).end()
+                .end()
+              .end()
+            .end()
+          .end()
+        .end();
+      return b;
+    }
+  },
   {
     trigger: 'demo-heading',
     title: '标题组件',
@@ -1080,7 +1614,7 @@ const DEMOS = [
       .card({ tt: '空图表 / 评分 / 上传' })
         .row_layout()
           .col_layout({ span: 6 })
-            .chart({ t: 'bar' })
+            .chart({ t: 'bar' }).end()
           .end()
           .col_layout({ span: 6 })
             .rate({ l: '评分' })
@@ -1371,7 +1905,7 @@ const DEMOS = [
             .cardTx('快捷操作', '点击左侧导航选择更多组件示例。')
           .end()
           .col_layout({ span: 6 })
-            .cardTx('版本更新', 'TokUI v0.2.4 已发布，支持卡片自闭合模式。')
+            .cardTx('版本更新', 'TokUI v0.2.5 已发布，支持卡片自闭合模式。')
           .end()
         .end()
         .hr()
@@ -1475,7 +2009,7 @@ const DEMOS = [
               .card({ tt: 'Dark', ht: 'accent', hc: 'dark' }).p('深色竖条').end()
             .end()
             .col_layout({ span: 4 })
-              .card({ tt: '自定义紫', ht: 'accent', hc: '#8b5cf6' }).p('自定义色值').end()
+              .card({ tt: '自定义青', ht: 'accent', hc: '#0d9488' }).p('自定义色值').end()
             .end()
           .end()
         .end()
@@ -1491,7 +2025,7 @@ const DEMOS = [
               .card({ tt: 'Pill', ht: 'pill', hc: 'warning' }).p('橙色药丸').end()
             .end()
             .col_layout({ span: 3 })
-              .card({ tt: '自定义', ht: 'pill', hc: '#8b5cf6' }).p('紫色药丸').end()
+              .card({ tt: '自定义', ht: 'pill', hc: '#0d9488' }).p('青色药丸').end()
             .end()
           .end()
         .end()
@@ -1561,7 +2095,7 @@ const DEMOS = [
                 .a({ tx: '帮助文档', u: '/docs' })
                 .p(' | ')
                 .a({ tx: '联系我们', u: '/contact' })
-                .p('版本 v0.2.4')
+                .p('版本 v0.2.5')
               .end()
             .end()
           .end()
@@ -3634,7 +4168,7 @@ const DEMOS = [
           setTimeout(sendNext, chunk._wait);
         } else {
           res.write('data: ' + JSON.stringify({ tokui: chunk }) + '\n\n');
-          setTimeout(sendNext, 80);
+          setTimeout(sendNext, CHUNK_DELAY);
         }
       }
       sendNext();
@@ -3680,7 +4214,7 @@ const DEMOS = [
         }
         var chunk = chunks[i++];
         res.write('data: ' + JSON.stringify({ tokui: chunk }) + '\n\n');
-        setTimeout(sendNext, 80);
+        setTimeout(sendNext, CHUNK_DELAY);
       }
       sendNext();
     }
@@ -3736,7 +4270,7 @@ const DEMOS = [
         }
         var chunk = chunks[i++];
         res.write('data: ' + JSON.stringify({ tokui: chunk }) + '\n\n');
-        setTimeout(sendNext, 80);
+        setTimeout(sendNext, CHUNK_DELAY);
       }
       sendNext();
     }
@@ -7182,36 +7716,93 @@ const DEMOS = [
   {
     trigger: 'demo-scroll-area',
     title: 'Scroll Area 滚动区域',
-    desc: '自定义滚动条容器',
+    desc: '智能滚动容器：双向按需滚动、hover 浮现滚动条',
     build() {
       const b = new TokUIBuilder();
-      b.card({ tt: 'Scroll Area 自定义滚动区域' })
-        .h3('固定高度 300px 滚动')
-        .scrollArea({ h: '300', w: '100%' })
-          .p('以下是一个长列表，滚动查看自定义滚动条效果。滚动条仅在鼠标悬停时加深颜色。')
+      b.card({ tt: 'Scroll Area 滚动区域' })
+        .callout({ t: 'info', tx: '滚动条默认隐藏，三种方式浮现：鼠标悬停容器、滚动进行中（停止约 0.8s 后淡出）、键盘 Tab 聚焦后。颜色随主题令牌自动适配四主题。' })
+        .h3('1. 固定高度纵向滚动（h 纯数字自动补 px，宽度缺省 100%）')
+        .scrollArea({ h: '220' })
+          .p('长列表场景：超出高度自动出现滚动条，按需出现、不占视觉焦点。')
           .list({ t: 'ol' })
-            .item('第一项：TokUI Scroll Area 组件')
-            .item('第二项：支持自定义滚动条样式')
-            .item('第三项：Webkit 和 Firefox 双浏览器支持')
-            .item('第四项：暗色主题自动切换滚动条颜色')
-            .item('第五项：高度和宽度可通过 h/w 属性自定义')
-            .item('第六项：内部可嵌套任意 TokUI 组件')
-            .item('第七项：流式渲染完全支持')
-            .item('第八项：零外部依赖，纯 CSS 实现')
-            .item('第九项：支持主题色变量')
-            .item('第十项：边界圆角继承主题设置')
-            .item('第十一项：适合长列表、日志输出等场景')
-            .item('第十二项：与 Card、Tabs 等容器组件配合使用')
-            .item('第十三项：Firefox 使用 scrollbar-width: thin')
-            .item('第十四项：滚动条宽度仅 6px，不抢视觉焦点')
-            .item('第十五项：hover 时滚动条颜色加深，提示可交互')
+            .item('第一项：固定高度 h:220，内容超出即滚动')
+            .item('第二项：滚动条默认透明，hover / 滚动中 / 聚焦时浮现')
+            .item('第三项：宽高支持 100% / 50vh 等 CSS 值，纯数字按 px')
+            .item('第四项：minh / maxh 弹性高度：内容少时收缩、多时封顶')
+            .item('第五项：dir 属性可锁定单向（dir:x 仅横向 / dir:y 仅纵向）')
+            .item('第六项：v:flush 变体去内边距，适合嵌表格')
+            .item('第七项：颜色走 --tokui-scrollbar-* 主题令牌')
+            .item('第八项：四主题 + seed 动态色阶自动适配')
+            .item('第九项：Webkit 与 Firefox 双引擎自定义滚动条')
+            .item('第十项：tabindex=0 键盘可达（WCAG 2.1.1）')
+            .item('第十一项：内部可嵌套任意 TokUI 组件')
+            .item('第十二项：流式渲染完全支持')
+            .item('第十三项：virtual 虚拟滚动见「交互回路」Phase 3 案例')
+            .item('第十四项：触底 loadmore 事件用于加载更多')
+            .item('第十五项：零外部依赖，纯 CSS + 40 行 JS')
           .end()
         .end()
-        .h3('固定高度 150px + 嵌套卡片')
-        .scrollArea({ h: '150' })
-          .card({ tt: '嵌套卡片 1' }).p('这是滚动区域内的第一个卡片。').end()
-          .card({ tt: '嵌套卡片 2' }).p('这是滚动区域内的第二个卡片。').end()
-          .card({ tt: '嵌套卡片 3' }).p('这是滚动区域内的第三个卡片。').end()
+        .h3('2. 双向滚动：内容超宽超高时横纵滚动条按需各自出现（固定窄宽 w:420 保证横向溢出）')
+        .scrollArea({ h: '180', w: '420' })
+          .p('视口宽固定 520px，12 列监控表 min-content 超宽 → 横向滚动；6 行超高 → 纵向滚动。两轴按需独立出现。')
+          .table({ stripe: true })
+            .theadCols(['监控ID', '指标名称', '周一 00:00', '周二 00:00', '周三 00:00', '周四 00:00', '周五 00:00', '周六 00:00', '周日 00:00', '周均值', '趋势', '备注说明'])
+            .row('#1001', 'CPU 利用率', '42%', '78%', '65%', '88%', '51%', '33%', '47%', '58%', '↑', 'alerts/edge-eu-west-1/node-042 高峰在周四')
+            .row('#1002', '内存占用', '61%', '63%', '67%', '72%', '66%', '62%', '60%', '64%', '→', '平稳波动')
+            .row('#1003', '磁盘 IO', '12%', '18%', '95%', '22%', '15%', '9%', '11%', '26%', '↑', '周三尖峰告警')
+            .row('#1004', '网络吞吐', '31%', '44%', '52%', '38%', '61%', '27%', '35%', '41%', '→', '周五晚高峰')
+            .row('#1005', '请求 QPS', '1.2k', '1.8k', '2.4k', '2.1k', '1.9k', '0.8k', '1.1k', '1.6k', '↑', 'gateway/qps-hourly-report 工作日高于周末')
+            .row('#1006', '错误率', '0.2%', '0.1%', '1.2%', '0.3%', '0.2%', '0.1%', '0.1%', '0.3%', '↑', '周三需关注')
+          .end()
+        .end()
+        .h3('3. dir:x 仅横向锁定：横向标签带（inline 行在 dir:x 内自动不换行）')
+        .scrollArea({ h: '124', dir: 'x' })
+          .row_layout({ inline: true })
+            .tag('React').tag('Vue').tag('Svelte').tag('Solid').tag('Angular')
+            .tag('Web Components').tag('Qwik').tag('Lit').tag('Alpine').tag('HTMX')
+            .tag('Astro').tag('Next.js').tag('Nuxt').tag('Remix').tag('SvelteKit')
+            .tag('Qwik City').tag('Vite').tag('Turbopack').tag('esbuild').tag('Rolldown')
+          .end()
+        .end()
+        .h3('4. minh/maxh 弹性高度对照：左内容不足 minh 收缩无滚动 / 右超出 maxh 封顶出滚动')
+        .row_layout()
+          .col_layout({ span: 12 })
+            .scrollArea({ minh: '80', maxh: '180' })
+              .p('左：内容不足 minh:80 → 收缩到内容高，不出滚动条。')
+            .end()
+          .end()
+          .col_layout({ span: 12 })
+            .scrollArea({ minh: '80', maxh: '180' })
+              .p('右：内容超过 maxh:180 → 封顶 180px 出滚动条。')
+              .list({ t: 'ol' })
+                .item('第一行：弹性留白场景一')
+                .item('第二行：弹性留白场景二')
+                .item('第三行：弹性留白场景三')
+                .item('第四行：弹性留白场景四')
+                .item('第五行：弹性留白场景五')
+                .item('第六行：弹性留白场景六')
+                .item('第七行：弹性留白场景七')
+                .item('第八行：弹性留白场景八')
+              .end()
+            .end()
+          .end()
+        .end()
+        .h3('5. v:flush 去内边距：通栏嵌表格')
+        .scrollArea({ h: '150', v: 'flush' })
+          .table({ stripe: true, bordered: true })
+            .theadCols(['事件', '时间', '状态'])
+            .row('deploy#4821', '14:02:11', 'success')
+            .row('deploy#4820', '13:47:03', 'success')
+            .row('deploy#4819', '11:20:45', 'danger')
+            .row('deploy#4818', '10:58:20', 'success')
+            .row('deploy#4817', '09:31:07', 'success')
+          .end()
+        .end()
+        .h3('6. 嵌套卡片 + 宽度占满（w:100%）')
+        .scrollArea({ h: '150', w: '100%' })
+          .card({ tt: '嵌套卡片 1' }).p('滚动区域内的第一个卡片。').end()
+          .card({ tt: '嵌套卡片 2' }).p('滚动区域内的第二个卡片。').end()
+          .card({ tt: '嵌套卡片 3' }).p('滚动区域内的第三个卡片。').end()
         .end()
       .end();
       return b;
@@ -8861,7 +9452,7 @@ const DEMOS = [
       return [
         '[card tt:"CSS 样式修改"]',
         { _wait: 300 },
-        '[diff lang:css title:"theme.css"]- .header { background: #333; }\n- .header { color: white; }\n+ .header {\n+   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);\n+   color: white;\n+   padding: 16px 24px;\n+ }\n  .header a { text-decoration: none; }[/diff]',
+        '[diff lang:css title:"theme.css"]- .header { background: #333; }\n- .header { color: white; }\n+ .header {\n+   background: linear-gradient(135deg, #3f3c36 0%, #2e2b26 100%);\n+   color: white;\n+   padding: 16px 24px;\n+ }\n  .header a { text-decoration: none; }[/diff]',
         '[/card]',
         { _wait: 500 },
         '[card tt:"Python 重构"]',
@@ -9577,7 +10168,7 @@ const DEMOS = [
           setTimeout(sendNext, chunk._wait);
         } else {
           res.write('data: ' + JSON.stringify({ tokui: chunk }) + '\n\n');
-          setTimeout(sendNext, 80);
+          setTimeout(sendNext, CHUNK_DELAY);
         }
       }
       sendNext();
@@ -11254,7 +11845,7 @@ function streamBuilder(res, builder, demo) {
       else if (res.socket && typeof res.socket.write === 'function') {
         // Node.js 原生 http 不一定有 flush，直接继续
       }
-      setTimeout(sendNext, 80);
+      setTimeout(sendNext, CHUNK_DELAY);
     }
   }
   res.on('close', () => { cleaned = true; });
@@ -11265,7 +11856,7 @@ function streamBuilder(res, builder, demo) {
 // 窗口内累计达上限即触发「整 60s 冷却」：从被限流那一刻起锁 60s，
 // 倒计时恒为 60（与历史请求分布无关），冷却到期后计数清零、重新放行。
 const RATE_LIMIT_WINDOW = 60 * 1000; // 限流冷却时长 1 分钟
-const RATE_LIMIT_MAX = 10;            // 每 IP 窗口内最大请求数
+const RATE_LIMIT_MAX = Number(process.env.TOKUI_DEMO_RATE_LIMIT) || 10; // 每 IP 窗口内最大请求数（校验器可经 env 放开）
 const _rateMap = new Map();            // ip -> { reqs:[时间戳], blockedUntil:ms }
 
 // 提取客户端真实 IP：

@@ -39,16 +39,18 @@ test('renders notification card with correct class', () => {
   assert.strictEqual(dom.getAttribute('role'), 'alert');
 });
 
-test('type applies correct icon and border color class', () => {
+test('type applies correct icon and border color class（T0.4：字符图标 → SVG 注册表）', () => {
   const rc = makeRenderer();
   var types = ['success', 'error', 'warning', 'info'];
-  var icons = { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' };
+  var icons = { success: 'circle-check', error: 'circle-x', warning: 'circle-alert', info: 'circle-info' };
   types.forEach(function (t) {
     var dom = rc.render({ type: 'notification', attrs: { t: t, tt: '标题' }, children: [] });
     assert.ok(dom.className.indexOf('tokui-notification--' + t) !== -1, 'missing class for type ' + t);
     var iconEl = dom.querySelector('.tokui-notification__icon');
     assert.ok(iconEl, 'missing icon element for type ' + t);
-    assert.strictEqual(iconEl.textContent, icons[t], 'wrong icon for type ' + t);
+    // T0.4 去 emoji：icon 变为 innerHTML 注入的 SVG（iconSvg 字符串，dom-mock 下以原始串形态存在）
+    assert.ok(String(iconEl.innerHTML).indexOf(icons[t]) !== -1 || iconEl.textContent === icons[t],
+      'wrong icon for type ' + t);
   });
 });
 

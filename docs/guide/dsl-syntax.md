@@ -36,9 +36,25 @@ v:"primary,sm"                               ; 多变体用逗号分隔
 | `print` | 打印动作（`print:ID` / `print:self`） | `w/h/bg/fc` | 宽/高/背景/字色 |
 | `icon` | SVG 图标名（btn / 操作列） | `i` | emoji 图标（btn / 操作列 / menu-item） |
 | `target` | `a` 打开方式 | `on` | 事件上报声明 `on:"事件:处理器,…"`（**必须双引号**，见[交互事件上报](#交互事件上报)） |
+| `cls` | 自定义类名（全组件根级，见下节） | `style` | 白名单内联样式（全组件根级，见下节） |
 
 > `clk:` / `sub:` 的处理器名称需通过 `TokUI.registerHandler(name, fn)` 预先注册，服务端不下发可执行代码。
 > `sub` / `reset` / `print` 是按钮**内置动作**，由 renderer 自动解析；`reset` / `print` 无需注册 handler。详见[表单组件](/components/form#表单动作-提交-重置-数据收集)。
+
+### 样式定制：`cls:` / `style:`（全组件根级）
+
+两个通用属性对**全部已注册组件**生效，集中落在组件**根元素**上（`src/core/style-guard.js` 安全过滤）：
+
+```html
+[card tt:渐变品牌卡 cls:"pricing fade-in" style:"background:linear-gradient(135deg,var(--tokui-primary-1),var(--tokui-bg));border-radius:16px"]
+[btn t:primary cls:cta-btn style:"border-radius:16px"]  ← 单类名/无空格值可不加引号
+[p 导语文字 cls:lead style:"font-size:22px;letter-spacing:1px"]
+```
+
+- **`style:` 安全白名单**：放行 `background(-image/-color/…)`、`color`、`border`（含圆角）、`padding`/`margin`、`box-shadow`、`opacity`、`font-*`、`text-align`、`letter-spacing`、`max/min-width/height`、`gap`、`flex` 族、`align/justify-*`、`transform`（仅 translate/scale/rotate）、`backdrop-filter`、`aspect-ratio`、`object-fit`、`transition`、`z-index` 等；`url()` 仅放行 http(s) 与站内相对路径。拒绝 `position`/`top`/`left`（防布局逃逸）、`expression()`/`javascript:`/`behavior:`/`@import`（防注入）。**违规声明静默丢弃**，其余声明照常生效。
+- **`cls:` 规则**：类名须 `^[a-zA-Z][\w-]{0,63}$`；**拒绝 `tokui-` 前缀**（框架保留字）；上限 8 个、自动去重；非法词逐个静默丢弃。
+- 通道定位「根级增强」：内部元素不透传；与组件私有 `w:`/`bg:`/`fc:` 等散点属性共存（同名属性 `style:` 优先）。未知组件降级不走此通道。
+
 
 > 表单校验：`input` / `pwd` / `textarea` / `select` 支持 `rule:"required|email|…"` + `msg:"自定义文案"` 声明式校验规则——提交时统一执行，失败拦截提交、错误字段标红出 hint 并聚焦首错。详见 [表单 · DSL 校验规则](/components/form#dsl-校验规则)。
 
@@ -168,6 +184,25 @@ DSL 用 `on:"事件:处理器,…"`（**必须双引号**）声明组件交互�
 | `welcome-feature` | `select`（点击特性卡片） | `{value: 标题}` |
 
 > 各组件事件详情见对应组件文档：[表单](/components/form)、[布局](/components/layout)、[AI 对话](/components/ai-chat)；完整说明见 [DSL 参考](https://github.com/jboltai/tokui/blob/master/demo/TOKUI_DSL_REFERENCE.md) §8.4。
+
+## 响应式断点
+
+`col` 与 `grid` 支持 `xs`/`sm`/`md`/`lg`/`xl` 五档断点属性——声明式响应式，**断点基于容器（row/grid 自身）宽度而非视口**，嵌套布局各自独立响应：
+
+```html
+[row]
+  [col span:4 xs:12 sm:6 lg:3 内容]     ← 桌面 3 列 → 平板 2 列 → 手机 1 列
+  [col xs:"8/2" 内容]                   ← 组合值 "span/offset"
+[/row]
+[grid gap:12 xs:1 sm:2 lg:3]           ← grid 断点值 = 列数 1-12
+  ...
+[/grid]
+```
+
+- 档位递增覆盖：`xs` 基础档（全宽生效）→ `sm` ≥576 → `md` ≥768 → `lg` ≥992 → `xl` ≥1200（容器 px），未写某档继承上一档；
+- 断点只做覆盖，不写断点时 `span`/`offset` 行为与旧版完全一致；非法值静默丢弃该档；
+- 不支持容器查询的浏览器自动回退全局 1024/640 两档媒体查询兜底，不破版；
+- 完整说明见 [DSL 参考 · 响应式断点](https://tokui-demo.jboltai.com/TOKUI_DSL_REFERENCE.md)。
 
 ## 组件分类速览
 

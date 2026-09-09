@@ -105,6 +105,13 @@ var _t = (typeof require === 'function')
   : (typeof window !== 'undefined' && window.TokUI && window.TokUI._internal && window.TokUI._internal.t)
     || function (key) { return key; };
 
+// 样式安全通道：cls: / style: 属性的集中过滤（src/core/style-guard.js）。
+// 浏览器脚本序中 style-guard.js 须先于 renderer.js 加载（lib.js 已按拓扑序）。
+var StyleGuard = (typeof require === 'function')
+  ? require('./style-guard')
+  : (typeof window !== 'undefined' && window.TokUI && window.TokUI._internal && window.TokUI._internal.StyleGuard)
+    || { filterStyle: function () { return undefined; }, sanitizeCls: function () { return null; } };
+
 /**
  * 创建 DOM 元素的快捷方法
  *
@@ -275,7 +282,9 @@ const VARIANTS = {
   menu: new Set(['horizontal', 'inline']),
   segmented: new Set(['sm', 'lg', 'block', 'pill', 'vertical']),
   anchor: new Set(['horizontal']),
+  'scroll-area': new Set(['flush']),
   kbd: new Set(['sm', 'lg']),
+  panel: new Set(['corner', 'glow', 'plain']),
 };
 
 /**
@@ -440,6 +449,8 @@ class TokUIRenderer {
     const rc = (children) => {
       return children.map(child => self.render(child, node.type, currentDepth + 1));
     };
+    // 透传流式首挂标记（grid 据此铺 areas 骨架占位）
+    if (self._streamMounting) rc._streamMounting = true;
 
     var dom;
     try {
@@ -459,6 +470,8 @@ class TokUIRenderer {
       dom = details;
     }
     this._applyVariants(dom, node);
+    // 通用样式安全通道：cls: / style: 集中落组件根元素（全组件生效）
+    this._applyUserStyle(dom, node);
     // 在每个组件根元素盖 data-tokui-tag 源标签印章（文档 Playground / E2E 定位用）。
     // 只盖普通元素（nodeType===1），文本节点 / fragment / null 跳过。
     if (dom && dom.nodeType === 1 && node.type && node.type !== '_text') {
@@ -498,6 +511,27 @@ class TokUIRenderer {
         target.classList.add('tokui-' + node.type + '--' + name);
       }
     });
+  }
+
+  /**
+   * 通用样式安全通道：cls:（自定义类名）与 style:（白名单内联样式）集中落组件根元素。
+   * - cls: 类名须匹配 ^[a-zA-Z][\w-]{0,63}$、拒绝 tokui- 前缀、上限 8 个，classList 追加；
+   * - style: 属性名白名单 + 值级安全过滤（expression()/javascript:/url() 协议等，见 style-guard.js），
+   *   过滤后的声明合并追加到根元素既有内联样式之后。
+   * 仅做根级增强：组件内部元素不透传；与组件私有 w:/bg:/hc: 等散点属性叠加共存。
+   */
+  _applyUserStyle(dom, node) {
+    if (!dom || dom.nodeType !== 1) return;
+    var attrs = node.attrs || {};
+    var names = StyleGuard.sanitizeCls(attrs.cls);
+    if (names) {
+      for (var i = 0; i < names.length; i++) dom.classList.add(names[i]);
+    }
+    var safeStyle = StyleGuard.filterStyle(attrs.style);
+    if (safeStyle) {
+      var css = dom.getAttribute('style');
+      dom.setAttribute('style', css ? css.replace(/;\s*$/, '') + '; ' + safeStyle : safeStyle);
+    }
   }
 
   /**
@@ -685,7 +719,35 @@ class TokUIRenderer {
     // 流式打开容器时也要传 parentType：否则容器模式的子节点（如 desc / carousel / command-group 内的 item）
     // 拿不到父级类型，会退化成默认 li 分支（与非流式时父容器 handler 直接调 buildDescItem 等不一致）。
     const _pe = this.slotStack.length > 0 ? this.slotStack[this.slotStack.length - 1] : null;
-    const dom = this.render(node, _pe ? _pe.containerType : undefined);
+    // _streamMounting 标记：供组件渲染器识别流式首挂（grid 据此铺 areas 骨架占位）
+    this._streamMounting = true;
+    let dom;
+    try {
+      dom = this.render(node, _pe ? _pe.containerType : undefined);
+    } finally {
+      this._streamMounting = false;
+    }
+    // grid areas 骨架替换：真实 cell 按区名换掉骨架 cell（保位，grid-area 已就位跳过通用 append）；
+    // 非具名/未知区 cell 到达 → 撤全部剩余骨架降级为常规流式
+    let _placedInGridSkel = false;
+    if (node.type === 'cell' && _pe && _pe.containerType === 'grid' && _pe.el && _pe.el._areaSkel) {
+      const _areaName = node.attrs ? String(node.attrs.area || '').trim() : '';
+      const _skel = _areaName && _pe.el._areaSkel[_areaName];
+      if (_skel) {
+        delete _pe.el._areaSkel[_areaName];
+        if (_skel.parentNode) {
+          _skel.parentNode.insertBefore(dom, _skel);
+          _skel.parentNode.removeChild(_skel);
+        }
+        _placedInGridSkel = true;
+      } else {
+        Object.keys(_pe.el._areaSkel).forEach(function (k) {
+          var s = _pe.el._areaSkel[k];
+          if (s && s.parentNode) s.parentNode.removeChild(s);
+        });
+        _pe.el._areaSkel = null;
+      }
+    }
     // 标记"经流式打开"：供 tabs/accordion 的 _streamCloseHook 区分流式（复位首项）与一次性（保持原样）
     if (dom && dom.nodeType === 1) dom._tokuiStreamActive = true;
     // 跳过隐藏元素的 fadeIn 动画（如 hover-content 临时容器）
@@ -766,7 +828,7 @@ class TokUIRenderer {
       dom.setAttribute('open', '');
       dom.setAttribute('aria-expanded', 'true');
     }
-    parentSlot.appendChild(dom);
+    if (!_placedInGridSkel) parentSlot.appendChild(dom); // 骨架替换路径已按区名就位
     // 记录插槽信息：_slot 为内容插入点，_tokuiType 为组件类型
     const slot = dom._slot || dom;
     this.slotStack.push({ slot: slot, el: dom, containerType: node.type });

@@ -4,7 +4,7 @@ TokUI 的样式全部由 **CSS 变量**驱动：换主题 = 换变量值，所�
 
 ## 内置主题
 
-TokUI 内置 **4 套主题**，两两构成「风格族 × 明暗」的组合：
+TokUI 内置 **5 套主题**：四套构成「风格族 × 明暗」组合，外加一套 `tech` 科技风大屏主题：
 
 | 主题名 | 明暗 | 风格 | 激活选择器 |
 |--------|------|------|-----------|
@@ -12,6 +12,7 @@ TokUI 内置 **4 套主题**，两两构成「风格族 × 明暗」的组合：
 | `dark` | 深色 | `default` 的暗色对应 | `[data-tokui-theme="dark"]` |
 | `modern` | 浅色 | Refined Neutral：冷灰中性 + 克制蓝 accent（`#3B6FF5`）+ Inter 字体 + 柔光分层 + 12px 表单圆角 | `[data-tokui-theme="modern"]` |
 | `modern-dark` | 深色 | `modern` 的暗色对应：深灰 elevation + 凹陷表单 + 无边框按钮 | `[data-tokui-theme="modern-dark"]` |
+| `tech` | 深色 | **ChatBI 数据大屏**（M1）：深蓝底 `#0a1220` + 荧光青 accent + 科技风图表色板 + 发光/网格纹理令牌（`--tokui-glow-*` / `--tokui-tech-*`） | `[data-tokui-theme="tech"]` |
 
 `default` 写在 `:root`，是开箱即用的默认主题；`modern` 仅声明在 `[data-tokui-theme="modern"]` 作用域，与 `default` 互斥并存，切换即生效。
 
@@ -31,7 +32,7 @@ import '@jboltai/tokui/css';
 
 const ui = new TokUI({
   container: '#app',
-  theme: 'modern',          // 'default' | 'dark' | 'modern' | 'modern-dark'
+  theme: 'modern',          // 'default' | 'dark' | 'modern' | 'modern-dark' | 'tech'
 });
 ```
 
@@ -73,6 +74,26 @@ mql.addEventListener('change', apply);   // 系统切换时跟随
 | **组件层** | `--tokui-radius`、`--tokui-shadow-md`、`--tokui-control-radius` | 圆角 / 阴影 / 控件形态 |
 
 组件样式只引用**语义层与组件层**，绝不直接绑色板某一档。因此换主题时，只要语义层映射到新色板，所有组件颜色自动正确。
+
+### 版式与密度 scale（T0.2 起四主题统一提供）
+
+除颜色外，每套主题还提供六组**版式 scale 令牌**——精致排版与视觉一致的物理基础：
+
+| 令牌组 | 档位 | 说明 |
+|--------|------|------|
+| `--tokui-space-1` … `-8` | 4/8/12/16/20/24/32/40px | 间距（4px 基数）；卡片 header/body/footer、按钮内边距等已迁移引用 |
+| `--tokui-font-xs/sm/md/lg/xl/xxl/display` | 12~32px | 字号 scale；正文基准 md |
+| `--tokui-radius-sm/md/lg/xl/pill` | default 系 2~12px · modern 系 4~16px | 圆角 scale；`--tokui-radius` 是 `md` 档别名（向后兼容），card 默认 `lg` 档 |
+| `--tokui-shadow-xs/sm/md/lg/xl` | 浅色柔光 · 暗色深投影 | 阴影层级 scale；浮层 overlay 系令牌独立保留 |
+| `--tokui-blur-sm/lg` | 4px / 12px | 玻璃态模糊（`backdrop-filter` 场景） |
+| `--tokui-density-v` | 1.5 | 排版行高节奏（`[data-tokui-density="compact"]` 场景覆盖为 1.35） |
+
+在 DSL 里可经 `style:` 通道直接引用（值校验放行 `var()`）：
+
+```html
+[card tt:品牌卡 style:"border-radius:var(--tokui-radius-xl);box-shadow:var(--tokui-shadow-lg)"]
+[p 展示级大字 cls:display style:"font-size:var(--tokui-font-display);font-weight:700"]
+```
 
 ## 运行时自定义色板
 

@@ -1468,10 +1468,10 @@ function registerBasicComponents(renderer) {
     var attrs = node.attrs || {};
     var type = attrs.t || 'info';
     var title = attrs.tt || '';
-    var CALLOUT_ICONS = { info: 'ℹ', success: '✓', warning: '⚠', error: '✕', tip: '💡' };
+    var CALLOUT_ICONS = { info: 'circle-info', success: 'circle-check', warning: 'circle-alert', error: 'circle-x', tip: 'lightbulb' };
     var wrapper = el('div', { class: 'tokui-callout tokui-callout--' + type, role: 'alert' });
     var iconEl = el('span', { class: 'tokui-callout__icon', 'aria-hidden': 'true' });
-    iconEl.textContent = CALLOUT_ICONS[type] || CALLOUT_ICONS.info;
+    iconEl.innerHTML = _iconSvg(CALLOUT_ICONS[type] || CALLOUT_ICONS.info, 16);
     wrapper.appendChild(iconEl);
     var body = el('div', { class: 'tokui-callout__body' });
     if (title) {
@@ -2082,9 +2082,9 @@ function registerBasicComponents(renderer) {
       'aria-live': 'polite'
     });
     if (id) toastEl.setAttribute('data-toast-id', id);
-    var ICONS = { success: '✓', error: '✕', warning: '!', info: 'ℹ' };
+    var ICONS = { success: 'circle-check', error: 'circle-x', warning: 'circle-alert', info: 'circle-info' };
     var icon = el('span', { class: 'tokui-toast__icon' });
-    icon.textContent = ICONS[type] || ICONS.info;
+    icon.innerHTML = _iconSvg(ICONS[type] || ICONS.info, 16);
     toastEl.appendChild(icon);
     var span = el('span');
     span.textContent = text;
@@ -2633,46 +2633,40 @@ function registerBasicComponents(renderer) {
       valueWrap.appendChild(trendEl);
     }
 
-    // 数值滚动动画
-    if (animDuration > 0) {
-      // 解析数值：提取纯数字部分
-      var numStr = rawValue.replace(/[^\d.\-]/g, '');
+    // 数值滚动动画（初始渲染与 [upd v:] 更新共用，T0.5 起 upd 也走滚动；清原冗余双赋值）
+    var animateTo = function (targetEl, value) {
+      if (!(animDuration > 0)) { targetEl.textContent = value; return; }
+      var numStr = String(value).replace(/[^\d.\-]/g, '');
       var targetNum = parseFloat(numStr);
-      if (!isNaN(targetNum) && targetNum !== 0) {
-        var hasComma = rawValue.indexOf(',') !== -1;
-        valEl.textContent = '0';
-        var startTime = null;
-        function animate(timestamp) {
-          if (!startTime) startTime = timestamp;
-          var progress = Math.min((timestamp - startTime) / animDuration, 1);
-          // easeOutExpo 缓动
-          var eased = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
-          var current = targetNum * eased;
-          var display = decimals > 0 ? current.toFixed(decimals) : Math.round(current);
-          if (hasComma) {
-            display = Number(display).toLocaleString('en-US', {
-              minimumFractionDigits: decimals,
-              maximumFractionDigits: decimals
-            });
-          } else if (decimals > 0) {
-            display = current.toFixed(decimals);
-          }
-          valEl.textContent = display;
-          if (progress < 1) {
-            requestAnimationFrame(animate);
-          } else {
-            valEl.textContent = rawValue.replace(/[^\d.,\-]/g, function() { return ''; });
-            // 还原原始格式
-            valEl.textContent = rawValue;
-          }
+      if (isNaN(targetNum) || targetNum === 0) { targetEl.textContent = value; return; }
+      var hasComma = String(value).indexOf(',') !== -1;
+      targetEl.textContent = '0';
+      var startTime = null;
+      function animate(timestamp) {
+        if (!startTime) startTime = timestamp;
+        var progress = Math.min((timestamp - startTime) / animDuration, 1);
+        // easeOutExpo 缓动
+        var eased = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
+        var current = targetNum * eased;
+        var display = decimals > 0 ? current.toFixed(decimals) : Math.round(current);
+        if (hasComma) {
+          display = Number(display).toLocaleString('en-US', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+          });
+        } else if (decimals > 0) {
+          display = current.toFixed(decimals);
         }
-        requestAnimationFrame(animate);
-      } else {
-        valEl.textContent = rawValue;
+        targetEl.textContent = display;
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          targetEl.textContent = value; // 还原原始格式
+        }
       }
-    } else {
-      valEl.textContent = rawValue;
-    }
+      requestAnimationFrame(animate);
+    };
+    animateTo(valEl, rawValue);
 
     wrapper.appendChild(valueWrap);
 
@@ -2687,7 +2681,7 @@ function registerBasicComponents(renderer) {
     wrapper._update = function (uAttrs) {
       if (uAttrs.v !== undefined) {
         var numEl = wrapper.querySelector('.tokui-stat__number');
-        if (numEl) numEl.textContent = uAttrs.v;
+        if (numEl) animateTo(numEl, String(uAttrs.v));
       }
       if (uAttrs.trend !== undefined) {
         var existingTrend = wrapper.querySelector('.tokui-stat__trend');
@@ -3946,10 +3940,10 @@ function registerBasicComponents(renderer) {
     var handlerName = attrs.clk || '';
 
     var NOTIF_ICONS = {
-      success: '✓',
-      error: '✕',
-      warning: '⚠',
-      info: 'ℹ'
+      success: 'circle-check',
+      error: 'circle-x',
+      warning: 'circle-alert',
+      info: 'circle-info'
     };
 
     var wrapper = el('div', {
@@ -3965,7 +3959,7 @@ function registerBasicComponents(renderer) {
 
     // 图标
     var iconEl = el('span', { class: 'tokui-notification__icon' });
-    iconEl.textContent = NOTIF_ICONS[type] || NOTIF_ICONS.info;
+    iconEl.innerHTML = _iconSvg(NOTIF_ICONS[type] || NOTIF_ICONS.info, 16);
     wrapper.appendChild(iconEl);
 
     // 内容区
@@ -5072,10 +5066,10 @@ function registerBasicComponents(renderer) {
       'aria-expanded': String(isOpen)
     });
     var toggle = el('span', { class: 'tokui-file-tree__folder-toggle' });
-    toggle.textContent = isOpen ? '▾' : '▸';
+    toggle.innerHTML = _iconSvg(isOpen ? 'chevron-down' : 'chevron-right', 12);
     nameRow.appendChild(toggle);
     var icon = el('span', { class: 'tokui-file-tree__folder-icon' });
-    icon.textContent = '📁';
+    icon.innerHTML = _iconSvg(isOpen ? 'folder-open' : 'folder', 14);
     nameRow.appendChild(icon);
     var nameEl = el('span', { class: 'tokui-file-tree__name' });
     nameEl.textContent = name;
@@ -5114,7 +5108,7 @@ function registerBasicComponents(renderer) {
     var badge = attrs.badge || '';
     var wrapper = el('div', { class: 'tokui-file-tree__file', role: 'treeitem' });
     var icon = el('span', { class: 'tokui-file-tree__file-icon' });
-    icon.textContent = '📄';
+    icon.innerHTML = _iconSvg('file-text', 14);
     wrapper.appendChild(icon);
     var nameEl = el('span', { class: 'tokui-file-tree__name' });
     nameEl.textContent = name;
@@ -5136,9 +5130,8 @@ function registerBasicComponents(renderer) {
     var wrapper = el('div', termAttrs);
     var titlebar = el('div', { class: 'tokui-terminal__titlebar' });
     var dots = el('span', { class: 'tokui-terminal__dots' });
-    ['🔴', '🟡', '🟢'].forEach(function (c) {
-      var d = el('span', { class: 'tokui-terminal__dot' });
-      d.textContent = c;
+    ['red', 'amber', 'green'].forEach(function (c) {
+      var d = el('span', { class: 'tokui-terminal__dot tokui-terminal__dot--' + c });
       dots.appendChild(d);
     });
     titlebar.appendChild(dots);
@@ -5200,10 +5193,10 @@ function registerBasicComponents(renderer) {
     var value = attrs.v || '';
     var type = attrs.t || '';
     var wrapper = el('span', { class: 'tokui-latency' + (type ? ' tokui-latency--' + type : '') });
-    var ICONS = { thinking: '💡', generating: '⚡', total: '⏱' };
+    var ICONS = { thinking: 'lightbulb', generating: 'zap', total: 'clock' };
     if (type && ICONS[type]) {
       var icon = el('span', { class: 'tokui-latency__icon' });
-      icon.textContent = ICONS[type];
+      icon.innerHTML = _iconSvg(ICONS[type], 12);
       wrapper.appendChild(icon);
     }
     var valEl = el('span', { class: 'tokui-latency__value' });
@@ -5257,7 +5250,7 @@ function registerBasicComponents(renderer) {
     if (attrs.w) wrapper.style.width = /^\d+$/.test(attrs.w) ? attrs.w + 'px' : attrs.w;
     var info = el('div', { class: 'tokui-audio__info' });
     var icon = el('span', { class: 'tokui-audio__icon' });
-    icon.textContent = '🔊';
+    icon.innerHTML = _iconSvg('volume-high', 18);
     info.appendChild(icon);
     if (title) {
       var titleEl = el('span', { class: 'tokui-audio__title' });
@@ -5430,14 +5423,14 @@ function registerBasicComponents(renderer) {
     var wrapper = el('div', { class: 'tokui-test-result' });
     var summary = el('div', { class: 'tokui-test-result__summary' });
     var counts = [
-      { key: 'pass', cls: '--pass', icon: '✓' },
-      { key: 'fail', cls: '--fail', icon: '✗' },
-      { key: 'skip', cls: '--skip', icon: '○' }
+      { key: 'pass', cls: '--pass', icon: 'check' },
+      { key: 'fail', cls: '--fail', icon: 'close' },
+      { key: 'skip', cls: '--skip', icon: 'minus' }
     ];
     counts.forEach(function (c) {
       if (attrs[c.key]) {
         var el2 = el('span', { class: 'tokui-test-result__count tokui-test-result__count' + c.cls });
-        el2.textContent = c.icon + ' ' + attrs[c.key];
+        el2.innerHTML = _iconSvg(c.icon, 12) + ' ' + attrs[c.key];
         summary.appendChild(el2);
       }
     });
@@ -5469,8 +5462,8 @@ function registerBasicComponents(renderer) {
     var status = attrs.status || 'pass';
     var wrapper = el('div', { class: 'tokui-test-case tokui-test-case--' + status, 'data-tokui-tag': node.type });
     var statusIcon = el('span', { class: 'tokui-test-case__status' });
-    var ICONS = { pass: '✓', fail: '✗', skip: '○' };
-    statusIcon.textContent = ICONS[status] || status;
+    var ICONS = { pass: 'check', fail: 'close', skip: 'minus' };
+    statusIcon.innerHTML = _iconSvg(ICONS[status], 12) || status;
     wrapper.appendChild(statusIcon);
     var nameEl = el('span', { class: 'tokui-test-case__name' });
     nameEl.textContent = attrs.name || 'test';

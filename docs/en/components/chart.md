@@ -2,7 +2,7 @@
 
 Zero-dependency pure-SVG chart component, `chart` is self-closing. `t` selects the type, `d` feeds data, `l` provides labels, `c` customizes colors — 20 chart types render with no external chart library. Every example shows DSL on the left and a live render on the right; click "edit" to tweak instantly.
 
-Supported types: `bar`, `line`, `area`, `pie`, `donut`, `rose`, `funnel`, `radar`, `scatter`, `bubble`, `heatmap`, `histogram`, `waterfall`, `boxplot`, `treemap`, `sankey`, `candlestick`, `progress`, `gauge`, `gantt`.
+Supported types: `bar`, `line`, `area`, `pie`, `donut`, `rose`, `funnel`, `radar`, `scatter`, `bubble`, `heatmap`, `histogram`, `waterfall`, `boxplot`, `treemap`, `sankey`, `candlestick`, `progress`, `gauge`, `gantt`, `map` (China map).
 
 ## Attribute Output Order (Streaming Render Constraint)
 
@@ -41,13 +41,13 @@ All chart types share these props, self-closing.
 | `range` | Gauge sweep angle: `180` (default) / `270` / `360` | `range:270` |
 | `anim` | Value animation duration (ms, progress/gauge, auto-stops under reduced-motion) | `anim:1200` |
 | `interval` | X-axis label density: `auto` (default, 3-tier fallback) / `0` (force all, rotate only if needed) / `N` (show every Nth, keep first & last) | `interval:2` |
-| `zoom` | dataZoom drag-to-zoom: `auto` (on when >30 points) / `N` (on when >N) / `on` / `off`. bar/line/area/histogram/boxplot/candlestick | `zoom:auto` |
+| `zoom` | dataZoom drag-to-zoom: `auto` (on when >30 points) / `N` (on when >N) / `on` / `off`. bar (vertical)/line/area/boxplot/candlestick; NOT supported on horizontal bars (`orient:h`) or histogram | `zoom:auto` |
 
 > Attribute values containing commas or pipes must be double-quoted, or the parser splits on the delimiter. When colors are omitted a built-in 10-color palette is used. Dense X-axis labels auto-fall back through【horizontal → -45° rotate → skip by step (keep first & last)】(controlled by `interval`); empty data shows a "No data" placeholder.
 
-> **dataZoom**: for ≥30 points (long time series, large bar/line, many candles/boxes) add `zoom:auto` — a slider appears, drag to inspect a window (rect tracks cursor, bars/lines snap to data points; single-series bars are pooled for smoothness). bar/line/area/histogram/boxplot/candlestick only; not for continuous-X charts like scatter/bubble.
+> **dataZoom**: for >30 points (long time series, large bar/line, many candles/boxes) add `zoom:auto` — a slider appears, drag to inspect a window (rect tracks cursor, bars/lines snap to data points; single-series bars are pooled for smoothness). bar (vertical; NOT horizontal `orient:h`)/line/area/boxplot/candlestick only; histogram and continuous-X charts like scatter/bubble are not supported.
 
-> **Responsive sizing**: charts default to `width:100%` filling the container, capped per type (max-width × max-height): bar/line/area/scatter/bubble/histogram/waterfall/boxplot 1400×600 (**horizontal bars `orient:h` height cap 800**), candlestick 1400×600, gantt 1400×640, **pie/donut/radar/rose 600×600**, gauge 600×400, funnel 1000×600, heatmap/treemap 1000×600, sankey 1000×600, progress 780×120. Beyond the cap it scales & centers without distortion. `w`/`h` only affect the internal coord ratio, not final render size — usually leave them out; for horizontal bars with many categories you may set `h` explicitly (max 800).
+> **Responsive sizing**: charts default to `width:100%` filling the container, capped per type (max-width × max-height): bar/line/area/scatter/bubble/histogram/waterfall/boxplot 1400×600 (**horizontal bars `orient:h` height cap relaxed to 1200**, viewBox height grows automatically with category count), candlestick 1400×600, gantt 1400×640, **pie/donut/radar/rose 600×600**, gauge 600×400, funnel 1000×600, heatmap/treemap 1000×600, sankey 1000×600, progress 780×120. Beyond the cap it scales & centers without distortion. `w`/`h` only affect the internal coord ratio, not final render size — usually leave them out; the renderer grows horizontal bars automatically for many categories, no manual `h` needed.
 
 ## Bar Chart `t:bar`
 
@@ -75,7 +75,7 @@ Horizontal bars (`orient:h`, good for long labels):
 
 <Playground dsl='[chart t:bar tt:各端 DAU（横向） orient:h c:"#1677ff" l:"iOS,Android,Web,小程序,PC" d:"320,580,450,280,150"]' />
 
-> Horizontal bars (`orient:h`) put categories on the y-axis, so height grows linearly with category count (~26px each); the render-side `max-height` auto-loosens to **800px** (vertical bars: 580px). **When categories are many (e.g. ≥15), you may explicitly set `h` to grow the canvas, max effective 800** (= the display cap — larger gets clipped, smaller cramps), e.g. `[chart t:bar orient:h h:800 l:"..." d:"..."]`; for few categories, leave `h` unset (auto). Vertical bars generally don't set `h`.
+> Horizontal bars (`orient:h`) put categories on the y-axis, and height **grows automatically** and linearly with category count (viewBox height ≈ 36 + 26px × categories, clamped to 200–1200); the render-side `max-height` is likewise relaxed to **1200px** (vertical-bar group display cap: 600px). **No need to set `h` manually** — the renderer grows the canvas for many categories; an explicit `h` takes precedence as-is (keep ≤1200; larger gets clipped by CSS), e.g. `[chart t:bar orient:h l:"..." d:"..."]`. Vertical bars generally don't set `h` (viewBox height capped at 560 by the ratio band).
 
 ## Line Chart `t:line`
 
@@ -397,3 +397,26 @@ Project schedule gantt, self-closing. Task bars laid out by row, with progress f
 <Playground dsl='[chart t:gantt tt:2026 Q3 排期 deps:"0->1,1->2,2->3" mode:dates gnames:"调研|设计|开发|测试" tasks:"调研,2026-07-01,2026-07-10,100,0|设计,2026-07-08,2026-07-20,80,1|开发,2026-07-15,2026-08-25,40,2|测试,2026-08-20,2026-09-05,0,3"]' />
 
 > Full props and gantt fields are in [`demo/TOKUI_DSL_REFERENCE.md`](https://github.com/jboltai/tokui/blob/master/demo/TOKUI_DSL_REFERENCE.md#68-chart-pure-svg-zero-deps-20-types) in the repo.
+
+## China Map `t:map`
+
+Self-closing. Two independent data layers, stackable in one chart:
+
+- `region:"Zhejiang:86|Jiangsu:74"` — province-level choropleth. Covers all **34 provincial regions (incl. HK/Macau/Taiwan)**; names accept short (`浙江`) or full (`浙江省`) forms; values interpolate through a multi-stop color scale (blue → cyan → green → yellow → red); `vmin`/`vmax` lock the scale domain.
+- `d:"120.15,30.28,88,name:Hangzhou"` — city scatter layer. lng/lat + value (log-mapped radius) + name; out-of-range points are clamped into the canvas; points pulse gently (auto-off under reduced motion).
+
+**Labels & unit:**
+
+- `label:full|name|off` — default `full`: provinces with data get a two-line label (name + value, value in theme accent), no-data provinces get a dimmed name; text-box collision avoidance keeps dense areas (Beijing-Tianjin-Hebei, Yangtze Delta) readable. `name` = only data provinces; `off` = no labels (clean blocks for narrow dashboard cards).
+- `unit:"%"` — unit (≤8 chars), shared by tooltips, the visualMap scale ticks, and the scatter radius legend.
+
+**Interaction (on by default):**
+
+- Hover a province/scatter → multi-line tooltip (name / value+unit+share) + highlighted stroke while the rest dims (`:has()` progressive enhancement);
+- Click a province with data → `mapClick` event `{ province, value }` (via `on:"mapClick:handler"` or the instance `options.onEvent` outlet) — ready for dashboard drill-down.
+
+**In-chart widgets:** bottom-left visualMap gradient bar (end ticks = `vmin`/`vmax` with `unit`; scatter-only mode swaps in a radius legend); bottom-right **South China Sea inset** (nine-dash line + mini Hainan + Paracel/Huangyan/Spratly/James Shoal islands, ECharts-style, hover shows “南海诸岛”).
+
+Geometry is a built-in vendored simplified outline (~33KB, lazy-loaded, zero external deps).
+
+<Playground dsl='[chart t:map tt:"区域设备稼动率（%）" region:"北京:78|天津:74|河北:62|上海:88|江苏:82|浙江:86|山东:76|广东:92|四川:54|湖北:66" d:"116.41,39.9,120,name:北京|121.47,31.23,110,name:上海|113.26,23.13,95,name:广州" unit:"%" vmin:"0" vmax:"100"]' />

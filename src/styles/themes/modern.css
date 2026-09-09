@@ -24,7 +24,36 @@
   --tokui-text-muted: #71727A;
   --tokui-text-disabled: #A1A1AA;
   --tokui-stripe: #F3F4F6;
-  --tokui-radius: 8px;
+  /* ========== 版式与密度 scale（产品级表达基建 M0/T0.2） ========== */
+  /* 间距 scale（4px 基数） */
+  --tokui-space-1: 4px;
+  --tokui-space-2: 8px;
+  --tokui-space-3: 12px;
+  --tokui-space-4: 16px;
+  --tokui-space-5: 20px;
+  --tokui-space-6: 24px;
+  --tokui-space-7: 32px;
+  --tokui-space-8: 40px;
+  /* 字号 scale */
+  --tokui-font-xs: 12px;
+  --tokui-font-sm: 13px;
+  --tokui-font-md: 14px;
+  --tokui-font-lg: 16px;
+  --tokui-font-xl: 18px;
+  --tokui-font-xxl: 22px;
+  --tokui-font-display: 32px;
+  /* 圆角 scale（modern 大圆角体系；--tokui-radius 为 md 档别名，向后兼容） */
+  --tokui-radius-sm: 4px;
+  --tokui-radius-md: 8px;
+  --tokui-radius-lg: 12px;
+  --tokui-radius-xl: 16px;
+  --tokui-radius-pill: 999px;
+  --tokui-radius: var(--tokui-radius-md);
+  /* 玻璃态模糊 */
+  --tokui-blur-sm: 4px;
+  --tokui-blur-lg: 12px;
+  /* 排版密度 */
+  --tokui-density-v: 1.5;
   /* 骨架屏：原 border #E1E1E3 实色过深 → 改半透明黑轻量叠加，融入卡片底 */
   --tokui-skeleton-base: rgba(0, 0, 0, 0.045);
   --tokui-skeleton-shine: rgba(0, 0, 0, 0.075);
@@ -65,6 +94,9 @@
   --tokui-light: var(--tokui-stripe);
   --tokui-code-bg: var(--tokui-bg-muted);
   --tokui-code-text: var(--tokui-text);
+  /* 滚动条（scroll-area 视口：默认隐藏，hover/滚动中/聚焦浮现） */
+  --tokui-scrollbar-thumb: rgba(0, 0, 0, 0.18);
+  --tokui-scrollbar-thumb-hover: rgba(0, 0, 0, 0.32);
   --tokui-btn-primary-hover: var(--tokui-primary-hover);
   --tokui-btn-danger-hover: #D13A2C;
   --tokui-btn-success-hover: #22A157;
@@ -107,6 +139,17 @@
   --tokui-callout-tip-border: #7C3AED;
   --tokui-think-bg: rgba(0, 0, 0, 0.02);
   --tokui-think-border: var(--tokui-border);
+  /* 图表系列色板（T0.5：chart.js 惰性读取，主题切换经 invalidateChartColors 失效缓存） */
+  --tokui-chart-c1: #3B6FF5;
+  --tokui-chart-c2: #2EBF6A;
+  --tokui-chart-c3: #E8A33D;
+  --tokui-chart-c4: #E5484D;
+  --tokui-chart-c5: #8E7CC3;
+  --tokui-chart-c6: #2FB8C6;
+  --tokui-chart-c7: #D65DB1;
+  --tokui-chart-c8: #EE8B45;
+  --tokui-chart-c9: #5C7CFA;
+  --tokui-chart-c10: #8FBC5A;
   --tokui-chart-grid: var(--tokui-border);
   --tokui-chart-text: var(--tokui-text-muted);
   --tokui-chart-today-line: #F5410C;
@@ -125,6 +168,7 @@
   --tokui-shadow-sm: 0 1px 3px 0 rgba(9, 9, 11, 0.07), 0 1px 2px -1px rgba(9, 9, 11, 0.05);
   --tokui-shadow-md: 0 4px 6px -1px rgba(9, 9, 11, 0.07), 0 2px 4px -2px rgba(9, 9, 11, 0.05);
   --tokui-shadow-lg: 0 10px 15px -3px rgba(9, 9, 11, 0.08), 0 4px 6px -4px rgba(9, 9, 11, 0.05);
+  --tokui-shadow-xl: 0 25px 50px -12px rgba(9, 9, 11, 0.16), 0 8px 16px -8px rgba(9, 9, 11, 0.07);
   /* 组件默认柔光（surface elevation） */
   --tokui-surface-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.04), 0 1px 2px 0 rgba(0, 0, 0, 0.06), 0 0 1px 0 rgba(0, 0, 0, 0.06);
   --tokui-surface-shadow-hover: 0 6px 12px 0 rgba(0, 0, 0, 0.05), 0 2px 4px 0 rgba(0, 0, 0, 0.06), 0 0 1px 0 rgba(0, 0, 0, 0.06);

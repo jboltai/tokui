@@ -41,7 +41,7 @@
 - **框架无关** —— 原生 JS 可用，另提供 React / Vue / Svelte / Web Component 官方适配器。
 - **插件化组件** —— `renderer.register(type, fn)` 注册，开箱即用 150+ 组件（卡片、表格、表单、图表、Markdown、代码高亮等）。
 - **事件安全** —— 事件处理器为命名引用（`clk:`/`sub:`），需预先 `registerHandler` 注册，禁止注入可执行代码。
-- **主题驱动** —— CSS 变量 + `data-tokui-theme` 切换，内置 HSB 算法的 10 级色阶生成器。
+- **主题驱动** —— CSS 变量 + `data-tokui-theme` 切换，内置 HSB 算法的 10 级色阶生成器，另含 tech 科技风大屏主题（深蓝底 + 荧光青）。
 - **SSR 友好** —— `import` 不依赖 `window`/`document`，可在 Next.js / Nuxt / SvelteKit 等服务端导入（渲染在客户端进行）。
 - **容错降级** —— 未注册组件渲染为 `div.tokui-unknown`，渲染抛错生成 `details.tokui-error`，单点错误不炸整页。
 - **资源防护** —— `maxBuffer`（1MB）与 `maxDepth`（100）防止恶意/超长输入耗尽资源。
@@ -410,7 +410,7 @@ TokUI 正在向多语言后端 SDK 与多样式库前端主题演进。
 | 能力 | 状态 | 说明 |
 |------|:----:|------|
 | React / Vue / Svelte / Web Component 适配器 | ✅ | `@jboltai/tokui-{react,vue,svelte,webc}` |
-| CSS 变量主题（`default` / `dark`） | ✅ | `data-tokui-theme` 切换 |
+| CSS 变量主题（`default` / `dark` / `modern` / `modern-dark` / `tech`） | ✅ | `data-tokui-theme` 切换 |
 | HSB 色板生成器 | ✅ | 任意主色生成 10 级色阶 |
 | TailwindCSS 适配 | 🚧 | 原子类映射 / 主题 token 桥接 |
 | UnoCSS 适配 | 🚧 | 规划中 |

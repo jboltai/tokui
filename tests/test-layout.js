@@ -251,7 +251,7 @@ test('grid 显式轨道列表（fr/px/minmax/auto）', () => {
   const rc = new TokUIRenderer(null);
   registerLayoutComponents(rc);
   const dom = rc.render({ type: 'grid', attrs: { cols: '200px 1fr minmax(100px,2fr) auto' }, children: [] });
-  assert.strictEqual(dom.style.gridTemplateColumns, '200px 1fr minmax(100px, 2fr) auto');
+  assert.strictEqual(dom.style.gridTemplateColumns, '200px minmax(0, 1fr) minmax(100px, 2fr) auto'); // fr→minmax(0,Nfr) 防内容撑破
 });
 
 test('grid 注入式 cols/rows 整体拒绝（; { } 等非法字符）', () => {
@@ -260,6 +260,19 @@ test('grid 注入式 cols/rows 整体拒绝（; { } 等非法字符）', () => {
   const dom = rc.render({ type: 'grid', attrs: { cols: '1fr;color:red', rows: '1fr } html{' }, children: [] });
   assert.ok(!dom.style.gridTemplateColumns, '非法 cols 应整体拒绝');
   assert.ok(!dom.style.gridTemplateRows, '非法 rows 应整体拒绝');
+});
+
+test('grid cols/areas 值带首尾引号容错（builder 双重引号误用）', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const dom = rc.render({ type: 'grid', attrs: { cols: '"360px 1fr 1fr"', rows: '"auto 1fr"' }, children: [] });
+  assert.strictEqual(dom.style.gridTemplateColumns, '360px minmax(0, 1fr) minmax(0, 1fr)', '首尾引号应剥离后放行');
+  assert.strictEqual(dom.style.gridTemplateRows, 'auto minmax(0, 1fr)', 'rows 同样剥离首尾引号');
+  const a = rc.render({ type: 'grid', attrs: { areas: '"kpi main|kpi rank"' }, children: [] });
+  assert.strictEqual(a.style.gridTemplateAreas, '"kpi main" "kpi rank"', 'areas 首尾引号剥离后放行');
+  // 引号在中间仍拒（非首尾成对形态）
+  const mid = rc.render({ type: 'grid', attrs: { cols: '1fr "2fr' }, children: [] });
+  assert.ok(!mid.style.gridTemplateColumns, '中间引号仍整体拒绝');
 });
 
 test('grid areas → grid-template-areas 带引号行', () => {
@@ -353,7 +366,7 @@ test('grid/cell 真流式：开标签即挂载，子 cell 逐个流入，闭合�
   t.feed('[grid cols:"200px 1fr" areas:"nav main|nav main"]');
   let grid = container.querySelector('.tokui-grid');
   assert.ok(grid, 'grid 开标签到即挂载');
-  assert.strictEqual(grid.style.gridTemplateColumns, '200px 1fr');
+  assert.strictEqual(grid.style.gridTemplateColumns, '200px minmax(0, 1fr)');
   t.feed('[cell area:nav][p 导航][/cell]');
   const navCell = container.querySelector('.tokui-cell');
   assert.ok(navCell, 'cell 流入即挂载');
@@ -366,6 +379,55 @@ test('grid/cell 真流式：开标签即挂载，子 cell 逐个流入，闭合�
   assert.strictEqual(cells.length, 2, '两个 cell 均在 grid 内');
   assert.ok(cells[1].querySelector('.tokui-row'), 'grid 内嵌套 row/col 流式正常');
   assert.ok(cells[1].querySelector('.tokui-card'), 'cell 内 card 渲染');
+});
+
+test('grid areas 流式骨架：开标签即按区名占位，真实 cell 到达按区名替换', () => {
+  const TokUI = require('../src/index');
+  const container = document.createElement('div');
+  const t = new TokUI({ container, streaming: true });
+  t.startStream(container);
+  t.feed('[grid cols:"400px 1fr 400px" areas:"kpi kpi kpi|flip map rank"]');
+  let grid = container.querySelector('.tokui-grid');
+  const skels = grid.querySelectorAll('.tokui-cell--skel');
+  assert.strictEqual(skels.length, 4, '具名区去重后 4 区各占一个骨架 cell（kpi 重复出现去重）');
+  assert.strictEqual(grid._areaSkel && Object.keys(grid._areaSkel).length, 4, '骨架映射 4 区');
+  const areas = [...skels].map(c => c.style.gridArea).sort().join(',');
+  assert.strictEqual(areas, 'flip,kpi,map,rank', '骨架 cell 各自 grid-area 就位');
+  // 真实 cell 替换对应区骨架
+  t.feed('[cell area:kpi][kpi tt:产量 v:1][/kpi][/cell]');
+  assert.strictEqual(Object.keys(grid._areaSkel).length, 3, 'kpi 区骨架已被替换');
+  const realCell = [...grid.querySelectorAll('.tokui-cell')].filter(c => !c.classList.contains('tokui-cell--skel'));
+  assert.strictEqual(realCell.length, 1, '真实 cell 已入 grid');
+  assert.strictEqual(realCell[0].style.gridArea, 'kpi', '真实 cell 保位');
+  t.feed('[cell area:map][p x][/cell][/grid]');
+  t.endStream();
+  // 闭合清除剩余骨架
+  assert.strictEqual(grid.querySelectorAll('.tokui-cell--skel').length, 0, '闭合后剩余骨架清除');
+});
+
+test('grid areas 流式骨架：非具名 cell 到达 → 全撤降级；skel:"false" 关闭；one-shot 不铺', () => {
+  const TokUI = require('../src/index');
+  // 非具名 cell 降级
+  const c1 = document.createElement('div');
+  const t1 = new TokUI({ container: c1, streaming: true });
+  t1.startStream(c1);
+  t1.feed('[grid areas:"a b"][cell][p x][/cell][/grid]');
+  const g1 = c1.querySelector('.tokui-grid');
+  assert.strictEqual(g1.querySelectorAll('.tokui-cell--skel').length, 0, '非具名 cell 到达全撤骨架');
+  t1.endStream();
+  // skel:false
+  const c2 = document.createElement('div');
+  const t2 = new TokUI({ container: c2, streaming: true });
+  t2.startStream(c2);
+  t2.feed('[grid areas:"a b" skel:"false"]');
+  assert.strictEqual(c2.querySelector('.tokui-grid').querySelectorAll('.tokui-cell--skel').length, 0, 'skel:false 不铺骨架');
+  t2.feed('[cell area:a][p x][/cell][/grid]');
+  t2.endStream();
+  // one-shot（非流式）不铺
+  const c3 = document.createElement('div');
+  const t3 = new TokUI({ container: c3 });
+  t3.render('[grid areas:"a b"][cell area:a][p x][/cell][/grid]');
+  assert.strictEqual(c3.querySelectorAll('.tokui-cell--skel').length, 0, 'one-shot 渲染不铺骨架');
 });
 
 // ===== List/Item 列表组件测试 =====
@@ -779,6 +841,75 @@ test('scroll-area sets _tokuiType', () => {
   assert.strictEqual(dom._tokuiType, 'scroll-area');
 });
 
+// ===== Scroll Area 迭代增强：尺寸归一 / 轴向锁定 / 弹性高度 / flush / 滚动浮现 =====
+
+test('scroll-area w 纯数字自动补 px（与 h 行为一致）', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const dom = rc.render({ type: 'scroll-area', attrs: { w: '300' }, children: [] });
+  assert.strictEqual(dom.style.width, '300px');
+});
+
+test('scroll-area h/w 百分比等 CSS 值原样透传', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const dom = rc.render({ type: 'scroll-area', attrs: { h: '100%', w: '50vh' }, children: [] });
+  assert.strictEqual(dom.style.height, '100%');
+  assert.strictEqual(dom.style.width, '50vh');
+});
+
+test('scroll-area dir:x / dir:y 轴向锁定类，非法值忽略', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const x = rc.render({ type: 'scroll-area', attrs: { dir: 'x' }, children: [] });
+  assert.ok(x.classList.contains('tokui-scroll-area--dir-x'), 'dir:x 应落 --dir-x 类');
+  const y = rc.render({ type: 'scroll-area', attrs: { dir: 'y' }, children: [] });
+  assert.ok(y.classList.contains('tokui-scroll-area--dir-y'), 'dir:y 应落 --dir-y 类');
+  const bad = rc.render({ type: 'scroll-area', attrs: { dir: 'z' }, children: [] });
+  assert.ok(!bad.classList.contains('tokui-scroll-area--dir-z'), '非法 dir 不应落类');
+  const none = rc.render({ type: 'scroll-area', attrs: {}, children: [] });
+  assert.ok(!none.classList.contains('tokui-scroll-area--dir-x')
+    && !none.classList.contains('tokui-scroll-area--dir-y'), '缺省双向不应落轴向类');
+});
+
+test('scroll-area minh/maxh 弹性高度（纯数字补 px）', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const dom = rc.render({ type: 'scroll-area', attrs: { minh: '120', maxh: '400' }, children: [] });
+  assert.strictEqual(dom.style.minHeight, '120px');
+  assert.strictEqual(dom.style.maxHeight, '400px');
+});
+
+test('scroll-area v:flush 变体去内边距类（VARIANTS 白名单）', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const dom = rc.render({ type: 'scroll-area', attrs: { v: 'flush' }, children: [] });
+  assert.ok(dom.classList.contains('tokui-scroll-area--flush'));
+});
+
+test('scroll-area 滚动即挂 --scrolling 浮现态，停止 800ms 后摘除', async () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const dom = rc.render({ type: 'scroll-area', attrs: { h: '100' }, children: [] });
+  const viewport = dom.querySelector('.tokui-scroll-area__viewport');
+  assert.ok(!dom.classList.contains('tokui-scroll-area--scrolling'), '初始不应有浮现态');
+  fireEvt(viewport, 'scroll');
+  assert.ok(dom.classList.contains('tokui-scroll-area--scrolling'), '滚动后应挂浮现态');
+  await new Promise(r => setTimeout(r, 900));
+  assert.ok(!dom.classList.contains('tokui-scroll-area--scrolling'), '停止滚动后应摘除');
+});
+
+test('scroll-area destroy 清理滚动浮现监听与定时器（幂等）', async () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const dom = rc.render({ type: 'scroll-area', attrs: { h: '100' }, children: [] });
+  const viewport = dom.querySelector('.tokui-scroll-area__viewport');
+  fireEvt(viewport, 'scroll');
+  rc.destroy(); // 定时器随 destroy 取消，类保持挂载态即为已取消的佐证
+  await new Promise(r => setTimeout(r, 900));
+  assert.ok(dom.classList.contains('tokui-scroll-area--scrolling'), 'destroy 后定时器不应再触发摘除');
+});
+
 // ===== Sidebar 侧边栏组件测试 =====
 
 test('sidebar renders container with header', () => {
@@ -1015,7 +1146,7 @@ test('scroll-area virtual 触底上报 loadmore 一次，离开阈值区可重�
   cleanupHandlers();
 });
 
-test('scroll-area 非 virtual 行为零变化（全量挂载、无 spacer、无 scroll 监听）', () => {
+test('scroll-area 非 virtual 行为（全量挂载、无 spacer；scroll 监听仅滚动浮现一条）', () => {
   const rc = new TokUIRenderer(null);
   registerLayoutComponents(rc);
   const dom = rc.render(makeScrollArea({ h: '72' }, 3));
@@ -1023,7 +1154,8 @@ test('scroll-area 非 virtual 行为零变化（全量挂载、无 spacer、无 
   const viewport = dom.querySelector('.tokui-scroll-area__viewport');
   assert.strictEqual(viewport.children.length, 3);
   assert.strictEqual(viewport.querySelector('.tokui-scroll-area__spacer'), null);
-  assert.strictEqual(viewport._events['scroll'], undefined);
+  // 非虚拟模式仅挂滚动浮现监听（无 virtual 的 rAF 窗口重排监听）
+  assert.strictEqual(viewport._events['scroll'].length, 1);
 });
 
 // ===== Tree 懒加载测试 =====

@@ -348,9 +348,9 @@ class TokUIBuilder {
     var a = attrs || {};
     // hasInline 判定：凡带内联数据载体的 chart 均自闭合。
     // d=柱/折/面积/饼/雷达/散点/气泡/直方/瀑布/箱线/K线/树图; tasks=甘特;
-    // rows=热力; nodes+flows=桑基; v=仪表盘/进度条(单值)。
+    // rows=热力; nodes+flows=桑基; v=仪表盘/进度条(单值); region=地图省级热力。
     // 漏判会让本应自闭合的 chart 走容器分支，.end() 错位闭合 → 后续栅格结构串味乱套。
-    var hasInline = a.d || a.tasks || a.rows || (a.nodes && a.flows) ||
+    var hasInline = a.d || a.tasks || a.rows || a.region || (a.nodes && a.flows) ||
       (a.v !== undefined && (a.t === 'gauge' || a.t === 'progress'));
     // 布局属性前置：流式预览阶段 d/tasks 边到边长，若 orient/stack/smooth/area 排在数据后，
     // parser 半成品看不到 → 预览用默认布局，] 闭合才翻转（如 orient:h 末尾到达致纵向→横向闪）。
@@ -668,6 +668,23 @@ class TokUIBuilder {
 
   /** 终端输出（容器） */
   terminal(attrs) { return this._open('terminal', attrs); }
+  // ========== 数据大屏组件（M1 Dashboard Pack） ==========
+
+  /** 科技边框容器（容器） */
+  panel(attrs) { return this._open('panel', attrs); }
+
+  /** 指标卡（容器，子节点为底部说明行） */
+  kpi(attrs) { return this._open('kpi', attrs); }
+
+  /** 数字翻牌器（自闭合） */
+  flipNum(attrs) { return this._selfClosing('flip-num', null, attrs); }
+
+  /** 轮播榜单（容器，可加 tr 子节点行） */
+  scrollboard(attrs) { return this._open('scrollboard', attrs); }
+
+  /** 大屏缩放容器（1920×1080 设计稿等比适配） */
+  fitScreen(attrs) { return this._open('fit-screen', attrs); }
+
 
   /** 流式闪光加载（自闭合） */
   shimmer(attrs) { return this._selfClosing('shimmer', null, attrs); }

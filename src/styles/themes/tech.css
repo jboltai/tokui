@@ -1,60 +1,69 @@
 /**
  * TokUI 暗色主题
  * 三层令牌体系：色板层 → 语义层 → 组件层
- * 通过 [data-tokui-theme="dark"] 选择器激活。
+ * 通过 [data-tokui-theme="tech"] 选择器激活（T1.1 ChatBI 数据大屏主题：深蓝底 + 荧光青 accent + 发光令牌）。
  * 覆盖默认主题的 CSS 自定义属性。
  */
-[data-tokui-theme="dark"] {
+[data-tokui-theme="tech"] {
+
+  /* ========== tech 专属令牌（发光 / 网格纹理，T1.1） ========== */
+  --tokui-glow-primary: 0 0 12px rgba(34, 211, 238, 0.45);
+  --tokui-glow-accent: 0 0 18px rgba(91, 142, 247, 0.35);
+  --tokui-tech-grid: linear-gradient(rgba(34, 211, 238, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.05) 1px, transparent 1px);
+  --tokui-tech-grid-size: 32px;
+  --tokui-tech-panel-bg: rgba(13, 27, 42, 0.72);
+  --tokui-tech-panel-border: rgba(34, 211, 238, 0.22);
 
   /* ========== 第一层：色板层 ========== */
 
   /* 主色色板（Primary #3983dc） */
-  --tokui-primary-1: #121e32;
-  --tokui-primary-2: #152d4f;
-  --tokui-primary-3: #213b5b;
-  --tokui-primary-4: #284f7e;
-  --tokui-primary-5: #3169ad;
-  --tokui-primary-6: #3983dc;
-  --tokui-primary-7: #61a1e8;
-  --tokui-primary-8: #8bc1f3;
-  --tokui-primary-9: #b5daf8;
-  --tokui-primary-10: #e2f0fa;
+  --tokui-primary-1: #142a2f;
+  --tokui-primary-2: #18444b;
+  --tokui-primary-3: #255459;
+  --tokui-primary-4: #2d737c;
+  --tokui-primary-5: #389eaa;
+  --tokui-primary-6: #43c8d8;
+  --tokui-primary-7: #6bdfe8;
+  --tokui-primary-8: #97f0f3;
+  --tokui-primary-9: #c2f8f8;
+  --tokui-primary-10: #ecfaf9;
 
   /* 危险色色板（Danger #dc4446） */
-  --tokui-danger-1: #301416;
-  --tokui-danger-2: #4c181a;
-  --tokui-danger-3: #5b2526;
-  --tokui-danger-4: #7e2e2f;
-  --tokui-danger-5: #ad393a;
-  --tokui-danger-6: #dc4446;
-  --tokui-danger-7: #e86e6b;
-  --tokui-danger-8: #f39c97;
-  --tokui-danger-9: #f8c6c2;
-  --tokui-danger-10: #faedec;
+  --tokui-danger-1: #32191e;
+  --tokui-danger-2: #4f222a;
+  --tokui-danger-3: #5b3137;
+  --tokui-danger-4: #7e4049;
+  --tokui-danger-5: #ad5361;
+  --tokui-danger-6: #dc6678;
+  --tokui-danger-7: #e8909a;
+  --tokui-danger-8: #f3bec3;
+  --tokui-danger-9: #f8e9e9;
+  --tokui-danger-10: #faecec;
 
   /* 成功色色板（Success #65b537） */
-  --tokui-success-1: #192913;
-  --tokui-success-2: #244016;
-  --tokui-success-3: #314d20;
-  --tokui-success-4: #3f6926;
-  --tokui-success-5: #528f2f;
-  --tokui-success-6: #65b537;
-  --tokui-success-7: #88ca5c;
-  --tokui-success-8: #afe089;
-  --tokui-success-9: #d3f0b9;
-  --tokui-success-10: #f1fae9;
+  --tokui-success-1: #162d25;
+  --tokui-success-2: #1c4837;
+  --tokui-success-3: #2a5644;
+  --tokui-success-4: #35775c;
+  --tokui-success-5: #43a37b;
+  --tokui-success-6: #52cf9b;
+  --tokui-success-7: #7fe5b7;
+  --tokui-success-8: #adf3d1;
+  --tokui-success-9: #d8f8e7;
+  --tokui-success-10: #ecfaf2;
 
   /* 警告色色板（Warning #dcaa37） */
-  --tokui-warning-1: #312512;
-  --tokui-warning-2: #4e3a14;
-  --tokui-warning-3: #5b4920;
-  --tokui-warning-4: #7e6426;
-  --tokui-warning-5: #ad872f;
-  --tokui-warning-6: #dcaa37;
-  --tokui-warning-7: #e8c35e;
-  --tokui-warning-8: #f3db89;
-  --tokui-warning-9: #f8eab3;
-  --tokui-warning-10: #faf6e2;
+  --tokui-warning-1: #32271a;
+  --tokui-warning-2: #4f3c24;
+  --tokui-warning-3: #5b4b34;
+  --tokui-warning-4: #7e6643;
+  --tokui-warning-5: #ad8b58;
+  --tokui-warning-6: #dcb06d;
+  --tokui-warning-7: #e8ca97;
+  --tokui-warning-8: #f3e4c6;
+  --tokui-warning-9: #f8f3e9;
+  --tokui-warning-10: #faf6ec;
 
   /* ========== 第二层：语义层 ========== */
 
@@ -99,7 +108,7 @@
   --tokui-text-muted: rgba(255, 255, 255, 0.45);
   --tokui-text-disabled: rgba(255, 255, 255, 0.25);
   --tokui-border: rgba(255, 255, 255, 0.12);
-  --tokui-bg: #141414;
+  --tokui-bg: #0a1220;
   --tokui-stripe: rgba(255, 255, 255, 0.06);
   --tokui-skeleton-base: rgba(255, 255, 255, 0.05);
   --tokui-skeleton-shine: rgba(255, 255, 255, 0.09);
@@ -243,16 +252,16 @@
 
   /* Chart 图表 */
   /* 图表系列色板（T0.5：chart.js 惰性读取，主题切换经 invalidateChartColors 失效缓存） */
-  --tokui-chart-c1: #3c8bff;
-  --tokui-chart-c2: #6fd44f;
-  --tokui-chart-c3: #ffc53d;
-  --tokui-chart-c4: #ff7875;
-  --tokui-chart-c5: #b37feb;
-  --tokui-chart-c6: #36cfc9;
-  --tokui-chart-c7: #ff85c0;
-  --tokui-chart-c8: #ffa940;
-  --tokui-chart-c9: #85a5ff;
-  --tokui-chart-c10: #b7d96d;
+  --tokui-chart-c1: #22d3ee;
+  --tokui-chart-c2: #5b8ef7;
+  --tokui-chart-c3: #a78bfa;
+  --tokui-chart-c4: #ffb454;
+  --tokui-chart-c5: #34e3a1;
+  --tokui-chart-c6: #f472b6;
+  --tokui-chart-c7: #60a5fa;
+  --tokui-chart-c8: #facc15;
+  --tokui-chart-c9: #2dd4bf;
+  --tokui-chart-c10: #fb923c;
   --tokui-chart-grid: rgba(255, 255, 255, 0.08);
   --tokui-chart-text: rgba(255, 255, 255, 0.45);
   --tokui-chart-today-line: #ff7a45;
@@ -279,22 +288,22 @@
 }
 
 /* 暗色模式下的特殊调整 */
-[data-tokui-theme="dark"] .tokui-input,
-[data-tokui-theme="dark"] .tokui-select {
+[data-tokui-theme="tech"] .tokui-input,
+[data-tokui-theme="tech"] .tokui-select {
   background: var(--tokui-stripe);
   color: var(--tokui-text);
 }
 
-[data-tokui-theme="dark"] .tokui-input::placeholder {
+[data-tokui-theme="tech"] .tokui-input::placeholder {
   color: var(--tokui-text-muted);
 }
 
-[data-tokui-theme="dark"] .tokui-btn:not([type="submit"]):not(.tokui-btn--primary):not(.tokui-btn--danger):not(.tokui-btn--success):not(.tokui-btn--warning):not(.tokui-btn--ghost) {
+[data-tokui-theme="tech"] .tokui-btn:not([type="submit"]):not(.tokui-btn--primary):not(.tokui-btn--danger):not(.tokui-btn--success):not(.tokui-btn--warning):not(.tokui-btn--ghost) {
   background: var(--tokui-stripe);
   color: var(--tokui-text);
 }
 
-[data-tokui-theme="dark"] .tokui-unknown {
+[data-tokui-theme="tech"] .tokui-unknown {
   background: var(--tokui-warning-bg);
   border-color: var(--tokui-warning-border);
   color: var(--tokui-warning-text);

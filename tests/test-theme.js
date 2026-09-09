@@ -216,4 +216,37 @@ test('setSeedColor accepts danger, success, warning seeds', () => {
   resetTheme();
 });
 
+
+// ========== T0.5：modern-dark 暗色判断修复 ==========
+test('setSeedColor 在 modern-dark 主题下按暗色生成色板（原实现漏判，T0.5 修复）', () => {
+  // dom-mock 环境无 window，走 require('./color-generator') 分支
+  const TokUITheme = require('../src/core/theme');
+  const { setupDOM } = require('./helpers/dom-mock');
+  setupDOM();
+  const prev = TokUITheme.currentTheme;
+  TokUITheme.currentTheme = 'modern-dark';
+  const styleEl = { innerHTML: '', setAttribute() {}, parentNode: { removeChild() {} } };
+  const doc = {
+    querySelector: () => null,
+    createElement: () => styleEl,
+    head: { appendChild() {} },
+  };
+  TokUITheme.setSeedColor('#1677ff', { _document: doc });
+  // 注入选择器须含 modern-dark；暗色色板第 6 级应比种子色亮（dark 提亮混合）
+  assert.ok(styleEl.innerHTML.indexOf('[data-tokui-theme="modern-dark"]') !== -1,
+    '动态注入选择器应覆盖 modern-dark: ' + styleEl.innerHTML.slice(0, 120));
+  TokUITheme.currentTheme = prev;
+});
+
+test('四主题均定义图表系列色板 --tokui-chart-c1..c10（T0.5）', () => {
+  const fs = require('fs');
+  const path = require('path');
+  for (const name of ['default', 'dark', 'modern', 'modern-dark']) {
+    const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'styles', 'themes', name + '.css'), 'utf8');
+    for (let i = 1; i <= 10; i++) {
+      assert.ok(css.includes(`--tokui-chart-c${i}:`), `${name} 缺 --tokui-chart-c${i}`);
+    }
+  }
+});
+
 run();

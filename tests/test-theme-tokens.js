@@ -30,7 +30,7 @@ const stripComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, '');
 const tokuiRaw = read(path.join(STYLES, 'tokui.css'));
 const tokui = stripComments(tokuiRaw);
 const defaultCss = stripComments(read(path.join(STYLES, 'themes', 'default.css')));
-const themeFiles = ['default', 'dark', 'modern', 'modern-dark']
+const themeFiles = ['default', 'dark', 'modern', 'modern-dark', 'tech']
   .map((n) => stripComments(read(path.join(STYLES, 'themes', n + '.css'))));
 
 // 令牌定义集：--tokui-x: 形式（default.css 覆盖 :root；tokui.css 内有组件作用域定义，
@@ -295,6 +295,83 @@ test('latency--total / test-case__error 走语义淡底令牌，agent 空 body �
   const terr = ruleBody(tokui, '.tokui-test-case__error {');
   assert.ok(terr && terr.includes('var(--tokui-danger-bg)'), `test-case__error: ${terr}`);
   assert.ok(tokui.includes('.tokui-agent__body:empty'), '缺 agent __body:empty 规则');
+});
+
+// ========== T0.2 版式与密度 scale（产品级表达基建） ==========
+
+const SCALE_TOKENS = [].concat(
+  ['1','2','3','4','5','6','7','8'].map((n) => `--tokui-space-${n}`),
+  ['xs','sm','md','lg','xl','xxl','display'].map((n) => `--tokui-font-${n}`),
+  ['sm','md','lg','xl','pill'].map((n) => `--tokui-radius-${n}`),
+  ['xs','sm','md','lg','xl'].map((n) => `--tokui-shadow-${n}`),
+  ['sm','lg'].map((n) => `--tokui-blur-${n}`),
+  ['--tokui-density-v']
+);
+
+test('T0.2: 四主题完整定义版式 scale（space×8 / font×7 / radius×5 / shadow×5 / blur×2 / density）', () => {
+  const themes = {
+    default: defaultCss,
+    dark: themeFiles[1],
+    modern: themeFiles[2],
+    'modern-dark': themeFiles[3],
+    tech: themeFiles[4],
+  };
+  for (const [name, css] of Object.entries(themes)) {
+    const defs = collectDefs(css);
+    const missing = SCALE_TOKENS.filter((t) => !defs.has(t));
+    assert.deepStrictEqual(missing, [], `主题 ${name} 缺 scale 令牌: ${missing.join(', ')}`);
+  }
+});
+
+test('T0.2: --tokui-radius 是 --tokui-radius-md 的别名（四主题值一致）', () => {
+  const themes = { default: defaultCss, dark: themeFiles[1], modern: themeFiles[2], 'modern-dark': themeFiles[3], tech: themeFiles[4] };
+  for (const [name, css] of Object.entries(themes)) {
+    const radiusRule = /--tokui-radius:\s*([^;]+);/.exec(css);
+    assert.ok(radiusRule, `${name} 缺 --tokui-radius 定义`);
+    assert.strictEqual(
+      radiusRule[1].trim(), 'var(--tokui-radius-md)',
+      `${name} --tokui-radius 应为 var(--tokui-radius-md) 别名，实际: ${radiusRule[1]}`
+    );
+  }
+});
+
+test('T0.2: modern/modern-dark 既有阴影 scale 值零回归（xs~lg 与既有声明逐字符一致）', () => {
+  const expectedModernLg = '0 10px 15px -3px rgba(9, 9, 11, 0.08), 0 4px 6px -4px rgba(9, 9, 11, 0.05)';
+  const expectedModernDarkLg = '0 4px 8px 0 rgba(0, 0, 0, 0.45), 0 10px 20px 0 rgba(0, 0, 0, 0.35)';
+  const get = (css, name) => { const m = new RegExp(name.replace(/-/g, '\\-') + ':\\s*([^;]+);').exec(css); return m && m[1].trim(); };
+  assert.strictEqual(get(themeFiles[2], '--tokui-shadow-lg'), expectedModernLg, 'modern shadow-lg 被改动');
+  assert.strictEqual(get(themeFiles[3], '--tokui-shadow-lg'), expectedModernDarkLg, 'modern-dark shadow-lg 被改动');
+  assert.ok(get(themeFiles[2], '--tokui-shadow-xs'), 'modern shadow-xs 丢失');
+});
+
+test('T0.2: 高频组件迁移到 scale 令牌（card/btn/radio 引用 space/radius，无裸 px）', () => {
+  const card = ruleBody(tokui, '.tokui-card {');
+  assert.ok(card.includes('var(--tokui-radius-lg)'), `card 圆角未迁移: ${card}`);
+  assert.ok(!/border-radius:\s*\d/.test(card), `card 圆角残留裸值: ${card}`);
+  const body = ruleBody(tokui, '.tokui-card-body {');
+  assert.ok(body.includes('var(--tokui-space-4)'), `card-body 未迁移: ${body}`);
+  const btn = ruleBody(tokui, '.tokui-btn { display');
+  assert.ok(btn.includes('var(--tokui-space-2)') && btn.includes('var(--tokui-space-5)'), `btn 未迁移: ${btn}`);
+});
+
+
+// ========== T1.1：tech 科技风主题 ==========
+test('tech 主题：深蓝底 + 荧光青 accent + 科技图表色板 + 发光令牌齐备', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'styles', 'themes', 'tech.css'), 'utf8');
+  assert.ok(css.includes('--tokui-bg: #0a1220;'), 'tech 底色应为深蓝 #0a1220');
+  assert.ok(css.includes('--tokui-primary-6: #43c8d8;'), 'tech primary-6 应为青 #43c8d8');
+  assert.ok(css.includes('--tokui-chart-c1: #22d3ee;'), 'tech 图表首色应为荧光青');
+  for (const t of ['--tokui-glow-primary', '--tokui-glow-accent', '--tokui-tech-grid', '--tokui-tech-panel-bg', '--tokui-tech-panel-border']) {
+    assert.ok(css.includes(t + ':'), 'tech 缺 ' + t);
+  }
+  assert.ok(css.includes('[data-tokui-theme="tech"] .tokui-btn'), 'tech 需保留组件级覆盖规则');
+});
+
+test('theme 属性子树白名单含 tech（card/grid/cell theme:tech 可用）', () => {
+  const layoutSrc = require('fs').readFileSync(path.join(__dirname, '..', 'src', 'components', 'layout.js'), 'utf8');
+  assert.ok(layoutSrc.includes("'tech': 1"), '_THEME_NAMES 缺 tech');
 });
 
 run();

@@ -20,7 +20,36 @@
   --tokui-text-muted: #A1A1A7;
   --tokui-text-disabled: #52525B;
   --tokui-stripe: #1F1F22;
-  --tokui-radius: 8px;
+  /* ========== 版式与密度 scale（产品级表达基建 M0/T0.2） ========== */
+  /* 间距 scale（4px 基数） */
+  --tokui-space-1: 4px;
+  --tokui-space-2: 8px;
+  --tokui-space-3: 12px;
+  --tokui-space-4: 16px;
+  --tokui-space-5: 20px;
+  --tokui-space-6: 24px;
+  --tokui-space-7: 32px;
+  --tokui-space-8: 40px;
+  /* 字号 scale */
+  --tokui-font-xs: 12px;
+  --tokui-font-sm: 13px;
+  --tokui-font-md: 14px;
+  --tokui-font-lg: 16px;
+  --tokui-font-xl: 18px;
+  --tokui-font-xxl: 22px;
+  --tokui-font-display: 32px;
+  /* 圆角 scale（modern 大圆角体系；--tokui-radius 为 md 档别名，向后兼容） */
+  --tokui-radius-sm: 4px;
+  --tokui-radius-md: 8px;
+  --tokui-radius-lg: 12px;
+  --tokui-radius-xl: 16px;
+  --tokui-radius-pill: 999px;
+  --tokui-radius: var(--tokui-radius-md);
+  /* 玻璃态模糊 */
+  --tokui-blur-sm: 4px;
+  --tokui-blur-lg: 12px;
+  /* 排版密度 */
+  --tokui-density-v: 1.5;
   /* 骨架屏：半透明白轻量叠加，替代实色 stripe/border，避免过亮刺眼 */
   --tokui-skeleton-base: rgba(255, 255, 255, 0.05);
   --tokui-skeleton-shine: rgba(255, 255, 255, 0.09);
@@ -67,6 +96,9 @@
   --tokui-code-copy-border: rgba(255, 255, 255, 0.15);
   --tokui-code-copy-text: rgba(255, 255, 255, 0.6);
   --tokui-code-copy-hover: rgba(255, 255, 255, 0.15);
+  /* 滚动条（scroll-area 视口：默认隐藏，hover/滚动中/聚焦浮现；深底白基） */
+  --tokui-scrollbar-thumb: rgba(255, 255, 255, 0.22);
+  --tokui-scrollbar-thumb-hover: rgba(255, 255, 255, 0.38);
   --tokui-btn-primary-hover: var(--tokui-primary-hover);
   --tokui-btn-danger-hover: #FF7875;
   --tokui-btn-success-hover: #3DDB87;
@@ -108,6 +140,17 @@
   --tokui-callout-tip-border: #9254DE;
   --tokui-think-bg: rgba(255, 255, 255, 0.022);
   --tokui-think-border: var(--tokui-border);
+  /* 图表系列色板（T0.5：chart.js 惰性读取，主题切换经 invalidateChartColors 失效缓存） */
+  --tokui-chart-c1: #5B8EF7;
+  --tokui-chart-c2: #4FCB78;
+  --tokui-chart-c3: #F0B254;
+  --tokui-chart-c4: #F26D6F;
+  --tokui-chart-c5: #A693DB;
+  --tokui-chart-c6: #43CBD8;
+  --tokui-chart-c7: #E878BE;
+  --tokui-chart-c8: #F3A264;
+  --tokui-chart-c9: #7E97F9;
+  --tokui-chart-c10: #A5CE74;
   --tokui-chart-grid: var(--tokui-border);
   --tokui-chart-text: var(--tokui-text-muted);
   --tokui-chart-today-line: #FF7A45;
@@ -126,6 +169,7 @@
   --tokui-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.4), 0 2px 4px 0 rgba(0, 0, 0, 0.3);
   --tokui-shadow-md: 0 2px 4px 0 rgba(0, 0, 0, 0.4), 0 4px 10px 0 rgba(0, 0, 0, 0.3);
   --tokui-shadow-lg: 0 4px 8px 0 rgba(0, 0, 0, 0.45), 0 10px 20px 0 rgba(0, 0, 0, 0.35);
+  --tokui-shadow-xl: 0 8px 16px 0 rgba(0, 0, 0, 0.5), 0 25px 50px 0 rgba(0, 0, 0, 0.4);
   --tokui-surface-shadow: var(--tokui-shadow-sm);
   --tokui-surface-shadow-hover: var(--tokui-shadow-md);
 

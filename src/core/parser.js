@@ -107,7 +107,11 @@ const CONTAINERS = new Set([
   'segmented',
   'anchor',
   'float-button',
-  'masonry'
+  'masonry',
+  'panel',
+  'kpi',
+  'scrollboard',
+  'fit-screen'
 ]);
 
 // chart 自闭合内联数据判定 —— 须与 builder.chart 的 hasInline、renderer 容器判定三处同步：
@@ -165,7 +169,7 @@ const P_INLINE_CHILDREN = new Set([
 const BOOLEAN_ATTRS = new Set([
   'stripe', 'dis', 'ro', 'req', 'chk', 'multi', 'disabled',
   'readonly', 'required', 'checked', 'multiple', 'striped', 'auto', 'plain',
-  'round', 'closable', 'bordered', 'open', 'pill', 'dot', 'leaf',
+  'round', 'closable', 'bordered', 'open', 'grad', 'pill', 'dot', 'leaf',
   'inline', 'rounded', 'container',
   'copy', 'regenerate', 'like', 'dislike', 'visible', 'delete',
   'controls',
@@ -970,7 +974,7 @@ class TokUIParser {
     // desc/suggestions/masonry use cols as layout attribute, not as self-closing trigger
     // chart 的 cols 是数据列标签（heatmap），非布局自闭合触发，须豁免（否则容器写法 [/chart] 报错）
     // grid 的 cols 是显式轨道定义（高级网格布局），同为布局属性，须豁免
-    const hasColsTrigger = node.attrs.cols && node.type !== 'desc' && node.type !== 'suggestions' && node.type !== 'chart' && node.type !== 'masonry' && node.type !== 'grid';
+    const hasColsTrigger = node.attrs.cols && node.type !== 'desc' && node.type !== 'suggestions' && node.type !== 'chart' && node.type !== 'masonry' && node.type !== 'grid' && node.type !== 'scrollboard';
   // chart 带 d/tasks 内联数据 → 自闭合（旧用法）；无内联数据 → 容器模式收 pt/task/ms 子节点（流式）
     const hasInlineData = chartHasInline(node);
     // 自闭合 chart 带 preview key，与流式预览配对（renderer finalize 复用 pending wrapper）
@@ -1032,7 +1036,7 @@ class TokUIParser {
     // desc/suggestions/masonry use cols as layout attribute, not as self-closing trigger
     // chart 的 cols 是数据列标签（heatmap），非布局自闭合触发，须豁免（否则容器写法 [/chart] 报错）
     // grid 的 cols 是显式轨道定义（高级网格布局），同为布局属性，须豁免
-    const hasColsTrigger = node.attrs.cols && node.type !== 'desc' && node.type !== 'suggestions' && node.type !== 'chart' && node.type !== 'masonry' && node.type !== 'grid';
+    const hasColsTrigger = node.attrs.cols && node.type !== 'desc' && node.type !== 'suggestions' && node.type !== 'chart' && node.type !== 'masonry' && node.type !== 'grid' && node.type !== 'scrollboard';
   // chart 带 d/tasks 内联数据 → 自闭合（旧用法）；无内联数据 → 容器模式收 pt/task/ms 子节点（流式）
     const hasInlineData = chartHasInline(node);
     // 自闭合 chart 带 preview key，与流式预览配对（renderer finalize 复用 pending wrapper）

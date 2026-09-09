@@ -83,9 +83,33 @@ v:"primary,sm"                               ;; 多变体用逗号分隔，渲�
 | `reset` | 重置动作 | btn 内置：裸写或 `reset:H` |
 | `print` | 打印动作 | btn 内置：`print:ID` / `print:self` / 裸写 |
 | `data-*` | 任意自定义数据 | 透传为 `data-*` 属性（如 `data-prompt:`、`data-target:`） |
+| `cls` | 自定义类名 | **全组件**根元素追加类名（空格分隔多个，**含空格必须双引号**），见 §2.1 |
+| `style` | 内联样式 | **全组件**根元素白名单内联样式（**含空格必须双引号**），见 §2.1 |
 | `on` | 事件上报声明 | `on:"事件:处理器,…"`（**必须双引号**），如 `on:"change:onInput,close:onClose"`，见 §8.4 |
 
 > `clk:` / `sub:` 处理器签名 `(data, event, element)`；表单按钮的 `data` 为 `_collectFormData(form)` 收集结果，同 name 多值自动聚合为数组。
+
+### 2.1 样式定制通道：`cls:` / `style:`（全组件根级）
+
+两个通用属性对**全部已注册组件**生效，集中落在组件根元素上（`src/core/style-guard.js` 安全过滤）：
+
+```
+[card tt:渐变品牌卡 cls:"pricing fade-in" style:"background:linear-gradient(135deg,var(--tokui-primary-1),var(--tokui-bg));border-radius:16px"]
+[btn t:primary cls:cta-btn style:"border-radius:16px"]   ← 单类名/无空格值可不加引号
+[p 导语文字 cls:lead style:"font-size:22px;font-weight:700;letter-spacing:1px"]
+```
+
+**`style:` 白名单（属性名）**：`background(-image/-color/-size/-position/-repeat/-clip)`、`color`、`border`（含四边/圆角全套）、`padding`/`margin`（含四边）、`text-align`、`text-decoration`、`letter-spacing`、`line-height`、`(max/min)-width/height`、`box-shadow`、`opacity`、`font-size/weight/family`、`overflow(-x/-y)`、`cursor`、`gap`/`row-gap`/`column-gap`、`display`、`flex`（direction/wrap/grow/shrink/basis）、`order`、`align/justify-*`、`width`/`height`、`white-space`、`word-break`、`vertical-align`、`transition`、`transform`、`backdrop-filter`、`aspect-ratio`、`object-fit/-position`、`z-index`、`list-style`、`grid-template-columns/rows`。
+
+**值级安全规则**（违规声明**静默丢弃**，其余声明正常生效）：
+- 拒绝 `expression(...)`、`javascript:`、`vbscript:`、`behavior:`、`@import`、尖括号；
+- `url()` 仅放行 `http(s)://` 绝对地址与站内相对路径（`/x`、`./x`、`../x`）；`data:`/`ftp:` 等拒绝；
+- `transform` 仅放行 `translate/scale/rotate` 函数族（`matrix` 等拒绝）；
+- **不在白名单**：`position`、`top/left/right/bottom`（防布局逃逸伪造遮罩）。
+
+**`cls:` 规则**：每个类名须匹配 `^[a-zA-Z][\w-]{0,63}$`（字母开头，1~64 字符）；**拒绝 `tokui-` 前缀**（框架保留字）；最多 8 个、自动去重；非法词逐个静默丢弃。
+
+> 通道定位是「根级增强」：只落组件根元素、内部元素不透传；与组件私有 `w:`/`bg:`/`fc:`/`hc:` 等散点属性叠加共存（`style:` 声明追加在私有样式之后，同名属性以 `style:` 为准）。未知组件降级（`tokui-unknown`）不走此通道。
 
 ---
 
@@ -296,8 +320,8 @@ resizable canvas canvas-content chart p tour affix preview-group segmented ancho
 | `card` | 容器 | `tt` `tx` `v` `w` `hc` `ht` | 卡片。`hc` 头部自定义色；`ht:fill`/`accent`/`underline`/`dot`/`pill` 头部类型。**`tx`=自闭合叶子卡**，有子元素时禁用 |
 | `ft` | 容器 | `tx`/裸内容 `v` | 卡片页脚（card/dialog/drawer 内自动分离为页脚区）。无内容时不渲染 |
 | `row` | 容器 | `v` `gutter` `gy` | 栅格行。默认 12 列 grid；`v:inline` 转 flex（并排标题+徽标用）；`gutter` 统一间距、`gy` 行间距（数字按 px 或 CSS 长度） |
-| `col` | 容器 | `span` `offset` `rspan` | 栅格列（`span` 1-12，默认 1）；`offset` 左空列数（1-11，offset+span 钳制不超 12）；`rspan` 行跨（1-12，多行 row 跨行用） |
-| `grid` | 容器 | `cols` `rows` `areas` `gap`/`gx`/`gy` `h` `minh` `theme` `v` | 高级二维网格（与 12 栅格并行），语法见下方「高级网格 grid/cell」专节 |
+| `col` | 容器 | `span` `offset` `rspan` `xs` `sm` `md` `lg` `xl` | 栅格列（`span` 1-12，默认 1）；`offset` 左空列数（1-11，offset+span 钳制不超 12）；`rspan` 行跨（1-12，多行 row 跨行用）；断点属性见下方「响应式断点」节 |
+| `grid` | 容器 | `cols` `rows` `areas` `gap`/`gx`/`gy` `h` `minh` `theme` `v` `skel` `xs` `sm` `md` `lg` `xl` | 高级二维网格（与 12 栅格并行），语法见下方「高级网格 grid/cell」专节；断点属性=列数 1-12，见「响应式断点」节；流式+areas 时按区名先铺骨架占位（布局即终布局，真实 cell 到达按区替换，`skel:"false"` 关） |
 | `cell` | 容器 | `area` `c` `r` `align` `justify` | grid 子项（可装任意组件）。`area` 模板区域名；`c` 列跨 N(1-24) 或 `"start/end"`；`r` 行跨 N(1-24)；`align`/`justify` 对齐 start/center/end/stretch |
 | `list` | 容器 | `t` `plain` | 列表。`t:ol` 有序/默认无序；`plain` 去标记 |
 | `item` | 容器 | `tx`/裸内容 `l` `span` | 同名按父级区分：`list` 内=`<li>`（文本当首段，可嵌套子 `list`，靠 `[/item]`/下个 `[item]`/父闭标签隐式闭合）；`desc` 内=描述项（`l` 标签 `tx` 值）；`carousel` 内=幻灯片；`command-group` 内=命令项。别名 `i` |
@@ -321,16 +345,36 @@ resizable canvas canvas-content chart p tour affix preview-group segmented ancho
 | `menu` | 容器 | `v` `act` `bg` `fc` `id` | 菜单。`v:vertical`/`horizontal`/`inline`；子项 `menu-item` |
 | `menu-item` | 自闭合 | `tx` `clk` `i` `dis` `act` | 菜单项 |
 | `resizable` | 容器 | `dir` `min` `max` `default` `w` | 分割面板。`dir:h`/`v`；须 2 个子面板 |
-| `scroll-area` | 容器 | `h` `w` `id` `virtual` `ih` | 自定义滚动区域。`virtual` 虚拟滚动（均匀行高模式，`ih:N` 行高默认 36px，仅可视窗口+buffer 挂 DOM）；滚动到底部阈值上报 `loadmore` 事件（长列表/对话历史加载更多用） |
+| `scroll-area` | 容器 | `h` `w` `minh` `maxh` `dir` `id` `virtual` `ih` | 智能滚动区域。`h`/`w` 纯数字按 px（亦可 `100%`/`50vh`），宽缺省 100%；`minh`/`maxh` 弹性高度（内容少时收缩、多时封顶）；`dir:x` 仅横向 / `dir:y` 仅纵向（缺省双向按需）；变体 `v:flush` 去内边距。滚动条默认隐藏，hover / 滚动中（停止 0.8s 淡出）/ 键盘聚焦时浮现，色随 `--tokui-scrollbar-*` 主题令牌四主题适配。`virtual` 虚拟滚动（均匀行高模式，`ih:N` 行高默认 36px，仅可视窗口+buffer 挂 DOM）；滚动到底部阈值上报 `loadmore` 事件（长列表/对话历史加载更多用） |
 | `sidebar` | 容器 | `w` `pos` `collapsible` `tt` `bg` `fc` `id` | 侧边栏。`pos:left`/`right`；子项 `sidebar-content` / `sidebar-footer` |
 | `sidebar-content` / `sidebar-footer` | 容器 | — | 侧边栏内容区 / 页脚 |
 | `anchor` | 双模式 | `opt` `top` `on` `id` | 锚点导航。简写 `opt:"目标id:标题;…"` 原子自闭合；容器 `[lk h:目标 tx:标题 d:层级]` 支持二级锚点；`top` spy 激活偏移（缺省 12）；变体 `horizontal`；点击平滑滚动 + scroll-spy 高亮（目标需带 id）；`upd v:目标id` 程序化高亮（silent） |
 | `affix` | 容器 | `top` `bottom` `target` `on` | 固钉。滚动越过偏移即 `position:fixed` 固定：`top` 固顶（缺省 0）/ `bottom` 固底（经过原位置后释放）/ `target` 显式滚动容器；自动插占位防跳动；`change` 上报 `{fixed}`；监听 window 捕获阶段，嵌套滚动容器可感知 |
 | `masonry` | 容器 | `cols` `minw` `gap` | 瀑布流。`cols` 固定列数(1-6 缺省2)、`minw` 自动列（子项最小宽度 px，列数随宽度自适应，优先于 cols）、`gap` 间距(px 缺省8)；CSS columns 自动分列，子项 break-inside: avoid 不截断 |
+| `panel` | 容器 | `tt` `v` `theme` | 数据大屏科技边框容器（M1）。`tt` 标题栏（左右装饰线）；`v:corner` 四角角标 / `v:glow` 发光 / `v:plain`；`theme:tech` 子树切换科技主题 |
+| `kpi` | 容器 | `tt` `v` `pre` `suf` `unit` `trend` `dec` `icon` `clk` `t` | 指标卡（M1）。数值滚动动画（easeOutExpo）；`trend:12.4`/`-1.2`/`up`/`down` 自动 ↑↓ 徽章着色；`t:danger/success/warning` 状态色；`icon:` 注册表图标；`[upd id: v:/trend:/tt:]` 更新走动画 |
+| `flip-num` | 自闭合 | `v` `dur` `s` | 数字翻牌器（M1）。`v` 数字串（可含逗号/小数点/百分号，逐位翻牌）；`dur` 单位过渡 ms 默认 600；`s:sm/lg` 尺寸档；reduced-motion 直显；`[upd v:]` 各位滚到位 |
+| `chart t:map` | 自闭合 | `region` `d` `label` `unit` `vmin` `vmax` `w` `on` | 中国地图。`region:"浙江:86\|江苏:74"` 省级热力（34 省级行政区含港澳台，省名简称/全名均可；多 stop 色阶 蓝→青→绿→黄→红）；`d:"120.15,30.28,88,name:杭州"` 散点层（经纬度+值+名称，对数映射半径，越界钳制画布内）；`label:full\|name\|off` 标注三档（默认 full：含数据省 名+值 两行、无数据省灰名，文字盒碰撞自动避让；name=仅含数据省显名；off=纯色块）；`unit` 单位（tooltip/色阶刻度/半径图例共用，≤8 字符）；`vmin/vmax` 锁定色阶域。交互：hover 省份/散点多行 tooltip（省名 / 值+单位+占比）+ 高亮描边压暗其余；点击含数据省份上报 `mapClick {province,value}`（`on:"mapClick:handler"`）。图内左下 visualMap 色阶条（仅散点时自动换为半径图例），右下南海诸岛小图（九段线+西沙/中沙黄岩/南沙/曾母暗沙）。数据源 vendor/china-geo.js（~33KB 按需加载） |
+| `fit-screen` | 容器 | `w` `h` `mode` `maxh` | 大屏缩放容器（M1）。`w/h` 设计稿尺寸默认 1920×1080；`mode:scale` 等比缩放居中留空（默认）/`width` 等宽缩放贴合内容高（配 `maxh:` 视口高上限后内容超高纵滚）/`full` 双轴拉伸铺满；内容建议满幅排版（内部容器 h:100%）；ResizeObserver 随挂载区重算；scale/full 要求挂载区有确定高度 |
+| `scrollboard` | 容器 | `h` `speed` `gap` `cols` `rows` `clk` | 轮播榜单（M1）。`h` 视口高默认 300；`speed` px/s 默认 36（0=静止）；`cols:"列1,列2"` 表头；`rows:"a,1,↑2\|b,2,↓3"` 简写行（或 `[tr]` 子节点）；↑↓ 列自动着色；hover 暂停 + 无缝循环；空态 i18n |
 | `float-button` | 容器 | `pos` `offset` | 浮动按钮组。`pos` 四角固位(right-bottom 缺省/right-top/left-bottom/left-top)、`offset` 边距(px 缺省24)；子组件自动圆形悬浮化 |
 
-#### 高级网格 grid/cell（显式二维网格，与 12 栅格并行）
+#### 响应式断点（T0.3，容器查询）
 
+`col` 与 `grid` 支持 `xs`/`sm`/`md`/`lg`/`xl` 五档断点属性，声明式响应式——**断点基于容器（row/grid 自身）宽度而非视口**，嵌套布局（dialog 内栅格、sidebar 内卡片墙）各自独立响应：
+
+```
+[col span:4 xs:12 sm:6 lg:3]           ← col：值 = span 1-12；「桌面 3 列 → 平板 2 列 → 手机 1 列」
+[col xs:"8/2"]                          ← col 组合值 "span/offset"（offset 1-11，含空格必须双引号——「"8/2"」本身无空格可不引）
+[grid gap:12 xs:1 sm:2 lg:3]           ← grid：值 = 列数 1-12
+```
+
+- 档位：`xs` 基础档（全宽度生效）→ `sm` ≥576px → `md` ≥768px → `lg` ≥992px → `xl` ≥1200px 递增覆盖（未写某档继承上一档）；
+- 断点属性只做**覆盖**：未写断点时行为与旧版完全一致（`span`/`offset` 基础值不变）；
+- 非法值（越界/非数字）静默丢弃该档；浏览器不支持容器查询时（Safari<16 等）断点不生效，自动回退全局 1024/640 两档媒体查询兜底（移动端栅格单列化），不破版；
+- 实现：属性落 `data-bp-*` → CSS `@container` 规则应用；带断点的 grid 外层自动包 `.tokui-grid-cq` 容器（元素不能查询自身容器）。
+
+#### 高级网格 grid/cell（显式二维网格，与 12 栅格并行）
 面向圣杯骨架、监控大屏、车机 HMI、杂志混排等二维不对称布局。**选型规则：一维并排均分用 `row`/`col`；二维不对称 / 区域命名 / 固定+弹性混合轨道 / 跨行跨列 / 整页骨架用 `grid`/`cell`。**
 
 **`grid` 属性**（所有值白名单校验，任一非法 → 该属性整体不输出）：
@@ -582,7 +626,7 @@ col spec 顺序：`列名[=cN[rM]][/对齐][/配色]`。
 | `range` | gauge 扫掠角 180（默认）/270/360 |
 | `anim` | 数值动画 ms（progress/gauge，尊重无障碍偏好自动停） |
 | `interval` | X 轴标签密度：`auto`（默认，横排→-45°旋转→跳过三级降级）/ `0`（全显）/ `N`（每 N 个显一个，保留首末） |
-| `zoom` | dataZoom 拖拽缩放：`auto`（>30 点自动开）/ `N`（>N 开）/ `on`/`off`。bar/line/area/histogram/boxplot/candlestick |
+| `zoom` | dataZoom 拖拽缩放：`auto`（>30 点自动开）/ `N`（>N 开）/ `on`/`off`。bar（纵向）/line/area/boxplot/candlestick 支持；横柱 `orient:h` 与 histogram 不支持 |
 
 #### 数据格式 `d` 速查
 
@@ -602,7 +646,7 @@ col spec 顺序：`列名[=cN[rM]][/对齐][/配色]`。
 
 #### 各类型专属属性
 
-- **bar**：`stack` `orient:h` `vals` `ymax`。横向柱（`orient:h`）类别多（≥15）时显式 `h`（最大有效 800）。
+- **bar**：`stack` `orient:h` `vals` `ymax`。横向柱（`orient:h`）高度随类别数自动增长（viewBox 高 ≈ 36+26px×类别数，钳 200–1200，CSS 显示上限 1200），**无需手设 `h`**；显式 `h` 原样优先（>1200 部分被 CSS 截断）。
 - **line**：`area` `smooth` `stack` `vals`。
 - **area**：= line + 默认填充，同 line。
 - **pie**/**donut**/**rose**：`l` 各项名；donut `v` 中心文字（单环）。
@@ -623,7 +667,7 @@ col spec 顺序：`列名[=cN[rM]][/对齐][/配色]`。
 
 - bar/line/area/histogram/boxplot/candlestick 的 X 轴标签自动【横排 → -45° 旋转 → 按步长跳过（保留首末）】三级降级，默认 `interval:auto`。
 - `interval:N` 锁步长（每 N 个显一个，保留首末）；`interval:0` 强制全显（仅按需旋转）。
-- 数据点 ≥30（长时间序列、大规模柱/线、多根 K 线/多组箱线）加 `zoom:auto` 开底部 dataZoom 滑块，用户拖拽看局部（单系列柱图池化、丝滑跟手）。
+- 数据点 >30（长时间序列、大规模柱/线、多根 K 线/多组箱线）加 `zoom:auto` 开底部 dataZoom 滑块，用户拖拽看局部（单系列柱图池化、丝滑跟手）。
 
 ```tokui
 [chart t:line tt:"近90天访问趋势" zoom:auto l:"D1,D2,...,D90" d:"30,45,38,60,..."]
@@ -700,15 +744,22 @@ col spec 顺序：`列名[=cN[rM]][/对齐][/配色]`。
 
 ---
 
-## 7. 内置图标名（icons.js，24 个）
+## 7. 内置图标名（icons.js，61 个 + registerIcon 扩展）
 
-`btn` 的 `icon:` 属性与表格操作列 `btn: icon:NAME` 取这些 Lucide 风格 SVG 名（stroke=currentColor，自动继承钮色，彩色图标无需另配色）：
+`btn` 的 `icon:` 属性与表格操作列 `btn: icon:NAME` 取这些 Lucide 风格 SVG 名（stroke=currentColor，自动继承钮色，彩色图标无需另配色）。**T0.4 起全库组件 chrome 图标（树控件/文件树/音频/警示框/通知/终端三色点等）统一走本注册表，不再使用 emoji**：
 
 ```
-view  edit  delete  add  copy  download  upload  refresh  check  close
-search  setting  warn  info  lock  unlock  more  save  export  filter
-sort  star  link  menu
+操作类:  view  edit  delete  add  copy  download  upload  refresh  check  close
+         save  export  filter  sort  more  plus  minus  play  pause
+状态类:  warn  info  circle-check  circle-x  circle-alert  circle-info  circle-help
+导航类:  chevron-up  chevron-down  chevron-left  chevron-right
+         arrow-up  arrow-down  arrow-left  arrow-right  external-link  menu  panel-left
+对象类:  folder  folder-open  file-text  user  users  home  inbox  bell  calendar
+         clock  map-pin  star  link  lock  unlock  search  setting
+图表AI:  trending-up  trending-down  sparkles  lightbulb  zap  terminal  volume-high  volume-x
 ```
+
+**扩展 API**：`TokUI.registerIcon(name, pathContent, { alias })` 注册自定义图标——`name` 须 `^[a-zA-Z][\w-]{0,63}$`；`pathContent` 为 SVG 元素串（如 `'<path d="..."/>'`），仅允许 path/circle/rect/line/polyline/polygon 几何标签（防注入）；可覆盖内置图标（自动刷新节点缓存）。
 
 未知名返回空字符串。
 

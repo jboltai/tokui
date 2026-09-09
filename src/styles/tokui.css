@@ -369,7 +369,7 @@
 .tokui-pwd-toggle--active { color: var(--tokui-primary); }
 
 /* === 按钮 === */
-.tokui-btn { display: inline-flex; align-items: center; justify-content: center; padding: 8px 20px; border: 1px solid var(--tokui-border); border-radius: var(--tokui-radius); font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: all 0.2s; background: var(--tokui-bg); color: var(--tokui-text); margin: 0 8px 0 0; }
+.tokui-btn { display: inline-flex; align-items: center; justify-content: center; padding: var(--tokui-space-2) var(--tokui-space-5); border: 1px solid var(--tokui-border); border-radius: var(--tokui-radius); font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: all 0.2s; background: var(--tokui-bg); color: var(--tokui-text); margin: 0 var(--tokui-space-2) 0 0; }
 a + .tokui-btn, .tokui-link + .tokui-btn, .tokui-tag + .tokui-btn { margin-left: 8px; }
 .tokui-card-footer .tokui-btn, .tokui-dialog-footer .tokui-btn { margin-right: 0; margin-bottom: 0; }
 .tokui-btn:hover { background: var(--tokui-stripe); }
@@ -380,8 +380,8 @@ a + .tokui-btn, .tokui-link + .tokui-btn, .tokui-tag + .tokui-btn { margin-left:
 .tokui-btn[type="submit"]:hover { background: var(--tokui-btn-primary-hover); color: var(--tokui-btn-text-inverse); }
 
 /* === 单选按钮组 === */
-.tokui-radio-group { display: flex; gap: 16px; flex-wrap: wrap; }
-.tokui-radio-item { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 0.9rem; position: relative; padding-left: 24px; line-height: 1.6; }
+.tokui-radio-group { display: flex; gap: var(--tokui-space-4); flex-wrap: wrap; }
+.tokui-radio-item { display: flex; align-items: center; gap: var(--tokui-space-2); cursor: pointer; font-size: 0.9rem; position: relative; padding-left: 24px; line-height: 1.6; }
 .tokui-radio-input { position: absolute; opacity: 0; width: 0; height: 0; }
 .tokui-radio-item::before { content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%); width: 16px; height: 16px; border: 2px solid var(--tokui-border); border-radius: 50%; background: var(--tokui-bg); transition: border-color 0.2s ease, box-shadow 0.2s ease; box-sizing: border-box; }
 .tokui-radio-item::after { content: ''; position: absolute; left: 4px; top: 50%; transform: translateY(-50%) scale(0); width: 8px; height: 8px; border-radius: 50%; background: var(--tokui-primary); transition: transform 0.2s ease; }
@@ -511,17 +511,19 @@ a + .tokui-btn, .tokui-link + .tokui-btn, .tokui-tag + .tokui-btn { margin-left:
 }
 
 /* === 卡片 === */
-.tokui-card { border: 1px solid var(--tokui-border); border-radius: calc(var(--tokui-radius) + 4px); overflow: hidden; background: var(--tokui-bg); margin-bottom: 12px; }
-.tokui-card-header { padding: 12px 16px; font-weight: 600; font-size: 1rem; }
+/* radius: 原 calc(var(--tokui-radius)+4px) 在 default(4px) 与 modern(8px) 体系下分别等于
+   radius-lg(8/12px)，T0.2 起直接引用 scale 档位（计算值不变） */
+.tokui-card { border: 1px solid var(--tokui-border); border-radius: var(--tokui-radius-lg); overflow: hidden; background: var(--tokui-bg); margin-bottom: var(--tokui-space-3); }
+.tokui-card-header { padding: var(--tokui-space-3) var(--tokui-space-4); font-weight: 600; font-size: 1rem; }
 .tokui-card-source-btns { display: inline-flex; gap: 2px; margin-left: auto; }
 .tokui-card-source-btn { background: none; border: none; cursor: pointer; padding: 2px 4px; color: var(--tokui-text-muted); opacity: 0.5; transition: opacity 0.15s, color 0.15s; display: inline-flex; align-items: center; }
 .tokui-card-source-btn:hover { opacity: 1; color: var(--tokui-text); }
 .tokui-card-source { margin: 0; padding: 12px 16px; font-size: 0.82rem; line-height: 1.5; white-space: pre-wrap; word-break: break-all; background: var(--tokui-stripe); border-top: 1px solid var(--tokui-border); font-family: ui-monospace, 'SF Mono', 'Menlo', monospace; max-height: 400px; overflow: auto; }
-.tokui-card-body { padding: 16px; }
-.tokui-card-body > * + * { margin-top: 8px; }
+.tokui-card-body { padding: var(--tokui-space-4); }
+.tokui-card-body > * + * { margin-top: var(--tokui-space-2); }
 .tokui-card-body > .tokui-badge { margin-top: 0; }
 .tokui-card-body > .tokui-badge + .tokui-badge { margin-left: 6px; }
-.tokui-card-footer { padding: 12px 16px; border-top: 1px solid var(--tokui-border); background: var(--tokui-stripe); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.tokui-card-footer { padding: var(--tokui-space-3) var(--tokui-space-4); border-top: 1px solid var(--tokui-border); background: var(--tokui-stripe); display: flex; gap: var(--tokui-space-2); align-items: center; flex-wrap: wrap; }
 .tokui-ft--left { justify-content: flex-start; }
 .tokui-ft--center { justify-content: center; }
 .tokui-ft--right { justify-content: flex-end; }
@@ -561,10 +563,31 @@ a + .tokui-btn, .tokui-link + .tokui-btn, .tokui-tag + .tokui-btn { margin-left:
   overflow: auto;
   height: 100%;
   width: 100%;
+  /* border-box：100% 尺寸含 padding，否则视口溢出外层，滚动条落在 overflow:hidden 裁剪区外不可见 */
+  box-sizing: border-box;
   padding: var(--tokui-space, 12px);
+  /* 滚动条默认隐藏（透明），hover / 滚动中 / 键盘聚焦时经主题令牌浮现 */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.25s ease;
 }
 
-/* Webkit custom scrollbar */
+/* 轴向锁定：dir:x 仅横向 / dir:y 仅纵向（缺省双向按需出现滚动条） */
+.tokui-scroll-area--dir-x .tokui-scroll-area__viewport { overflow-x: auto; overflow-y: hidden; }
+.tokui-scroll-area--dir-y .tokui-scroll-area__viewport { overflow-x: hidden; overflow-y: auto; }
+/* dir:x 内的 inline 行不换行、子项不收缩——标签带/卡片带横向溢出才可滚
+   （作用域限定在 dir-x 滚动区内，不改变全局 row--inline 的 wrap 行为） */
+.tokui-scroll-area--dir-x .tokui-row--inline { flex-wrap: nowrap; }
+.tokui-scroll-area--dir-x .tokui-row--inline > * { flex-shrink: 0; }
+
+/* 变体 flush：去视口内边距（嵌表格 / 通栏内容） */
+.tokui-scroll-area--flush .tokui-scroll-area__viewport { padding: 0; }
+
+/* 与内部自带横滚的组件协同：table/code 等自带 overflow-x:auto 的内层滚动容器，
+   在 scroll-area 内改透传——由本组件的浮现式滚动条统一接管，避免双层滚动条 */
+.tokui-scroll-area .tokui-table-wrapper { overflow-x: visible; }
+
+/* Webkit 自定义滚动条：thumb 默认透明，浮现态显色 */
 .tokui-scroll-area__viewport::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -576,34 +599,32 @@ a + .tokui-btn, .tokui-link + .tokui-btn, .tokui-tag + .tokui-btn { margin-left:
 
 .tokui-scroll-area__viewport::-webkit-scrollbar-thumb {
   border-radius: 3px;
-  background: rgba(0, 0, 0, 0.15);
-}
-
-.tokui-scroll-area__viewport::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.3);
+  background: transparent;
+  transition: background 0.25s ease;
 }
 
 .tokui-scroll-area__viewport::-webkit-scrollbar-corner {
   background: transparent;
 }
 
-/* Firefox custom scrollbar */
-.tokui-scroll-area__viewport {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(0, 0, 0, 0.15) transparent;
+/* 浮现三通道（任一激活即显示）：鼠标 hover / 滚动中（--scrolling 状态类）/ 键盘聚焦 */
+.tokui-scroll-area:hover .tokui-scroll-area__viewport,
+.tokui-scroll-area--scrolling .tokui-scroll-area__viewport,
+.tokui-scroll-area:focus-within .tokui-scroll-area__viewport {
+  scrollbar-color: var(--tokui-scrollbar-thumb, rgba(0, 0, 0, 0.2)) transparent;
 }
 
-/* Dark theme scrollbar overrides */
-[data-tokui-theme="dark"] .tokui-scroll-area__viewport::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+.tokui-scroll-area:hover .tokui-scroll-area__viewport::-webkit-scrollbar-thumb,
+.tokui-scroll-area--scrolling .tokui-scroll-area__viewport::-webkit-scrollbar-thumb,
+.tokui-scroll-area:focus-within .tokui-scroll-area__viewport::-webkit-scrollbar-thumb {
+  background: var(--tokui-scrollbar-thumb, rgba(0, 0, 0, 0.2));
 }
 
-[data-tokui-theme="dark"] .tokui-scroll-area__viewport::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.4);
-}
-
-[data-tokui-theme="dark"] .tokui-scroll-area__viewport {
-  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+/* 滚动条本体 hover：加深一档，提示可拖拽 */
+.tokui-scroll-area:hover .tokui-scroll-area__viewport::-webkit-scrollbar-thumb:hover,
+.tokui-scroll-area--scrolling .tokui-scroll-area__viewport::-webkit-scrollbar-thumb:hover,
+.tokui-scroll-area:focus-within .tokui-scroll-area__viewport::-webkit-scrollbar-thumb:hover {
+  background: var(--tokui-scrollbar-thumb-hover, rgba(0, 0, 0, 0.35));
 }
 
 /* 虚拟滚动模式：spacer 撑出总高，保持滚动条比例正确 */
@@ -2237,6 +2258,8 @@ textarea.tokui-textarea--auto { resize: none !important; }
   --tokui-chart-slice-stroke: var(--tokui-card-bg, #fff);
   --tokui-chart-label-stroke: var(--tokui-card-bg, #fff);
 }
+/* 地图：大屏中央主视觉位专属上限（全局 600 兜底），viewBox meet 居中不裁切 */
+.tokui-chart__svg--map { max-height: 640px; }
 /* 各类型最佳实践响应式尺寸：
    - 横向数据类（bar/line/area/scatter/bubble/histogram/waterfall/boxplot/candlestick）：
      viewBox 宽随数据点数动态增长（见 chart.js autoSize），故 max-width 抬到 1400 让宽画布能铺开，
@@ -2374,14 +2397,15 @@ textarea.tokui-textarea--auto { resize: none !important; }
 }
 /* Gauge 仪表盘 */
 .tokui-chart__svg--gauge .tokui-chart-gauge-label {
-  /* 中心区文字光晕：paint-order 把描边垫在填充下，与卡片同色的描边遮住穿到字后的指针线 */
+  /* 中心区文字光晕：paint-order 把描边垫在填充下，与卡片同色的描边遮住穿到字后的指针线。
+     描边须克制（1.5px）：过粗会把小字号字形撑胖发糊；深色主题直接透明（见下方统一覆盖）。 */
   paint-order: stroke;
   stroke: var(--tokui-chart-label-stroke, var(--tokui-card-bg, #fff));
-  stroke-width: 3;
+  stroke-width: 1.5;
   stroke-linejoin: round;
 }
 .tokui-chart__svg--gauge .tokui-chart-gauge-value {
-  stroke-width: 4;
+  stroke-width: 2;
 }
 .tokui-chart__svg .tokui-chart-gauge-arc {
   transition: filter 0.15s ease;
@@ -2469,13 +2493,17 @@ textarea.tokui-textarea--auto { resize: none !important; }
   transition: opacity 0.15s ease;
 }
 
-/* Dark 主题图表适配：文字/网格/描边配色，确保暗底下文字清晰不模糊 */
-[data-tokui-theme="dark"] .tokui-chart__svg {
+/* Dark 系主题图表适配：文字/网格/描边配色，确保暗底下文字清晰不模糊
+   （dark/modern-dark/tech 三个深色主题统一覆盖——tech/modern-dark 此前缺覆盖，
+   中心文字描边回落 #fff 白边吞噬浅色字形、图表文字对比度不足） */
+[data-tokui-theme="dark"] .tokui-chart__svg,
+[data-tokui-theme="modern-dark"] .tokui-chart__svg,
+[data-tokui-theme="tech"] .tokui-chart__svg {
   --tokui-chart-text: rgba(255, 255, 255, 0.72);
   --tokui-chart-grid: rgba(255, 255, 255, 0.08);
   --tokui-chart-axis: rgba(255, 255, 255, 0.22);
   --tokui-chart-slice-stroke: var(--tokui-bg);
-  /* 关键：dark 下中心文字不描边（默认 card-bg 深描边会侵蚀浅色文字致模糊看不清） */
+  /* 关键：深底下中心文字不描边（card-bg 未定义时回落 #fff 白边会侵蚀浅色文字致模糊看不清） */
   --tokui-chart-label-stroke: transparent;
 }
 
@@ -2744,6 +2772,10 @@ textarea.tokui-textarea--auto { resize: none !important; }
   border-radius: var(--tokui-radius, 6px);
   min-height: 40px;
 }
+/* grid areas 流式骨架 cell：占满所在区域，布局即终布局（大屏推送区块先占位呼吸） */
+.tokui-cell--skel { display: flex; min-height: 0; }
+.tokui-cell--skel .tokui-stream-skeleton { flex: 1; width: 100%; }
+.tokui-stream-skeleton--block { min-height: 96px; }
 .tokui-stream-skeleton--stat, .tokui-stream-skeleton--file, .tokui-stream-skeleton--attach, .tokui-stream-skeleton--commit { min-height: 72px; }
 .tokui-stream-skeleton--result, .tokui-stream-skeleton--empty { min-height: 140px; }
 .tokui-stream-skeleton--video { aspect-ratio: 16 / 9; min-height: 0; }
@@ -4643,7 +4675,11 @@ a.tokui-source__title:hover { color: var(--tokui-primary); text-decoration: unde
   color: #999;
 }
 .tokui-terminal__dots { display: flex; gap: 6px; }
-.tokui-terminal__dot { font-size: 0.6rem; line-height: 1; }
+/* T0.4：三色点改纯 CSS 圆点（原 emoji），随主题缩放更精致 */
+.tokui-terminal__dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.tokui-terminal__dot--red { background: #ff5f57; }
+.tokui-terminal__dot--amber { background: #febc2e; }
+.tokui-terminal__dot--green { background: #28c840; }
 .tokui-terminal__title { flex: 1; text-align: center; }
 .tokui-terminal__content {
   padding: 12px;
@@ -6355,3 +6391,316 @@ a.tokui-source__title:hover { color: var(--tokui-primary); text-decoration: unde
   -webkit-column-break-inside: avoid;
   margin-bottom: var(--tokui-masonry-gap, 8px);
 }
+/* ========== 响应式断点系统（T0.3 容器查询）==========
+ * 语义：断点基于容器（row/grid 自身）宽度而非视口——组件库正确姿势，
+ * 嵌套布局（dialog 内栅格、sidebar 内卡片墙）各自独立响应。
+ * 档位：xs 基础档（全宽度生效）；sm≥576 / md≥768 / lg≥992 / xl≥1200 递增覆盖。
+ * 机制：col 走 CSS 变量桥接（data-bp-* 枚举赋值 → grid-column: span var()，
+ * var() 在 grid-column 取值位合法）；grid 的 repeat() 计数位不接受 var()（Chromium
+ * 会整条 invalid），故 grid 断点逐值枚举完整声明。全部包裹在
+ * @supports (container-type) 内，不支持容器查询的浏览器整段不加载，回退到
+ * 上方 1024/640 两档媒体查询兜底。 */
+.tokui-row, .tokui-grid-cq { container-type: inline-size; }
+@supports (container-type: inline-size) {
+  .tokui-col[data-bp-xs="1"] { --bp-xs: 1; }
+  .tokui-col[data-bp-xs="2"] { --bp-xs: 2; }
+  .tokui-col[data-bp-xs="3"] { --bp-xs: 3; }
+  .tokui-col[data-bp-xs="4"] { --bp-xs: 4; }
+  .tokui-col[data-bp-xs="5"] { --bp-xs: 5; }
+  .tokui-col[data-bp-xs="6"] { --bp-xs: 6; }
+  .tokui-col[data-bp-xs="7"] { --bp-xs: 7; }
+  .tokui-col[data-bp-xs="8"] { --bp-xs: 8; }
+  .tokui-col[data-bp-xs="9"] { --bp-xs: 9; }
+  .tokui-col[data-bp-xs="10"] { --bp-xs: 10; }
+  .tokui-col[data-bp-xs="11"] { --bp-xs: 11; }
+  .tokui-col[data-bp-xs="12"] { --bp-xs: 12; }
+  .tokui-col[data-bp-sm="1"] { --bp-sm: 1; }
+  .tokui-col[data-bp-sm="2"] { --bp-sm: 2; }
+  .tokui-col[data-bp-sm="3"] { --bp-sm: 3; }
+  .tokui-col[data-bp-sm="4"] { --bp-sm: 4; }
+  .tokui-col[data-bp-sm="5"] { --bp-sm: 5; }
+  .tokui-col[data-bp-sm="6"] { --bp-sm: 6; }
+  .tokui-col[data-bp-sm="7"] { --bp-sm: 7; }
+  .tokui-col[data-bp-sm="8"] { --bp-sm: 8; }
+  .tokui-col[data-bp-sm="9"] { --bp-sm: 9; }
+  .tokui-col[data-bp-sm="10"] { --bp-sm: 10; }
+  .tokui-col[data-bp-sm="11"] { --bp-sm: 11; }
+  .tokui-col[data-bp-sm="12"] { --bp-sm: 12; }
+  .tokui-col[data-bp-md="1"] { --bp-md: 1; }
+  .tokui-col[data-bp-md="2"] { --bp-md: 2; }
+  .tokui-col[data-bp-md="3"] { --bp-md: 3; }
+  .tokui-col[data-bp-md="4"] { --bp-md: 4; }
+  .tokui-col[data-bp-md="5"] { --bp-md: 5; }
+  .tokui-col[data-bp-md="6"] { --bp-md: 6; }
+  .tokui-col[data-bp-md="7"] { --bp-md: 7; }
+  .tokui-col[data-bp-md="8"] { --bp-md: 8; }
+  .tokui-col[data-bp-md="9"] { --bp-md: 9; }
+  .tokui-col[data-bp-md="10"] { --bp-md: 10; }
+  .tokui-col[data-bp-md="11"] { --bp-md: 11; }
+  .tokui-col[data-bp-md="12"] { --bp-md: 12; }
+  .tokui-col[data-bp-lg="1"] { --bp-lg: 1; }
+  .tokui-col[data-bp-lg="2"] { --bp-lg: 2; }
+  .tokui-col[data-bp-lg="3"] { --bp-lg: 3; }
+  .tokui-col[data-bp-lg="4"] { --bp-lg: 4; }
+  .tokui-col[data-bp-lg="5"] { --bp-lg: 5; }
+  .tokui-col[data-bp-lg="6"] { --bp-lg: 6; }
+  .tokui-col[data-bp-lg="7"] { --bp-lg: 7; }
+  .tokui-col[data-bp-lg="8"] { --bp-lg: 8; }
+  .tokui-col[data-bp-lg="9"] { --bp-lg: 9; }
+  .tokui-col[data-bp-lg="10"] { --bp-lg: 10; }
+  .tokui-col[data-bp-lg="11"] { --bp-lg: 11; }
+  .tokui-col[data-bp-lg="12"] { --bp-lg: 12; }
+  .tokui-col[data-bp-xl="1"] { --bp-xl: 1; }
+  .tokui-col[data-bp-xl="2"] { --bp-xl: 2; }
+  .tokui-col[data-bp-xl="3"] { --bp-xl: 3; }
+  .tokui-col[data-bp-xl="4"] { --bp-xl: 4; }
+  .tokui-col[data-bp-xl="5"] { --bp-xl: 5; }
+  .tokui-col[data-bp-xl="6"] { --bp-xl: 6; }
+  .tokui-col[data-bp-xl="7"] { --bp-xl: 7; }
+  .tokui-col[data-bp-xl="8"] { --bp-xl: 8; }
+  .tokui-col[data-bp-xl="9"] { --bp-xl: 9; }
+  .tokui-col[data-bp-xl="10"] { --bp-xl: 10; }
+  .tokui-col[data-bp-xl="11"] { --bp-xl: 11; }
+  .tokui-col[data-bp-xl="12"] { --bp-xl: 12; }
+  .tokui-col[data-bp-xs-off="1"] { --bp-xs-off: 1; }
+  .tokui-col[data-bp-xs-off="2"] { --bp-xs-off: 2; }
+  .tokui-col[data-bp-xs-off="3"] { --bp-xs-off: 3; }
+  .tokui-col[data-bp-xs-off="4"] { --bp-xs-off: 4; }
+  .tokui-col[data-bp-xs-off="5"] { --bp-xs-off: 5; }
+  .tokui-col[data-bp-xs-off="6"] { --bp-xs-off: 6; }
+  .tokui-col[data-bp-xs-off="7"] { --bp-xs-off: 7; }
+  .tokui-col[data-bp-xs-off="8"] { --bp-xs-off: 8; }
+  .tokui-col[data-bp-xs-off="9"] { --bp-xs-off: 9; }
+  .tokui-col[data-bp-xs-off="10"] { --bp-xs-off: 10; }
+  .tokui-col[data-bp-xs-off="11"] { --bp-xs-off: 11; }
+  .tokui-col[data-bp-sm-off="1"] { --bp-sm-off: 1; }
+  .tokui-col[data-bp-sm-off="2"] { --bp-sm-off: 2; }
+  .tokui-col[data-bp-sm-off="3"] { --bp-sm-off: 3; }
+  .tokui-col[data-bp-sm-off="4"] { --bp-sm-off: 4; }
+  .tokui-col[data-bp-sm-off="5"] { --bp-sm-off: 5; }
+  .tokui-col[data-bp-sm-off="6"] { --bp-sm-off: 6; }
+  .tokui-col[data-bp-sm-off="7"] { --bp-sm-off: 7; }
+  .tokui-col[data-bp-sm-off="8"] { --bp-sm-off: 8; }
+  .tokui-col[data-bp-sm-off="9"] { --bp-sm-off: 9; }
+  .tokui-col[data-bp-sm-off="10"] { --bp-sm-off: 10; }
+  .tokui-col[data-bp-sm-off="11"] { --bp-sm-off: 11; }
+  .tokui-col[data-bp-md-off="1"] { --bp-md-off: 1; }
+  .tokui-col[data-bp-md-off="2"] { --bp-md-off: 2; }
+  .tokui-col[data-bp-md-off="3"] { --bp-md-off: 3; }
+  .tokui-col[data-bp-md-off="4"] { --bp-md-off: 4; }
+  .tokui-col[data-bp-md-off="5"] { --bp-md-off: 5; }
+  .tokui-col[data-bp-md-off="6"] { --bp-md-off: 6; }
+  .tokui-col[data-bp-md-off="7"] { --bp-md-off: 7; }
+  .tokui-col[data-bp-md-off="8"] { --bp-md-off: 8; }
+  .tokui-col[data-bp-md-off="9"] { --bp-md-off: 9; }
+  .tokui-col[data-bp-md-off="10"] { --bp-md-off: 10; }
+  .tokui-col[data-bp-md-off="11"] { --bp-md-off: 11; }
+  .tokui-col[data-bp-lg-off="1"] { --bp-lg-off: 1; }
+  .tokui-col[data-bp-lg-off="2"] { --bp-lg-off: 2; }
+  .tokui-col[data-bp-lg-off="3"] { --bp-lg-off: 3; }
+  .tokui-col[data-bp-lg-off="4"] { --bp-lg-off: 4; }
+  .tokui-col[data-bp-lg-off="5"] { --bp-lg-off: 5; }
+  .tokui-col[data-bp-lg-off="6"] { --bp-lg-off: 6; }
+  .tokui-col[data-bp-lg-off="7"] { --bp-lg-off: 7; }
+  .tokui-col[data-bp-lg-off="8"] { --bp-lg-off: 8; }
+  .tokui-col[data-bp-lg-off="9"] { --bp-lg-off: 9; }
+  .tokui-col[data-bp-lg-off="10"] { --bp-lg-off: 10; }
+  .tokui-col[data-bp-lg-off="11"] { --bp-lg-off: 11; }
+  .tokui-col[data-bp-xl-off="1"] { --bp-xl-off: 1; }
+  .tokui-col[data-bp-xl-off="2"] { --bp-xl-off: 2; }
+  .tokui-col[data-bp-xl-off="3"] { --bp-xl-off: 3; }
+  .tokui-col[data-bp-xl-off="4"] { --bp-xl-off: 4; }
+  .tokui-col[data-bp-xl-off="5"] { --bp-xl-off: 5; }
+  .tokui-col[data-bp-xl-off="6"] { --bp-xl-off: 6; }
+  .tokui-col[data-bp-xl-off="7"] { --bp-xl-off: 7; }
+  .tokui-col[data-bp-xl-off="8"] { --bp-xl-off: 8; }
+  .tokui-col[data-bp-xl-off="9"] { --bp-xl-off: 9; }
+  .tokui-col[data-bp-xl-off="10"] { --bp-xl-off: 10; }
+  .tokui-col[data-bp-xl-off="11"] { --bp-xl-off: 11; }
+
+  /* 应用规则：xs 基础档全宽生效，sm→xl 按 min-width 递增覆盖（!important 压过内联 span 与 640 兜底） */
+  .tokui-col[data-bp-xs] { grid-column: span var(--bp-xs) !important; }
+  .tokui-col[data-bp-xs][data-bp-xs-off] { grid-column: calc(var(--bp-xs-off) + 1) / span var(--bp-xs) !important; }
+  .tokui-grid[data-bp-cols-xs="1"] { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
+  .tokui-grid[data-bp-cols-xs="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .tokui-grid[data-bp-cols-xs="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+  .tokui-grid[data-bp-cols-xs="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+  .tokui-grid[data-bp-cols-xs="5"] { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; }
+  .tokui-grid[data-bp-cols-xs="6"] { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; }
+  .tokui-grid[data-bp-cols-xs="7"] { grid-template-columns: repeat(7, minmax(0, 1fr)) !important; }
+  .tokui-grid[data-bp-cols-xs="8"] { grid-template-columns: repeat(8, minmax(0, 1fr)) !important; }
+  .tokui-grid[data-bp-cols-xs="9"] { grid-template-columns: repeat(9, minmax(0, 1fr)) !important; }
+  .tokui-grid[data-bp-cols-xs="10"] { grid-template-columns: repeat(10, minmax(0, 1fr)) !important; }
+  .tokui-grid[data-bp-cols-xs="11"] { grid-template-columns: repeat(11, minmax(0, 1fr)) !important; }
+  .tokui-grid[data-bp-cols-xs="12"] { grid-template-columns: repeat(12, minmax(0, 1fr)) !important; }
+  @container (min-width: 576px) {
+    .tokui-col[data-bp-sm] { grid-column: span var(--bp-sm) !important; }
+    .tokui-col[data-bp-sm][data-bp-sm-off] { grid-column: calc(var(--bp-sm-off) + 1) / span var(--bp-sm) !important; }
+    .tokui-grid[data-bp-cols-sm="1"] { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-sm="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-sm="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-sm="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-sm="5"] { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-sm="6"] { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-sm="7"] { grid-template-columns: repeat(7, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-sm="8"] { grid-template-columns: repeat(8, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-sm="9"] { grid-template-columns: repeat(9, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-sm="10"] { grid-template-columns: repeat(10, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-sm="11"] { grid-template-columns: repeat(11, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-sm="12"] { grid-template-columns: repeat(12, minmax(0, 1fr)) !important; }
+  }
+  @container (min-width: 768px) {
+    .tokui-col[data-bp-md] { grid-column: span var(--bp-md) !important; }
+    .tokui-col[data-bp-md][data-bp-md-off] { grid-column: calc(var(--bp-md-off) + 1) / span var(--bp-md) !important; }
+    .tokui-grid[data-bp-cols-md="1"] { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-md="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-md="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-md="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-md="5"] { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-md="6"] { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-md="7"] { grid-template-columns: repeat(7, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-md="8"] { grid-template-columns: repeat(8, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-md="9"] { grid-template-columns: repeat(9, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-md="10"] { grid-template-columns: repeat(10, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-md="11"] { grid-template-columns: repeat(11, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-md="12"] { grid-template-columns: repeat(12, minmax(0, 1fr)) !important; }
+  }
+  @container (min-width: 992px) {
+    .tokui-col[data-bp-lg] { grid-column: span var(--bp-lg) !important; }
+    .tokui-col[data-bp-lg][data-bp-lg-off] { grid-column: calc(var(--bp-lg-off) + 1) / span var(--bp-lg) !important; }
+    .tokui-grid[data-bp-cols-lg="1"] { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-lg="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-lg="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-lg="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-lg="5"] { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-lg="6"] { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-lg="7"] { grid-template-columns: repeat(7, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-lg="8"] { grid-template-columns: repeat(8, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-lg="9"] { grid-template-columns: repeat(9, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-lg="10"] { grid-template-columns: repeat(10, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-lg="11"] { grid-template-columns: repeat(11, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-lg="12"] { grid-template-columns: repeat(12, minmax(0, 1fr)) !important; }
+  }
+  @container (min-width: 1200px) {
+    .tokui-col[data-bp-xl] { grid-column: span var(--bp-xl) !important; }
+    .tokui-col[data-bp-xl][data-bp-xl-off] { grid-column: calc(var(--bp-xl-off) + 1) / span var(--bp-xl) !important; }
+    .tokui-grid[data-bp-cols-xl="1"] { grid-template-columns: repeat(1, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-xl="2"] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-xl="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-xl="4"] { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-xl="5"] { grid-template-columns: repeat(5, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-xl="6"] { grid-template-columns: repeat(6, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-xl="7"] { grid-template-columns: repeat(7, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-xl="8"] { grid-template-columns: repeat(8, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-xl="9"] { grid-template-columns: repeat(9, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-xl="10"] { grid-template-columns: repeat(10, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-xl="11"] { grid-template-columns: repeat(11, minmax(0, 1fr)) !important; }
+    .tokui-grid[data-bp-cols-xl="12"] { grid-template-columns: repeat(12, minmax(0, 1fr)) !important; }
+  }
+}
+
+/* ========== 数据大屏组件（M1：panel / kpi / flip-num / scrollboard） ========== */
+/* panel 科技边框容器：默认表面卡 + corner 四角角标 + glow 发光（tech 主题令牌联动） */
+.tokui-panel { position: relative; display: flex; flex-direction: column; background: var(--tokui-tech-panel-bg, var(--tokui-bg)); border: 1px solid var(--tokui-tech-panel-border, var(--tokui-border)); border-radius: var(--tokui-radius-lg); overflow: hidden; margin-bottom: var(--tokui-space-3); }
+.tokui-panel__head { display: flex; align-items: center; gap: var(--tokui-space-2); padding: var(--tokui-space-3) var(--tokui-space-4); border-bottom: 1px solid var(--tokui-tech-panel-border, var(--tokui-border)); }
+.tokui-panel__title { font-weight: 600; font-size: var(--tokui-font-md); letter-spacing: 1px; }
+.tokui-panel__head::before, .tokui-panel__head::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--tokui-tech-panel-border, var(--tokui-border))); }
+.tokui-panel__head::after { background: linear-gradient(90deg, var(--tokui-tech-panel-border, var(--tokui-border)), transparent); }
+.tokui-panel__body { padding: var(--tokui-space-3) var(--tokui-space-4); flex: 1; }
+.tokui-panel--corner { border-color: transparent; background-image: linear-gradient(var(--tokui-tech-panel-bg, var(--tokui-bg)), var(--tokui-tech-panel-bg, var(--tokui-bg))); }
+.tokui-panel--corner::before, .tokui-panel--corner::after { content: ''; position: absolute; width: 14px; height: 14px; border: 2px solid var(--tokui-primary); pointer-events: none; }
+.tokui-panel--corner::before { top: 0; left: 0; border-right: none; border-bottom: none; }
+.tokui-panel--corner::after { bottom: 0; right: 0; border-left: none; border-top: none; }
+.tokui-panel--glow { box-shadow: var(--tokui-glow-primary, var(--tokui-shadow-md)); }
+.tokui-panel--plain { border: none; background: transparent; }
+.tokui-panel--plain .tokui-panel__head { border-bottom-color: var(--tokui-border); }
+
+/* kpi 指标卡 */
+.tokui-kpi { display: flex; flex-direction: column; gap: var(--tokui-space-1); padding: var(--tokui-space-3) var(--tokui-space-4); background: var(--tokui-bg); border: 1px solid var(--tokui-border); border-radius: var(--tokui-radius-lg); transition: box-shadow 0.2s, transform 0.2s; }
+.tokui-kpi--clickable { cursor: pointer; }
+.tokui-kpi--clickable:hover { box-shadow: var(--tokui-shadow-md); transform: translateY(-1px); }
+.tokui-kpi__top { display: flex; align-items: center; gap: var(--tokui-space-2); color: var(--tokui-text-secondary); font-size: var(--tokui-font-sm); }
+.tokui-kpi__icon { display: inline-flex; color: var(--tokui-primary); }
+.tokui-kpi--danger .tokui-kpi__icon { color: var(--tokui-danger); }
+.tokui-kpi--success .tokui-kpi__icon { color: var(--tokui-success); }
+.tokui-kpi--warning .tokui-kpi__icon { color: var(--tokui-warning); }
+.tokui-kpi__tt { font-weight: 500; }
+.tokui-kpi__trend { margin-left: auto; font-size: var(--tokui-font-xs); font-weight: 600; padding: 1px 8px; border-radius: var(--tokui-radius-pill); }
+.tokui-kpi__trend--up { color: var(--tokui-success); background: var(--tokui-success-bg); }
+.tokui-kpi__trend--down { color: var(--tokui-danger); background: var(--tokui-danger-bg); }
+.tokui-kpi__value { display: flex; align-items: baseline; gap: 4px; font-family: var(--tokui-font-mono, ui-monospace, monospace); }
+.tokui-kpi__num { font-size: 30px; font-weight: 700; line-height: 1.1; color: var(--tokui-primary); font-variant-numeric: tabular-nums; }
+.tokui-kpi--danger .tokui-kpi__num { color: var(--tokui-danger); }
+.tokui-kpi--success .tokui-kpi__num { color: var(--tokui-success); }
+.tokui-kpi--warning .tokui-kpi__num { color: var(--tokui-warning); }
+.tokui-kpi__pre, .tokui-kpi__suf { font-size: var(--tokui-font-md); color: var(--tokui-text-secondary); }
+.tokui-kpi__foot { font-size: var(--tokui-font-xs); color: var(--tokui-text-muted); }
+
+/* flip-num 翻牌器 */
+.tokui-flip { display: inline-flex; }
+.tokui-flip__digits { display: inline-flex; gap: 3px; }
+.tokui-flip__digit { display: inline-block; height: 44px; width: 32px; overflow: hidden; border-radius: var(--tokui-radius-sm); background: var(--tokui-stripe); border: 1px solid var(--tokui-border); }
+.tokui-flip__reel { display: flex; flex-direction: column; transform: translateY(0); }
+.tokui-flip__reel { transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+.tokui-flip__face { display: flex; align-items: center; justify-content: center; flex-shrink: 0; height: 44px; line-height: 44px; font-size: 26px; font-weight: 700; font-family: var(--tokui-font-mono, ui-monospace, monospace); color: var(--tokui-text); font-variant-numeric: tabular-nums; }
+.tokui-flip__sep { display: flex; align-items: center; justify-content: center; height: 44px; width: 14px; font-size: 24px; font-weight: 700; color: var(--tokui-text-secondary); }
+.tokui-flip--sm .tokui-flip__digit { height: 32px; width: 24px; }
+.tokui-flip--sm .tokui-flip__face { height: 32px; line-height: 32px; font-size: 18px; }
+.tokui-flip--sm .tokui-flip__sep { height: 32px; width: 10px; font-size: 18px; }
+.tokui-flip--lg .tokui-flip__digit { height: 56px; width: 42px; }
+.tokui-flip--lg .tokui-flip__face { height: 56px; line-height: 56px; font-size: 34px; }
+.tokui-flip--lg .tokui-flip__sep { height: 56px; width: 18px; font-size: 30px; }
+
+/* scrollboard 轮播榜单 */
+.tokui-scrollboard { display: flex; flex-direction: column; border: 1px solid var(--tokui-border); border-radius: var(--tokui-radius-lg); overflow: hidden; background: var(--tokui-bg); }
+.tokui-scrollboard__head { display: flex; gap: var(--tokui-space-2); padding: var(--tokui-space-2) var(--tokui-space-3); font-size: var(--tokui-font-xs); font-weight: 600; color: var(--tokui-text-muted); border-bottom: 1px solid var(--tokui-border); background: var(--tokui-stripe); text-transform: uppercase; letter-spacing: 0.5px; }
+.tokui-scrollboard__viewport { position: relative; overflow: hidden; }
+.tokui-scrollboard__track { display: flex; flex-direction: column; will-change: transform; }
+.tokui-scrollboard__row { display: flex; gap: var(--tokui-space-2); padding: var(--tokui-space-2) var(--tokui-space-3); font-size: var(--tokui-font-sm); border-bottom: 1px dashed var(--tokui-border); }
+.tokui-scrollboard__row:last-child { border-bottom: none; }
+.tokui-scrollboard__row[role="button"] { cursor: pointer; }
+.tokui-scrollboard__row[role="button"]:hover { background: var(--tokui-stripe); }
+.tokui-scrollboard__cell { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tokui-scrollboard__cell:first-child { flex: 1.4; font-weight: 500; }
+.tokui-scrollboard__cell--up { color: var(--tokui-success); font-weight: 600; }
+.tokui-scrollboard__cell--down { color: var(--tokui-danger); font-weight: 600; }
+.tokui-scrollboard__empty { display: flex; align-items: center; justify-content: center; height: 100%; color: var(--tokui-text-muted); font-size: var(--tokui-font-sm); }
+
+/* fit-screen 大屏缩放容器（T1.3）：外层占满挂载区并居中，内层按设计稿尺寸缩放 */
+.tokui-fitscreen { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; min-height: 320px; overflow: hidden; }
+.tokui-fitscreen__inner { flex: none; will-change: transform; }
+/* width 模式滚动条精修：细轨圆角，拇指色由主题 --tokui-text 派生（五主题含 tech 自适应），
+   默认透明隐藏、悬停滚动区时显现、拇指悬停加深。 */
+.tokui-fitscreen { scrollbar-width: thin; scrollbar-color: transparent transparent; transition: scrollbar-color 0.2s; }
+.tokui-fitscreen:hover { scrollbar-color: color-mix(in srgb, var(--tokui-text) 32%, transparent) transparent; }
+.tokui-fitscreen::-webkit-scrollbar { width: 5px; height: 5px; }
+.tokui-fitscreen::-webkit-scrollbar-track { background: transparent; }
+.tokui-fitscreen::-webkit-scrollbar-thumb { border-radius: 999px; background: transparent; transition: background 0.2s; }
+.tokui-fitscreen:hover::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--tokui-text) 32%, transparent); }
+.tokui-fitscreen::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--tokui-text) 48%, transparent); }
+
+/* chart map（T1.4 中国地图）：空省用主题网格色，数据省 hover 提亮，散点光晕脉冲 */
+.tokui-chart-map-region { stroke: var(--tokui-bg); transition: opacity 0.15s, stroke-width 0.15s; }
+.tokui-chart-map-region--empty { fill: var(--tokui-chart-grid, #e8e8e8); opacity: 0.55; }
+.tokui-chart-map-region--val { cursor: pointer; }
+/* emphasis（T3）：hover 省份描边提亮；:has() 渐进增强——其余省份压暗聚焦（老浏览器仅高亮自身） */
+.tokui-chart-map-region--val:hover { opacity: 1; stroke: var(--tokui-primary, #22d3ee); stroke-width: 1.6; }
+.tokui-chart__svg--map:has(.tokui-chart-map-region--val:hover) .tokui-chart-map-region:not(:hover) { opacity: 0.42; }
+.tokui-chart-map-dash { fill: none; stroke: var(--tokui-chart-text, #94a3b8); stroke-width: 1.2; }
+.tokui-chart-map-inset-box { fill: var(--tokui-bg); fill-opacity: 0.72; stroke: var(--tokui-chart-grid, #cbd5e1); stroke-width: 0.8; }
+.tokui-chart-map-island { fill: var(--tokui-chart-text, #64748b); }
+.tokui-chart-map-tick { fill: var(--tokui-chart-text, #555); pointer-events: none; }
+.tokui-chart-map-label { fill: var(--tokui-chart-text, #555); pointer-events: none; font-weight: 500; }
+.tokui-chart-map-label--val { fill: var(--tokui-primary, #2563eb); font-weight: 600; }
+.tokui-chart-map-label--dim { opacity: 0.45; font-weight: 400; }
+.tokui-chart-map-point { opacity: 0.85; stroke: var(--tokui-bg); stroke-width: 1; animation: tokui-map-pulse 2.4s ease-in-out infinite; }
+@keyframes tokui-map-pulse { 0%, 100% { opacity: 0.85; } 50% { opacity: 0.55; } }
+@media (prefers-reduced-motion: reduce) { .tokui-chart-map-point { animation: none; } }
+
+/* chart 入场动画（T1.5）：整图 fade + 上浮 + 微缩放，仅首渲染（.tokui-chart--enter 短暂挂载） */
+.tokui-chart--enter .tokui-chart__svg { animation: tokui-chart-enter 0.5s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@keyframes tokui-chart-enter {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) { .tokui-chart--enter .tokui-chart__svg { animation: none; } }
