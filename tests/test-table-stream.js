@@ -259,4 +259,51 @@ test('streaming: 末格 cell 级 /danger 尾缀流式渐显后染红', () => {
   assert.strictEqual(tds[1].textContent, '-¥58.00', '/danger 被剥');
 });
 
+
+// ===== T2.3 回归：attrs + 整行引号 tr 的实例级流式（demo-table-pro 真实写法）=====
+// dom-mock 后代选择器不可靠——行断言走 tbody.children 直连遍历
+(function () {
+  const TokUICtor = require('../src/index.js');
+  const { createElement } = require('./helpers/dom-mock');
+  test('streaming: attrs + whole-row-quoted tr render all rows (demo-table-pro form)', () => {
+    const c = createElement('div');
+    const ui = new TokUICtor({ container: c });
+    ui.startStream();
+    const dsl = '[table][thead cols:"a,b"][tbody][tr id:r1 "x1,y1"][tr pid:r1 id:r2 "x2,y2"][tr pid:r2 "x3,y3"][tr "x4,y4"][/tbody][/table]';
+    for (let i = 0; i < dsl.length; i += 5) ui.feed(dsl.slice(i, i + 5));
+    ui.endStream();
+    const table = c.querySelectorAll('.tokui-table')[0];
+    const tbody = Array.prototype.find.call(table.children, n => n.tagName === 'TBODY');
+    const rows = Array.prototype.filter.call(tbody.children, n => n.tagName === 'TR');
+    assert.strictEqual(rows.length, 4, '4 行全到位（含 attrs/引号/pid 混排）');
+    assert.strictEqual(rows[0].id, 'r1', 'id 落行');
+    assert.strictEqual(rows[1].getAttribute('data-pid'), 'r1', 'pid 落行（树形 wiring 输入）');
+    const texts = rows.map(r => r.textContent);
+    assert.deepStrictEqual(texts, ['x1y1', 'x2y2', 'x3y3', 'x4y4']);
+  });
+})();
+
+
+(function () {
+  const TokUICtor = require('../src/index.js');
+  const { createElement } = require('./helpers/dom-mock');
+  test('streaming: fine-sliced tree rows wire up (pid lands at finalize + dyn refresh)', () => {
+    const c = createElement('div');
+    const ui = new TokUICtor({ container: c });
+    ui.startStream();
+    const dsl = '[table stripe][thead cols:"a,b"][tbody][tr id:r1 "x1,y1"][tr pid:r1 id:r2 "x2,y2"][tr pid:r2 "x3,y3"][tr "x4,y4"][/tbody][/table]';
+    for (let i = 0; i < dsl.length; i += 3) ui.feed(dsl.slice(i, i + 3)); // 3 字符细切片：attrs 必然跨片残缺
+    ui.endStream();
+    const table = c.querySelectorAll('.tokui-table')[0];
+    const tbody = Array.prototype.find.call(table.children, n => n.tagName === 'TBODY');
+    const rows = Array.prototype.filter.call(tbody.children, n => n.tagName === 'TR');
+    assert.strictEqual(rows.length, 4);
+    assert.strictEqual(rows[0].id, 'r1', 'id 完整落位（非半截残值）');
+    assert.strictEqual(rows[1].getAttribute('data-pid'), 'r1');
+    assert.strictEqual(rows[2].getAttribute('data-depth'), '2', '孙行深度 2（wiring 已跑）');
+    assert.ok(rows[0].classList.contains('tokui-table-row--parent'), '父行装配展开钮');
+    assert.strictEqual(rows[1].style.display, 'none', '子行默认折叠');
+  });
+})();
+
 run();

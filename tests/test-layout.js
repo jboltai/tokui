@@ -545,6 +545,17 @@ test('collapse renders details/summary with title', () => {
 
 // ===== Dialog 对话框组件测试 =====
 
+test('dialog w: 宽度属性落 max-width；非法值静默忽略', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const ok = rc.render({ type: 'dialog', attrs: { tt: '编辑', w: '720' }, children: [] });
+  assert.strictEqual(ok.style.maxWidth, '720px', '合法宽落 max-width');
+  for (const bad of ['abc', '300', '2000']) {
+    const d = rc.render({ type: 'dialog', attrs: { tt: 'x', w: bad }, children: [] });
+    assert.ok(!d.style.maxWidth, 'w:' + bad + ' 越界忽略');
+  }
+});
+
 test('dialog renders dialog element with header', () => {
   const rc = new TokUIRenderer(null);
   registerLayoutComponents(rc);

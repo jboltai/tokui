@@ -727,7 +727,7 @@ const DEMOS = [
       // 中央大地图环绕式布局（1920×1080 精确配格，无滚动无遮挡）：
       // 顶部 KPI 带 → 左列（产值翻牌 + 良品率）/ 中央地图跨两行居中放大 / 右列工单榜 → 底部（告警 + 宽幅产量趋势）
       b.fitScreen({ w: 1920, h: 1080, mode: 'scale' })
-        .grid({ cols: '400px 1fr 400px', rows: '132px 150px 1fr 288px', gap: 14, theme: 'tech', h: '100%', areas: "kpi kpi kpi|flip map rank|yield map rank|alarm trend trend" })
+        .grid({ cols: '520px 1fr 520px', rows: '110px 150px 1fr 288px', gap: 14, theme: 'tech', h: '100%', areas: "kpi kpi kpi|flip map rank|yield map rank|alarm trend trend" })
           .cell({ area: 'kpi' })
             .grid({ cols: '4', gap: 14 })
               .cell().kpi({ tt: '总产量', v: '12846', unit: '件', trend: '12.4', icon: 'trending-up', id: 'kpi-out' }).end().end()
@@ -744,12 +744,12 @@ const DEMOS = [
           .end()
           .cell({ area: 'map' })
             .panel({ tt: '区域稼动率分布', v: 'corner' })
-              .chart({ t: 'map', region: '浙江:86|江苏:74|广东:92|山东:60|四川:45|河南:52|湖南:58|河北:40|湖北:66|福建:78', d: '120.15,30.28,88,name:杭州|116.4,39.9,120,name:北京|113.26,23.13,95,name:广州|121.47,31.23,110,name:上海|104.06,30.67,72,name:成都', style: 'max-width:768px;margin:0 auto' })
+              .chart({ t: 'map', region: '浙江:86|江苏:74|广东:92|山东:60|四川:45|河南:52|湖南:58|河北:40|湖北:66|福建:78', d: '120.15,30.28,88,name:杭州|116.4,39.9,120,name:北京|113.26,23.13,95,name:广州|121.47,31.23,110,name:上海|104.06,30.67,72,name:成都' })
             .end()
           .end()
           .cell({ area: 'rank' })
             .panel({ tt: '班组工单榜', v: 'corner' })
-              .scrollboard({ h: 548, cols: '班组,工单,环比', rows: '总装A线,128,↑12|总装B线,96,↓3|焊装线,88,↑8|涂装线,76,↑2|注塑车间,64,↓5|装配三线,52,↑15|质检一组,48,↑4|物流班组,44,↓2|包材车间,38,↑6|SMT一线,36,↑9|组装二线,33,↓4|包装班组,29,↑3|设备组,26,↓1|仓储一班,22,↑5' }).end()
+              .scrollboard({ h: 588, cols: '班组,工单,环比', rows: '总装A线,128,↑12|总装B线,96,↓3|焊装线,88,↑8|涂装线,76,↑2|注塑车间,64,↓5|装配三线,52,↑15|质检一组,48,↑4|物流班组,44,↓2|包材车间,38,↑6|SMT一线,36,↑9|组装二线,33,↓4|包装班组,29,↑3|设备组,26,↓1|仓储一班,22,↑5' }).end()
             .end()
           .end()
           .cell({ area: 'yield' })
@@ -770,6 +770,333 @@ const DEMOS = [
         .end()
       .end();
       return b;
+    }
+  },
+
+  {
+    trigger: 'demo-page-shell',
+    title: '后台管理应用壳（M2）',
+    desc: 'page 三件套（header 面包屑+动作区 / sidebar 可折叠菜单 / content 自滚动）× page-tabs 多页签 × 表格与表单内容实景',
+    build() {
+      const b = new TokUIBuilder();
+      b.page({ w: 240 })
+        .pageHeader({ tt: '用户管理', bc: '首页,系统设置,用户管理', sticky: true, id: 'pageHeader' })
+          .btn({ tx: '新增用户', t: 'primary', clk: 'addUser' })
+          .btn({ tx: '导出', clk: 'exportUsers' })
+        .end()
+        .pageSidebar({ tt: '运营后台' })
+          .menu({ act: 'users', on: 'change:onMenu' })
+            .menuItem({ tx: '用户管理', i: '👥', id: 'users' })
+            .menuItem({ tx: '角色权限', i: '🔐', id: 'roles' })
+            .menuItem({ tx: '组织架构', i: '🏢', id: 'org' })
+            .menuItem({ tx: '操作日志', i: '📋', id: 'logs', dis: true })
+          .end()
+        .end()
+        .pageContent()
+          .pageTabs({ act: 'list', on: 'change:onTab,close:onTabClose' })
+            .pageTab({ n: 'list', tt: '用户列表' })
+              .table({ stripe: true })
+                .theadCols('姓名,年龄:number,部门,状态,操作 w:170')
+                .tbody()
+                  .row('张伟', '28', '技术部', '在职', 'btn:编辑 clk:handleEdit|btn:删除 v:danger clk:handleDelete')
+                  .row('李娜', '32', '市场部', '在职', 'btn:编辑 clk:handleEdit|btn:删除 v:danger clk:handleDelete')
+                  .row('王强', '25', '设计部', '离职', 'btn:编辑 clk:handleEdit|btn:删除 v:danger clk:handleDelete')
+                  .row('赵敏', '35', '产品部', '在职', 'btn:编辑 clk:handleEdit|btn:删除 v:danger clk:handleDelete')
+                .end()
+              .end()
+              .p('点击页签切换 · 关闭钮整签移除 · 侧栏折叠钮联动列宽过渡', { v: 'sm' })
+            .end()
+            .pageTab({ n: 'stat', tt: '统计概览', closeable: true })
+              .grid({ cols: '3', gap: 12 })
+                .cell().kpi({ tt: '总用户', v: '1286', unit: '人', icon: 'user' }).end().end()
+                .cell().kpi({ tt: '本周新增', v: '46', unit: '人', trend: '8.2', icon: 'trending-up' }).end().end()
+                .cell().kpi({ tt: '离职待办', v: '3', unit: '人', trend: '-1.2', t: 'warning', icon: 'trending-down' }).end().end()
+              .end()
+            .end()
+            .pageTab({ n: 'detail', tt: '详情面板', closeable: true })
+              .desc({ cols: 2 })
+                .descItem({ l: '姓名', tx: '张伟' })
+                .descItem({ l: '部门', tx: '技术部 · 前端组' })
+                .descItem({ l: '入职', tx: '2023-03-15' })
+                .descItem({ l: '状态', tx: '在职' })
+              .end()
+            .end()
+          .end()
+        .end()
+      .end();
+      return b;
+    }
+  },
+
+  {
+    trigger: 'demo-page-tabs',
+    title: 'page-tabs 多页签',
+    desc: 'act 指定激活页签 · closeable 可关闭 · del 整签移除 · 键盘左右导航 · change/close 事件上报',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('多页签（page-tabs）')
+        .callout({ t: 'info', tt: '交互面', tx: '点击切换上报 change {key,title}；× 关闭上报 close 并激活让位邻签；[upd id:tabs act:工单] 程序化切换静默；禁用页签不参与回落。' })
+        .pageTabs({ act: '工单', on: 'change:onTab,close:onTabClose' })
+          .pageTab({ n: '概览', tt: '概览' })
+            .p('概览面板：默认首签，未指定 act 时自动激活。')
+          .end()
+          .pageTab({ n: '工单', tt: '工单', closeable: true })
+            .p('工单面板：act:工单 初始激活，closeable 可关闭。')
+          .end()
+          .pageTab({ n: '报表', tt: '报表', closeable: true })
+            .table({ stripe: true, compact: true })
+              .theadCols('报表,更新时间,操作')
+              .tbody()
+                .row('日活报表', '每日 02:00', '查看')
+                .row('转化漏斗', '每周一 09:00', '查看')
+              .end()
+            .end()
+          .end()
+          .pageTab({ n: '归档', tt: '归档', dis: true })
+            .p('归档面板：dis 禁用，激活回落自动跳过。')
+          .end()
+        .end()
+        .btn({ tx: '切到「报表」(upd act)', clk: 'switchReport' });
+      return b;
+    }
+  },
+
+  {
+    trigger: 'demo-admin-crud',
+    title: '后台管理-用户列表（M2 金标杆）',
+    desc: 'page 壳 + 搜索区 + 固定操作列/树形/分页表格 + 编辑弹窗全控件 upd 回填 + 详情页签（desc+timeline）',
+    _ids: null,
+    build() {
+      const uid = Math.random().toString(36).slice(2, 6);
+      const ids = {
+        hdr: 'ac-hdr-' + uid, tabs: 'ac-tabs-' + uid, table: 'ac-tbl-' + uid,
+        dlg: 'ac-dlg-' + uid,
+        fName: 'ac-name-' + uid, fDept: 'ac-dept-' + uid, fRole: 'ac-role-' + uid,
+        fEntry: 'ac-entry-' + uid, fArea: 'ac-area-' + uid, fPerm: 'ac-perm-' + uid,
+        fState: 'ac-state-' + uid,
+      };
+      this._ids = ids;
+      const b = new TokUIBuilder();
+      b.page({ w: 220 })
+        .pageHeader({ tt: '用户管理', bc: '首页,系统设置,用户管理', id: ids.hdr })
+          .btn({ tx: '新增用户', t: 'primary', clk: 'openDialog', 'data-dialog-id': ids.dlg })
+          .btn({ tx: '导出', clk: 'handleExport' })
+        .end()
+        .pageSidebar({ tt: '运营后台' })
+          .menu({ act: 'users', on: 'change:onAdminMenu' })
+            .menuItem({ tx: '用户管理', i: '👥', id: 'users' })
+            .menuItem({ tx: '角色权限', i: '🔐', id: 'roles' })
+            .menuItem({ tx: '组织架构', i: '🏢', id: 'org' })
+          .end()
+        .end()
+        .pageContent()
+          // 搜索区：form v:inline 过滤条（T2.2）
+          .form({ v: 'inline', sub: 'handleSearch', id: 'ac-search-' + uid })
+            .input({ n: 'kw', l: '关键字', ph: '姓名/工号', search: true })
+            .datepicker({ n: 'from', l: '入职起', v: '', ph: 'YYYY-MM-DD' })
+            .datepicker({ n: 'to', l: '入职止' })
+            .select({ n: 'dept', l: '部门', opt: '0:全部;1:技术部;2:市场部;3:产品部' })
+            .btn({ tx: '查询', t: 'primary' })
+            .btn({ tx: '重置', reset: true })
+          .end()
+          .pageTabs({ act: 'list', id: ids.tabs, on: 'change:onAdminTab,close:onAdminTabClose' })
+            .pageTab({ n: 'list', tt: '用户列表' })
+              // 表格：批量勾选 + 行点击 + 固定首列/尾列操作 + 分页 payload（T2.3）
+              .table({ stripe: true, fixed: true, fc: 1, pagination: true, ps: '8', id: ids.table })
+                .theadCols('chk,姓名 w:140,部门 w:120,状态 w:100,入职 w:130,角色,操作 w:170/r')
+                .tbody()
+                  .row('', '张伟', '技术部', '在职', '2023-03-15', '管理员', 'btn:编辑 clk:openDialog data-dialog-id:' + ids.dlg + '|btn:删除 v:danger clk:handleDelete')
+                  .row('', '李娜', '技术部', '在职', '2022-07-01', '开发', 'btn:编辑 clk:openDialog data-dialog-id:' + ids.dlg + '|btn:删除 v:danger clk:handleDelete')
+                  .row('', '王强', '市场部', '离职', '2021-11-20', '运营', 'btn:编辑 clk:openDialog data-dialog-id:' + ids.dlg + '|btn:删除 v:danger clk:handleDelete')
+                  .row('', '赵敏', '产品部', '在职', '2024-01-08', '产品', 'btn:编辑 clk:openDialog data-dialog-id:' + ids.dlg + '|btn:删除 v:danger clk:handleDelete')
+                  .row('', '孙磊', '技术部', '在职', '2023-09-12', '开发', 'btn:编辑 clk:openDialog data-dialog-id:' + ids.dlg + '|btn:删除 v:danger clk:handleDelete')
+                  .row('', '周雨', '市场部', '在职', '2024-05-06', '运营', 'btn:编辑 clk:openDialog data-dialog-id:' + ids.dlg + '|btn:删除 v:danger clk:handleDelete')
+                .end()
+              .end()
+              .p('翻页/行点击事件载荷见页面顶部系统消息；首列与操作列随横向滚动固定（w: 显式列宽）', { v: 'sm' })
+            .end()
+            .pageTab({ n: 'org', tt: '组织架构（树形行）', closeable: true })
+              .table({ stripe: true, compact: true })
+                .theadCols('部门,人数,负责人')
+                .tbody()
+                  .row('华东大区,128,张伟', { id: 'ac-n1-' + uid })
+                  .row('技术研发,64,李娜', { pid: 'ac-n1-' + uid, id: 'ac-n2-' + uid })
+                  .row('前端组,24,孙磊', { pid: 'ac-n2-' + uid })
+                  .row('后端组,40,李娜', { pid: 'ac-n2-' + uid })
+                  .row('市场部,36,王强', { id: 'ac-m1-' + uid })
+                  .row('品牌组,12,周雨', { pid: 'ac-m1-' + uid })
+                .end()
+              .end()
+              .p('tr pid:父行id 子行默认折叠，展开钮切换 / [upd id:行id act:expand] 程序化展开', { v: 'sm' })
+            .end()
+            .pageTab({ n: 'detail', tt: '详情（张伟）', closeable: true })
+              .desc({ cols: 2 })
+                .descItem({ l: '姓名', tx: '张伟' })
+                .descItem({ l: '部门', tx: '技术部 · 前端组' })
+                .descItem({ l: '入职', tx: '2023-03-15' })
+                .descItem({ l: '状态', tx: '在职' })
+              .end()
+              .timeline()
+                .ti('入职', { tm: '2023-03' })
+                .ti('转正', { tm: '2023-09', t: 'primary' })
+                .ti('晋升前端组长', { tm: '2024-06', t: 'primary' })
+                .ti('季度之星', { tm: '2025-01', t: 'success' })
+              .end()
+            .end()
+          .end()
+        .end()
+      .end()
+      // 编辑弹窗：全控件回填（extraChunks 流后逐字段 upd 推送，点「编辑」即见回填结果）
+      .dialog({ tt: '编辑用户', id: ids.dlg, w: 720 })
+        .form({ cols: 2, lw: 84, gap: 14, sub: 'handleEdit' })
+          .input({ n: 'name', l: '姓名', req: true, id: ids.fName })
+          .select({ n: 'dept', l: '部门', opt: '1:技术部;2:市场部;3:产品部', id: ids.fDept })
+          .datepicker({ n: 'entry', l: '入职日期', id: ids.fEntry })
+          .radio({ n: 'state', l: '状态', opt: '1:在职;0:停用', id: ids.fState })
+          .cascader({ n: 'area', l: '所属区域', id: ids.fArea })
+            .opt({ v: 'gd', tx: '广东' })
+            .opt({ v: 'gz', tx: '广州', p: 'gd' })
+            .opt({ v: 'sz', tx: '深圳', p: 'gd' })
+          .end()
+          .transfer({ n: 'perm', l: '权限', id: ids.fPerm })
+            .opt({ v: '1', tx: '查看' })
+            .opt({ v: '2', tx: '编辑' })
+            .opt({ v: '3', tx: '删除' })
+            .opt({ v: '4', tx: '导出' })
+          .end()
+          .input({ n: 'memo', l: '备注', v: 'full', ph: '跨两列的长备注（v:full）' })
+        .end()
+      .end();
+      return b;
+    },
+    extraChunks() {
+      const ids = this._ids;
+      const b = new TokUIBuilder();
+      // 编辑回填范式：打开弹窗 → 逐字段 upd → 用户改 → 提交（此处演示服务端推送回填序列）
+      b.upd({ id: ids.fName, v: '张伟' });
+      b.upd({ id: ids.fDept, v: '1' });
+      b.upd({ id: ids.fEntry, v: '2023-03-15' });
+      b.upd({ id: ids.fState, v: '1' });
+      b.upd({ id: ids.fArea, v: 'gd/gz' });
+      b.upd({ id: ids.fPerm, v: '1,2,4' });
+      return b.toChunks();
+    }
+  },
+
+  {
+    trigger: 'demo-form-layout',
+    title: '表单布局属性（T2.2）',
+    desc: 'form cols 多列网格 / lw 标签统一宽 / gap / v:inline 过滤条 / 字段 v:full 整行',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('表单布局（cols / lw / gap / v:inline / v:full）')
+        .callout({ t: 'info', tt: '用法', tx: 'cols:1~4 字段网格；lw 标签统一宽 px；gap 间距；v:inline 全字段行内（过滤条，与 cols 同写 cols 优先）；字段 v:full 跨整行（备注/长文本）。' })
+        .card({ tt: '编辑资料（cols:2 + lw:84 + gap:14）' })
+          .form({ cols: 2, lw: 84, gap: 14, sub: 'handleEdit' })
+            .input({ n: 'name', l: '姓名', req: true })
+            .numinput({ n: 'age', l: '年龄', min: '16', max: '70' })
+            .select({ n: 'dept', l: '部门', opt: '1:技术部;2:市场部;3:产品部' })
+            .datepicker({ n: 'entry', l: '入职日期' })
+            .cascader({ n: 'area', l: '区域' })
+              .opt({ v: 'gd', tx: '广东' })
+              .opt({ v: 'gz', tx: '广州', p: 'gd' })
+            .end()
+            .switcher({ n: 'active', l: '在职' })
+            .textarea({ n: 'memo', l: '备注', v: 'full', ph: 'v:full 跨两列整行……' })
+            .btn({ tx: '提交', t: 'primary' })
+            .btn({ tx: '重置', reset: true })
+          .end()
+        .end()
+        .card({ tt: '过滤条（v:inline）' })
+          .form({ v: 'inline', sub: 'handleSearch' })
+            .input({ n: 'kw', l: '关键字', ph: '搜索…', search: true })
+            .select({ n: 'status', l: '状态', opt: '0:全部;1:进行中;2:已完成' })
+            .datepicker({ n: 'from', l: '起始日' })
+            .btn({ tx: '查询', t: 'primary' })
+          .end()
+        .end()
+        .card({ tt: '三列紧凑（cols:3 + gap:10）' })
+          .form({ cols: 3, gap: 10, sub: 'handleEdit' })
+            .input({ n: 'a', l: '字段一' })
+            .input({ n: 'b', l: '字段二' })
+            .input({ n: 'c', l: '字段三' })
+            .input({ n: 'd', l: '字段四' })
+            .input({ n: 'e', l: '字段五' })
+          .end()
+        .end();
+      return b;
+    }
+  },
+
+  {
+    trigger: 'demo-table-pro',
+    title: '表格增强（T2.3）',
+    desc: 'w: 列宽 + fixed/fc 列固定 + loading/empty 表态 + tr clk 行点击 + 分页 payload + 树形行',
+    _ids: null,
+    build() {
+      const uid = Math.random().toString(36).slice(2, 6);
+      this._ids = { tbl: 'tp-tbl-' + uid, t2: 'tp-tree-' + uid, e: 'tp-empty-' + uid };
+      const b = new TokUIBuilder();
+      b.h2('表格增强')
+        .callout({ t: 'info', tt: '能力面', tx: 'cols 列宽语法「名称 w:180」；fixed 首列钉左 / fc:N 尾列钉右（横向滚动时固定+分界阴影）；loading 骨架覆盖（upd loading:false 撤除）；empty 空态；tr clk 行点击上报整行数据；分页事件载荷 {page,size,filter,sort}；tr pid: 树形展开行。' })
+        .card({ tt: '固定列 + 列宽 + 行点击 + 分页（窄容器横滚体验）' })
+          .table({ fixed: true, fc: 1, pagination: true, ps: '6', id: this._ids.tbl })
+            .theadCols('名称 w:170,规格 w:220,类别 w:140,库存 w:110/r,单价 w:120/r,更新时间 w:170,操作 w:200/r')
+            .tbody()
+              .row('精密轴承 6204-2RS', '内径20mm 外径47mm 高14mm', '标准件', '2860', '¥3.85', '2026-09-10', 'btn:编辑 clk:handleEdit|btn:删除 v:danger clk:handleDelete')
+              .row('伺服电机 80ST-M04030', '额定 1.2kW 3000rpm', '运动控制', '142', '¥1280', '2026-09-11', 'btn:编辑 clk:handleEdit|btn:删除 v:danger clk:handleDelete')
+              .row('线性导轨 MGN12', '宽 12mm 长 300mm', '传动件', '968', '¥76.5', '2026-09-08', 'btn:编辑 clk:handleEdit|btn:删除 v:danger clk:handleDelete')
+              .row('接近开关 PNP NO M12', '检测距离 4mm', '传感器', '5230', '¥18.2', '2026-09-12', 'btn:编辑 clk:handleEdit|btn:删除 v:danger clk:handleDelete')
+              .row('谐波减速器 CSF-14', '减速比 50:1', '传动件', '36', '¥2380', '2026-09-06', 'btn:编辑 clk:handleEdit|btn:删除 v:danger clk:handleDelete')
+              .row('同步带 8M-1600', '节距 8mm 宽 50mm', '传动件', '774', '¥45', '2026-09-09', 'btn:编辑 clk:handleEdit|btn:删除 v:danger clk:handleDelete')
+              .row('工控机 IPC-610L', 'i5 16G 512G', '控制主机', '58', '¥4680', '2026-09-05', 'btn:编辑 clk:handleEdit|btn:删除 v:danger clk:handleDelete')
+              .row('光电传感器 E3Z-D62', '漫反射 1m', '传感器', '1205', '¥96', '2026-09-11', 'btn:编辑 clk:handleEdit|btn:删除 v:danger clk:handleDelete')
+            .end()
+          .end()
+        .end()
+        .grid({ cols: '1fr 1fr', gap: 12 })
+          .cell()
+            .card({ tt: 'loading 骨架（流后 upd 撤除）' })
+              .table({ loading: true, id: this._ids.tbl + '-ld' })
+                .theadCols('工单,状态')
+                .tbody()
+                  .row('WO-1001,加工中')
+                  .row('WO-1002,待检')
+                .end()
+              .end()
+            .end()
+          .end()
+          .cell()
+            .card({ tt: 'empty 空态' })
+              .table({ empty: true })
+                .theadCols('消息,时间')
+                .tbody()
+                .end()
+              .end()
+            .end()
+          .end()
+        .end()
+        .card({ tt: '树形展开行（tr pid）' })
+          .table({ stripe: true, compact: true, id: this._ids.t2 })
+            .theadCols('物料清单,数量,单位')
+            .tbody()
+              .row('装配体 A-100,1,台', { id: 'tp-a-' + uid })
+              .row('机座组件,1,套', { pid: 'tp-a-' + uid, id: 'tp-b-' + uid })
+              .row('机座铸件,1,件', { pid: 'tp-b-' + uid })
+              .row('减震垫 ×4,4,件', { pid: 'tp-b-' + uid })
+              .row('电机组件,1,套', { pid: 'tp-a-' + uid })
+              .row('伺服电机,1,台', { pid: 'tp-a-' + uid })
+              .row('包装箱,1,个', {})
+            .end()
+          .end()
+        .end();
+      return b;
+    },
+    extraChunks() {
+      const b = new TokUIBuilder();
+      // 流后 3s 等价的延迟撤除骨架（演示 upd loading:false）
+      b.upd({ id: this._ids.tbl + '-ld', loading: 'false' });
+      return b.toChunks();
     }
   },
 
@@ -852,8 +1179,8 @@ const DEMOS = [
               .grid({ cols: 2, gap: 8 })
                 .kpi({ tt: '在线门店', v: '1286', unit: '家', trend: '3.2', icon: 'trending-up' }).end()
                 .kpi({ tt: '今日订单', v: '45820', unit: '单', trend: '12.4', icon: 'trending-up' }).end()
-                .kpi({ tt: '平均稼动', v: '87.6', suf: '%', trend: '-0.8', v: 'warn' }).end()
-                .kpi({ tt: '告警门店', v: '7', unit: '家', trend: '-3', v: 'danger', icon: 'bell' }).end()
+                .kpi({ tt: '平均稼动', v: '87.6', suf: '%', trend: '-0.8', t: 'warning' }).end()
+                .kpi({ tt: '告警门店', v: '7', unit: '家', trend: '-3', t: 'danger', icon: 'bell' }).end()
               .end()
             .end()
           .end()
@@ -1905,7 +2232,7 @@ const DEMOS = [
             .cardTx('快捷操作', '点击左侧导航选择更多组件示例。')
           .end()
           .col_layout({ span: 6 })
-            .cardTx('版本更新', 'TokUI v0.2.5 已发布，支持卡片自闭合模式。')
+            .cardTx('版本更新', 'TokUI v0.2.6 已发布，支持卡片自闭合模式。')
           .end()
         .end()
         .hr()
@@ -2095,7 +2422,7 @@ const DEMOS = [
                 .a({ tx: '帮助文档', u: '/docs' })
                 .p(' | ')
                 .a({ tx: '联系我们', u: '/contact' })
-                .p('版本 v0.2.5')
+                .p('版本 v0.2.6')
               .end()
             .end()
           .end()
@@ -11856,7 +12183,7 @@ function streamBuilder(res, builder, demo) {
 // 窗口内累计达上限即触发「整 60s 冷却」：从被限流那一刻起锁 60s，
 // 倒计时恒为 60（与历史请求分布无关），冷却到期后计数清零、重新放行。
 const RATE_LIMIT_WINDOW = 60 * 1000; // 限流冷却时长 1 分钟
-const RATE_LIMIT_MAX = Number(process.env.TOKUI_DEMO_RATE_LIMIT) || 10; // 每 IP 窗口内最大请求数（校验器可经 env 放开）
+const RATE_LIMIT_MAX = Number(process.env.TOKUI_DEMO_RATE_LIMIT) || 30; // 每 IP 窗口内最大请求数（e2e 串行 8+ 流仍余量；校验器可经 env 放开）
 const _rateMap = new Map();            // ip -> { reqs:[时间戳], blockedUntil:ms }
 
 // 提取客户端真实 IP：

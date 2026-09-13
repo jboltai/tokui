@@ -58,7 +58,7 @@ M1 交付的大屏组件族：`panel` 科技边框容器、`kpi` 指标卡、`fl
 | `width` | 等宽缩放贴合内容高；配 `maxh:` 视口高上限（px）后内容超高部分纵向滚动 | 长列表 / 限高滚动区 |
 | `full` | 双轴拉伸铺满 | 允许比例变化 |
 
-设计稿内容建议**满幅排版**：内部容器加 `h:100%`（如 `[grid rows:"1fr auto" h:100%]`）填满画布，避免画布大面积留白。`width` 模式画布高为最小高、内容可撑高（inner `height:auto`），wrap 贴合视觉内容高，挂载区不再下方留空。
+设计稿内容**满幅排版（铁律）**：fit-screen 内的 grid **必须带 `h:100%`**（如 `[grid rows:"1fr auto" h:100%]`）挂满画布——缺省时 `1fr` 行按内容解析，总高超出设计稿后**底行被画布裁剪**（显示不全）。行高按内容预算：裸 kpi 单排 110~130px、panel 包 kpi（标题头约 40px）单排 ≥150px / 2×2 ≥310px（panel 与 kpi 勿重复 `tt` 双标题）；定高格内用嵌套 `[grid cols:N]` 排子项、**勿用 `[row][col span]` 页面栅格**（行高不受轨道约束，超高溢出）；定高行内容超高会被裁剪在本格内（cell 自带防护，不叠压邻区）。定高格内 chart 可省略 `w`/`h`——自动按格位纵横比重绘铺满（map 画布固定除外）。`width` 模式画布高为最小高、内容可撑高（inner `height:auto`），wrap 贴合视觉内容高，挂载区不再下方留空；窄容器（对话流内嵌）建议 `mode:width`，全屏画布才 `mode:scale`。
 
 ResizeObserver 随挂载区重算（width 模式同时观察 inner，流式子内容后到也会重算；`_registerCleanup` 解绑）；`scale`/`full` 模式**要求挂载区有确定高度**；浮层（tooltip 等）定位无需修正——`getBoundingClientRect` 返回缩放后的视觉坐标。缩放实现：`scale`/`width` 优先 CSS `zoom`（内容按最终尺寸重新布局栅格化，SVG/文字物理清晰，不产生 transform 合成层降采样发虚），环境不支持时回落 `transform: scale()`；`full` 双轴非等比恒用 transform。
 

@@ -136,9 +136,24 @@ When `thead` omits `cols`, you can declare columns one by one with `tcol` childr
 | `ps` | Page size (default 10) | `ps:20` |
 
 - Interaction reporting: sorting `sort` `{column, dir}`, filtering `filter` `{filters}`, page turns `page` `{value: page number}` (via `on:"sort:h,filter:h2,page:h3"` or the unified outlet).
-- **Streaming behavior**: rows arriving mid-stream are shown/hidden according to the current filter / page; while a `sortable` ordering is active, new rows append without re-sorting.
 
-<Playground dsl='[table stripe sortable filter pagination ps:5][thead cols:"姓名,年龄,城市,状态"][tbody][tr 张三,25,北京,在职][tr 李四,30,上海,休假][tr 王五,28,深圳,在职][tr 赵六,35,北京,在职][tr 钱七,26,上海,休假][tr 孙八,33,深圳,在职][tr 周九,29,北京,休假][/tbody][/table]' />
+### Column Width / Fixed Columns / States / Tree Rows (M2 / T2.3)
+
+| Prop | Meaning | Applies to | Example |
+|------|---------|------------|---------|
+| `w:N` (in cols) | column width px 24–2000 (combinable with `/align` `/color`) | `thead` cols | `cols:"名称 w:180,金额 w:120/r"` |
+| `fixed` | pin first column left while scrolling horizontally | `table` | `fixed` |
+| `fc:N` | pin last N columns right (0–6, combinable with `fixed`) | `table` | `fc:1` |
+| `loading` | skeleton overlay over the body (`[upd id: loading:false]` removes) | `table` | `loading` |
+| `empty` | empty-state placeholder (i18n; auto-hides when rows arrive) | `table` | `empty` |
+| `clk` | row click reports `{index, row[]}` full row data | `tr` | `clk:onRowClick` |
+| `pid` | parent row id (tree rows: children collapsed + indented, expand toggle on parent) | `tr` | `pid:rootId` |
+
+- Fixed-column offsets accumulate measured widths and recompute on late streaming rows / container resize; a fading shadow line marks the boundary (no hard rule).
+- Tree rows are programmatic via `[upd id:parentRowId act:expand/collapse]`; grandchildren follow their own parent's state.
+- The `page` payload is now complete: `{page, size, filter, sort}` (`value` kept for compatibility) — see the DSL reference "page event → host re-render" pattern for server-side pagination.
+
+<Playground dsl='[table fixed fc:1 stripe][thead cols:"物料 w:170,规格 w:210,库存 w:100/r,更新 w:150,操作 w:160/r"][tbody][tr "精密轴承 6204",内径20mm,2860,2026-09-10,btn:编辑 clk:handleEdit|btn:删除 v:danger clk:handleDelete][tr "伺服电机 80ST",1.2kW 3000rpm,142,2026-09-11,btn:编辑 clk:handleEdit|btn:删除 v:danger clk:handleDelete][tr "线性导轨 MGN12",宽12mm 长300mm,968,2026-09-08,btn:编辑 clk:handleEdit|btn:删除 v:danger clk:handleDelete][/tbody][/table][table stripe compact][thead cols:"部门,人数,负责人"][tbody][tr 华东大区,128,张伟 id:r1][tr 技术研发,64,李娜 pid:r1 id:r2][tr 前端组,24,孙磊 pid:r2][tr 后端组,40,李娜 pid:r2][/tbody][/table]' />
 
 ## Description List `desc` / `desc-item`
 

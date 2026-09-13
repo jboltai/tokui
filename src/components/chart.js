@@ -3739,19 +3739,59 @@ function registerChartComponents(renderer) {
 
   // scheduleAdjust：rAF 即时跑一次 + ResizeObserver 兜底（容器晚布局 / resize）。
   // 无 RO/rAF 环境（dom-mock、SSR）→ 什么都不挂，adjustChartFs 在 clientWidth=0 时本就早退。
+  // 画布纵横比自适应（定高容器「用好范围」）：svg 元素盒与 viewBox 纵横比失配 >6% 且图表处于
+  // 定高 flex 上下文（.tokui-panel__body > .tokui-chart / .tokui-cell > .tokui-chart，与 CSS
+  // flex-fill 同集）时，保持设计宽、按元素纵横比重算 h 重渲染——图形铺满格位，meet 不再留信箱带。
+  // 流式上下文 svg height:auto 纵横比恒贴合 → 零触发；纵横比取 rect 比值，对 fit-screen zoom/transform
+  // 免疫；重渲染不改变 svg 元素盒（flex 定尺寸）→ RO 不再回流，天然无环路。
+  // map（画布由 geo 固定 1000×708）与 zoom 窗口图不参与。h 受 chartH 上限 560 约束。
+  function fitChartCanvas(wrapper) {
+    if (wrapper._tokuiFitBusy) return;
+    var svg = null;
+    for (var fi = 0; fi < wrapper.childNodes.length; fi++) {
+      if ((wrapper.childNodes[fi].tagName || '').toLowerCase() === 'svg') { svg = wrapper.childNodes[fi]; break; }
+    }
+    if (!svg || !svg.getBoundingClientRect) return;
+    var spec = wrapper._tokuiChartSpec;
+    if (!spec || !spec.attrs || !chartRenderers[spec.type]) return;
+    if (spec.type === 'map') return;
+    if (svg.querySelector && svg.querySelector('.tokui-chart-zoom-window')) return;
+    var scoped = false;
+    try {
+      if (typeof svg.closest === 'function') {
+        scoped = svg.closest('.tokui-panel__body > .tokui-chart') === wrapper ||
+                 svg.closest('.tokui-cell > .tokui-chart') === wrapper;
+      }
+    } catch (e) { scoped = false; }
+    if (!scoped) return;
+    var box = svg.getBoundingClientRect();
+    if (!(box.width > 4) || !(box.height > 4)) return;
+    var vb = svg.viewBox && svg.viewBox.baseVal;
+    if (!vb || !(vb.width > 0) || !(vb.height > 0)) return;
+    var elAr = box.width / box.height, vbAr = vb.width / vb.height;
+    if (Math.abs(elAr - vbAr) / Math.min(elAr, vbAr) < 0.06) return;
+    var newH = Math.max(120, Math.min(560, Math.round(vb.width / elAr)));
+    if (Math.abs(newH - vb.height) < 8) return;
+    wrapper._tokuiFitBusy = true;
+    try {
+      redrawChart(wrapper, Object.assign({}, spec.attrs, { h: newH }));
+    } catch (e) { /* 适配失败保留原渲染 */ }
+    wrapper._tokuiFitBusy = false;
+  }
+
   function scheduleAdjust(wrapper) {
     var hasWin = typeof window !== 'undefined';
     var run = (hasWin && window.requestAnimationFrame)
       ? function (fn) { window.requestAnimationFrame(fn); }
       : function (fn) { fn(); };
-    run(function () { adjustChartFs(wrapper); });
+    run(function () { adjustChartFs(wrapper); fitChartCanvas(wrapper); });
     if (typeof window === 'undefined' || typeof window.ResizeObserver === 'undefined') return;
     if (wrapper._tokuiRO) try { wrapper._tokuiRO.disconnect(); } catch (e) {}
     var ro = new window.ResizeObserver(function () {
       if (wrapper._tokuiAdjRaf) return;
       wrapper._tokuiAdjRaf = true;
       var r = (window.requestAnimationFrame) ? window.requestAnimationFrame : function (f) { f(); };
-      r(function () { wrapper._tokuiAdjRaf = false; adjustChartFs(wrapper); });
+      r(function () { wrapper._tokuiAdjRaf = false; adjustChartFs(wrapper); fitChartCanvas(wrapper); });
     });
     wrapper._tokuiRO = ro;
     var target = wrapper.querySelector('svg.tokui-chart__svg') || wrapper;

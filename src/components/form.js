@@ -258,6 +258,19 @@ function registerFormComponents(renderer) {
     if (node.attrs.sub) attrs['data-tokui-sub'] = node.attrs.sub;
     if (node.attrs.clk) attrs['data-tokui-clk'] = node.attrs.clk;
     const form = el('form', attrs);
+    // T2.2 布局属性：cols(1-4 网格) / lw(标签统一宽 px) / gap(间距 px)；
+    // v:inline 全字段行内（过滤条场景，类经 VARIANTS 白名单落 form 根）——
+    // 与 cols 同写时 cols 优先（CSS 中 grid 规则在 inline 之后，同为单类选择器后者胜出）。
+    var fCols = parseInt(node.attrs.cols, 10);
+    fCols = (!isNaN(fCols) && fCols >= 1 && fCols <= 4) ? fCols : 0;
+    if (fCols) {
+      form.classList.add('tokui-form--grid');
+      form.style.setProperty('--tokui-form-cols', String(fCols));
+    }
+    var fLw = parseInt(node.attrs.lw, 10);
+    if (!isNaN(fLw) && fLw >= 40 && fLw <= 320) form.style.setProperty('--tokui-form-label-w', fLw + 'px');
+    var fGap = parseInt(node.attrs.gap, 10);
+    if (!isNaN(fGap) && fGap >= 0 && fGap <= 48) form.style.setProperty('--tokui-form-gap', fGap + 'px');
     rc(node.children).forEach(child => {
       if (child && child.nodeType) form.appendChild(child);
     });
@@ -1239,6 +1252,12 @@ function registerFormComponents(renderer) {
       }
       if (uAttrs.dis === true || uAttrs.dis === 'true') select.disabled = true;
       else if (uAttrs.dis === false || uAttrs.dis === 'false') select.disabled = false;
+      // T2.4 补漏：upd ro: 只读切换（HTML select 无 readonly，以 disabled 实现 + ro 标记类）
+      if (uAttrs.ro !== undefined) {
+        var roOn = !(uAttrs.ro === false || uAttrs.ro === 'false');
+        select.disabled = roOn;
+        select.classList.toggle('tokui-select--readonly', roOn);
+      }
     };
     wrapper._variantTarget = select;
     wrapper._slot = select;        // 插槽指向 select 元素
@@ -1289,6 +1308,11 @@ function registerFormComponents(renderer) {
         group.querySelectorAll('input[type=radio]').forEach(function (inp) {
           inp.checked = String(inp.value) === target;
         });
+      }
+          if (uAttrs.dis !== undefined) {
+        var on = !(uAttrs.dis === false || uAttrs.dis === 'false');
+        group.querySelectorAll('input[type=radio]').forEach(function (inp) { inp.disabled = on; });
+        group.classList.toggle('tokui-radio-group--disabled', on);
       }
     };
     return wrapper;
@@ -2440,6 +2464,42 @@ function registerFormComponents(renderer) {
       updateCount(rightPanel);
       updateHidden();
     };
+    // T2.4 编辑回填：upd v:"1,3"（右栏按序重排 + 勾选清零）；upd dis: 禁用移动
+    field._update = function (uAttrs) {
+      if (uAttrs.v !== undefined) {
+        var wanted = String(uAttrs.v).split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+        var allItems = leftPanel._items.concat(rightPanel._items);
+        // 目标右栏 = wanted 命中项（按 wanted 序）；其余归左栏；全部清勾选
+        var rightNew = [];
+        wanted.forEach(function (w) {
+          for (var i = 0; i < allItems.length; i++) {
+            if (allItems[i]._cb.value === w && rightNew.indexOf(allItems[i]) === -1) { rightNew.push(allItems[i]); break; }
+          }
+        });
+        allItems.forEach(function (item) {
+          var target = rightNew.indexOf(item) !== -1 ? rightPanel : leftPanel;
+          var current = (rightPanel._items.indexOf(item) !== -1) ? rightPanel : leftPanel;
+          if (current !== target) {
+            current._items.splice(current._items.indexOf(item), 1);
+            target._body.appendChild(item);
+            target._items.push(item);
+          }
+          if (item._cb) item._cb.checked = false;
+        });
+        // 右栏按 wanted 序重排（DOM 与 _items 同步）
+        rightNew.forEach(function (it) { rightPanel._body.appendChild(it); });
+        rightPanel._items = rightNew;
+        updateCount(leftPanel);
+        updateCount(rightPanel);
+        updateHidden();
+      }
+      if (uAttrs.dis !== undefined) {
+        var on = !(uAttrs.dis === false || uAttrs.dis === 'false');
+        transfer.classList.toggle('tokui-transfer--disabled', on);
+        btnRight.disabled = on;
+        btnLeft.disabled = on;
+      }
+    };
     field.appendChild(transfer);
     return field;
   });
@@ -2980,34 +3040,43 @@ function registerFormComponents(renderer) {
 
     // 设置树数据并初始化
     var cascaderInit = { hidden: '', text: '' };
+    // 按路径值（'a/b/c'）回填：路径合法 → 写搜索框路径文本 + hidden，返回是否命中
+    // （初始 v 与 T2.4 upd v: 编辑回填共用一条校验路径）
+    function applyValue(val) {
+      if (!val) return false;
+      var prePath = String(val).split('/');
+      var pathTexts = [];
+      var currentNodes = state.tree;
+      for (var pi = 0; pi < prePath.length; pi++) {
+        var found = false;
+        for (var ci = 0; ci < currentNodes.length; ci++) {
+          if (currentNodes[ci].v === prePath[pi]) {
+            pathTexts.push(currentNodes[ci].tx);
+            currentNodes = currentNodes[ci].children;
+            found = true;
+            break;
+          }
+        }
+        if (!found) break;
+      }
+      if (pathTexts.length !== prePath.length) return false;
+      state.activeValues = prePath.slice();
+      searchInput.value = pathTexts.join(' / ');
+      hidden.value = String(val);
+      return true;
+    }
     function setupTree(tree) {
       state.tree = tree;
       // 预选值
-      if (node.attrs.v) {
-        var prePath = String(node.attrs.v).split('/');
-        var valid = true;
-        var pathTexts = [];
-        var currentNodes = tree;
-        for (var pi = 0; pi < prePath.length; pi++) {
-          var found = false;
-          for (var ci = 0; ci < currentNodes.length; ci++) {
-            if (currentNodes[ci].v === prePath[pi]) {
-              pathTexts.push(currentNodes[ci].tx);
-              currentNodes = currentNodes[ci].children;
-              found = true;
-              break;
-            }
-          }
-          if (!found) { valid = false; break; }
-        }
-        if (valid && pathTexts.length === prePath.length) {
-          searchInput.value = pathTexts.join(' / ');
-          hidden.value = node.attrs.v;
-        }
-      }
+      if (node.attrs.v) applyValue(node.attrs.v);
       // 捕获初始值供 reset 复原（mount 与流式关闭均会走到）
       cascaderInit.hidden = hidden.value;
       cascaderInit.text = searchInput.value;
+      // 迟到的 upd v:（树未建时暂存）——树就绪即回放
+      if (state._pendingV) {
+        applyValue(state._pendingV);
+        state._pendingV = null;
+      }
     }
 
     // mount 模式
@@ -3028,7 +3097,21 @@ function registerFormComponents(renderer) {
     field._tokuiReset = function () {
       hidden.value = cascaderInit.hidden;
       searchInput.value = cascaderInit.text;
+      state.activeValues = [];
       if (state.isOpen) closeMenus();
+    };
+    // T2.4 编辑回填：upd v:"a/b/c"（路径合法才写，非法静默）；upd dis: 禁用
+    field._update = function (uAttrs) {
+      if (uAttrs.v !== undefined) {
+        if (state.tree) applyValue(uAttrs.v);
+        else state._pendingV = String(uAttrs.v); // 流式未闭合：树就绪后回放
+      }
+      if (uAttrs.dis !== undefined) {
+        var on = !(uAttrs.dis === false || uAttrs.dis === 'false');
+        isDisabled = on;
+        cascaderEl.classList.toggle('tokui-cascader--disabled', on);
+        if (on && state.isOpen) closeMenus();
+      }
     };
 
     return field;
@@ -3295,10 +3378,21 @@ function registerFormComponents(renderer) {
     field.appendChild(upload);
     field._variantTarget = upload;
     // upd act:clear → 清空已选文件列表 UI 与 hidden input 值（复用 renderFileList 收口）
+    // T2.4 upd act:fill files:"名称,url,大小|…" → 编辑场景回显已传文件（status:done，单项 ✕ 可删）
     field._update = function(uAttrs) {
       if (uAttrs.act === 'clear') {
         selectedFiles.length = 0;
         fileInput.value = '';
+        renderFileList();
+      }
+      if (uAttrs.act === 'fill' && uAttrs.files !== undefined) {
+        selectedFiles.length = 0;
+        String(uAttrs.files).split('|').forEach(function (part) {
+          var segs = part.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+          if (segs.length) {
+            selectedFiles.push({ name: segs[0], url: segs[1] || '', size: parseInt(segs[2], 10) || 0, status: 'done' });
+          }
+        });
         renderFileList();
       }
     };
@@ -3877,6 +3971,45 @@ function registerFormComponents(renderer) {
 
     field.appendChild(picker);
     field._variantTarget = picker;
+    // T2.4 编辑回填：upd v:（写 input/hidden + 面板状态重定位；range 模式解析起止）；
+    // upd dis: 禁用。reset 契约：复原初始值。
+    var dpInit = input.value;
+    field._update = function (uAttrs) {
+      if (uAttrs.v !== undefined) {
+        var nv = String(uAttrs.v);
+        input.value = nv;
+        hidden.value = nv;
+        if (isRange) {
+          var rp = nv.split(' ~ ');
+          rangeStart = parseDateValue(rp[0]);
+          rangeEnd = rp.length > 1 ? parseDateValue(rp[1]) : null;
+          if (rangeStart) { currentYear = rangeStart.getFullYear(); currentMonth = rangeStart.getMonth(); }
+          renderCalendar(currentYear, currentMonth);
+        } else {
+          var d = parseDateValue(nv);
+          if (d) {
+            selectedDate = d;
+            currentYear = d.getFullYear();
+            currentMonth = d.getMonth();
+            renderCalendar(currentYear, currentMonth);
+          }
+        }
+      }
+      if (uAttrs.dis !== undefined) {
+        var on = !(uAttrs.dis === false || uAttrs.dis === 'false');
+        isDisabled = on;
+        picker.classList.toggle('tokui-datepicker--disabled', on);
+        input.disabled = on;
+        if (on) closePanel();
+      }
+    };
+    field.setAttribute('data-tokui-resettable', '');
+    field._tokuiReset = function () {
+      input.value = dpInit;
+      hidden.value = dpInit;
+      var d0 = parseDateValue(dpInit);
+      if (d0) { selectedDate = d0; currentYear = d0.getFullYear(); currentMonth = d0.getMonth(); renderCalendar(currentYear, currentMonth); }
+    };
     return field;
   });
 
@@ -4053,6 +4186,30 @@ function registerFormComponents(renderer) {
 
     field.appendChild(picker);
     field._variantTarget = picker;
+    // T2.4 编辑回填：upd v:"HH:mm[:ss]"（写 input/hidden + 滚轮状态重解析）；upd dis: 禁用
+    var tpInit = input.value;
+    field._update = function (uAttrs) {
+      if (uAttrs.v !== undefined) {
+        var nv = String(uAttrs.v);
+        var m = nv.match(/^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?/);
+        if (m) {
+          currentHour = Math.min(23, parseInt(m[1], 10) || 0);
+          currentMinute = Math.min(59, parseInt(m[2], 10) || 0);
+          currentSecond = Math.min(59, parseInt(m[3], 10) || 0);
+          input.value = nv;
+          hidden.value = nv;
+        }
+      }
+      if (uAttrs.dis !== undefined) {
+        var on = !(uAttrs.dis === false || uAttrs.dis === 'false');
+        isDisabled = on;
+        picker.classList.toggle('tokui-timepicker--disabled', on);
+        input.disabled = on;
+        if (on) closePanel();
+      }
+    };
+    field.setAttribute('data-tokui-resettable', '');
+    field._tokuiReset = function () { input.value = tpInit; hidden.value = tpInit; };
     return field;
   });
 
@@ -4317,6 +4474,44 @@ function registerFormComponents(renderer) {
 
     field.appendChild(picker);
     field._variantTarget = picker;
+    // T2.4 编辑回填：upd v:"YYYY-MM-DD HH:mm"（写 input/hidden + 日期/时间状态重解析）；upd dis: 禁用
+    var dtpInit = input.value;
+    field._update = function (uAttrs) {
+      if (uAttrs.v !== undefined) {
+        var nv = String(uAttrs.v);
+        var d = parseDateTimeValue(nv);
+        if (d) {
+          selectedDate = d;
+          currentYear = d.getFullYear();
+          currentMonth = d.getMonth();
+          currentHour = d.getHours();
+          currentMinute = d.getMinutes();
+          currentSecond = d.getSeconds();
+          input.value = nv;
+          hidden.value = nv;
+          renderDateSection(currentYear, currentMonth);
+        }
+      }
+      if (uAttrs.dis !== undefined) {
+        var on = !(uAttrs.dis === false || uAttrs.dis === 'false');
+        isDisabled = on;
+        picker.classList.toggle('tokui-datetimepicker--disabled', on);
+        input.disabled = on;
+        if (on) closePanel();
+      }
+    };
+    field.setAttribute('data-tokui-resettable', '');
+    field._tokuiReset = function () {
+      input.value = dtpInit;
+      hidden.value = dtpInit;
+      var d0 = parseDateTimeValue(dtpInit);
+      if (d0) {
+        selectedDate = d0;
+        currentYear = d0.getFullYear();
+        currentMonth = d0.getMonth();
+        renderDateSection(currentYear, currentMonth);
+      }
+    };
     return field;
   });
 

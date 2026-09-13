@@ -106,6 +106,20 @@ export declare class TokUIBuilder {
   /** 大屏缩放容器 */
   fitScreen(attrs?: BuilderAttrs): this;
 
+  // —— 应用壳（M2 / T2.1，容器，需 end() 闭合）——
+  /** 应用壳（三件套落位 grid areas） */
+  page(attrs?: BuilderAttrs): this;
+  /** 页头（子节点为右侧动作区；bc 面包屑、sticky 吸顶） */
+  pageHeader(attrs?: BuilderAttrs): this;
+  /** 侧栏（品牌行 + 折叠钮 + 滚动主体） */
+  pageSidebar(attrs?: BuilderAttrs): this;
+  /** 主区薄包装 */
+  pageContent(attrs?: BuilderAttrs): this;
+  /** 多页签容器（act 初始激活 key） */
+  pageTabs(attrs?: BuilderAttrs): this;
+  /** 单页签（n 为 key，closeable 可关闭） */
+  pageTab(attrs?: BuilderAttrs): this;
+
   // —— 高级网格布局（容器，需 end() 闭合）——
   grid(attrs?: BuilderAttrs): this;
   cell(attrs?: BuilderAttrs): this;

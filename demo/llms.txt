@@ -18,7 +18,7 @@
 
 ## Key Facts
 
-- 项目: TokUI（当前演示版本 v0.2.5）
+- 项目: TokUI（当前演示版本 v0.2.6）
 - 定位: 零依赖的流式 UI 描述与渲染框架，核心场景为 AI 对话中的流式 UI 生成
 - 架构: 后端 TokUIBuilder 生成 DSL → SSE 流式推送 → 前端 TokUIParser 增量解析 → TokUIRenderer 渲染真实 DOM
 - 组件数: 150+，含表格、表单、图表（柱状/折线/饼图/雷达/散点/甘特/漏斗/仪表盘）、卡片、12 栅格 row/col 与高级网格 grid/cell、列表、AI 对话气泡、流式 Markdown、代码高亮、时间线、步骤条等
@@ -55,6 +55,15 @@
 - `[kpi tt:今日产量 v:12846 unit:件 trend:12.4 icon:trending-up clk:drill]` 指标卡——数值滚动动画+trend ↑↓ 徽章+t:danger/success/warning 状态色;[upd id:x v:新值] 更新走动画。
 - `[flip-num v:"8,642,918" s:lg]` 数字翻牌器(逐位 3D 翻牌,逗号/百分号自动分隔,upd v: 各位滚到位)。
 - `[scrollboard h:264 cols:"班组,工单,环比" rows:"A线,128,↑12|B线,96,↓3"]` 轮播榜单(匀速上滚+hover 暂停+无缝循环,↑↓ 自动着色,空态 i18n)。
+
+## 后台应用壳（M2：page 六件套）
+
+- `[page w:240][page-header tt:用户管理 bc:"首页,系统,用户" sticky][btn t:primary 新增 clk:add][/page-header][page-sidebar tt:运营后台][menu act:users]…[/menu][/page-sidebar][page-content]…[/page-content][/page]` 后台 CRUD 应用壳——header 面包屑+右侧动作区 / sidebar 折叠钮联动列宽 240⇄64 / content 自滚动裁剪。
+- `[page-tabs act:list][page-tab n:list tt:列表]…[/page-tab][page-tab n:detail tt:详情 closeable]…[/page-tab][/page-tabs]` 多页签——点击上报 change {key,title},× 关闭上报 close 并让位邻签,[upd id:tabs act:key] 静默切换,[del id:tabX] 整签移除,键盘 ←→ 导航,流式跟随激活闭合按 act 归位。
+- 菜单联动:menu change 载荷 {value,item,path}(path 标题路径数组),宿主一条 `[upd id:header bc:首页,新路径]` 同步面包屑。
+- 表单布局(M2):`[form cols:2 lw:84 gap:14]` 字段网格(1~4 列)+标签统一宽+间距;`v:inline` 过滤条(字段行内,cols 优先);字段 `v:full` 跨整行(备注 textarea 等,全字段类型支持)。
+- 表格增强(M2):`[table fixed fc:1]` 首列钉左+尾列钉右(横滚固定+分界阴影);thead 列宽 `cols:"名称 w:180,金额 w:120/r"`;`loading` 骨架覆盖(upd loading:false 撤除);`empty` 空态;`tr id:x pid:y` 树形行(子行折叠+展开钮+upd act:expand);`tr clk:h` 行点击上报 {index,row[]};分页 page 载荷 {page,size,filter,sort}。
+- 编辑回填闭环(M2):dialog 常驻+逐字段 upd——input v:直写/select v:key/radio v:组值/datepicker v:2024-06-01/time·datetimepicker v:"09:30"/cascader v:"gd/gz"(路径校验)/transfer v:"1,2"(右栏重排)/upload act:fill files:"名,url,大小|…"(回显可删);reset 按钮全控件复原;dialog w:720 加宽弹窗(480~1200,两列编辑表单必配)。
 
 ## Contact
 

@@ -60,6 +60,8 @@ Content is laid out on a `w×h` design canvas (default 1920×1080) and scales wi
 
 ResizeObserver recomputes on host resize (unbound via `_registerCleanup`); **the host area must have a definite height**; overlays need no coordinate correction — `getBoundingClientRect` returns post-transform visual coordinates.
 
+**Full-bleed rule (iron law):** a `grid` directly inside `fit-screen` **must carry `h:100%`** — otherwise `1fr` rows resolve to content height, the total exceeds the design canvas, and **the bottom row gets clipped**. Budget row heights by content: naked `kpi` single row 110–130px; `panel`-wrapped `kpi` (≈40px header) single row ≥150px / 2×2 ≥310px (don't duplicate `tt` on both panel and kpi). Inside fixed-height cells use a nested `[grid cols:N]`, **never `[row][col span]` page scaffolding** (its rows escape track budgeting and overflow); oversized content is clipped inside its own cell (built-in guard, no overlap with neighbors). Charts may omit `w`/`h` in fixed-height cells — they auto re-render to fill the cell's aspect (map excepted, fixed geo canvas). Prefer `mode:width` in narrow hosts (chat streams); `mode:scale` for full-screen canvases.
+
 ## Streaming Skeleton Placeholders (grid areas)
 
 When a `grid` with `areas` mounts during SSE streaming, skeleton placeholders are laid out per named area immediately — the layout is final from the first frame, each block shimmering while waiting. Real `[cell area:name]` nodes replace their placeholder in place; unnamed cells clear all placeholders (graceful fallback); unfilled areas are cleaned on stream close. Opt out with `skel:"false"`.

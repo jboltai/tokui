@@ -647,7 +647,8 @@ test('menu 点击激活上报 + _update act:activate 静默激活', () => {
   const items = dom.querySelectorAll('.tokui-menu__item');
   assert.strictEqual(items.length, 2);
   fire(items[1], 'click', { target: items[1] });
-  assert.deepStrictEqual(received, [{ value: 'settings' }]);
+  // T2.1 载荷扩展：新增 item + path（扁平菜单单段路径），value 向后兼容保留
+  assert.deepStrictEqual(received, [{ value: 'settings', item: 'settings', path: ['settings'] }]);
   assert.ok(items[1].className.indexOf('--active') !== -1);
   // 程序化激活：切回 home，不重复上报
   dom._update({ act: 'activate', v: 'home' });

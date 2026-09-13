@@ -179,6 +179,7 @@ terminal sandbox test-result quote toggle-group conversations welcome welcome-fe
 suggestions attachments artifact artifact-code artifact-preview scroll-area
 sidebar sidebar-content sidebar-footer command command-group hover-card hover-trigger hover-content
 resizable canvas canvas-content chart p tour affix preview-group segmented anchor float-button masonry
+panel kpi scrollboard fit-screen page page-header page-sidebar page-content page-tabs page-tab
 ```
 
 **自闭合逃逸**（在容器清单内但特定条件下自动当自闭合叶子）：
@@ -322,14 +323,14 @@ resizable canvas canvas-content chart p tour affix preview-group segmented ancho
 | `row` | 容器 | `v` `gutter` `gy` | 栅格行。默认 12 列 grid；`v:inline` 转 flex（并排标题+徽标用）；`gutter` 统一间距、`gy` 行间距（数字按 px 或 CSS 长度） |
 | `col` | 容器 | `span` `offset` `rspan` `xs` `sm` `md` `lg` `xl` | 栅格列（`span` 1-12，默认 1）；`offset` 左空列数（1-11，offset+span 钳制不超 12）；`rspan` 行跨（1-12，多行 row 跨行用）；断点属性见下方「响应式断点」节 |
 | `grid` | 容器 | `cols` `rows` `areas` `gap`/`gx`/`gy` `h` `minh` `theme` `v` `skel` `xs` `sm` `md` `lg` `xl` | 高级二维网格（与 12 栅格并行），语法见下方「高级网格 grid/cell」专节；断点属性=列数 1-12，见「响应式断点」节；流式+areas 时按区名先铺骨架占位（布局即终布局，真实 cell 到达按区替换，`skel:"false"` 关） |
-| `cell` | 容器 | `area` `c` `r` `align` `justify` | grid 子项（可装任意组件）。`area` 模板区域名；`c` 列跨 N(1-24) 或 `"start/end"`；`r` 行跨 N(1-24)；`align`/`justify` 对齐 start/center/end/stretch |
+| `cell` | 容器 | `area` `c` `r` `align` `justify` | grid 子项（可装任意组件）。`area` 模板区域名；`c` 列跨 N(1-24) 或 `"start/end"`；`r` 行跨 N(1-24)；`align`/`justify` 对齐 start/center/end/stretch。定高行内内容超高会被裁剪在本格（防护叠压，不蔓延邻区）；定高格内子项布局用嵌套 grid，勿用 row/col |
 | `list` | 容器 | `t` `plain` | 列表。`t:ol` 有序/默认无序；`plain` 去标记 |
 | `item` | 容器 | `tx`/裸内容 `l` `span` | 同名按父级区分：`list` 内=`<li>`（文本当首段，可嵌套子 `list`，靠 `[/item]`/下个 `[item]`/父闭标签隐式闭合）；`desc` 内=描述项（`l` 标签 `tx` 值）；`carousel` 内=幻灯片；`command-group` 内=命令项。别名 `i` |
 | `tabs` | 容器 | — | 标签页容器；子项 `tab`；默认激活第 0 个 |
 | `tab` | 容器 | `tt` | 标签项（`tt` 为标签名） |
 | `accordion` | 容器 | — | 手风琴；子项 `collapse` |
 | `collapse` | 容器 | `tt` `open` `id` | 折叠面板（原生 details）。`upd` 支持 `act:open`/`act:close` |
-| `dialog` | 容器 | `tt` `id` `clk` | 对话框（原生 dialog）。`upd` 支持 `act:open`/`act:close` |
+| `dialog` | 容器 | `tt` `id` `clk` `w` | 对话框（原生 dialog）。`upd` 支持 `act:open`/`act:close`；`w` 弹窗宽 px（480~1200 落 max-width，默认 480）——编辑表单（cols:2/transfer）等宽内容用 `w:720` |
 | `drawer` | 容器 | `tt` `pos` `w` `h` `id` | 抽屉。`pos:left`/`right`/`top`/`bottom` |
 | `imgs` | 容器 | `s` | 图片网格（`s` 逗号图源，或子项 `img`）；点击灯箱 |
 | `timeline` | 容器 | `v` | 时间轴。`v:h`/`horizontal`/`alt`/`alternate`/`card`；子项 `ti` |
@@ -355,8 +356,14 @@ resizable canvas canvas-content chart p tour affix preview-group segmented ancho
 | `kpi` | 容器 | `tt` `v` `pre` `suf` `unit` `trend` `dec` `icon` `clk` `t` | 指标卡（M1）。数值滚动动画（easeOutExpo）；`trend:12.4`/`-1.2`/`up`/`down` 自动 ↑↓ 徽章着色；`t:danger/success/warning` 状态色；`icon:` 注册表图标；`[upd id: v:/trend:/tt:]` 更新走动画 |
 | `flip-num` | 自闭合 | `v` `dur` `s` | 数字翻牌器（M1）。`v` 数字串（可含逗号/小数点/百分号，逐位翻牌）；`dur` 单位过渡 ms 默认 600；`s:sm/lg` 尺寸档；reduced-motion 直显；`[upd v:]` 各位滚到位 |
 | `chart t:map` | 自闭合 | `region` `d` `label` `unit` `vmin` `vmax` `w` `on` | 中国地图。`region:"浙江:86\|江苏:74"` 省级热力（34 省级行政区含港澳台，省名简称/全名均可；多 stop 色阶 蓝→青→绿→黄→红）；`d:"120.15,30.28,88,name:杭州"` 散点层（经纬度+值+名称，对数映射半径，越界钳制画布内）；`label:full\|name\|off` 标注三档（默认 full：含数据省 名+值 两行、无数据省灰名，文字盒碰撞自动避让；name=仅含数据省显名；off=纯色块）；`unit` 单位（tooltip/色阶刻度/半径图例共用，≤8 字符）；`vmin/vmax` 锁定色阶域。交互：hover 省份/散点多行 tooltip（省名 / 值+单位+占比）+ 高亮描边压暗其余；点击含数据省份上报 `mapClick {province,value}`（`on:"mapClick:handler"`）。图内左下 visualMap 色阶条（仅散点时自动换为半径图例），右下南海诸岛小图（九段线+西沙/中沙黄岩/南沙/曾母暗沙）。数据源 vendor/china-geo.js（~33KB 按需加载） |
-| `fit-screen` | 容器 | `w` `h` `mode` `maxh` | 大屏缩放容器（M1）。`w/h` 设计稿尺寸默认 1920×1080；`mode:scale` 等比缩放居中留空（默认）/`width` 等宽缩放贴合内容高（配 `maxh:` 视口高上限后内容超高纵滚）/`full` 双轴拉伸铺满；内容建议满幅排版（内部容器 h:100%）；ResizeObserver 随挂载区重算；scale/full 要求挂载区有确定高度 |
+| `fit-screen` | 容器 | `w` `h` `mode` `maxh` | 大屏缩放容器（M1）。`w/h` 设计稿尺寸默认 1920×1080；`mode:scale` 等比缩放居中留空（默认）/`width` 等宽缩放贴合内容高（配 `maxh:` 视口高上限后内容超高纵滚）/`full` 双轴拉伸铺满；内部 grid 必带 h:100% 满幅挂载（缺省 fr 行按内容解析、底行被画布裁剪）；ResizeObserver 随挂载区重算；scale/full 要求挂载区有确定高度 |
 | `scrollboard` | 容器 | `h` `speed` `gap` `cols` `rows` `clk` | 轮播榜单（M1）。`h` 视口高默认 300；`speed` px/s 默认 36（0=静止）；`cols:"列1,列2"` 表头；`rows:"a,1,↑2\|b,2,↓3"` 简写行（或 `[tr]` 子节点）；↑↓ 列自动着色；hover 暂停 + 无缝循环；空态 i18n |
+| `page` | 容器 | `w` `theme` | 后台应用壳（M2）。grid areas 三区骨架（header 横贯顶 / sidebar+content 两列）；`w` 侧栏宽 px 默认 240；宿主有确定高度自动铺满，否则按内容；子元素约定为 page-header/page-sidebar/page-content 三件套（其余子元素 CSS 兜底落主区） |
+| `page-header` | 容器 | `tt` `bc` `sticky` | 页头。`bc:"首页,系统,用户"` 逗号分级面包屑（末项自动当前页）；`sticky` 吸顶；子节点（btn 等）落右侧动作插槽；`[upd id: tt:/bc:]` 就地更新 |
+| `page-sidebar` | 容器 | `tt` | 侧栏。品牌行 + 折叠钮（联动 page 列宽 240⇄64 过渡，上报 `toggle {folded}`）+ 滚动主体；脱离 page 单独用折叠自身类不崩 |
+| `page-content` | 容器 | — | 主区薄包装。纵列 + 自滚动 + overflow 裁剪防护 |
+| `page-tabs` | 容器 | `act` `on` `id` | 多页签容器。`act` 初始激活 key（未命中回落首个可用）；点击页签上报 `change {key,title}`；`[upd id: act:key]` 静默切换；键盘 ←→ 导航 |
+| `page-tab` | 容器 | `n` `tt` `closeable` `dis` | 单页签。`n` key（缺省用 tt）；`closeable` × 关闭（上报 `close {key,title}`，激活让位邻签）；`dis` 禁用；`[del id:]` 整签移除（按钮+面板一体） |
 | `float-button` | 容器 | `pos` `offset` | 浮动按钮组。`pos` 四角固位(right-bottom 缺省/right-top/left-bottom/left-top)、`offset` 边距(px 缺省24)；子组件自动圆形悬浮化 |
 
 #### 响应式断点（T0.3，容器查询）
@@ -407,7 +414,7 @@ resizable canvas canvas-content chart p tour affix preview-group segmented ancho
 
 | Tag | 类型 | 常用属性 | 说明 |
 |-----|------|----------|------|
-| `form` | 容器 | `act` `mtd` `sub` `clk` `id` | 表单。`act` 提交地址、`sub` 提交处理器；提交前执行原生 reportValidity（`req`/`pat` 不过则拦截） |
+| `form` | 容器 | `act` `mtd` `sub` `clk` `id` `cols` `lw` `gap` `v:inline` | 表单。`act` 提交地址、`sub` 提交处理器；提交前执行原生 reportValidity（`req`/`pat` 不过则拦截）。**M2 布局属性**：`cols:1~4` 字段网格列数；`lw` 标签统一宽 px（40~320）；`gap` 间距 px（0~48）；`v:inline` 全字段行内过滤条（与 cols 同写 cols 优先）；字段 `v:full` 跨整行（input/pwd/select/textarea/picker/cascader/transfer/upload/numinput/日历时件均支持） |
 | `input` | 自闭合 | `t` `l` `ph` `id` `n` `val` `ml` `min` `max` `step` `req` `dis` `ro` `w` `hint` `pat` `err` `ok` `live` `search` `v` `pre`/`app`/`prebtn`/`appbtn` `rule` `msg` `sug` `db` | 输入框。`val` 存初值（`v` 是变体）；`ml` maxlength；`hint` 提示；`pat` 原生 pattern 校验；`err` 自定义校验错误文案；`live` 纯前端实时校验（blur 本地 checkValidity：失败出 `err` 红 hint，通过出 `ok` 绿 hint，默认 `✓ 格式正确`；`live:input` 即时模式边输边验）；`rule`/`msg` DSL 校验规则（见下方专节）；`sug:数据源handler名` 输入联想下拉（fn({value}) 返回数组或 Promise，项为字符串或 `{v,tx}`；↑↓/Enter/Esc 导航，选定触发 change 上报）；`search` 加搜索图标（`search right` 右侧）；`pre`/`app` 前置/后置文本（可 `文本\|变体`）；`prebtn`/`appbtn` 前置/后置按钮（`文本:处理器\|变体`） |
 | `pwd` | 自闭合 | 同 `input` + `toggle` | 密码框。`toggle` 显隐开关 |
 | `textarea` | 容器 | `l` `id` `n` `ph` `rows` `maxlen` `maxrows` `auto` `tx`/裸内容 `req` `dis` `ro` | 多行文本。`auto` 自适应高度 |
@@ -448,6 +455,51 @@ resizable canvas canvas-content chart p tour affix preview-group segmented ancho
 - `msg:` 自定义错误文案（缺省用内置 i18n 文案）；未知规则名/非法正则 `console.warn` 跳过
 - 与 `live` 组合：blur 实时校验，error 态下输入即时重检
 - `select` 的 `req` 会写原生 `required` 属性（多选除外，语义不符）
+
+#### 编辑回填闭环（M2 / T2.4：打开弹窗 → 逐字段 `upd` → 提交）
+
+全控件支持 `[upd id:]` 回填，「编辑」场景一条范式打通（dialog 常驻 DOM，`upd` 填值后 `showModal`）：
+
+```tokui
+[dialog tt:编辑用户 id:editDlg]
+  [form cols:2 lw:84 sub:saveUser]
+    [input n:name l:姓名 id:f-name]
+    [select n:dept l:部门 opt:"1:研发;2:销售" id:f-dept]
+    [datepicker n:entry l:入职 id:f-entry]
+    [cascader n:area l:区域 id:f-area][opt v:gd tx:广东][opt v:gz tx:广州 p:gd][/cascader]
+    [transfer n:perm l:权限 id:f-perm][opt v:1 tx:查看][opt v:2 tx:编辑][/transfer]
+  [/form]
+[/dialog]
+```
+
+| 控件 | 回填指令 | 语义 |
+|---|---|---|
+| input/pwd/textarea/numinput | `[upd id:x v:值]` | 直写 |
+| select | `[upd id:x v:key]`（多选 `v:"a,b"` 覆盖式） | 选中项 |
+| radio / checkbox | `[upd id:x v:key]` / `v:"a,c"` | 单选/多选集合 |
+| datepicker（含 range） | `[upd id:x v:2024-06-01]` / `"起 ~ 止"` | 写入 + 面板状态重定位 |
+| timepicker / datetimepicker | `[upd id:x v:"09:30"]` / `"2024-06-01 09:30"` | 写入 + 时/日期状态重解析 |
+| cascader | `[upd id:x v:"gd/gz"]` | 路径合法才写（文本+hidden 同步，非法静默） |
+| transfer | `[upd id:x v:"1,2"]` | 右栏按序重排 + 勾选清零 |
+| upload | `[upd id:x act:fill files:"名,url,大小|…"]` | 回显已传文件（✕ 可删） |
+| 通用 | `[upd id:x dis:true/false]`（radio 整组 / transfer 移动钮 / picker 同步） | 禁用态 |
+
+配套：`[btn tx:重置 reset]` 广播 tokuireset——cascader / 日历时件 / transfer / upload 等自定义控件按初始值复原（`data-tokui-resettable` 契约）。
+
+#### 表格「翻页事件 → 宿主重渲」范式（data: 后端分页对接铺路，M2/T2.3 批3）
+
+`pagination` 的 `page` 事件载荷完整化 `{page, size, filter, sort}`（`value` 兼容保留）。后端分页的标准接法（T5.1 `data:` 数据源落地前的文档化范式）：
+
+```js
+TokUI.registerHandler('onPage', (d) => {
+  // d = { page, size, filter, sort } → 拉取对应页数据后 del 旧行 + ins 新行
+  const rows = fetchPage(d.page, d.size);
+  conn.push('[del id:tblBody]');
+  conn.push('[ins into:tblBody]' + rows.map(r => `[tr ${r.name},${r.qty}]`).join('') + '[/ins]');
+});
+```
+
+要点：`table` 需带 `id`；宿主持有行数据时优先 `del`+`ins` 增量；客户端 `sortable`/`filter` 关闭（服务端排序筛选取代）。
 
 #### `opt:"..."` 选项简写（radio / checkbox / select 通用）
 
@@ -509,10 +561,10 @@ resizable canvas canvas-content chart p tour affix preview-group segmented ancho
 
 | Tag | 类型 | 常用属性 | 说明 |
 |-----|------|----------|------|
-| `table` | 容器 | `stripe` `cap`/`caption` `v` `id` `sortable` `filter` `pagination` `ps` | 表格。`cap` 标题；`v:bordered`/`compact`（注：bordered 由 CSS 类驱动）；`sortable` 客户端排序（点击表头 asc/desc 切换，数值感知）；`filter` 客户端筛选（表头下筛选行，子串 AND 多列，300ms 防抖）；`pagination` + `ps:N` 客户端分页（默认 10/页）；三者可组合（先筛后分）；排序/筛选/翻页上报 `sort`/`filter`/`page` 事件 |
-| `thead` | 容器/自闭合 | `cols` | 表头。`cols:"姓名,年龄"` 支持 `chk`（全选列）/`#`（序号列）；`;` 分多行；列名后 `/c`/`/r`/`/l` 对齐、`/primary`/`/danger`/`/success`/`/warning`/`/info` 配色 |
+| `table` | 容器 | `stripe` `cap`/`caption` `v` `id` `sortable` `filter` `pagination` `ps` `fixed` `fc` `loading` `empty` | 表格。`cap` 标题；`v:bordered`/`compact`（注：bordered 由 CSS 类驱动）；`sortable` 客户端排序（点击表头 asc/desc 切换，数值感知）；`filter` 客户端筛选（表头下筛选行，子串 AND 多列，300ms 防抖）；`pagination` + `ps:N` 客户端分页（默认 10/页）；三者可组合（先筛后分）；排序/筛选/翻页上报 `sort`/`filter`/`page` 事件。**M2 增强**：`fixed` 首列钉左 / `fc:N` 尾 N 列钉右（横向滚动时固定 + 分界阴影，配 `w:` 列宽效果最佳，流式行后到自动重算）；`loading` 表体骨架覆盖（`[upd id: loading:false]` 撤除）；`empty` 无数据空态占位（i18n，行到达自动隐藏）；翻页 `page` 载荷完整化 `{page,size,filter,sort}`（`value` 兼容保留） |
+| `thead` | 容器/自闭合 | `cols` | 表头。`cols:"姓名,年龄"` 支持 `chk`（全选列）/`#`（序号列）；`;` 分多行；列名后 `/c`/`/r`/`/l` 对齐、`/primary`/`/danger`/`/success`/`/warning`/`/info` 配色；**`名称 w:180` 列宽**（24~2000px，可与对齐/配色组合如 `金额 w:120/r`，th 显式宽传导 body 列，固定列必配） |
 | `tbody` | 容器 | — | 表体（区间勾选 + 列位追踪） |
-| `tr` | 自闭合 | `cs`(legacy) `v:total` | 表格行，内容逗号分隔单元格；cell 尾缀 `=cN`/`=rN`/`=cNrM` 合并 |
+| `tr` | 自闭合 | `cs`(legacy) `v:total` `id` `pid` `clk` | 表格行，内容逗号分隔单元格；cell 尾缀 `=cN`/`=rN`/`=cNrM` 合并。**M2**：`clk:handler` 行点击上报 `{index,row[]}`（整行数据载荷）；`id` + `pid:父行id` 树形行（子行默认折叠、按 pid 链缩进，父行首格展开钮，`[upd id:父行id act:expand/collapse]` 程序化） |
 | `tcol` | 自闭合 | `n` | 列占位（thead 无 cols 时用） |
 
 #### `tr` 单元格内联渲染（除纯文本外）
@@ -614,7 +666,7 @@ col spec 顺序：`列名[=cN[rM]][/对齐][/配色]`。
 | `d` | 数据（格式随类型，见下表） |
 | `l` | 标签（数量须 = 数据点数/类别数） |
 | `c` | 颜色序列（逗号分隔；缺省 10 色板；heatmap 当色阶 stops） |
-| `w` `h` | SVG 宽/高（仅影响内部坐标系比例，不决定最终渲染大小） |
+| `w` `h` | SVG 宽/高（仅影响内部坐标系比例，不决定最终渲染大小；定高容器（grid 格/panel 体）内自动按格位纵横比重绘铺满，map 除外） |
 | `v` | 单值（gauge/progress/donut 中心） |
 | `area` | 折线填充（布尔） |
 | `vals` | 柱/线显数值（布尔） |

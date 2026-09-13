@@ -15,6 +15,36 @@ Wraps a group of form controls. On submit, triggers the `sub:` handler or the na
 
 > The handler referenced by `sub:` must be pre-registered via `TokUI.registerHandler(name, fn)`; on a `btn`, use `sub:xxx` to trigger form submission.
 
+### Layout Props (M2 / T2.2)
+
+| Prop | Meaning | Example |
+|------|---------|---------|
+| `cols` | field grid columns 1–4 (invalid ignored) | `cols:2` |
+| `lw` | unified label width px (40–320) | `lw:84` |
+| `gap` | field gap px (0–48) | `gap:14` |
+| `v:inline` | all fields inline (filter bar; `cols` wins when both) | `v:inline` |
+
+Field-level `v:full` spans the whole row (supported on input/pwd/select/textarea/picker/cascader/transfer/upload/numinput/date·time pickers) — for long notes and full-width groups.
+
+<Playground dsl='[card tt:编辑资料][form cols:2 lw:84 gap:14][input l:姓名 n:name req][select l:部门 n:dept opt:"1:技术部;2:市场部"][datepicker l:入职 n:entry][switcher l:在职 n:active][textarea l:备注 n:memo v:full ph:"跨两列整行的备注…"][/form][/card][card tt:过滤条][form v:inline][input l:关键字 n:kw search ph:"搜索…"][select l:状态 n:st opt:"0:全部;1:进行中"][btn tx:查询 v:primary][/form][/card]' />
+
+### Edit Backfill Loop (M2 / T2.4)
+
+The standard "edit" pattern: dialog stays in DOM → server backfills field-by-field via `[upd id:]` → `showModal` → user edits and submits. Full control matrix:
+
+| Control | Backfill | Semantics |
+|---|---|---|
+| input/pwd/textarea/numinput | `[upd id:x v:value]` | direct write |
+| select / radio / checkbox | `[upd id:x v:key]` (multi `v:"a,c"` overwrite) | selection/set |
+| datepicker (incl. range) | `[upd id:x v:2024-06-01]` / `"from ~ to"` | write + panel reposition |
+| timepicker / datetimepicker | `[upd id:x v:"09:30"]` / `"2024-06-01 09:30"` | write + state reparse |
+| cascader | `[upd id:x v:"gd/gz"]` | written only if path valid (silent otherwise) |
+| transfer | `[upd id:x v:"1,2"]` | right panel reorder + clear checks |
+| upload | `[upd id:x act:fill files:"name,url,size|…"]` | echo uploaded files (✕ removable) |
+| Common | `[upd id:x dis:true/false]` (radio group / transfer buttons / pickers sync) | disabled state |
+
+Paired with `[btn tx:重置 reset]`: custom controls (cascader / date·time pickers / transfer / upload) restore initial values (`tokuireset` contract).
+
 <Playground dsl='[card tt:登录表单][form act:/api/login mtd:post sub:onLogin][input l:账号 ph:"请输入账号" req][pwd l:密码 ph:"请输入密码" req][ft][btn tx:登录 v:primary sub:onLogin][btn tx:重置 v:ghost t:reset][/ft][/form][/card]' />
 
 ## Value-Change Reporting (change event)

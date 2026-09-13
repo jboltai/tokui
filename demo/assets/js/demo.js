@@ -313,6 +313,18 @@ const NAV_DATA = [
     ]
   },
   {
+    id: 'admin',
+    name: { zh: '后台应用壳', en: 'Admin Shell' },
+    icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="9" y1="9" x2="21" y2="9"/></svg>',
+    items: [
+      { trigger: 'demo-page-shell', name: { zh: '管理应用壳', en: 'Page Shell' }, desc: { zh: 'page 三件套+多页签后台', en: 'page triad + tabs' }, icon: '🏬' },
+      { trigger: 'demo-admin-crud', name: { zh: '用户管理金标杆', en: 'Admin CRUD' }, desc: { zh: 'M2 整页:搜索+固定列+回填弹窗', en: 'M2 full: search+fixed+backfill' }, icon: '🗂' },
+      { trigger: 'demo-page-tabs', name: { zh: '多页签', en: 'Page Tabs' }, desc: { zh: '切换/关闭/del/键盘导航', en: 'switch/close/del/keys' }, icon: '🗂' },
+      { trigger: 'demo-form-layout', name: { zh: '表单布局', en: 'Form Layout' }, desc: { zh: 'cols/lw/v:inline/v:full', en: 'cols/lw/inline/full' }, icon: '📋' },
+      { trigger: 'demo-table-pro', name: { zh: '表格增强', en: 'Table Pro' }, desc: { zh: '固定列/树形行/空态/骨架', en: 'fixed/tree/empty/loading' }, icon: '📊' },
+    ]
+  },
+  {
     id: 'combo',
     name: { zh: '综合应用', en: 'Showcase' },
     icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
@@ -414,7 +426,7 @@ const I18N = {
   eventPanelClear: { zh: '清空', en: 'Clear' },
   editClicked:    { zh: '编辑按钮被点击', en: 'Edit button clicked' },
   deleteClicked:  { zh: '删除按钮被点击', en: 'Delete button clicked' },
-  footerVer:      { zh: '当前版本:v0.2.5', en: 'Version: v0.2.5' },
+  footerVer:      { zh: '当前版本:v0.2.6', en: 'Version: v0.2.6' },
   footerCopy:     { zh: '零依赖 · 流式UI描述与渲染框架', en: 'Zero Deps · Streaming UI Framework' },
   dslRef:         { zh: 'DSL 语法速查', en: 'DSL Syntax Ref' },
   clearBtn:       { zh: '清空', en: 'Clear' },
@@ -639,6 +651,12 @@ TokUI.registerHandler('iaMention', (q) => {
 // 表单增强案例 handlers
 TokUI.registerHandler('feSlider', (d) => addSystemMessage('Slider 区间', JSON.stringify(d)));
 TokUI.registerHandler('feRate', (d) => addSystemMessage('Rate 评分', JSON.stringify(d)));
+// M2 Admin Pack 案例 handlers：行点击 / 页签切换 / 菜单联动 / 分页 payload / 树形展开
+TokUI.registerHandler('onRowClick', (d) => addSystemMessage('行点击', JSON.stringify(d)));
+TokUI.registerHandler('onAdminTab', (d) => addSystemMessage('页签切换', JSON.stringify(d)));
+TokUI.registerHandler('onAdminTabClose', (d) => addSystemMessage('页签关闭', JSON.stringify(d)));
+TokUI.registerHandler('onAdminMenu', (d) => addSystemMessage('菜单切换', JSON.stringify(d)));
+TokUI.registerHandler('onPageChange', (d) => addSystemMessage('分页', JSON.stringify(d)));
 TokUI.registerHandler('feDate', (d) => addSystemMessage('日期范围', JSON.stringify(d)));
 TokUI.registerHandler('feSug', (d) => addSystemMessage('联想选定', JSON.stringify(d)));
 TokUI.registerHandler('feUpOk', (d) => addSystemMessage('上传成功', JSON.stringify(d)));

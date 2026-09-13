@@ -135,10 +135,24 @@ cell 尾缀覆盖列级：同格 cell 级生效，列级 align/color 让位。
 | `pagination` | 客户端分页 | `pagination` |
 | `ps` | 每页条数（默认 10） | `ps:20` |
 
-- 交互上报：排序 `sort` `{column, dir}`、筛选 `filter` `{filters}`、翻页 `page` `{value: 页码}`（`on:"sort:h,filter:h2,page:h3"` 或统一出口）。
-- **流式行为**：流式推送中的新行自动按当前筛选 / 分页显隐；`sortable` 排序激活时新行不重排（保持当前顺序追加）。
 
-<Playground dsl='[table stripe sortable filter pagination ps:5][thead cols:"姓名,年龄,城市,状态"][tbody][tr 张三,25,北京,在职][tr 李四,30,上海,休假][tr 王五,28,深圳,在职][tr 赵六,35,北京,在职][tr 钱七,26,上海,休假][tr 孙八,33,深圳,在职][tr 周九,29,北京,休假][/tbody][/table]' />
+### 列宽 / 固定列 / 表态 / 树形行（M2 / T2.3）
+
+| 属性 | 含义 | 适用 | 示例 |
+|------|------|------|------|
+| `w:N`（cols 内） | 列宽 px 24~2000（可与 `/对齐` `/配色` 组合） | `thead` cols | `cols:"名称 w:180,金额 w:120/r"` |
+| `fixed` | 首列钉左（横向滚动时固定） | `table` | `fixed` |
+| `fc:N` | 尾 N 列钉右（0~6，与 fixed 可组合） | `table` | `fc:1` |
+| `loading` | 表体骨架覆盖（`[upd id: loading:false]` 撤除） | `table` | `loading` |
+| `empty` | 无数据空态占位（i18n，行到达自动隐藏） | `table` | `empty` |
+| `clk` | 行点击上报 `{index, row[]}` 整行数据 | `tr` | `clk:onRowClick` |
+| `pid` | 父行 id（树形行：子行默认折叠 + 缩进，父行展开钮） | `tr` | `pid:rootId` |
+
+- 固定列偏移按列宽实测累计，流式行后到 / 容器宽变自动重算；分界处渐隐阴影线（无生硬竖线）。
+- 树形行程序化：`[upd id:父行id act:expand/collapse]`；孙行随其父行状态。
+- 翻页 `page` 载荷完整化 `{page, size, filter, sort}`（`value` 兼容保留）——后端分页对接见 DSL 参考「翻页事件 → 宿主重渲」范式。
+
+<Playground dsl='[table fixed fc:1 stripe][thead cols:"物料 w:170,规格 w:210,库存 w:100/r,更新 w:150,操作 w:160/r"][tbody][tr "精密轴承 6204",内径20mm,2860,2026-09-10,btn:编辑 clk:handleEdit|btn:删除 v:danger clk:handleDelete][tr "伺服电机 80ST",1.2kW 3000rpm,142,2026-09-11,btn:编辑 clk:handleEdit|btn:删除 v:danger clk:handleDelete][tr "线性导轨 MGN12",宽12mm 长300mm,968,2026-09-08,btn:编辑 clk:handleEdit|btn:删除 v:danger clk:handleDelete][/tbody][/table][table stripe compact][thead cols:"部门,人数,负责人"][tbody][tr 华东大区,128,张伟 id:r1][tr 技术研发,64,李娜 pid:r1 id:r2][tr 前端组,24,孙磊 pid:r2][tr 后端组,40,李娜 pid:r2][/tbody][/table]' />
 
 ## 描述列表 `desc` / `desc-item`
 

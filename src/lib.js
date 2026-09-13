@@ -44,6 +44,7 @@ import './components/table.js';                         // 读 renderer、parser
 import './components/form.js';                          // 读 renderer、basic
 import './components/layout.js';                        // 读 renderer、lightbox
 import './components/dashboard.js';                     // 大屏四件套 panel/kpi/flip-num/scrollboard（读 renderer/icons/i18n）
+import './components/page.js';                          // 应用壳六件 page/page-header/page-sidebar/page-content/page-tabs/page-tab（读 renderer/icons/i18n）
 // —— 聚合器（读 basic/table/form/layout/chart，写 _internal.registerAllComponents）——
 import './components/index.js';
 // —— 主类（读全部 _internal）——必须最后求值

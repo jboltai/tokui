@@ -111,7 +111,13 @@ const CONTAINERS = new Set([
   'panel',
   'kpi',
   'scrollboard',
-  'fit-screen'
+  'fit-screen',
+  'page',
+  'page-header',
+  'page-sidebar',
+  'page-content',
+  'page-tabs',
+  'page-tab'
 ]);
 
 // chart 自闭合内联数据判定 —— 须与 builder.chart 的 hasInline、renderer 容器判定三处同步：
@@ -192,7 +198,12 @@ const BOOLEAN_ATTRS = new Set([
   'virtual',
   'lazy',
   'pagination',
-  'mask'
+  'mask',
+  'sticky',
+  'closeable',
+  'fixed',
+  'loading',
+  'empty'
 ]);
 
 // 变体提示（Variant hints）
@@ -222,13 +233,19 @@ var ATTR_KEYS = new Set([
 // 值尾部若粘连「<非ASCII><已知key>:」→ 拆成多对属性（修复 AI 漏空格）。
 // 守卫：仅当值含非ASCII且含内部冒号时才进；纯ASCII值（URL/时间/版本号）零成本跳过、零误伤。
 // 返回 [[key,val],...]；无粘连则返回 [[key, val]]。
-function _expandAttrKeyVal(key, val) {
+// knownKeys：当前标签已有属性名集合。返回 null 表示放弃拆分（值整体按原文处理）——
+// 两个守卫针对「文档性文本」误伤（CJK-glue 容错第三课）：
+// ① 拆出的 key 已在标签属性里 → 值内同名 key 是文本提及（如 ph 值写「（v:full）」），拆了会覆盖真属性；
+// ② 拆出值尾随全角闭括号（）」』】→ 「（key:val）」式内嵌文本，非漏空格粘连。
+function _expandAttrKeyVal(key, val, knownKeys) {
   var pairs = [];
   while (true) {
     var m = val.match(/^([\s\S]*?[^\x00-\x7f])([a-zA-Z][a-zA-Z0-9]{0,6}):([\s\S]*)$/);
     if (!m) break;
     var k2 = m[2];
     if (!ATTR_KEYS.has(k2)) break;
+    if (knownKeys && knownKeys.indexOf(k2) !== -1) return null;
+    if (/[）」』】]/.test(m[3])) return null; // 拆出值含全角闭括号 → 「（key:val）」式内嵌文本
     pairs.push([key, m[1]]);
     key = k2;
     val = m[3];
@@ -275,7 +292,9 @@ function parseTag(raw) {
         // （如 AI 写 [item l:服务费（10%）tx:¥48.20]，全角）后漏空格）
         // 守卫：仅 CJK 值且含内部冒号才进，纯 ASCII 值零成本跳过
         if (/[^\x00-\x7f]/.test(val) && val.indexOf(':') !== -1) {
-          _expandAttrKeyVal(key, val).forEach(function (kv) { node.attrs[kv[0]] = kv[1]; });
+          var _pairs = _expandAttrKeyVal(key, val, Object.keys(node.attrs));
+          if (_pairs) _pairs.forEach(function (kv) { node.attrs[kv[0]] = kv[1]; });
+          else node.attrs[key] = val; // 守卫放弃拆分：按原文整体写入
         } else {
           node.attrs[key] = val;
         }
@@ -325,8 +344,15 @@ function parseTag(raw) {
     for (const k of Object.keys(node.attrs)) {
       const v = node.attrs[k];
       if (typeof v !== 'string') continue;
+      // T2.3 列宽语法豁免：thead cols:"名称 w:170,…" 中的 ` w:N` 是列宽 token 非「被吞属性」
+      // （w 在 ATTR_KEYS，修复启发式会误拆——此处为合法语法，跳过）
+      if (node.type === 'thead' && k === 'cols') continue;
       const m = v.match(/^([\s\S]*?)\s+([a-zA-Z][a-zA-Z0-9]{0,6}):([\s\S]*)$/);
       if (!m || !m[1] || !ATTR_KEYS.has(m[2])) continue;
+      // 散文指纹守卫：拆出的 rest 含 CJK 引号/句读（「」『』；。！？、）→ 该值是描述性文本
+      // （如文档示例「名称 w:180」；fixed …），不是被吞属性值——勿拆。
+      // 救援用例的 rest 均为干净值（¥6,299 / ¥0（含） / 2026-08-20 周四），不含这些字符。
+      if (/[「」『』；。！？、]/.test(m[3])) continue;
       if (node.attrs[m[2]] !== undefined) continue; // 目标 key 已存在，不覆盖
       node.attrs[k] = m[1];
       let rest = m[3];
@@ -974,7 +1000,8 @@ class TokUIParser {
     // desc/suggestions/masonry use cols as layout attribute, not as self-closing trigger
     // chart 的 cols 是数据列标签（heatmap），非布局自闭合触发，须豁免（否则容器写法 [/chart] 报错）
     // grid 的 cols 是显式轨道定义（高级网格布局），同为布局属性，须豁免
-    const hasColsTrigger = node.attrs.cols && node.type !== 'desc' && node.type !== 'suggestions' && node.type !== 'chart' && node.type !== 'masonry' && node.type !== 'grid' && node.type !== 'scrollboard';
+    // form 的 cols 是 T2.2 布局属性（字段网格列数），须豁免（同步点：dsl-lint COLS_EXEMPT）
+    const hasColsTrigger = node.attrs.cols && node.type !== 'desc' && node.type !== 'suggestions' && node.type !== 'chart' && node.type !== 'masonry' && node.type !== 'grid' && node.type !== 'scrollboard' && node.type !== 'form';
   // chart 带 d/tasks 内联数据 → 自闭合（旧用法）；无内联数据 → 容器模式收 pt/task/ms 子节点（流式）
     const hasInlineData = chartHasInline(node);
     // 自闭合 chart 带 preview key，与流式预览配对（renderer finalize 复用 pending wrapper）
@@ -1036,7 +1063,8 @@ class TokUIParser {
     // desc/suggestions/masonry use cols as layout attribute, not as self-closing trigger
     // chart 的 cols 是数据列标签（heatmap），非布局自闭合触发，须豁免（否则容器写法 [/chart] 报错）
     // grid 的 cols 是显式轨道定义（高级网格布局），同为布局属性，须豁免
-    const hasColsTrigger = node.attrs.cols && node.type !== 'desc' && node.type !== 'suggestions' && node.type !== 'chart' && node.type !== 'masonry' && node.type !== 'grid' && node.type !== 'scrollboard';
+    // form 的 cols 是 T2.2 布局属性（字段网格列数），须豁免（同步点：dsl-lint COLS_EXEMPT）
+    const hasColsTrigger = node.attrs.cols && node.type !== 'desc' && node.type !== 'suggestions' && node.type !== 'chart' && node.type !== 'masonry' && node.type !== 'grid' && node.type !== 'scrollboard' && node.type !== 'form';
   // chart 带 d/tasks 内联数据 → 自闭合（旧用法）；无内联数据 → 容器模式收 pt/task/ms 子节点（流式）
     const hasInlineData = chartHasInline(node);
     // 自闭合 chart 带 preview key，与流式预览配对（renderer finalize 复用 pending wrapper）
@@ -1075,7 +1103,8 @@ if (typeof window !== 'undefined') {
   window.TokUI._internal.parseTag = parseTag;
   window.TokUI._internal.setVariantHints = setVariantHints;
   window.TokUI._internal.CONTAINERS = CONTAINERS;
+  window.TokUI._internal.BOOLEAN_ATTRS = BOOLEAN_ATTRS;
 }
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { TokUIParser, parseTag, setVariantHints, CONTAINERS };
+  module.exports = { TokUIParser, parseTag, setVariantHints, CONTAINERS, BOOLEAN_ATTRS };
 }

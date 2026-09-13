@@ -154,7 +154,13 @@
 .tokui-table-wrapper::-webkit-scrollbar-thumb:hover { background: var(--tokui-text-muted); }
 .tokui-table { width: 100%; border-collapse: collapse; font-size: 0.9em; }
 .tokui-table th, .tokui-table td { padding: 8px 12px; border-bottom: 1px solid var(--tokui-border); text-align: left; transition: background 0.15s ease; }
-.tokui-table th { background: var(--tokui-stripe); font-weight: 600; color: var(--tokui-text); border-bottom: 1px solid var(--tokui-border); }
+/* 表头底色必须不透明：stripe 在 default/dark/tech 是半透明罩色（rgba .04~.06），
+   单独作背景时横向滚动的列内容会从 sticky 表头/固定格下透出——改为「不透明底 + stripe 罩层」复合 */
+.tokui-table th { background-image: linear-gradient(var(--tokui-stripe), var(--tokui-stripe)); background-color: var(--tokui-bg); font-weight: 600; color: var(--tokui-text); border-bottom: 1px solid var(--tokui-border); }
+/* 每列最小宽：表格整体 min-width = 列数 × --tokui-table-min-col-w 的既有假设在此落到列级——
+   空间紧张时无 w: 定宽的 auto 列被压到 min-content（中文逐字竖排），min-width 兜底保排版 */
+.tokui-table th { min-width: var(--tokui-table-min-col-w, 96px); }
+.tokui-table th.tokui-col-chk, .tokui-table th.tokui-col-seq { min-width: 40px; }
 .tokui-table caption { padding: 8px 12px; font-weight: 500; text-align: left; color: var(--tokui-text-muted); }
 /* 斑马纹效果 */
 .tokui-table--stripe tr:nth-child(even) td { background: var(--tokui-stripe); }
@@ -162,9 +168,85 @@
 .tokui-table tbody tr:hover td { background: var(--tokui-primary-hover); }
 .tokui-table--stripe tbody tr:hover td { background: var(--tokui-primary-focus); }
 
+/* === T2.3 表格增强：列固定 / 树形行 / loading / empty === */
+.tokui-table-wrapper { position: relative; }
+.tokui-cell--fixed-l, .tokui-cell--fixed-r { position: sticky; z-index: 2; }
+/* 固定表头格：与表头同款「不透明底 + stripe 罩层」，滚动列表头从其下穿过不透出 */
+.tokui-table th.tokui-cell--fixed-l, .tokui-table th.tokui-cell--fixed-r { z-index: 3; background-image: linear-gradient(var(--tokui-stripe), var(--tokui-stripe)); background-color: var(--tokui-bg); }
+/* 固定列体单元格：底色必须不透明且逐级压过 stripe 偶行 / hover 的更高优先级背景——
+   斑马纹偶行规则 (0,2,2) 会压过单类固定格规则，半透明 stripe 令滚动列内容透出 */
+.tokui-table td.tokui-cell--fixed-l, .tokui-table td.tokui-cell--fixed-r { background-color: var(--tokui-bg); }
+.tokui-table--stripe tbody tr:nth-child(even) td.tokui-cell--fixed-l,
+.tokui-table--stripe tbody tr:nth-child(even) td.tokui-cell--fixed-r {
+  background-image: linear-gradient(var(--tokui-stripe), var(--tokui-stripe)); background-color: var(--tokui-bg);
+}
+.tokui-table tbody tr:hover td.tokui-cell--fixed-l,
+.tokui-table tbody tr:hover td.tokui-cell--fixed-r { background-color: var(--tokui-primary-hover); }
+.tokui-table--stripe tbody tr:hover td.tokui-cell--fixed-l,
+.tokui-table--stripe tbody tr:hover td.tokui-cell--fixed-r { background-color: var(--tokui-primary-focus); }
+/* 固定列与滚动区的分界阴影线（贴边侧渐隐，避免生硬竖线）*/
+.tokui-cell--fixed-l-last::after, .tokui-cell--fixed-r-first::after {
+  content: ''; position: absolute; top: 0; bottom: -1px; width: 12px; pointer-events: none;
+}
+.tokui-cell--fixed-l-last::after { right: -12px; background: linear-gradient(to right, var(--tokui-border), transparent); }
+.tokui-cell--fixed-r-first::after { left: -12px; background: linear-gradient(to left, var(--tokui-border), transparent); }
+/* 行可点击（tr clk:） */
+.tokui-table-row--clickable { cursor: pointer; }
+/* 树形行：展开钮（CSS 三角，无图标依赖）+ 子行缩进 */
+.tokui-table__tree-toggle {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; margin-right: 4px; flex: none;
+  cursor: pointer; vertical-align: middle; user-select: none;
+  color: var(--tokui-text-muted); transition: transform 0.15s ease;
+}
+.tokui-table__tree-toggle::before { content: ''; border: 4px solid transparent; border-left-color: currentColor; border-right-width: 0; margin-left: 2px; }
+.tokui-table-row--expanded > td .tokui-table__tree-toggle { transform: rotate(90deg); }
+.tokui-table-row--child td:first-child { padding-left: calc(12px + 20px * var(--tree-depth, 1)); }
+.tokui-table-row--child { --tree-depth: 1; }
+.tokui-table-row--child[data-depth="2"] { --tree-depth: 2; }
+.tokui-table-row--child[data-depth="3"] { --tree-depth: 3; }
+.tokui-table-row--child[data-depth="4"] { --tree-depth: 4; }
+/* loading 骨架覆盖（表体区半透蒙层 + 呼吸骨架行） */
+.tokui-table-wrapper--loading .tokui-tbody { opacity: 0.35; }
+.tokui-table__loading {
+  position: absolute; inset: 0; z-index: 4;
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 16px 20px; justify-content: center;
+  background: color-mix(in srgb, var(--tokui-bg) 55%, transparent);
+}
+.tokui-table__loading-row {
+  height: 14px; border-radius: var(--tokui-radius-sm);
+  background: var(--tokui-stripe);
+  animation: tokui-table-skeleton 1.4s ease-in-out infinite;
+}
+.tokui-table__loading-row:nth-child(2n) { width: 78%; }
+.tokui-table__loading-row:nth-child(3n) { width: 88%; }
+@keyframes tokui-table-skeleton { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .tokui-table__loading-row { animation: none; } }
+/* empty 空态（tbody 隐藏，占位提示居中） */
+.tokui-table-wrapper--empty .tokui-tbody { display: none; }
+.tokui-table__empty {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 140px;
+  color: var(--tokui-text-muted); font-size: 0.875rem;
+}
+
 /* === 表单 === */
-.tokui-form { display: flex; flex-direction: column; gap: 12px; margin-bottom: 12px; }
+.tokui-form { display: flex; flex-direction: column; gap: var(--tokui-form-gap, 12px); margin-bottom: 12px; }
 .tokui-form > .tokui-btn { width: fit-content; }
+/* T2.2 表单布局：v:inline 行内（过滤条）→ cols 网格 → v:full 整行字段。
+   顺序铁律：grid 规则必须在 inline 之后——两类同挂时（cols 与 v:inline 同写）cols 优先。 */
+.tokui-form--inline { flex-direction: row; flex-wrap: wrap; align-items: flex-end; }
+.tokui-form--inline > * { flex: 0 1 auto; min-width: 0; }
+.tokui-form--grid { display: grid; grid-template-columns: repeat(var(--tokui-form-cols, 1), minmax(0, 1fr)); gap: var(--tokui-form-gap, 12px); }
+.tokui-form--grid > * { min-width: 0; }
+/* v:full 整行字段：变体类落控件本体或字段包装器（各控件 _variantTarget 不一），
+   三选择器合围覆盖两种落点；:has() 渐进增强，老浏览器仅不跨行不破版 */
+.tokui-form--grid > .tokui-field:has([class*="--full"]),
+.tokui-form--grid > .tokui-field[class*="--full"],
+.tokui-form--grid > [class*="--full"] { grid-column: 1 / -1; }
+/* lw 标签统一宽：缺省 auto 不影响既有布局 */
+.tokui-form .tokui-label { width: var(--tokui-form-label-w, auto); flex: none; }
 .tokui-field { display: flex; flex-direction: column; gap: 4px; }
 .tokui-label { font-size: 0.875rem; font-weight: 500; color: var(--tokui-text); }
 /* 必填标记：req 字段 label 尾部红色 * */
@@ -535,7 +617,10 @@ a + .tokui-btn, .tokui-link + .tokui-btn, .tokui-tag + .tokui-btn { margin-left:
 /* === 高级网格布局（grid/cell，与 12 栅格并行） === */
 /* 轨道/区域/间距由 attrs 经白名单校验后写内联 style；此处只给基础与变体 */
 .tokui-grid { display: grid; gap: 12px; margin-bottom: 12px; }
-.tokui-cell { box-sizing: border-box; min-width: 0; min-height: 0; }
+/* overflow:hidden：定高行（px/1fr 轨道）内容超高时裁剪在本格内，不蔓延叠压相邻区域
+   （panel 本就裁剪；此条补齐裸 row/col/chart 等直接子级。弹层不受影响：dropdown/cascader
+   面板 position:fixed、tooltip/通知挂 body，均逃逸 overflow 裁剪） */
+.tokui-cell { box-sizing: border-box; min-width: 0; min-height: 0; overflow: hidden; }
 /* 独生子女填满 cell（grid 区域内单卡自适应撑满，多子项不受影响） */
 .tokui-cell > :only-child { height: 100%; box-sizing: border-box; }
 /* 子树级主题（theme 属性）：grid 自带底色，裸文本/按钮等浅令牌色在深色块上可读 */
@@ -1042,6 +1127,10 @@ textarea.tokui-textarea--auto { resize: none !important; }
 .tokui-table__pager {
   display: flex; align-items: center; justify-content: flex-end; gap: 4px; flex-wrap: wrap;
   padding: 8px 4px; font-size: 0.85rem; user-select: none;
+  /* T2.3 修复：分页条是表格级元数据，不属于横滚内容——sticky 钉滚动视口左缘；
+     width:100% 相对滚动容器的包含块（= 视口宽而非内容宽），盒子不超宽、flex-end 靠右语义保留 */
+  position: sticky; left: 0; width: 100%; box-sizing: border-box;
+  background: var(--tokui-bg, #fff);
 }
 .tokui-table__pager-total { margin-right: auto; color: var(--tokui-text-secondary, #666); font-size: 0.82rem; }
 .tokui-table__pager-btn,
@@ -6606,7 +6695,14 @@ a.tokui-source__title:hover { color: var(--tokui-primary); text-decoration: unde
 .tokui-panel__title { font-weight: 600; font-size: var(--tokui-font-md); letter-spacing: 1px; }
 .tokui-panel__head::before, .tokui-panel__head::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, var(--tokui-tech-panel-border, var(--tokui-border))); }
 .tokui-panel__head::after { background: linear-gradient(90deg, var(--tokui-tech-panel-border, var(--tokui-border)), transparent); }
-.tokui-panel__body { padding: var(--tokui-space-3) var(--tokui-space-4); flex: 1; }
+/* 定高格位自适应（grid 行/fitscreen 内）：体为可收缩 flex 列，chart 撑满剩余高——
+   svg 不再按容器宽纵横比撑高溢出裁底（preserveAspectRatio=meet 在 svg 内部信箱化）。
+   流式上下文（卡片/无定高父级）高度仍 auto，纵横比行为不变。 */
+.tokui-panel__body { padding: var(--tokui-space-3) var(--tokui-space-4); flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.tokui-panel__body > .tokui-chart { flex: 1 1 auto; min-height: 0; width: 100%; display: flex; flex-direction: column; }
+.tokui-panel__body > .tokui-chart .tokui-chart__svg { flex: 1 1 auto; min-height: 0; }
+.tokui-cell > .tokui-chart { min-height: 0; width: 100%; display: flex; flex-direction: column; }
+.tokui-cell > .tokui-chart .tokui-chart__svg { flex: 1 1 auto; min-height: 0; }
 .tokui-panel--corner { border-color: transparent; background-image: linear-gradient(var(--tokui-tech-panel-bg, var(--tokui-bg)), var(--tokui-tech-panel-bg, var(--tokui-bg))); }
 .tokui-panel--corner::before, .tokui-panel--corner::after { content: ''; position: absolute; width: 14px; height: 14px; border: 2px solid var(--tokui-primary); pointer-events: none; }
 .tokui-panel--corner::before { top: 0; left: 0; border-right: none; border-bottom: none; }
@@ -6704,3 +6800,126 @@ a.tokui-source__title:hover { color: var(--tokui-primary); text-decoration: unde
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 @media (prefers-reduced-motion: reduce) { .tokui-chart--enter .tokui-chart__svg { animation: none; } }
+
+/* ========== 应用壳组件（M2 / T2.1：page / page-header / page-sidebar / page-content / page-tabs） ==========
+   设计基调：主题令牌驱动的素净后台风——发丝线分隔、stripe 微底、无渐变无重阴影，四主题自动适配。 */
+.tokui-page {
+  --tokui-page-aside-w: 240px;
+  --tokui-page-fold-w: 64px;
+  display: grid;
+  grid-template-columns: var(--tokui-page-aside-w) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas: "header header" "aside main";
+  min-height: 380px;
+  height: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--tokui-border);
+  border-radius: var(--tokui-radius-lg);
+  background: var(--tokui-bg);
+  overflow: hidden;
+  transition: grid-template-columns 0.2s ease;
+}
+.tokui-page > * { min-width: 0; min-height: 0; }
+.tokui-page > .tokui-page-header { grid-area: header; }
+.tokui-page > .tokui-page-sidebar { grid-area: aside; }
+.tokui-page > .tokui-page-content { grid-area: main; }
+/* 兜底：page 直系的未知子元素落主区（规范写法是三件套，lint 会拦） */
+.tokui-page > *:not(.tokui-page-header):not(.tokui-page-sidebar):not(.tokui-page-content) { grid-area: main; }
+/* 折叠态：直接覆盖 track 定义——page 的 w 属性以内联 CSS 变量注入，
+   仅改变量会被内联值压住；此处显式改 grid-template-columns 保证折叠必达 */
+.tokui-page--folded { grid-template-columns: var(--tokui-page-fold-w) minmax(0, 1fr); }
+@media (prefers-reduced-motion: reduce) { .tokui-page { transition: none; } }
+
+/* page-header 页头：左（面包屑+标题）右（动作插槽） */
+.tokui-page-header {
+  display: flex; align-items: center; gap: var(--tokui-space-3);
+  min-height: 48px; box-sizing: border-box;
+  padding: var(--tokui-space-2) var(--tokui-space-4);
+  border-bottom: 1px solid var(--tokui-border);
+  background: var(--tokui-bg);
+}
+.tokui-page-header--sticky { position: sticky; top: 0; z-index: 20; }
+.tokui-page-header__main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1 1 auto; }
+.tokui-page-header__title { font-size: var(--tokui-font-lg); font-weight: 600; color: var(--tokui-text); line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tokui-page-header__actions { display: flex; align-items: center; gap: var(--tokui-space-2); flex: 0 0 auto; margin-left: auto; }
+
+/* page-sidebar 侧栏：品牌行 + 折叠钮 + 滚动主体 */
+.tokui-page-sidebar {
+  display: flex; flex-direction: column;
+  min-width: 0; min-height: 0; box-sizing: border-box;
+  border-right: 1px solid var(--tokui-border);
+  background: var(--tokui-stripe);
+  overflow: hidden;
+}
+.tokui-page-sidebar__head {
+  display: flex; align-items: center; gap: var(--tokui-space-2);
+  min-height: 48px; box-sizing: border-box;
+  padding: var(--tokui-space-2) var(--tokui-space-3);
+  border-bottom: 1px solid var(--tokui-border);
+}
+.tokui-page-sidebar__brand { font-size: var(--tokui-font-md); font-weight: 600; color: var(--tokui-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tokui-page-sidebar__toggle {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0; flex: 0 0 auto; margin-left: auto;
+  background: transparent; border: none; border-radius: var(--tokui-radius-sm);
+  color: var(--tokui-text-muted); cursor: pointer;
+  transition: color 0.15s, background-color 0.15s;
+}
+.tokui-page-sidebar__toggle:hover { color: var(--tokui-text); background: var(--tokui-border); }
+.tokui-page-sidebar__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: var(--tokui-space-2); }
+/* 折叠态：品牌隐藏、菜单文字裁掉（图标导航模式） */
+.tokui-page--folded .tokui-page-sidebar__brand { visibility: hidden; }
+.tokui-page--folded .tokui-page-sidebar__body .tokui-menu__text { display: none; }
+.tokui-page--folded .tokui-page-sidebar__body .tokui-menu__item { justify-content: center; }
+.tokui-page-sidebar--folded .tokui-page-sidebar__brand { visibility: hidden; }
+
+/* page-content 主区：纵列 + 自滚动 + 裁剪防护（大屏铁律） */
+.tokui-page-content {
+  display: flex; flex-direction: column; gap: var(--tokui-space-3);
+  min-width: 0; min-height: 0; box-sizing: border-box;
+  padding: var(--tokui-space-4);
+  overflow-y: auto; overflow-x: hidden;
+}
+.tokui-page-content > * { flex: 0 0 auto; min-width: 0; }
+.tokui-page-content > .tokui-tabs { flex: 1 1 auto; min-height: 0; }
+
+/* page-tabs 多页签：flex-wrap + order 单容器布局（页签按钮行在上、面板整行在下） */
+.tokui-page-tabs { display: flex; flex-wrap: wrap; align-items: stretch; align-content: flex-start; min-width: 0; }
+.tokui-page-tab { display: contents; }
+.tokui-page-tab__btn {
+  order: 1; position: relative;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: var(--tokui-space-2) var(--tokui-space-4);
+  margin-bottom: -1px; /* 压住面板顶线，激活页签与内容连成一体 */
+  appearance: none; background: transparent;
+  border: 1px solid transparent; border-bottom: none;
+  border-radius: var(--tokui-radius-md) var(--tokui-radius-md) 0 0;
+  font: inherit; font-size: var(--tokui-font-sm);
+  color: var(--tokui-text-secondary); cursor: pointer;
+  transition: color 0.15s, background-color 0.15s, border-color 0.15s;
+}
+.tokui-page-tab__btn:hover { color: var(--tokui-text); }
+.tokui-page-tab__btn:focus-visible { outline: 2px solid var(--tokui-primary); outline-offset: -1px; }
+.tokui-page-tab--active > .tokui-page-tab__btn {
+  background: var(--tokui-bg);
+  border-color: var(--tokui-border);
+  color: var(--tokui-text); font-weight: 500;
+}
+.tokui-page-tab--disabled > .tokui-page-tab__btn { color: var(--tokui-text-disabled); cursor: not-allowed; }
+.tokui-page-tab__close {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; flex: 0 0 auto;
+  font-size: 14px; line-height: 1;
+  color: var(--tokui-text-muted); border-radius: var(--tokui-radius-sm);
+  transition: color 0.15s, background-color 0.15s;
+}
+.tokui-page-tab__close:hover { color: var(--tokui-danger); background: var(--tokui-danger-bg); }
+.tokui-page-tab__panel {
+  order: 2; flex-basis: 100%; min-width: 0;
+  padding-top: var(--tokui-space-3);
+  border-top: 1px solid var(--tokui-border);
+  display: none;
+}
+.tokui-page-tab--active > .tokui-page-tab__panel { display: block; }
+/* 面板内纵排节奏与 content 一致 */
+.tokui-page-tab__panel > * + * { margin-top: var(--tokui-space-2); }

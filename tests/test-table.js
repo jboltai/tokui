@@ -789,7 +789,8 @@ test('table pagination ps:2 - slices rows, shows total, reports page event', () 
   assert.deepStrictEqual(visibleFirstCells(dom), ['c'], 'page 2 shows 1 row');
   assert.strictEqual(events.length, 1);
   assert.strictEqual(events[0].event, 'page');
-  assert.deepStrictEqual(events[0].detail, { value: 2 });
+  // T2.3 载荷完整化：{page,size,filter,sort} 供后端分页对接；value 兼容保留
+  assert.deepStrictEqual(events[0].detail, { value: 2, page: 2, size: 2, filter: {}, sort: null });
 });
 
 // 测试：pagination 流式兼容 - 新行到达维持在当前页、计入总数
@@ -826,6 +827,173 @@ test('table without data attrs - zero intrusion', () => {
   assert.ok(!th.classList.contains('tokui-table__th--sortable'), 'no sortable class');
   assert.strictEqual(th.querySelector('.tokui-table__sort-icon'), null, 'no sort icon');
   assert.deepStrictEqual(visibleFirstCells(dom), ['a', 'b'], 'all rows visible');
+});
+
+
+// ===== T2.3 表格增强测试 =====
+
+function fire(el2, type, evt) {
+  (el2._events && el2._events[type] || []).forEach(fn => fn(evt || { preventDefault() {} }));
+}
+
+function renderTableCols(attrs, cols, rows, trAttrsList) {
+  const rc = new TokUIRenderer();
+  registerTableComponents(rc);
+  const events = [];
+  rc._onComponentEvent = (evt) => events.push(evt);
+  const node = {
+    type: 'table',
+    attrs: attrs || {},
+    children: [
+      { type: 'thead', attrs: { cols: cols }, children: [] },
+      { type: 'tbody', children: rows.map((r, i) => ({ type: 'tr', content: r, attrs: (trAttrsList && trAttrsList[i]) || {}, children: [] })) }
+    ]
+  };
+  const dom = rc.render(node);
+  return { rc, dom, events };
+}
+
+// —— 列宽 w:N ——
+test('T2.3 cols 列宽语法：名称 w:180 → th 显式宽（与 /align 组合）', () => {
+  const { dom } = renderTableCols({}, '名称 w:180,状态 w:90,操作/r w:120', []);
+  const ths = dom.querySelectorAll('th');
+  assert.strictEqual(ths.length, 3);
+  assert.strictEqual(ths[0].style.width, '180px');
+  assert.strictEqual(ths[1].style.width, '90px');
+  assert.strictEqual(ths[2].style.width, '120px', 'w: 与 /align 组合');
+});
+
+test('T2.3 列宽非法值静默忽略', () => {
+  const { dom } = renderTableCols({}, '名称 w:abc,状态 w:5', []);
+  const ths = dom.querySelectorAll('th');
+  assert.ok(!ths[0].style.width, '非法 w 忽略');
+  assert.ok(!ths[1].style.width, '越界 w 忽略（<24）');
+});
+
+// —— fixed / fc:N 列固定（dom-mock 后代选择器不可靠，行/格走直连遍历）——
+function bodyRows(dom) {
+  const tbody = dom.querySelector('tbody');
+  return Array.prototype.slice.call(tbody.children).filter(c => c.tagName === 'TR');
+}
+
+test('T2.3 fixed 首列钉左：th+td 挂 fixed-l 类', () => {
+  const { dom } = renderTableCols({ fixed: true }, '名称,状态,操作', ['a,1,x', 'b,2,y']);
+  const firstTh = dom.querySelectorAll('th')[0];
+  assert.ok(firstTh.classList.contains('tokui-cell--fixed-l'), '表头首列钉左');
+  assert.ok(firstTh.classList.contains('tokui-cell--fixed-l-last'), '左固定末列阴影线');
+  const rows = bodyRows(dom);
+  assert.ok(rows[0].children[0].classList.contains('tokui-cell--fixed-l'), '行首列钉左');
+  assert.strictEqual(rows[0].children[1].className.indexOf('fixed'), -1, '中间列不固定');
+});
+
+test('T2.3 fc:1 尾列钉右 + fixed 组合', () => {
+  const { dom } = renderTableCols({ fixed: true, fc: '1' }, '名称,状态,操作 w:120', ['a,1,del']);
+  const ths = dom.querySelectorAll('th');
+  assert.ok(ths[0].classList.contains('tokui-cell--fixed-l'), '首列钉左');
+  assert.ok(ths[2].classList.contains('tokui-cell--fixed-r'), '尾列钉右');
+  assert.ok(ths[2].classList.contains('tokui-cell--fixed-r-first'), '右固定首列阴影线');
+  assert.ok(!ths[1].classList.contains('tokui-cell--fixed-l') && !ths[1].classList.contains('tokui-cell--fixed-r'), '中间列自由');
+  const td = bodyRows(dom)[0].children[2];
+  assert.ok(td.classList.contains('tokui-cell--fixed-r'));
+});
+
+// —— loading / empty ——
+test('T2.3 loading 布尔：骨架覆盖层 + aria-busy；upd loading:false 撤除', () => {
+  const { dom } = renderTableCols({ loading: true, id: 'tbl1' }, '名称,状态', []);
+  assert.ok(dom.classList.contains('tokui-table-wrapper--loading'));
+  assert.strictEqual(dom.querySelectorAll('.tokui-table__loading-row').length, 5, '骨架行×5');
+  const table = dom.querySelector('table');
+  assert.strictEqual(table.getAttribute('aria-busy'), 'true');
+  dom._update({ loading: 'false' });
+  assert.ok(!dom.classList.contains('tokui-table-wrapper--loading'), 'upd 撤除');
+  assert.strictEqual(table.getAttribute('aria-busy'), null);
+});
+
+test('T2.3 empty 空态：无行显示占位文案，行到达自动隐藏', () => {
+  const { dom } = renderTableCols({ empty: true }, '名称,状态', []);
+  assert.ok(dom.classList.contains('tokui-table-wrapper--empty'));
+  const emptyEl = dom.querySelector('.tokui-table__empty');
+  assert.ok(emptyEl && emptyEl.textContent === '暂无数据', 'i18n 文案');
+  // 行到达（流式增量）→ 真实浏览器走 MutationObserver，此处直调动态刷新验证逻辑
+  const rc2 = new TokUIRenderer();
+  registerTableComponents(rc2);
+  const newTr = rc2.render({ type: 'tr', content: 'a,1', children: [] });
+  dom.querySelector('tbody').appendChild(newTr);
+  if (dom._tokuiDynRefresh) dom._tokuiDynRefresh();
+  assert.ok(!dom.classList.contains('tokui-table-wrapper--empty'), '有行自动隐藏空态');
+});
+
+// —— tr clk 行点击 ——
+test('T2.3 tr clk: 行点击上报 {index,row}（整行数据载荷）', () => {
+  const { dom, events } = renderTableCols({}, '名称,状态', ['a,1'], [{ clk: 'rowClick' }]);
+  const tr = bodyRows(dom)[0];
+  assert.ok(tr.classList.contains('tokui-table-row--clickable'));
+  fire(tr, 'click');
+  const click = events.filter(e => e.type === 'tr' && e.event === 'click');
+  assert.strictEqual(click.length, 1);
+  assert.deepStrictEqual(click[0].detail.row, ['a', '1']);
+  assert.strictEqual(click[0].detail.index, 1);
+});
+
+// —— 分页条与横滚解耦（T2.3 修复回归）——
+test('T2.3 分页条 sticky 钉滚动视口：横滚不动（CSS 契约）', () => {
+  const css = require('fs').readFileSync(require('path').join(__dirname, '../src/styles/tokui.css'), 'utf8');
+  const m = css.match(/\.tokui-table__pager \{[\s\S]*?\}/);
+  assert.ok(m, 'pager 规则存在');
+  assert.ok(m[0].includes('position: sticky'), 'sticky 钉滚动视口左缘');
+  assert.ok(m[0].includes('width: 100%') && m[0].includes('box-sizing: border-box'),
+    '盒宽收敛为视口宽（相对滚动容器包含块），不随超宽表格内容延展');
+});
+
+// —— 表头/固定格底色不透明（T2.3 修复回归：stripe 是半透明罩色，单独作背景会透出滚动内容）——
+test('T2.3 表头与固定表头格底色必须不透明（不透明底 + stripe 罩层复合）', () => {
+  const css = require('fs').readFileSync(require('path').join(__dirname, '../src/styles/tokui.css'), 'utf8');
+  const thRule = css.match(/\.tokui-table th \{[\s\S]*?\}/)[0];
+  assert.ok(thRule.includes('background-color: var(--tokui-bg)'), '表头不透明底');
+  assert.ok(thRule.includes('linear-gradient(var(--tokui-stripe)'), 'stripe 作罩层保留层次');
+  const fixedTh = css.match(/\.tokui-table th\.tokui-cell--fixed-l[^\n]*\{[^\n]*\}/)[0];
+  assert.ok(fixedTh.includes('background-color: var(--tokui-bg)'), '固定表头格不透明底');
+});
+
+// —— 固定列体单元格底色不透明（斑马纹偶行/hover 优先级梯队）——
+test('T2.3 固定列体单元格逐级压过 stripe 偶行与 hover 背景（不透明梯队）', () => {
+  const css = require('fs').readFileSync(require('path').join(__dirname, '../src/styles/tokui.css'), 'utf8');
+  // 基础：td 级固定格不透明底（specificity 须 ≥ stripe 偶行规则）
+  assert.ok(/\.tokui-table td\.tokui-cell--fixed-l[^{]*\{[^}]*background-color: var\(--tokui-bg\)/.test(css), '基础不透明底');
+  // 斑马纹偶行：不透明底 + stripe 罩层（nth-child 选择器压过偶行规则）
+  assert.ok(/\.tokui-table--stripe tbody tr:nth-child\(even\) td\.tokui-cell--fixed-[lr][^{]*\{[^}]*background-color: var\(--tokui-bg\)/.test(css), '偶行不透明复合');
+  // hover 两态：实色覆盖
+  assert.ok(/tr:hover td\.tokui-cell--fixed-[lr][^{]*\{[^}]*background-color: var\(--tokui-primary-(hover|focus)\)/.test(css), 'hover 实色');
+});
+
+// —— 每列最小宽兜底（角色列竖排教训：无 w: 的 auto 列被压到 min-content）——
+test('T2.3 th 每列最小宽：无定宽 auto 列不塌缩成竖排（chk/序号豁免）', () => {
+  const css = require('fs').readFileSync(require('path').join(__dirname, '../src/styles/tokui.css'), 'utf8');
+  assert.ok(/\.tokui-table th \{[^}]*min-width: var\(--tokui-table-min-col-w, 96px\)/.test(css), 'th 列级 min-width 与表格整体 calc(N×96) 假设对齐');
+  assert.ok(/th\.tokui-col-chk, \.tokui-table th\.tokui-col-seq \{ min-width: 40px; \}/.test(css), 'chk/序号列豁免保持紧凑');
+});
+
+// —— 树形展开行 ——
+test('T2.3 树形行：pid 子行默认折叠，展开钮切换，upd act:expand 程序化', () => {
+  const { dom } = renderTableCols({}, '名称,状态',
+    ['总部,x', '研发,y', '前端,z'],
+    [{ id: 'root' }, { pid: 'root', id: 'dev' }, { pid: 'dev' }]);
+  const rows = bodyRows(dom);
+  const root = rows[0], dev = rows[1], leaf = rows[2];
+  assert.ok(root.classList.contains('tokui-table-row--parent'), '父行标记');
+  assert.ok(root.querySelector('.tokui-table__tree-toggle'), '展开钮');
+  assert.strictEqual(dev.style.display, 'none', '子行默认折叠');
+  assert.strictEqual(leaf.style.display, 'none');
+  assert.strictEqual(dev.getAttribute('data-depth'), '1');
+  assert.strictEqual(leaf.getAttribute('data-depth'), '2', '孙行深度 2');
+  // 展开 root → dev 显示、leaf 仍藏（孙行随其父）
+  fire(root.querySelector('.tokui-table__tree-toggle'), 'click');
+  assert.strictEqual(dev.style.display, '');
+  assert.strictEqual(leaf.style.display, 'none');
+  assert.strictEqual(root.getAttribute('aria-expanded'), 'true');
+  // upd act:expand 程序化展开 dev
+  dev._update({ act: 'expand' });
+  assert.strictEqual(leaf.style.display, '', 'upd 展开');
 });
 
 run();

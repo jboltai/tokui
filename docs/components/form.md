@@ -17,6 +17,36 @@
 > `sub:` 指向的处理器需通过 `TokUI.registerHandler(name, fn)` 预先注册；`btn` 上用 `sub:xxx` 触发表单提交。
 > 表单外的按钮可用 `form:ID` 显式绑定目标表单（见下节[表单动作](#表单动作-提交-重置-数据收集)），不再依赖 DOM 层级。
 
+### 布局属性（M2 / T2.2）
+
+| 属性 | 含义 | 示例 |
+|------|------|------|
+| `cols` | 字段网格列数 1~4（非法值忽略） | `cols:2` |
+| `lw` | 标签统一宽 px（40~320） | `lw:84` |
+| `gap` | 字段间距 px（0~48） | `gap:14` |
+| `v:inline` | 全字段行内（过滤条；与 `cols` 同写时 `cols` 优先） | `v:inline` |
+
+字段级 `v:full` 跨整行（input/pwd/select/textarea/picker/cascader/transfer/upload/numinput/日历时件均支持）——长文本备注、整行开关组场景。
+
+<Playground dsl='[card tt:编辑资料][form cols:2 lw:84 gap:14][input l:姓名 n:name req][select l:部门 n:dept opt:"1:技术部;2:市场部"][datepicker l:入职 n:entry][switcher l:在职 n:active][textarea l:备注 n:memo v:full ph:"跨两列整行的备注…"][/form][/card][card tt:过滤条][form v:inline][input l:关键字 n:kw search ph:"搜索…"][select l:状态 n:st opt:"0:全部;1:进行中"][btn tx:查询 v:primary][/form][/card]' />
+
+### 编辑回填闭环（M2 / T2.4）
+
+「编辑」场景标准范式：dialog 常驻 DOM → 服务端逐字段 `[upd id:]` 回填 → `showModal` → 用户修改提交。全控件矩阵：
+
+| 控件 | 回填指令 | 语义 |
+|---|---|---|
+| input/pwd/textarea/numinput | `[upd id:x v:值]` | 直写 |
+| select / radio / checkbox | `[upd id:x v:key]`（多选 `v:"a,c"` 覆盖式） | 选中项/集合 |
+| datepicker（含 range） | `[upd id:x v:2024-06-01]` / `"起 ~ 止"` | 写入 + 面板重定位 |
+| timepicker / datetimepicker | `[upd id:x v:"09:30"]` / `"2024-06-01 09:30"` | 写入 + 状态重解析 |
+| cascader | `[upd id:x v:"gd/gz"]` | 路径合法才写（非法静默） |
+| transfer | `[upd id:x v:"1,2"]` | 右栏按序重排 + 清勾选 |
+| upload | `[upd id:x act:fill files:"名,url,大小|…"]` | 回显已传文件（✕ 可删） |
+| 通用 | `[upd id:x dis:true/false]`（radio 整组/transfer 移动钮/picker 同步） | 禁用态 |
+
+配套 `[btn tx:重置 reset]`：cascader / 日历时件 / transfer / upload 等自定义控件按初始值复原（`tokuireset` 契约）。
+
 <Playground dsl='[card tt:登录表单][form id:loginForm act:/api/login mtd:post sub:onLogin][input l:账号 n:username ph:"请输入账号" req][pwd l:密码 n:password ph:"请输入密码" req][btngroup][btn tx:登录 v:primary form:loginForm sub:onLogin][btn tx:重置 v:ghost form:loginForm reset][/btngroup][/form][/card]' />
 
 ## 表单动作：提交 / 重置 / 数据收集

@@ -1368,7 +1368,38 @@ test('漏空格：流式场景同样生效', () => {
   assert.strictEqual(events[0].attrs.tx, '¥48.20');
 });
 
+// ===== CJK 漏空格粘连拆分的文档性文本守卫（第三课：值内「（v:full）」式内嵌）=====
+test('粘连守卫：ph 值含「（v:full）」不被拆走、同名 v 不被覆盖', () => {
+  const nodes = [];
+  new TokUIParser((n) => nodes.push(n)).parse('[input n:memo l:备注 v:full ph:跨两列的长备注（v:full）]');
+  const a = nodes[0].attrs;
+  assert.strictEqual(a.v, 'full', 'v 不被覆盖（跨整行变体保留）');
+  assert.strictEqual(a.ph, '跨两列的长备注（v:full）', 'ph 完整');
+});
+test('粘连守卫：闭括号内嵌「（key:值）」不拆', () => {
+  const nodes = [];
+  new TokUIParser((n) => nodes.push(n)).parse('[btn tx:操作（clk:demo）示范 t:primary]');
+  assert.strictEqual(nodes[0].attrs.tx, '操作（clk:demo）示范');
+  assert.strictEqual(nodes[0].attrs.t, 'primary');
+});
+test('粘连救援保持：l:服务费（10%）tx:¥48.20 仍正确拆分', () => {
+  const nodes = [];
+  new TokUIParser((n) => nodes.push(n)).parse('[item l:服务费（10%）tx:¥48.20]');
+  assert.strictEqual(nodes[0].attrs.l, '服务费（10%）');
+  assert.strictEqual(nodes[0].attrs.tx, '¥48.20');
+});
+
 // ===== 引号跨属性吞噬容错（AI 引号只开不关，多属性写进一个引号段）=====
+// 散文指纹守卫回归：描述性文本（文档示例「名称 w:180」；fixed …）含 CJK 引号/句读，
+// 不是被吞属性——repair 不得拆（T2.3 教训泛化：thead cols 豁免之外的第二类误伤）
+test('散文指纹：tx 含「名称 w:180」文档文本不被拆（w/fc 不误生成）', () => {
+  const nodes = [];
+  new TokUIParser((n) => nodes.push(n)).parse('[callout t:info tt:能力面 tx:"cols 列宽语法「名称 w:180」；fixed 首列钉左 / fc:N 尾列钉右；loading（upd loading:false 撤除）；tr pid: 树形展开行。"]');
+  const a = nodes[0].attrs;
+  assert.deepStrictEqual(Object.keys(a).sort(), ['t', 'tt', 'tx'], '无 w/fc 误拆');
+  assert.ok(a.tx.includes('w:180') && a.tx.includes('树形展开行'), '文本完整保留');
+});
+
 test('引号吞噬：l:"商品金额 tx:¥6,299" → 拆出 tx', () => {
   const nodes = [];
   new TokUIParser((n) => nodes.push(n)).parse('[item l:"商品金额 tx:¥6,299"]');

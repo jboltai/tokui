@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.6] - 2026-09-13
+
+Admin Pack 启航（M2 / T2.1 `page` 应用壳六件套）+ M2 收官三件（T2.2 表单布局 / T2.3 表格增强 / T2.4 编辑回填闭环）。
+
+### 新增（T2.1 应用壳，详见前述提交 47bd984）
+
+- `page` 六件套（page/page-header/page-sidebar/page-content/page-tabs/page-tab）：grid areas 三区骨架、面包屑页头、可折叠侧栏（240⇄64 列宽过渡）、自滚动主区、多页签（change/close 上报、upd 静默切换、del 整签移除、键盘导航、流式跟随激活）；menu `change` 载荷扩展 `{value,item,path}` 联动面包屑。
+
+### 新增（T2.2 表单布局）
+
+- **`form` 布局属性**：`cols:1~4` 字段网格（每个 `.tokui-field` 占一格）· `lw` 标签统一宽 px（40~320，落 `--tokui-form-label-w`）· `gap` 间距 px（0~48）；`v:inline` 全字段行内过滤条（入 VARIANTS 白名单；与 `cols` 同写 cols 优先，由 CSS 声明顺序保证）；**字段级 `v:full` 跨整行**——input/pwd/select/textarea/numinput/picker/cascader/transfer/upload/date·time·datetimepicker 全字段类型支持（类经白名单落控件，CSS `:has()` 渐进增强让字段格 `grid-column:1/-1`）。
+- **parser `cols` 自闭合豁免补 `form`**（流式/缓冲双路径同步）：此前 `[form cols:2]…[/form]` 被 cols 触发器误判自闭合、子字段全部漏成兄弟。同步点：dsl-lint COLS_EXEMPT/LEGIT。
+
+### 新增（T2.3 表格增强）
+
+- **列宽语法**：thead cols 内 `名称 w:180`（24~2000px，可与 `/对齐` `/配色` 组合如 `金额 w:120/r`），th 显式宽传导 body 列；chk/# 列同支持。
+- **列固定**：`fixed` 首列钉左 / `fc:N`（0~6）尾列钉右——`position:sticky` + 偏移按列宽实测累计；流式行后到 / 容器宽变由 MutationObserver + ResizeObserver 自动重算（类标记与像素偏移分离，dom-mock 可测）；分界渐隐阴影线（`::after` 双向渐变，无生硬竖线）。
+- **表态**：`loading` 表体骨架覆盖（5 行呼吸骨架 + aria-busy，`[upd id: loading:false]` 撤除）；`empty` 空态占位（i18n `table.empty`，行到达自动隐藏）。
+- **行交互**：`tr clk:handler` 行点击上报 `{index, row[]}` 整行数据（走 createReporter 单通道，`on:`/`clk:` 双写法归一）；分页 `page` 载荷完整化 `{page,size,filter,sort}`（`value` 兼容保留）。
+- **树形行**：`tr id:x pid:父行id` 约定——子行默认折叠、按 pid 链深度缩进（data-depth 自适应）、父行首格 CSS 三角展开钮（aria-expanded）、`[upd id:父行id act:expand/collapse]` 程序化；孙行随其父行状态。
+- **builder `row()` 支持尾参 attrs**（`b.row('a','b',{id:'r1',pid:'root'})`）；BOOLEAN_ATTRS +`fixed`/`loading`/`empty`；i18n `table.empty`/`table.expandRow` 双语。
+- **批3**：「翻页事件 → 宿主 del/ins 重渲」后端分页范式文档化（DSL 参考 + data.md），为 T5.1 `data:` 数据源铺路。
+
+### 新增（T2.4 编辑回填闭环）
+
+- **五控件 `_update` 补齐**：cascader `v:"a/b/c"`（抽出 `applyValue` 路径校验共用，流式树未建时暂存回放；非法路径静默）；datepicker（含 range）`v:` 写入 + 面板状态重定位；timepicker/datetimepicker `v:` 写入 + 时/日期状态重解析；transfer `v:"1,3"` 右栏按序重排 + 勾选清零；upload `act:fill files:"名,url,大小|…"` 回显已传文件（✕ 可删）。
+- **reset 契约补齐**：三个日历时件入 `data-tokui-resettable`（初始值快照复原）；cascader reset 补 activeValues 清理。
+- **补漏**：radio `upd dis:` 整组禁用；select `upd ro:`（disabled 实现 + `--readonly` 标记类）。
+- DSL 参考/VitePress「编辑回填闭环」节：全控件回填矩阵 + 「dialog 常驻 → 逐字段 upd → showModal」范式。
+
+### 修复
+
+- **parser「引号吞噬修复」误拆 thead 列宽**：`cols:"名称 w:170,规格 w:220"` 中的 ` w:N` 被 ATTR_KEYS 启发式当「被吞属性」拆出（cols 断成两段、表头只剩 1 列）——修复循环对 `thead.cols` 精准豁免（Playwright 实测发现，吞噬修复原场景回归通过）。
+
+### 行为变更说明
+
+- `tests/test-table.js` 分页断言随载荷扩展更新（`{value}` → `{value,page,size,filter,sort}`）；`page` 事件 `value` 字段兼容保留。
+
 ## [0.2.5] - 2026-09-09
 
 ChatBI 数据大屏体系打磨（fit-screen 适配 / 翻牌器 / 轮播榜 / 监控大屏布局）+ 中国地图组件 T0~T6 精修 + cls/style 样式定制通道 + grid areas 流式骨架占位。

@@ -131,6 +131,7 @@ auto-fill 卡片墙（随容器宽度自动列数；无需跨区/跨行列时子
 | `tt` | 标题 | `tt:确认操作` |
 | `id` | 标识（触发按钮 `data-target` 指向它） | `id:myDialog` |
 | `clk` | 关联处理器名 | `clk:openDialog` |
+| `w` | 弹窗宽度 px（480~1200 才生效，落 max-width；默认 480）——编辑表单（`cols:2`/transfer）等宽内容用 `w:720` | `w:720` |
 
 > 由按钮触发：触发按钮写 `clk:openDialog data-target:"<dialog 的 id>"`，对应 `[dialog id:...]` 必须带**相同 id**。点击按钮调用内置 `openDialog` 处理器按 id 找到 dialog 并 `showModal()` 弹出；弹窗内的取消/确认按钮写 `clk:closeDialog` 自动收起所在弹窗（无需手写 id）。
 

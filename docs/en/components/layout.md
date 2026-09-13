@@ -131,6 +131,7 @@ Built on the native `<dialog>` element, with a backdrop + centered modal. Esc / 
 | `tt` | Title | `tt:确认操作` |
 | `id` | Identifier (the trigger button's `data-target` points to it) | `id:myDialog` |
 | `clk` | Handler name | `clk:openDialog` |
+| `w` | Dialog width in px (only 480–1200 takes effect, applied as max-width; default 480) — use `w:720` for wide edit forms (`cols:2`/transfer) | `w:720` |
 
 > Triggered by a button: the trigger button uses `clk:openDialog data-target:"<the dialog's id>"`, and the matching `[dialog id:...]` must carry the **same id**. Clicking calls the built-in `openDialog` handler, which finds the dialog by id and calls `showModal()`. Cancel/confirm buttons inside use `clk:closeDialog` to dismiss the enclosing dialog (no id needed).
 

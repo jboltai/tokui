@@ -342,4 +342,159 @@ test('t:submit 按钮在 form 外 → 退化为普通点击（handler 收 null d
   TokUIEventBus.clearAll();
 });
 
+
+// ===== T2.4 编辑回填矩阵：五控件 _update / tokuireset / 补漏 =====
+
+function fire(el2, type, evt) {
+  (el2._events && el2._events[type] || []).forEach(fn => fn(evt || { preventDefault() {} }));
+}
+
+function renderOne(dsl, type) {
+  const rc = makeRenderer();
+  const nodes = [];
+  new TokUIParser(n => nodes.push(n)).parse(dsl);
+  let target = null;
+  for (const root of nodes) { target = _findType(root, type); if (target) break; }
+  assert.ok(target, 'DSL 应含 ' + type);
+  return { rc, dom: rc.render(target) };
+}
+function _findType(node, type) {
+  if (node.type === type) return node;
+  for (const c of (node.children || [])) { const f = _findType(c, type); if (f) return f; }
+  return null;
+}
+function findCls(root, cls) {
+  if (root.nodeType !== 1) return null;
+  if ((root.className || '').split(' ').indexOf(cls) !== -1) return root;
+  for (const c of (root.childNodes || [])) { const f = findCls(c, cls); if (f) return f; }
+  return null;
+}
+function hiddenOf(dom) { return dom.querySelector('input[type=hidden]'); }
+
+// —— cascader ——
+const CASC_DSL = '[cascader l:区域 n:area][opt v:gd tx:广东][opt v:gz tx:广州 p:gd][opt v:th tx:天河 p:gz][/cascader]';
+test('T2.4 cascader upd v:"gd/gz/th" 回填路径文本 + hidden', () => {
+  const { dom } = renderOne(CASC_DSL, 'cascader');
+  dom._update({ v: 'gd/gz/th' });
+  const input = dom.querySelector('.tokui-cascader-input');
+  const hidden = hiddenOf(dom);
+  assert.strictEqual(input.value, '广东 / 广州 / 天河');
+  assert.strictEqual(hidden.value, 'gd/gz/th');
+});
+test('T2.4 cascader upd 非法路径静默不写', () => {
+  const { dom } = renderOne(CASC_DSL, 'cascader');
+  dom._update({ v: 'no/such/path' });
+  assert.ok(!hiddenOf(dom).value, '非法路径不写（初始空）');
+});
+test('T2.4 cascader upd dis 禁用 + tokuireset 复原', () => {
+  const { dom } = renderOne(CASC_DSL, 'cascader');
+  dom._update({ v: 'gd/gz', dis: true });
+  assert.ok(findCls(dom, 'tokui-cascader--disabled'));
+  dom._tokuiReset();
+  assert.ok(!hiddenOf(dom).value, 'reset 复原初始空值');
+});
+
+// —— datepicker ——
+test('T2.4 datepicker upd v 回填 + reset 复原', () => {
+  const { dom } = renderOne('[datepicker l:入职 n:entry v:2024-01-01]', 'datepicker');
+  dom._update({ v: '2025-06-15' });
+  const input = dom.querySelector('.tokui-datepicker-input');
+  assert.strictEqual(input.value, '2025-06-15');
+  assert.strictEqual(hiddenOf(dom).value, '2025-06-15');
+  dom._update({ dis: true });
+  assert.strictEqual(input.disabled, true);
+  dom._tokuiReset();
+  assert.strictEqual(input.value, '2024-01-01', 'reset 复原初始值');
+});
+
+// —— timepicker / datetimepicker ——
+test('T2.4 timepicker upd v:"09:30" 回填', () => {
+  const { dom } = renderOne('[timepicker l:时间 n:t]', 'timepicker');
+  dom._update({ v: '09:30' });
+  const input = dom.querySelector('.tokui-timepicker-input, .tokui-datepicker-input') || dom.querySelector('input');
+  assert.strictEqual(input.value, '09:30');
+  assert.strictEqual(hiddenOf(dom).value, '09:30');
+});
+test('T2.4 datetimepicker upd v 回填（日期+时间状态重解析）', () => {
+  const { dom } = renderOne('[datetimepicker l:时间 n:dt]', 'datetimepicker');
+  dom._update({ v: '2025-06-15 09:30' });
+  const input = dom.querySelector('input');
+  assert.strictEqual(input.value, '2025-06-15 09:30');
+  assert.strictEqual(hiddenOf(dom).value, '2025-06-15 09:30');
+  dom._tokuiReset();
+  assert.ok(!input.value, 'reset 复原初始空值');
+});
+
+// —— transfer ——
+const TRANS_DSL = '[transfer l:权限 n:perm][opt v:1 tx:查看][opt v:2 tx:编辑][opt v:3 tx:删除 chk][opt v:4 tx:导出 chk][/transfer]';
+test('T2.4 transfer upd v:"1,4" 右栏按序重排', () => {
+  const { dom } = renderOne(TRANS_DSL, 'transfer');
+  dom._update({ v: '4,1' }); // 初始右栏 [3,4] → 目标 [4,1]
+  const hidden = hiddenOf(dom);
+  assert.strictEqual(hidden.value, '4,1');
+  const right = dom.querySelectorAll('.tokui-transfer__panel')[1];
+  const rightVals = right._items.map(i => i._cb.value);
+  assert.deepStrictEqual(rightVals, ['4', '1'], '右栏按 wanted 序');
+});
+test('T2.4 transfer upd dis 禁用移动钮', () => {
+  const { dom } = renderOne(TRANS_DSL, 'transfer');
+  dom._update({ dis: true });
+  const btns = dom.querySelectorAll('.tokui-transfer__btn');
+  assert.strictEqual(btns[0].disabled, true);
+  assert.strictEqual(btns[1].disabled, true);
+});
+
+// —— upload ——
+test('T2.4 upload upd act:fill files 回显已传文件（✕ 可删）', () => {
+  const { dom } = renderOne('[upload l:附件 n:files]', 'upload');
+  dom._update({ act: 'fill', files: '合同.pdf,https://x/a.pdf,204800|头像.png,https://x/b.png,8192' });
+  const names = dom.querySelectorAll('.tokui-upload-file-name');
+  assert.strictEqual(names.length, 2);
+  assert.strictEqual(names[0].textContent, '合同.pdf');
+  const hidden = hiddenOf(dom);
+  assert.strictEqual(hidden.value, '合同.pdf,头像.png');
+});
+
+// —— radio dis / select ro 补漏 ——
+test('T2.4 radio upd dis 整组禁用', () => {
+  const { dom } = renderOne('[radio l:状态 n:st opt:"1:启用;0:停用"]', 'radio');
+  const inputs = dom.querySelectorAll('input[type=radio]');
+  dom._update({ dis: true });
+  inputs.forEach(i => assert.strictEqual(i.disabled, true));
+  dom._update({ dis: false });
+  inputs.forEach(i => assert.strictEqual(i.disabled, false));
+});
+test('T2.4 select upd ro 只读（disabled 实现 + 标记类）', () => {
+  const { dom } = renderOne('[select l:部门 n:dept opt:"1:研发;2:销售"]', 'select');
+  dom._update({ ro: true });
+  const sel = dom.querySelector('select');
+  assert.strictEqual(sel.disabled, true);
+  assert.ok((sel.className || '').split(' ').indexOf('tokui-select--readonly') !== -1);
+});
+
+// —— 打开弹窗→逐字段回填→提交 范式（组合冒烟） ——
+test('T2.4 编辑回填范式：dialog 表单逐字段 upd 后 FormData 值齐', () => {
+  const { rc, dom } = renderOne(
+    '[dialog tt:编辑用户 id:editDlg open][form id:editForm sub:saveUser cols:2 lw:100]' +
+    '[input n:name l:姓名 id:f-name][datepicker n:entry l:入职 id:f-entry]' +
+    '[cascader n:area l:区域 id:f-area][opt v:gd tx:广东][opt v:gz tx:广州 p:gd][/cascader]' +
+    '[transfer n:perm l:权限 id:f-perm][opt v:1 tx:查看][opt v:2 tx:编辑][/transfer]' +
+    '[/form][/dialog]', 'dialog');
+  const form = findCls(dom, 'tokui-form');
+  // 宿主回填：upd 逐字段
+  rc.mount({ type: 'upd', attrs: { id: 'f-name', v: '张伟' }, children: [] }, form);
+  rc.mount({ type: 'upd', attrs: { id: 'f-entry', v: '2023-03-15' }, children: [] }, form);
+  rc.mount({ type: 'upd', attrs: { id: 'f-area', v: 'gd/gz' }, children: [] }, form);
+  rc.mount({ type: 'upd', attrs: { id: 'f-perm', v: '1,2' }, children: [] }, form);
+  const nameInput = form.querySelector('[id=f-name]');
+  assert.strictEqual(nameInput && nameInput.value, '张伟');
+  const cascade = findCls(form, 'tokui-cascader');
+  assert.ok(cascade, 'cascader 存在');
+  const hiddenVals = {};
+  form.querySelectorAll('input[type=hidden]').forEach(h => { if (h.name) hiddenVals[h.name] = h.value; });
+  assert.strictEqual(hiddenVals['entry'], '2023-03-15');
+  assert.strictEqual(hiddenVals['area'], 'gd/gz');
+  assert.strictEqual(hiddenVals['perm'], '1,2');
+});
+
 run();

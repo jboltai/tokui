@@ -30,7 +30,7 @@ All chart types share these props, self-closing.
 | `l` | Labels, comma-separated | `l:"Jan,Feb,Mar"` |
 | `c` | Custom color sequence, comma-separated; supports `#hex` / `rgb()` / `var(--x)` | `c:"#1677ff,#52c41a"` |
 | `tt` | Title | `tt:Monthly Sales` |
-| `w` / `h` | SVG width/height (px, internal coord ratio only) | `w:480` |
+| `w` / `h` | SVG width/height (px, internal ratio; auto re-rendered to fill fixed-height cells, except map) | `w:480` |
 | `v` | Single value (donut center text / progress / gauge current) | `v:75` |
 | `area` | Fill line chart (boolean) | `area` |
 | `vals` | Show value labels on bars/lines (boolean) | `vals` |

@@ -784,6 +784,10 @@ function registerLayoutComponents(renderer) {
     var attrs = { class: 'tokui-dialog' };
     if (node.attrs.id) attrs.id = node.attrs.id;
     var dialog = el('dialog', attrs);
+    // w: 弹窗宽度 px（480~1200，落 max-width 覆盖默认 480）——编辑表单（cols:2/transfer）
+    // 等宽内容场景用；非法值静默忽略
+    var _dw = parseInt(node.attrs.w, 10);
+    if (!isNaN(_dw) && _dw >= 480 && _dw <= 1200) dialog.style.maxWidth = _dw + 'px';
     // 交互上报：原生 <dialog> 的 close 事件覆盖全部用户关闭路径
     //（关闭按钮 / 点击背板 dialog.close() / Esc）；
     // _update act:close 的程序化关闭置静默标记跳过上报（防「upd → 回报 → 再 upd」回环）
@@ -2442,7 +2446,9 @@ function registerLayoutComponents(renderer) {
     itemEl.classList.add('tokui-menu__item--active');
     itemEl.setAttribute('aria-current', 'true');
     if (!silent && menu && menu._report) {
-      menu._report('change', { value: _menuItemValue(itemEl) });
+      // item + path 供「菜单→page-header 面包屑」联动（path 为各级标题路径数组，扁平菜单为单段）
+      var val = _menuItemValue(itemEl);
+      menu._report('change', { value: val, item: val, path: [val] });
     }
   }
 

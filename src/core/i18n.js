@@ -52,6 +52,8 @@ var STRINGS = {
     'lightbox.prev': '上一张',
     'lightbox.next': '下一张',
     'sidebar.toggle': '折叠/展开侧栏',
+    'page.toggleAside': '折叠/展开侧栏',
+    'page.closeTab': '关闭标签页',
     'canvas.openPanel': '打开面板',
     'canvas.closePanel': '关闭面板',
     'pagination.prev': '上一页',
@@ -65,6 +67,8 @@ var STRINGS = {
     'calendar.prevMonth': '上个月',
     'calendar.nextMonth': '下个月',
     'table.selectAll': '全选',
+    'table.empty': '暂无数据',
+    'table.expandRow': '展开/折叠子行',
     'pwd.toggle': '显示/隐藏密码',
 
     // —— Layout 布局类 ——
@@ -286,6 +290,8 @@ var STRINGS = {
     'lightbox.prev': 'Previous',
     'lightbox.next': 'Next',
     'sidebar.toggle': 'Toggle sidebar',
+    'page.toggleAside': 'Toggle sidebar',
+    'page.closeTab': 'Close tab',
     'canvas.openPanel': 'Open panel',
     'canvas.closePanel': 'Close panel',
     'pagination.prev': 'Previous page',
@@ -299,6 +305,8 @@ var STRINGS = {
     'calendar.prevMonth': 'Previous month',
     'calendar.nextMonth': 'Next month',
     'table.selectAll': 'Select all',
+    'table.empty': 'No data',
+    'table.expandRow': 'Expand/collapse rows',
     'pwd.toggle': 'Toggle password visibility',
 
     // —— layout ——

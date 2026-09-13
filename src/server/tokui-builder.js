@@ -218,13 +218,19 @@ class TokUIBuilder {
   tbody() { return this._open('tbody'); }
   /** 表格数据行，多个值用逗号拼接，含逗号的值自动加双引号 */
   row(...values) {
+    // T2.3：尾参可为 attrs 对象（tr id/pid/clk 等）——[tr id:x pid:y] 树形行/行点击
+    let attrs;
+    const last = values[values.length - 1];
+    if (last && typeof last === 'object' && !Array.isArray(last)) {
+      attrs = values.pop();
+    }
     const escaped = values.map(v => {
       const s = String(v);
       // 只对含逗号的 cell 加引号，含冒号的交给 _selfClosing 统一处理
       if (s.includes(',')) return `"${s}"`;
       return s;
     });
-    return this._selfClosing('tr', escaped.join(','));
+    return this._selfClosing('tr', escaped.join(','), attrs);
   }
 
   // ========== 表单组件 ==========
@@ -684,6 +690,26 @@ class TokUIBuilder {
 
   /** 大屏缩放容器（1920×1080 设计稿等比适配） */
   fitScreen(attrs) { return this._open('fit-screen', attrs); }
+
+  // ========== 应用壳组件（M2 Admin Pack / T2.1，均为容器需 .end()） ==========
+
+  /** 应用壳（page-header/page-sidebar/page-content 三件套落位 grid areas） */
+  page(attrs) { return this._open('page', attrs); }
+
+  /** 页头（子节点为右侧动作区；bc 逗号分级面包屑，sticky 吸顶） */
+  pageHeader(attrs) { return this._open('page-header', attrs); }
+
+  /** 侧栏（内置品牌行 + 折叠钮，子节点为主体内容） */
+  pageSidebar(attrs) { return this._open('page-sidebar', attrs); }
+
+  /** 主区薄包装（自滚动 + 裁剪防护） */
+  pageContent(attrs) { return this._open('page-content', attrs); }
+
+  /** 多页签容器（act 指定初始激活页签 key） */
+  pageTabs(attrs) { return this._open('page-tabs', attrs); }
+
+  /** 单页签（n 为 key，closeable 可关闭，del 整签移除） */
+  pageTab(attrs) { return this._open('page-tab', attrs); }
 
 
   /** 流式闪光加载（自闭合） */
