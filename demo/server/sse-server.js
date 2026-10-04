@@ -56,7 +56,7 @@ const DEMOS = [
   {
     trigger: 'show-basic',
     title: '段落与链接',
-    desc: '展示段落变体、链接变体、禁用态及实际应用场景',
+    desc: '展示段落变体、链接变体、clk 事件链接、禁用态及实际应用场景',
     build() {
       const b = new TokUIBuilder();
       b.row_layout()
@@ -110,6 +110,12 @@ const DEMOS = [
               .a({ tx: '修改', u: '#' })
               .a({ tx: '删除', u: '#', v: 'danger' })
               .a({ tx: '恢复', u: '#', v: 'success' })
+            .end()
+            .p('事件链接（clk）— 点击拦截跳转、触发命名 handler；data-* 或 ?k=v 内联参数携带数据：')
+            .row_layout({ v: 'inline' })
+              .a({ tx: 'data-* 携带', u: 'https://tokui.jboltai.com', clk: 'handleLinkClick', 'data-id': '1024', 'data-scene': 'order-list' })
+              .a({ tx: '内联参数携带', u: '#', clk: 'handleLinkClick?id=2048&scene=feedback', v: 'underline' })
+              .a({ tx: '禁用的事件链接', u: '#', clk: 'handleLinkClick', dis: true, v: 'muted', 'data-id': '4096' })
             .end()
           .end()
         .end()
@@ -2232,7 +2238,7 @@ const DEMOS = [
             .cardTx('快捷操作', '点击左侧导航选择更多组件示例。')
           .end()
           .col_layout({ span: 6 })
-            .cardTx('版本更新', 'TokUI v0.2.6 已发布，支持卡片自闭合模式。')
+            .cardTx('版本更新', 'TokUI v0.2.7 已发布，支持卡片自闭合模式。')
           .end()
         .end()
         .hr()
@@ -2422,7 +2428,7 @@ const DEMOS = [
                 .a({ tx: '帮助文档', u: '/docs' })
                 .p(' | ')
                 .a({ tx: '联系我们', u: '/contact' })
-                .p('版本 v0.2.6')
+                .p('版本 v0.2.7')
               .end()
             .end()
           .end()
@@ -2955,15 +2961,15 @@ const DEMOS = [
             .end()
           .end()
         .end();
-      // 操作列多按钮：tr 行内有 btn:/progress v: 等带空格属性的格 → 整行外层双引号包
-      // （否则 clk:/data-prompt: 被 parser 吃成 tr 属性、操作列消失）。多按钮用 | 分隔，ID 烧进 data-prompt。
-      b.p('操作列多按钮：行内有 btn:/progress v: 等带空格属性的格，整行 tr 必须外层双引号包（否则操作列渲染不出来）：');
+      // 操作列多按钮：btn:/progress v: 等带空格属性的格直接裸写（parser 已把简写格子属性归位到单元格，
+      // 2026-09 起，整行外层引号的旧写法仍兼容但已无必要）。多按钮用 | 分隔，ID 烧进 data-prompt。
+      b.p('操作列多按钮：行内有 btn:/progress v: 等带空格属性的格，直接裸写（格内勿含英文逗号，多按钮 | 分隔）：');
       b.card({ tt: '操作列 · 文字钮（详情/编辑/删除 + 进度 + ID）' })
         .table({ stripe: true, v: 'bordered' })
           .theadCols('#,项目,数值,趋势,操作')
           .tbody()
-            .text('[tr ",P01,42,progress v:42 t:span,btn:详情 clk:fillSubmit data-prompt:查看详情:P01|btn:编辑 clk:fillSubmit data-prompt:编辑:P01|btn:删除 v:danger clk:fillSubmit data-prompt:删除:P01"]')
-            .text('[tr ",P02,88,progress v:88 t:span,btn:详情 clk:fillSubmit data-prompt:查看详情:P02|btn:编辑 clk:fillSubmit data-prompt:编辑:P02|btn:删除 v:danger clk:fillSubmit data-prompt:删除:P02"]')
+            .text('[tr ,P01,42,progress v:42 t:span,btn:详情 clk:fillSubmit data-prompt:查看详情:P01|btn:编辑 clk:fillSubmit data-prompt:编辑:P01|btn:删除 v:danger clk:fillSubmit data-prompt:删除:P01]')
+            .text('[tr ,P02,88,progress v:88 t:span,btn:详情 clk:fillSubmit data-prompt:查看详情:P02|btn:编辑 clk:fillSubmit data-prompt:编辑:P02|btn:删除 v:danger clk:fillSubmit data-prompt:删除:P02]')
           .end()
         .end()
       .end();
@@ -2971,8 +2977,8 @@ const DEMOS = [
         .table({ stripe: true, v: 'bordered' })
           .theadCols('#,工单,进度,状态,操作')
           .tbody()
-            .text('[tr ",WO-001,progress v:60 t:span,tag:进行中 t:primary,btn: icon:view l:详情 v:primary clk:fillSubmit data-prompt:查看详情:WO-001|btn: icon:edit l:编辑 v:warning clk:fillSubmit data-prompt:编辑:WO-001|btn: icon:delete l:删除 v:danger clk:fillSubmit data-prompt:删除:WO-001"]')
-            .text('[tr ",WO-002,progress v:100 t:span,tag:已完工 t:success,btn: icon:view l:详情 v:primary clk:fillSubmit data-prompt:查看详情:WO-002|btn: icon:delete l:删除 v:danger clk:fillSubmit data-prompt:删除:WO-002"]')
+            .text('[tr ,WO-001,progress v:60 t:span,tag:进行中 t:primary,btn: icon:view l:详情 v:primary clk:fillSubmit data-prompt:查看详情:WO-001|btn: icon:edit l:编辑 v:warning clk:fillSubmit data-prompt:编辑:WO-001|btn: icon:delete l:删除 v:danger clk:fillSubmit data-prompt:删除:WO-001]')
+            .text('[tr ,WO-002,progress v:100 t:span,tag:已完工 t:success,btn: icon:view l:详情 v:primary clk:fillSubmit data-prompt:查看详情:WO-002|btn: icon:delete l:删除 v:danger clk:fillSubmit data-prompt:删除:WO-002]')
           .end()
         .end()
       .end();
@@ -11167,10 +11173,10 @@ const DEMOS = [
         + '[/col]'
         + '[col span:4]'
         + '[card tt:"项目进度"]'
-        + '[progress v:72 tx:前端开发]'
-        + '[progress v:45 tx:后端接口]'
-        + '[progress v:90 tx:测试覆盖]'
-        + '[progress v:60 tx:文档撰写]'
+        + '[progress v:72 l:前端开发]'
+        + '[progress v:45 l:后端接口]'
+        + '[progress v:90 l:测试覆盖]'
+        + '[progress v:60 l:文档撰写]'
         + '[/card]'
         + '[/col]'
         + '[/row]'
@@ -11187,6 +11193,9 @@ const DEMOS = [
         + '[tr "王芳,编辑者,正常,btn:编辑:edit"]'
         + '[tr "赵强,观察者,禁用,btn:编辑:edit"]'
         + '[tr "刘洋,编辑者,正常,btn:编辑:edit"]'
+        // 转义引号回归样例：cell 同时含引号与逗号 → 整格双引号包 + 内层 \" 转义
+        // （builder row() 与 parser/切格器契约对称；随机碎片推送会截断转义序列，顺带压流式）
+        + '[tr "欧阳\\"大大,姐\\\"",编辑者,正常,btn:编辑:edit]'
         + '[/tbody]'
         + '[/table]'
         + '[/card]'
@@ -11467,6 +11476,77 @@ const DEMOS = [
         i++;
         // 大表流式稍慢，便于看清逐行逐 cell 填充（12~52ms/chunk）
         setTimeout(sendNext, 12 + Math.floor(Math.random() * 40));
+      }
+      sendNext();
+    }
+  },
+  {
+    trigger: 'test-reveal-stream',
+    title: 'reveal 随机流 · 折叠区入场实验',
+    desc: '随机碎片流式（30~80ms/chunk）+ reveal 组收留于内层滚动区折叠区，闭合后滚动才播一次性入场',
+    build() { return new TokUIBuilder(); },
+    stream(res) {
+      var dsl = ''
+        + '[card tt:"reveal 随机流 · 车间设备巡检报告（折叠区入场实验）"]'
+        + '[p v:bold 本页 DSL 以 2~20 字符随机碎片推送（模拟 token 级流式），标签可在任意位置截断——同时验证解析鲁棒性与 reveal 克制版语义；推送节奏已放慢至 30~80ms/chunk，便于观察内容逐段生成。]'
+        + '[callout t:info]下方滚动区（h:480）内的 reveal 组在流式期间生成于内层折叠区、从未进入浏览器视口：流式闭合后保留一次性入场，请在区域内向下滚动，观看各组按方向 + stagger 进场；顶部随流可见的参照组按克制版直接定格、不重放。[/callout]'
+        + '[scroll-area h:480]'
+        // —— 参照组：随流可见（克制定格）——
+        + '[reveal v:up]'
+        + '[reveal-item][card tt:"参照组 · 本月巡检总览（随流可见·克制定格）"][p v:muted 流式输出时 transit 视口被记为已看过 → 闭合时不重放、直接定格可见。][row][col span:4][stat v:"312 台" tt:受检设备][/col][col span:4][stat v:97.4% tt:设备完好率 trend:up][/col][col span:4][stat v:17 tt:待整改隐患 n:warning][/col][/row][/card][/reveal-item]'
+        + '[reveal-item][card tt:"参照组第二项 · 高频问题分布"][p v:muted 润滑不足与传感器漂移合计占发现项的 61%，与下一屏折叠区组形成对照。][/card][/reveal-item]'
+        + '[/reveal]'
+        // —— 填充：把后续各组压进折叠区 ——
+        + '[card tt:"填充 · 巡检排班说明"][p v:muted 以下各组在流式期间位于滚动区折叠区（被 overflow 裁剪、视口判定不可见），闭合后保留一次性入场——继续向下滚动 ↓][list][item 一号车间：A/B 双班，白班覆盖注塑与总装][item 二号车间：单班 + 周末补检][item 三号车间：外包驻场按台计费][/list][/card]'
+        + '[card tt:"填充 · 台账口径"][p v:muted 视口核对含祖先滚动容器裁剪：内层折叠区里的组不算「已可见」。受检口径含主机与在线传感器，不含离线备件。][/card]'
+        // —— v:up 四连卡（折叠区，滚动入场）——
+        + '[reveal v:up]'
+        + '[reveal-item][card tt:"产线 A · 巡检发现 ①"][p 注塑机 M-07 主轴温升异常，较基线高 8.2℃，已安排停机更换润滑油脂并复测；同批次 M-09 预防性换油完成。][list][item M-07 温升：基线 52℃ → 实测 60.2℃，待复测][item M-09 换油完成，振动回落至 1.8mm/s][item 责任人：王工，复测截止 10-11][/list][/card][/reveal-item]'
+        + '[reveal-item][card tt:"产线 A · 巡检发现 ②"][p 总装线传送带张紧度普遍偏松，两处托辊磨损超限；已更换托辊并新增季度张紧巡检项。][row][col span:6][stat v:2 tt:超限托辊 n:danger][/col][col span:6][stat v:"1.8mm/s" tt:更换后振动 trend:down][/col][/row][/card][/reveal-item]'
+        + '[reveal-item][card tt:"产线 A · 巡检发现 ③"][p 末端视觉检测工位镜头污染，误检率升至 2.1%，清洁后回落至 0.3%；建议纳入班前点检。][/card][/reveal-item]'
+        + '[reveal-item][card tt:"产线 A · 巡检发现 ④"][p 不写 reveal-item 直接放组件同样参与 stagger——本卡即 reveal 的直接子元素。能耗峰值时段空调联动策略待优化。][/card][/reveal-item]'
+        + '[/reveal]'
+        // —— v:left + delay + 时间线 ——
+        + '[reveal v:left delay:150]'
+        + '[card tt:"整改跟踪（delay:150 基础延迟）"][p v:left 整体左移 24px 进场，容器级 delay:150 叠加在每项 stagger 之上。以下为主要隐患的整改时间线。][timeline][ti tt:"M-07 更换润滑油脂并空载复测（10-11 截止）" n:warning][ti tt:"托辊更换完成，张紧度复检通过" n:success][ti tt:"镜头清洁纳入班前点检表（下周一生效）" n:primary][/timeline][/card]'
+        + '[card tt:"回归验证"][stat v:0.3% tt:清洁后误检率 trend:down][p 复测两次均值稳定，工位节拍未受影响；未通过项已升级设备科专项。][/card]'
+        + '[/reveal]'
+        // —— v:zoom × 视觉变体组合 KPI ——
+        + '[reveal v:zoom]'
+        + '[grid cols:3 gap:10]'
+        + '[cell][card v:glass][stat v:97.4% tt:设备完好率 trend:up][/card][/cell]'
+        + '[cell][card v:gradient-border][stat v:312 tt:受检设备总量][/card][/cell]'
+        + '[cell][card][stat v:"26 项" tt:完成整改][/card][/cell]'
+        + '[cell][card][stat v:9 tt:整改进行中 n:primary][/card][/cell]'
+        + '[cell][card v:glass][stat v:"1.6h" tt:单次巡检均值 trend:down][/card][/cell]'
+        + '[cell][card v:gradient-border][stat v:2 tt:复测未通过 n:danger][/card][/cell]'
+        + '[/grid]'
+        + '[/reveal]'
+        // —— v:right · 风险与下月计划 ——
+        + '[reveal v:right]'
+        + '[card tt:"风险与下月计划（v:right 右移 24px 进场）"][callout t:danger tt:复测未通过 tx:"M-03 与 M-11 两项复测仍未达标，已升级设备科专项跟进"][callout t:info tt:下月重点 tx:"三号车间外包驻场交接盘点 + 空调联动策略上线"][list][item M-03/M-11 复测整改闭环][item 三号车间驻场交接盘点][item 空调联动策略灰度一个班组][item 点检表电子化培训][/list][/card]'
+        + '[/reveal]'
+        + '[card tt:"已到滚动区底部"][p v:muted ↑ 上方即全部实验组；每组一次性入场播完即断，回滚不重播。刷新或重发本案例可重来（随机碎片切分每次不同）。][/card]'
+        + '[/scroll-area]'
+        + '[p v:muted 方向与延迟属性写在 reveal 容器标签上：v:up|left|right|zoom、delay:N（0~4000ms）。]'
+        + '[/card]';
+
+      // 随机碎片化推送（2~20 字符/chunk，30~80ms 节奏，模拟 token 级流式输出）
+      var chunks = _fragmentDsl(dsl);
+      var i = 0;
+      var cleaned = false;
+      res.on('close', function () { cleaned = true; });
+      function sendNext() {
+        if (cleaned || i >= chunks.length) {
+          if (!cleaned) {
+            res.write('data: [DONE]\n\n');
+            res.end();
+          }
+          return;
+        }
+        res.write('data: ' + JSON.stringify({ tokui: chunks[i] }) + '\n\n');
+        i++;
+        setTimeout(sendNext, 30 + Math.floor(Math.random() * 50));
       }
       sendNext();
     }
@@ -12130,6 +12210,155 @@ const DEMOS = [
           .card({ tt: '自适应 F' }).stat({ l: '渲染耗时', v: '0ms' }).end()
         .end()
       .end();
+      return b;
+    }
+  },
+  {
+    trigger: 'demo-visual-variants',
+    title: '视觉变体四件（T3.2）',
+    desc: 'btn v:gradient 渐变钮 · h1-h6 v:gradient 渐变标题 · card v:glass 玻璃卡 · card v:gradient-border 渐变描边',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('视觉变体四件')
+        .callout({ t: 'info', tt: '变体白名单', tx: 'v:gradient / v:glass / v:gradient-border 均走 VARIANTS 白名单，非法值静默丢弃；配色全走主题令牌，四主题 + tech 通用。' })
+        .h1('渐变标题文字（h1-h6 全族）', { v: 'gradient' })
+        .p('普通标题作对照——渐变标题色走 --tokui-primary 色系，background-clip:text。')
+        .card({ tt: '渐变按钮' })
+          .btngroup()
+            .btn({ v: 'gradient', tx: '渐变主钮' })
+            .btn({ t: 'primary', v: 'gradient', tx: '主色+渐变' })
+            .btn({ v: 'gradient,pill', tx: '渐变胶囊' })
+            .btn({ t: 'primary', tx: '普通主钮（对照）' })
+          .end()
+          .p('hover 提亮 8%；与尺寸/形状变体可自由组合（如 v:gradient,pill 逗号并写即可）。')
+        .end()
+        .grid({ cols: 2, gap: 12 })
+          .cell({ style: 'background:linear-gradient(135deg,var(--tokui-primary-2),var(--tokui-primary-4));padding:16px;border-radius:12px' })
+            .card({ v: 'glass', tt: '玻璃卡片 v:glass' })
+              .p('磨砂半透明 + blur(12px)：backdrop-filter 需彩色/图片背景衬托——本格垫了渐变底，隔着玻璃卡能看出底下颜色被糊化。纯色白底上仅剩顶部高光兜底。')
+              .stat({ l: '磨砂半径', v: '12px' })
+            .end()
+          .end()
+          .cell()
+            .card({ v: 'gradient-border', tt: '渐变描边 v:gradient-border' })
+              .p('双层背景渐变描边（保圆角），主色→浅主色 135°。')
+              .stat({ l: '描边走向', v: '135°' })
+            .end()
+          .end()
+        .end()
+        .card({ tt: '组合建议' })
+          .p('玻璃卡在彩色/图片背景上效果最明显；渐变描边卡适合强调「推荐/精选」内容；四变体与尺寸/形状变体可自由组合。')
+        .end();
+      return b;
+    }
+  },
+  {
+    trigger: 'demo-reveal',
+    title: 'reveal 滚动入场（T3.2）',
+    desc: '长内容分段滚动入场 · v:up/left/right/zoom · delay:N · stagger 80ms · 克制版闭合 · reduced-motion 降级',
+    build() {
+      const b = new TokUIBuilder();
+      b.h2('reveal 滚动入场 · 季度经营分析报告')
+        .callout({ t: 'info', tt: '真实场景：长内容渐进披露', tx: '方向与延迟属性写在 reveal 容器标签上（v:up|left|right|zoom、delay:N），子卡片无需任何属性；直接子元素按序 stagger 递增 80ms（前 12 档）。场景一随流可见，按克制版直接定格不重放；场景二各组生成于滚动面板折叠区，滚动时按方向一次性入场。prefers-reduced-motion 或无 IO 环境内容直接可见，永不见丢失。' })
+
+        // ===== 场景一：报告总览（随流可见 → 克制定格）=====
+        .h3('场景一 · 报告总览（随流可见，克制定格不重放）')
+        .reveal({ v: 'up' })
+          .revealItem().card({ tt: 'Q3 经营摘要' })
+            .p('三季度整体 GMV 环比增长 18.4%，新增企业客户 127 家，续费率回升至 91.2%。华东、华南双区域引擎贡献超过六成增量，中长尾客户 ARPU 首次突破 4,200 元，客单价结构持续改善。')
+            .row_layout()
+              .col_layout({ span: 4 }).stat({ v: '+18.4%', tt: 'GMV 环比', trend: 'up' }).end()
+              .col_layout({ span: 4 }).stat({ v: '127 家', tt: '新增企业客户' }).end()
+              .col_layout({ span: 4 }).stat({ v: '91.2%', tt: '客户续费率', trend: 'up' }).end()
+            .end()
+            .ft().tag('超预期', { t: 'success' }).tag('双引擎驱动', { t: 'info' }).end()
+          .end().end()
+          .revealItem().card({ tt: '区域表现' })
+            .p('华东连续三个季度保持 15% 以上增速，华南受益于制造业数字化补贴快速放量；华北受两家头部客户预算冻结影响增速放缓，四季度恢复情况需重点跟踪。')
+            .list()
+              .item('华东：+21.7%，新增客户 52 家，标杆案例落地 8 个')
+              .item('华南：+19.3%，供应链 SaaS 续约率 94%')
+              .item('华北：+4.1%，两家中型客户延期续约已列专项跟进')
+            .end()
+          .end().end()
+        .end()
+
+        // ===== 场景二：各事业部明细（折叠区 → 滚动一次性入场）=====
+        .h3('场景二 · 各事业部明细（折叠区，在下方面板内向下滚动观看入场）')
+        .scrollArea({ h: 480 })
+          .card({ tt: '面板使用指南' }).p('流式期间下方各组生成于本面板折叠区（被内层滚动容器裁剪、从未进入视口）：闭合后保留一次性入场，向下滚动依次观看四组按各自方向 + stagger 进场；每组播完即断开观察，回滚不会重播。').end()
+          .card({ tt: '产线数字化事业部 · 概览' }).p('覆盖 12 条产线的 MES 与能耗管理系统，三季度新签 3 家行业头部客户，交付周期中位数缩短至 26 天，历史项目验收一次性通过率 92%。').progress({ v: 86, l: '年度目标完成度' }).end()
+
+          .reveal({ v: 'up' })
+            .revealItem().card({ tt: '产线数字化 · 项目进展' })
+              .p('宁德新能源二期完成设备联网 78%，进入联调阶段；佛山汽配项目通过验收后客户追加了能耗分析模块采购；青岛家电项目处于需求确认阶段。')
+              .list()
+                .item('宁德二期：设备联网 78%，预计 11 月中旬完成联调')
+                .item('佛山汽配：已验收，追加采购能耗分析模块（约 40 万）')
+                .item('青岛家电：需求确认中，合同金额约 180 万')
+              .end()
+            .end().end()
+            .revealItem().card({ tt: '产线数字化 · 服务质量' })
+              .p('三季度工单平均响应 14 分钟，一次解决率 89.6%；两起 P2 故障均在 40 分钟内恢复，未触发 SLA 赔付条款。')
+              .row_layout()
+                .col_layout({ span: 4 }).stat({ v: '14 min', tt: '平均响应', trend: 'down' }).end()
+                .col_layout({ span: 4 }).stat({ v: '89.6%', tt: '一次解决率' }).end()
+                .col_layout({ span: 4 }).stat({ v: '0 次', tt: 'SLA 赔付', trend: 'up' }).end()
+              .end()
+            .end().end()
+            .revealItem().card({ tt: '产线数字化 · 回款与签约' })
+              .p('三季度新签合同 1,240 万元，回款率 82%；应收账款账龄结构健康，超 90 天占比由 11.4% 降至 6.3%。')
+            .end().end()
+          .end()
+
+          .reveal({ v: 'left', delay: 150 })
+            .card({ tt: '供应链 SaaS · 版本迭代（delay:150 基础延迟）' })
+              .p('v:left 整体左移 24px 进场，容器级 delay:150 叠加在每项 stagger 之上。该产品线三季度完成两次主要发版，自动对账率显著提升。')
+              .timeline()
+                .ti('v3.2 发布：多仓库存联动与安全库存预警上线，24 家客户当月开通', { n: 'success' })
+                .ti('v3.3 发布：对账中心重构，自动对账率从 71% 提升至 92%', { n: 'primary' })
+                .ti('v3.4 规划：供应商协同门户，Q4 末灰度', {})
+              .end()
+            .end()
+            .card({ tt: '供应链 SaaS · 经营指标' })
+              .row_layout()
+                .col_layout({ span: 6 }).stat({ v: '286 万', tt: 'MRR', trend: 'up' }).end()
+                .col_layout({ span: 6 }).stat({ v: '112%', tt: '净收入留存', trend: 'up' }).end()
+              .end()
+              .p('存量客户增购是主要增长来源，新客获客成本环比下降 9%；华南制造业客户占比升至 41%。')
+            .end()
+          .end()
+
+          .reveal({ v: 'zoom' })
+            .grid({ cols: 3, gap: 10 })
+              .cell().card({ v: 'glass' }).stat({ v: '1.86 亿', tt: '集团总营收', trend: 'up' }).end().end()
+              .cell().card({ v: 'gradient-border' }).stat({ v: '+22.7%', tt: '经营性现金流', trend: 'up' }).end().end()
+              .cell().card().stat({ v: '+11.2%', tt: '人效同比' }).end().end()
+              .cell().card().stat({ v: '6400 万', tt: '在手订单' }).end().end()
+              .cell().card({ v: 'glass' }).stat({ v: '4.6', suf: ' / 5', tt: '客户满意度' }).end().end()
+              .cell().card({ v: 'gradient-border' }).stat({ v: '96.8%', tt: '交付准时率', trend: 'up' }).end().end()
+            .end()
+          .end()
+
+          .reveal({ v: 'right' })
+            .card({ tt: '风险与关注事项（v:right 右移 24px 进场）' })
+              .callout({ t: 'warning', tt: '华北预算冻结', tx: '两家头部客户合计影响约 320 万 ARR，已安排高层拜访，Q4 内明确续约意向。' })
+              .callout({ t: 'danger', tt: '核心岗位缺口', tx: '产线事业部交付经理缺口 2 人，影响 11 月两个项目并行排期，招聘已提速。' })
+              .callout({ t: 'info', tt: '合规年审', tx: '等保三级年审 12 月启动，需提前完成近半年审计日志归档。' })
+            .end()
+            .card({ tt: '四季度关键待办' })
+              .list()
+                .item('完成宁德二期联调并启动验收准备')
+                .item('供应链 v3.4 供应商协同门户灰度上线')
+                .item('等保三级年审材料归档与内部预审')
+                .item('交付经理到岗并完成在途项目交接')
+              .end()
+            .end()
+          .end()
+
+          .card({ tt: '已到面板底部' }).p('上方即场景二全部四组；每组一次性入场播完即断开观察，回滚不会重播。刷新或重发本案例可重新观看。').end()
+        .end()
+        .p('以上均为演示数据。DSL 写法要点：reveal 容器标签携带 v:up|left|right|zoom 与 delay:N 属性，长内容按 reveal-item 或直接子组件分段，子元素无需任何属性。', { v: 'muted' });
       return b;
     }
   }

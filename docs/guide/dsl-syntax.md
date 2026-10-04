@@ -34,7 +34,7 @@ v:"primary,sm"                               ; 多变体用逗号分隔
 | `chk` | checked | `multi` | multiple |
 | `form` | 按钮显式绑定表单 ID | `reset` | 重置动作（裸写或 `reset:H`） |
 | `print` | 打印动作（`print:ID` / `print:self`） | `w/h/bg/fc` | 宽/高/背景/字色 |
-| `icon` | SVG 图标名（btn / 操作列） | `i` | emoji 图标（btn / 操作列 / menu-item） |
+| `icon` | SVG 图标名（btn / 操作列 / kpi） | `i` | emoji 图标（btn / 操作列 / menu-item / feature） |
 | `target` | `a` 打开方式 | `on` | 事件上报声明 `on:"事件:处理器,…"`（**必须双引号**，见[交互事件上报](#交互事件上报)） |
 | `cls` | 自定义类名（全组件根级，见下节） | `style` | 白名单内联样式（全组件根级，见下节） |
 
@@ -54,6 +54,43 @@ v:"primary,sm"                               ; 多变体用逗号分隔
 - **`style:` 安全白名单**：放行 `background(-image/-color/…)`、`color`、`border`（含圆角）、`padding`/`margin`、`box-shadow`、`opacity`、`font-*`、`text-align`、`letter-spacing`、`max/min-width/height`、`gap`、`flex` 族、`align/justify-*`、`transform`（仅 translate/scale/rotate）、`backdrop-filter`、`aspect-ratio`、`object-fit`、`transition`、`z-index` 等；`url()` 仅放行 http(s) 与站内相对路径。拒绝 `position`/`top`/`left`（防布局逃逸）、`expression()`/`javascript:`/`behavior:`/`@import`（防注入）。**违规声明静默丢弃**，其余声明照常生效。
 - **`cls:` 规则**：类名须 `^[a-zA-Z][\w-]{0,63}$`；**拒绝 `tokui-` 前缀**（框架保留字）；上限 8 个、自动去重；非法词逐个静默丢弃。
 - 通道定位「根级增强」：内部元素不透传；与组件私有 `w:`/`bg:`/`fc:` 等散点属性共存（同名属性 `style:` 优先）。未知组件降级不走此通道。
+
+### 数据属性：`data-*`（全组件根级）
+
+DSL 里以 `data-` 开头的属性**原样透传**到组件根元素，配合 `clk:`/`sub:` handler 第三参 `element` 读取，实现事件携带自定义数据：
+
+```html
+[btn tx:删除 t:danger data-id:1024 data-scene:order-list clk:onDel]
+```
+
+```js
+TokUI.registerHandler('onDel', (data, e, el) => {
+  console.log(el.getAttribute('data-id')); // '1024'
+  console.log(el.dataset.scene);           // 'order-list'
+});
+```
+
+- **`data-tokui-*` 为框架内部命名空间**（`clk`/`sub`/`act` 印章等），拒绝透传——防 DSL 伪造印章劫持事件分发；
+- 组件已手动落的同名属性不覆盖；值含空格须双引号。
+
+### 事件内联参数：`clk:"handler?k=v"`（clk / sub / on 三通道通用）
+
+处理器引用可带查询串风格参数，参数**直接进 handler 第一参**：
+
+```html
+[btn tx:删除 t:danger clk:"onDel?id=1024&scene=order-list"]
+[input n:kw on:"change:onKw?src=header&draft"]
+```
+
+```js
+TokUI.registerHandler('onDel', (data, e, el) => {
+  // data = { id: '1024', scene: 'order-list' }
+});
+```
+
+- `'?'` 后按 `'&'` 分段，`k=v` 值为字符串（URL decode，空格写 `%20`）；无 `'='` 的段为布尔 `true`；
+- 与表单数据共存时合并，**同名键内联参数优先**；`on:` 的参数值不能含 `,`（写 `%2C`）；
+- 无 `'?'` 时行为与旧版完全一致；参数键拒绝 `__proto__`/`constructor`/`prototype`。
 
 
 > 表单校验：`input` / `pwd` / `textarea` / `select` 支持 `rule:"required|email|…"` + `msg:"自定义文案"` 声明式校验规则——提交时统一执行，失败拦截提交、错误字段标红出 hint 并聚焦首错。详见 [表单 · DSL 校验规则](/components/form#dsl-校验规则)。

@@ -1,7 +1,7 @@
 /**
  * TokUI 基础组件测试
  * 覆盖：progress、pagination、backtop、breadcrumb、tooltip、
- *       countdown、skeleton、popover
+ *       countdown、skeleton、popover、a(clk)
  */
 'use strict';
 
@@ -11,6 +11,7 @@ setupDOM();
 
 const { TokUIRenderer } = require('../src/core/renderer');
 const { registerBasicComponents } = require('../src/components/basic');
+const eventBus = require('../src/core/event-bus');
 
 const tests = [];
 function test(name, fn) { tests.push({ name, fn }); }
@@ -26,8 +27,8 @@ function run() {
   process.exit(failed ? 1 : 0);
 }
 
-function makeRenderer() {
-  const rc = new TokUIRenderer();
+function makeRenderer(bus) {
+  const rc = new TokUIRenderer(bus);
   registerBasicComponents(rc);
   return rc;
 }
@@ -343,6 +344,41 @@ test('stat l 属性渲染底部 .tokui-stat__label；缺省不渲染', () => {
   const both = rc.render({ type: 'stat', attrs: { tt: '本周', v: '99', l: '新增' }, children: [] });
   assert.ok(both.querySelector('.tokui-stat__title'), 'tt 顶部标题保留');
   assert.ok(both.querySelector('.tokui-stat__label'), 'l 底部标签同在');
+});
+
+// === a 链接 clk（事件链接）===
+test('a 带 clk 落 data-tokui-clk，点击触发 handler 并拦截默认跳转', () => {
+  const rc = makeRenderer(eventBus);
+  const dom = rc.render({ type: 'a', attrs: { u: 'https://example.com', tx: '点我', clk: 'onLinkClick' }, children: [] });
+  assert.strictEqual(dom.getAttribute('data-tokui-clk'), 'onLinkClick', 'clk 应落 data-tokui-clk');
+  let fired = 0, prevented = false;
+  eventBus.registerHandler('onLinkClick', () => fired++);
+  rc.bindEvents(dom);
+  // dom-mock 无 dispatchEvent：直接触发存储的监听器
+  (dom._events['click'] || []).forEach(fn => fn({ preventDefault() { prevented = true; } }));
+  assert.strictEqual(fired, 1, '点击应触发 handler');
+  assert.ok(prevented, '默认跳转应被 preventDefault 拦截（事件链接语义）');
+  eventBus.removeHandler('onLinkClick');
+});
+
+test('a 禁用态 + clk：点击被 aria-disabled 闸门拦截', () => {
+  const rc = makeRenderer(eventBus);
+  const dom = rc.render({ type: 'a', attrs: { u: 'https://example.com', tx: '禁用链接', clk: 'onLinkClick', dis: true }, children: [] });
+  assert.strictEqual(dom.getAttribute('aria-disabled'), 'true');
+  assert.strictEqual(dom.getAttribute('href'), 'javascript:void(0)');
+  let fired = 0;
+  eventBus.registerHandler('onLinkClick', () => fired++);
+  rc.bindEvents(dom);
+  (dom._events['click'] || []).forEach(fn => fn({ preventDefault() {} }));
+  assert.strictEqual(fired, 0, '禁用态不应触发 handler');
+  eventBus.removeHandler('onLinkClick');
+});
+
+test('a 无 clk 不落 data-tokui-clk（普通链接跳转行为不变）', () => {
+  const rc = makeRenderer();
+  const dom = rc.render({ type: 'a', attrs: { u: 'https://example.com', tx: '普通链接' }, children: [] });
+  assert.ok(!dom.hasAttribute('data-tokui-clk'), '无 clk 不应落属性');
+  assert.strictEqual(dom.getAttribute('href'), 'https://example.com');
 });
 
 run();

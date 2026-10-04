@@ -21,13 +21,17 @@
 function findCloseBracket(str) {
   let inQuote = false;
   for (let i = 0; i < str.length; i++) {
-    if (str[i] === '"') {
+    const ch = str[i];
+    // 转义感知：\" 是引号值字面量、\] 是字面方括号，均不得切换引号/闭合状态。
+    // 流式半段 buffer 末尾悬空 \ 跳过空字符即可（下轮 chunk 到达后全量重扫）。
+    if (ch === '\\') { i++; continue; }
+    if (ch === '"') {
       // 悬空引号容错：!inQuote 时紧跟 ] 的 " 不可能是合法开引号（空值未闭合），
       // 是 AI 引号只开不关的残留（如 [item l:"表带 tx:"¥0（含）"]），不切换引号状态，
       // 否则 ] 被误判为引号内字符、标签永不闭合。
       if (!inQuote && str[i + 1] === ']') continue;
       inQuote = !inQuote;
-    } else if (str[i] === ']' && !inQuote) {
+    } else if (ch === ']' && !inQuote) {
       return i;
     }
   }
@@ -47,6 +51,8 @@ function findTrCloseBracket(str) {
   let depth = 0;
   for (let i = 0; i < str.length; i++) {
     const ch = str[i];
+    // 转义感知（同 findCloseBracket）：\" 不切换引号状态
+    if (ch === '\\') { i++; continue; }
     if (ch === '"') {
       // 悬空引号容错（同 findCloseBracket）：!inQuote 且紧跟 ] 的 " 是残留垃圾，不切换
       if (!inQuote && str[i + 1] === ']') continue;
@@ -117,7 +123,9 @@ const CONTAINERS = new Set([
   'page-sidebar',
   'page-content',
   'page-tabs',
-  'page-tab'
+  'page-tab',
+  'reveal',
+  'reveal-item'
 ]);
 
 // chart 自闭合内联数据判定 —— 须与 builder.chart 的 hasInline、renderer 容器判定三处同步：
@@ -254,6 +262,17 @@ function _expandAttrKeyVal(key, val, knownKeys) {
   return pairs;
 }
 
+// tr 的内容 token 是否开启了行内组件格（btn:/tag:/progress 简写前缀，或 [xxx] 方括号内联组件，
+// 与渲染端 table.js 的 componentShaped 判定一致）。逗号 token：最后一个逗号后的段即新格开头；
+// 裸 token（无逗号）：仅当它是行内容首 token（单列表格）时才算格开头，否则只是格内续词
+// （如「备注 tag」），不得据此吞掉后面的行级属性。
+function _trTokenOpensActionCell(token, isFirstContentToken) {
+  var lastSeg = token.slice(token.lastIndexOf(',') + 1);
+  var opensCell = /^(btn|tag|progress)\b/.test(lastSeg) || lastSeg.charAt(0) === '[';
+  if (token.indexOf(',') !== -1) return opensCell;
+  return isFirstContentToken && opensCell;
+}
+
 function parseTag(raw) {
   if (!raw || !raw.trim()) {
     return { type: '_text', attrs: {}, content: '', children: [] };
@@ -261,12 +280,22 @@ function parseTag(raw) {
   const node = { type: '', attrs: {}, content: '', children: [] };
 
   // 提取引号段，替换为占位符 __QUOTE0__, __QUOTE1__ ...
-  // 支持转义引号 \"，避免嵌套引号场景（如 tr 含逗号的 cell 值）解析失败
+  // 支持转义引号 \"，避免嵌套引号场景（如 tr 含逗号的 cell 值）解析失败。
+  // 双轨存储：quotes = 反转义后（属性值/纯正文用）；quotesRaw = 原样保留转义
+  // （tr 正文重组后再包引号用——tr 的 cell 切分器转义感知，保留 \" 才能在
+  // 格内字面引号场景正确保护逗号；先反转义会丢掉「这是字面引号」的信息）。
   const quotes = [];
+  const quotesRaw = [];
   let processed = raw.replace(/"((?:[^"\\]|\\.)*)"/g, (match, content) => {
+    quotesRaw.push(content);
     quotes.push(content.replace(/\\"/g, '"'));
     return `__QUOTE${quotes.length - 1}__`;
   });
+  // tr 正文重组：引号段回填带转义原样；其余标签回填反转义裸引号（渲染正文即最终文本）
+  function restoreQuoted(token) {
+    var src = node.type === 'tr' ? quotesRaw : quotes;
+    return token.replace(/__QUOTE(\d+)__/g, (_, idx) => `"${src[parseInt(idx)]}"`);
+  }
 
   // 按空格分割 token
   const tokens = processed.split(/\s+/);
@@ -276,8 +305,19 @@ function parseTag(raw) {
 
   // 逐个解析后续 token
   const contentParts = [];
+  // tr 行内简写格容错：btn:/tag:/progress 格开启后，其空格分隔的子属性（icon:/l:/v:/clk:/t:…）
+  // 及 |btn: 续钮在语法上属于单元格内容而非行级属性。检测到开启后，后续 token 一律并入正文，
+  // 否则 [tr 张三,btn:详情 clk:toast|btn:删除 v:danger] 的子属性会被误判为行属性（丢按钮、行变体污染）。
+  let inActionCell = false;
   for (let i = 1; i < tokens.length; i++) {
     const token = tokens[i];
+
+    // 已进入 tr 简写格：token 是按钮/标签/进度条子属性或 | 续钮，整体归单元格内容
+    if (inActionCell && node.type === 'tr') {
+      const withQuotes = restoreQuoted(token);
+      contentParts.push(withQuotes);
+      continue;
+    }
 
     const colonIdx = token.indexOf(':');
     if (colonIdx > 0) {
@@ -285,6 +325,14 @@ function parseTag(raw) {
       // 属性名须为英文标识符（tt/tx/clk/data-* 等）；
       // 含中文等非 ASCII 的「标签:值」文本（如「框架:React」「语言:TypeScript」）按正文处理，不当属性
       if (/^[a-zA-Z][a-zA-Z0-9_-]*$/.test(key)) {
+        // tr 特例：btn:/tag:/progress 不是 tr 的行级属性——attr 形态的首 token
+        // 是单列简写格开头（如 [thead cols:操作] 的 [tr btn:详情 clk:x]），归内容并激活简写格
+        if (node.type === 'tr' && (key === 'btn' || key === 'tag' || key === 'progress')) {
+          const withQuotes = restoreQuoted(token);
+          contentParts.push(withQuotes);
+          inActionCell = true;
+          continue;
+        }
         let val = token.slice(colonIdx + 1);
         // 还原引号占位符
         val = val.replace(/__QUOTE(\d+)__/g, (_, idx) => quotes[parseInt(idx)]);
@@ -299,8 +347,9 @@ function parseTag(raw) {
           node.attrs[key] = val;
         }
       } else {
-        const withQuotes = token.replace(/__QUOTE(\d+)__/g, (_, idx) => `"${quotes[parseInt(idx)]}"`);
+        const withQuotes = restoreQuoted(token);
         contentParts.push(withQuotes);
+        if (node.type === 'tr' && _trTokenOpensActionCell(token, contentParts.length === 1)) inActionCell = true;
       }
     } else {
       // 非属性 token
@@ -324,8 +373,9 @@ function parseTag(raw) {
           // 整段被引号包裹（如 [p "含冒号:的正文"]）：引号仅作分组语法，剥离后取内部文本
           contentParts.push(quotes[parseInt(fullQuote[1])]);
         } else {
-          const withQuotes = token.replace(/__QUOTE(\d+)__/g, (_, idx) => `"${quotes[parseInt(idx)]}"`);
+          const withQuotes = restoreQuoted(token);
           contentParts.push(withQuotes);
+          if (node.type === 'tr' && _trTokenOpensActionCell(token, contentParts.length === 1)) inActionCell = true;
         }
       }
     }

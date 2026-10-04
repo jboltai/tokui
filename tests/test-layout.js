@@ -1157,7 +1157,7 @@ test('scroll-area virtual 触底上报 loadmore 一次，离开阈值区可重�
   cleanupHandlers();
 });
 
-test('scroll-area 非 virtual 行为（全量挂载、无 spacer；scroll 监听仅滚动浮现一条）', () => {
+test('scroll-area 非 virtual 行为（全量挂载、无 spacer；scroll 监听 = 滚动浮现 + 边缘渐隐两条）', () => {
   const rc = new TokUIRenderer(null);
   registerLayoutComponents(rc);
   const dom = rc.render(makeScrollArea({ h: '72' }, 3));
@@ -1165,8 +1165,9 @@ test('scroll-area 非 virtual 行为（全量挂载、无 spacer；scroll 监听
   const viewport = dom.querySelector('.tokui-scroll-area__viewport');
   assert.strictEqual(viewport.children.length, 3);
   assert.strictEqual(viewport.querySelector('.tokui-scroll-area__spacer'), null);
-  // 非虚拟模式仅挂滚动浮现监听（无 virtual 的 rAF 窗口重排监听）
-  assert.strictEqual(viewport._events['scroll'].length, 1);
+  // 非虚拟模式挂两条 scroll 监听：滚动浮现（--scrolling 显色）+ 折叠边缘渐隐状态同步
+  // （无 virtual 的 rAF 窗口重排监听）
+  assert.strictEqual(viewport._events['scroll'].length, 2);
 });
 
 // ===== Tree 懒加载测试 =====
@@ -1267,6 +1268,47 @@ test('tree 懒加载：Promise 数据源同样可用', async () => {
   clickTreeArrow(tree, nodeEl);
   assert.strictEqual(loadCalls, 1);
   cleanupHandlers();
+});
+
+test('scroll-area 折叠边缘渐隐：溢出三态状态类同步（顶/底/中部/未溢出）', () => {
+  const rc = new TokUIRenderer(null);
+  registerLayoutComponents(rc);
+  const node = { type: 'scroll-area', attrs: { h: '300' }, children: [] };
+  const dom = rc.render(node);
+  const viewport = dom.querySelector('.tokui-scroll-area__viewport');
+  assert.strictEqual(typeof dom._tokuiUpdateEdges, 'function', '应有测试直调入口');
+  // 未溢出（或无布局环境）：双遮罩全摘
+  viewport.scrollHeight = 200; viewport.clientHeight = 300; viewport.scrollTop = 0;
+  dom._tokuiUpdateEdges();
+  assert.ok(!dom.classList.contains('tokui-scroll-area--more-above'));
+  assert.ok(!dom.classList.contains('tokui-scroll-area--more-below'));
+  // 溢出且在顶部：仅底部遮罩
+  viewport.scrollHeight = 1000;
+  dom._tokuiUpdateEdges();
+  assert.ok(!dom.classList.contains('tokui-scroll-area--more-above'), '顶部无上方遮罩');
+  assert.ok(dom.classList.contains('tokui-scroll-area--more-below'), '顶部应有下方遮罩');
+  // 滚到中部：双遮罩
+  viewport.scrollTop = 350;
+  dom._tokuiUpdateEdges();
+  assert.ok(dom.classList.contains('tokui-scroll-area--more-above'));
+  assert.ok(dom.classList.contains('tokui-scroll-area--more-below'));
+  // 滚到底：仅顶部遮罩
+  viewport.scrollTop = 700;
+  dom._tokuiUpdateEdges();
+  assert.ok(dom.classList.contains('tokui-scroll-area--more-above'));
+  assert.ok(!dom.classList.contains('tokui-scroll-area--more-below'), '底部应摘下方遮罩');
+});
+
+test('scroll-area 折叠边缘渐隐：CSS 契约（遮罩存在、纯装饰不拦截交互）', () => {
+  const fs = require('fs');
+  const css = fs.readFileSync(require('path').join(__dirname, '../src/styles/tokui.css'), 'utf8');
+  // 共享声明块（定位/高度/pointer-events）+ 两个方向各自的渐隐块
+  const sharedI = css.indexOf('.tokui-scroll-area--more-above::before,\n.tokui-scroll-area--more-below::after');
+  assert.ok(sharedI !== -1, '共享遮罩声明块应在');
+  const sharedBlock = css.slice(sharedI, css.indexOf('}', sharedI));
+  assert.ok(/pointer-events:\s*none/.test(sharedBlock), '遮罩必须 pointer-events:none（不拦截滚动/滚动条拖拽）');
+  assert.ok(/\.tokui-scroll-area--more-above::before\s*{[^}]*linear-gradient/.test(css), '顶部遮罩走背景色渐隐');
+  assert.ok(/\.tokui-scroll-area--more-below::after\s*{[^}]*linear-gradient/.test(css), '底部遮罩走背景色渐隐');
 });
 
 run();

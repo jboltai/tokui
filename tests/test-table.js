@@ -539,6 +539,65 @@ test('tr action column - warning/success/info color variants', () => {
   assert.ok(btns[2].classList.contains('tokui-tbtn--info'));
 });
 
+// ===== 端到端回归：完整 DSL 经真实 parseTag 的操作列简写 =====
+// 上面的用例手工构造 content 绕过了解析器，漏掉了 parseTag 按空格切 token 时
+// btn: 子属性被误判为行级属性的回归（按钮丢失/整格空白）。以下走 parser → renderer 全链路。
+// 注：dom-mock 的 matches() 不支持后代选择器（'tbody tr' 会错配到 tbody），
+// 查询须逐级用简单选择器（tag / .class）。
+
+const TokUIFull = require('../src/index');
+
+function renderDsl(dsl) {
+  const container = document.createElement('div');
+  new TokUIFull({ container: container }).render(dsl, container);
+  return container;
+}
+
+/** 行的操作列按钮（dom-mock 无后代选择器 → td、button 两级查询） */
+function actionButtonsOf(row) {
+  const tds = row.querySelectorAll('.tokui-col-action');
+  return tds.length ? tds[0].querySelectorAll('button') : [];
+}
+
+test('e2e: 未加引号的 btn: icon/l/v/clk 多钮操作列完整渲染（docs 操作列示例）', () => {
+  const dom = renderDsl('[table stripe bordered][thead cols:"姓名,操作/c"][tbody][tr 张三,btn: icon:view l:详情 v:primary clk:toast|btn: icon:edit l:编辑 v:warning clk:toast|btn: icon:delete l:删除 v:danger clk:toast][tr 李四,btn:详情 clk:toast|btn:删除 v:danger clk:toast][/tbody][/table]');
+  const rows = dom.querySelectorAll('.tokui-table-row');
+  assert.strictEqual(rows.length, 2, '应有 2 行');
+  // 行1：3 个 icon-only 按钮全部渲染，子属性不再漏进行属性
+  const r1btns = actionButtonsOf(rows[0]);
+  assert.strictEqual(r1btns.length, 3, '行1 应有 3 个按钮');
+  assert.ok(r1btns[0].classList.contains('tokui-tbtn--primary'), 'btn0 primary');
+  assert.ok(r1btns[1].classList.contains('tokui-tbtn--warning'), 'btn1 warning');
+  assert.ok(r1btns[2].classList.contains('tokui-tbtn--danger'), 'btn2 danger');
+  assert.strictEqual(r1btns[2].getAttribute('data-tokui-clk'), 'toast', 'clk 应在按钮上');
+  assert.ok(!rows[0].classList.contains('tokui-table-row--danger'), 'v:danger 不得污染行变体');
+  // 行2：详情 + 删除 两个按钮
+  const r2btns = actionButtonsOf(rows[1]);
+  assert.strictEqual(r2btns.length, 2, '行2 应有 2 个按钮');
+  assert.strictEqual(r2btns[0].textContent, '详情');
+  assert.strictEqual(r2btns[0].getAttribute('data-tokui-clk'), 'toast');
+  assert.strictEqual(r2btns[1].textContent, '删除');
+  assert.ok(r2btns[1].classList.contains('tokui-tbtn--danger'), '行2 删除按钮 danger');
+});
+
+test('e2e: 引号首格 + btn: 格混排（docs 列宽示例形态）', () => {
+  const dom = renderDsl('[table][thead cols:"物料,操作"][tbody][tr "精密轴承 6204",btn:编辑 clk:handleEdit|btn:删除 v:danger clk:handleDelete][/tbody][/table]');
+  const btns = actionButtonsOf(dom.querySelectorAll('.tokui-table-row')[0]);
+  assert.strictEqual(btns.length, 2, '编辑 + 删除 都应在');
+  assert.strictEqual(btns[0].textContent, '编辑');
+  assert.strictEqual(btns[0].getAttribute('data-tokui-clk'), 'handleEdit');
+  assert.strictEqual(btns[1].textContent, '删除');
+  assert.strictEqual(btns[1].getAttribute('data-tokui-clk'), 'handleDelete');
+});
+
+test('e2e: 无简写格的行级尾属性不受影响（id 仍是行属性）', () => {
+  const dom = renderDsl('[table][thead cols:"部门,人数,负责人"][tbody][tr 华东大区,128,张伟 id:r1][/tbody][/table]');
+  const row = dom.querySelectorAll('.tokui-table-row')[0];
+  assert.strictEqual(row.getAttribute('id'), 'r1', 'id:r1 仍是行属性');
+  const tds = row.querySelectorAll('td');
+  assert.strictEqual(tds[2].textContent, '张伟', '张伟 格无泄漏');
+});
+
 // ===== cell 级 /align /color 尾缀（覆盖列级） =====
 // 场景：退款行金额仅此格红、其他行金额色不变；cell 尾缀覆盖列级 colAligns/colColors。
 
@@ -994,6 +1053,20 @@ test('T2.3 树形行：pid 子行默认折叠，展开钮切换，upd act:expand
   // upd act:expand 程序化展开 dev
   dev._update({ act: 'expand' });
   assert.strictEqual(leaf.style.display, '', 'upd 展开');
+});
+
+// =============================================
+// 转义引号 cell（builder row() 契约对称 + 切格器转义感知）
+// =============================================
+
+test('转义引号 cell：含逗号+引号的格完整落单格、文本为反转义结果', () => {
+  const dom = renderDsl('[table][thead cols:"备注,值"][tbody][tr "他说\\"你好,先生\\"",B][/tbody][/table]');
+  const rows = dom.querySelectorAll('.tokui-table-row');
+  assert.strictEqual(rows.length, 1, '一行');
+  const tds = rows[0].querySelectorAll('.tokui-td');
+  assert.strictEqual(tds.length, 2, '两列（内层逗号不得切格）');
+  assert.strictEqual(tds[0].textContent, '他说"你好,先生"', 'cell 文本为反转义结果');
+  assert.strictEqual(tds[1].textContent, 'B');
 });
 
 run();

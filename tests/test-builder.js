@@ -979,4 +979,26 @@ test('行内格式组件 b/strong/em/mark/del/sub/sup', () => {
   });
 });
 
+// =============================================
+// row() cell 转义（builder↔parser 契约对称）
+// =============================================
+
+test('row()：cell 含引号/逗号 → 整格双引号包裹 + 内层 \" 转义（与 parser 契约对称）', () => {
+  const { TokUIParser } = require('../src/core/parser');
+  const b = new TokUIBuilder();
+  b.row('他说"你好,先生"', 'B', '纯文本');
+  const dsl = b.toString();
+  assert.ok(dsl.indexOf('[tr "他说\\"你好,先生\\"",B,纯文本]') !== -1, dsl);
+  // 往返：tr content 保留转义原样（切格器转义感知）
+  const nodes = [];
+  new TokUIParser(n => nodes.push(n)).parse(dsl);
+  assert.strictEqual(nodes[0].content, '"他说\\"你好,先生\\"",B,纯文本');
+});
+
+test('row()：纯逗号 cell 保持整格引号包裹（既有行为不回归）', () => {
+  const b = new TokUIBuilder();
+  b.row('A,B', 'C');
+  assert.ok(b.toString().indexOf('[tr "A,B",C]') !== -1, b.toString());
+});
+
 run();

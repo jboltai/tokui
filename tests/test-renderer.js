@@ -1121,4 +1121,56 @@ test('carousel-item renders slide with image and overlay', () => {
   assert.strictEqual(desc.textContent, '描述');
 });
 
+// === data-* 通用透传（_applyDataAttrs 集中兜底）===
+test('data-* 属性全组件透传到根元素（a / card / btn）', () => {
+  const rc = new TokUIRenderer();
+  registerBasicComponents(rc);
+  registerFormComponents(rc);
+  require('../src/components/layout').registerLayoutComponents(rc);
+  const cases = [
+    { type: 'a', attrs: { u: '#', tx: '链接', 'data-id': '1024', 'data-scene': 'list' } },
+    { type: 'card', attrs: { tt: '卡', 'data-ctx': 'demo' }, children: [] },
+    { type: 'btn', attrs: { tx: '钮', 'data-id': '9', 'data-extra': 'x' } }
+  ];
+  for (const node of cases) {
+    const dom = rc.render(node);
+    for (const key in node.attrs) {
+      if (key.indexOf('data-') === 0) {
+        assert.strictEqual(dom.getAttribute(key), node.attrs[key], node.type + ' 应透传 ' + key);
+      }
+    }
+  }
+});
+
+test('data-tokui-* 内部命名空间拒绝透传（防伪造 clk/act 印章）', () => {
+  const rc = new TokUIRenderer();
+  registerBasicComponents(rc);
+  const dom = rc.render({ type: 'a', attrs: { u: '#', tx: 'x', 'data-tokui-clk': 'evil', 'data-tokui-act': 'submit' }, children: [] });
+  assert.strictEqual(dom.getAttribute('data-tokui-clk'), null, '不得透传 data-tokui-clk');
+  assert.strictEqual(dom.getAttribute('data-tokui-act'), null, '不得透传 data-tokui-act');
+});
+
+test('clk handler 第三参可读取 data-* 携带的自定义数据', () => {
+  const eventBus = require('../src/core/event-bus');
+  const rc = new TokUIRenderer(eventBus);
+  registerBasicComponents(rc);
+  registerFormComponents(rc);
+  let got = null;
+  eventBus.registerHandler('onLinkData', (data, e, el) => { got = { data: data, id: el.getAttribute('data-id') }; });
+  const dom = rc.render({ type: 'a', attrs: { u: '#', tx: '带数据', clk: 'onLinkData', 'data-id': '777' }, children: [] });
+  rc.bindEvents(dom);
+  (dom._events['click'] || []).forEach(fn => fn({ preventDefault() {} }));
+  assert.strictEqual(got.id, '777', 'handler 应从元素读到 data-id');
+  assert.strictEqual(got.data, null, 'a 不在 form 内时第一参为 null');
+  eventBus.removeHandler('onLinkData');
+});
+
+test('btn data-* 透传回归（手动遍历删除后走集中兜底）', () => {
+  const rc = new TokUIRenderer();
+  registerFormComponents(rc);
+  const dom = rc.render({ type: 'btn', attrs: { tx: '删除', clk: 'onDel', 'data-id': '1024' }, children: [] });
+  assert.strictEqual(dom.getAttribute('data-tokui-clk'), 'onDel');
+  assert.strictEqual(dom.getAttribute('data-id'), '1024');
+});
+
 run();

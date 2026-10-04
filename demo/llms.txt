@@ -18,7 +18,7 @@
 
 ## Key Facts
 
-- 项目: TokUI（当前演示版本 v0.2.6）
+- 项目: TokUI（当前演示版本 v0.2.7）
 - 定位: 零依赖的流式 UI 描述与渲染框架，核心场景为 AI 对话中的流式 UI 生成
 - 架构: 后端 TokUIBuilder 生成 DSL → SSE 流式推送 → 前端 TokUIParser 增量解析 → TokUIRenderer 渲染真实 DOM
 - 组件数: 150+，含表格、表单、图表（柱状/折线/饼图/雷达/散点/甘特/漏斗/仪表盘）、卡片、12 栅格 row/col 与高级网格 grid/cell、列表、AI 对话气泡、流式 Markdown、代码高亮、时间线、步骤条等
@@ -44,6 +44,12 @@
 - `cls:` 类名须 `^[a-zA-Z][\w-]{0,63}$`、拒绝 `tokui-` 前缀、上限 8 个去重；非法词逐个静默丢弃。
 - 示例: `[card tt:品牌卡 cls:"pricing fade-in" style:"background:linear-gradient(135deg,var(--tokui-primary-1),var(--tokui-bg));border-radius:16px"]`；详见「DSL 语法参考」§2.1。
 
+## 数据属性与事件参数（data-* 透传 + handler?k=v 内联参数）
+
+- `data-*` 属性原样透传到**组件根元素**(全组件通用),`clk:`/`sub:` handler 第三参 `element` 经 `getAttribute`/`dataset` 读取:`[btn tx:删除 t:danger data-id:1024 data-scene:order-list clk:onDel]`;`data-tokui-*` 为框架内部命名空间(clk/sub/act 印章)**拒绝透传**,防伪造印章劫持事件分发;组件已手动落的同名属性不覆盖;值含空格须双引号;表格行另有简写 `tr d:"k:v k2:v2"`(自动加 data- 前缀落行元素)。
+- 事件内联参数:`clk:`/`sub:`/`on:` 三通道处理器引用可带查询串参数,如 `[btn tx:删除 clk:"onDel?id=1024&scene=order-list"]`,参数直接进 handler 第一参(无需从 DOM 读);`k=v` 值为字符串(URL decode,空格写 %20),无 `=` 的段为布尔 true;与表单数据共存时合并进同一对象、**同名键内联参数优先**;`on:` 的参数值不能含 `,`(须写 %2C);参数键拒绝 `__proto__`/`constructor`/`prototype`;无 `?` 时行为与旧版完全一致。
+- 事件链接:`a` 组件带 `clk` 时点击拦截默认跳转、触发命名 handler——`[a u:# tx:查看详情 clk:onDetail]`,配合 `data-*` 或 `?k=v` 携带业务标识;详见「DSL 语法参考」§2.2/§2.3。
+
 ## 图标体系（61 个内置 + registerIcon 扩展）
 
 - `btn icon:NAME` / 表格操作列 `btn:动作 icon:NAME` 取 Lucide 风格 SVG 名（stroke=currentColor 自动继承钮色）。全集:操作类 view/edit/delete/add/copy/download/upload/refresh/check/close/save/export/filter/sort/more/plus/minus/play/pause;状态类 warn/info/circle-check/circle-x/circle-alert/circle-info/circle-help;导航类 chevron-up/down/left/right、arrow-up/down/left/right、external-link/menu/panel-left;对象类 folder/folder-open/file-text/user/users/home/inbox/bell/calendar/clock/map-pin/star/link/lock/unlock/search/setting;图表AI trending-up/trending-down/sparkles/lightbulb/zap/terminal/volume-high/volume-x。
@@ -62,6 +68,11 @@
 - `[page-tabs act:list][page-tab n:list tt:列表]…[/page-tab][page-tab n:detail tt:详情 closeable]…[/page-tab][/page-tabs]` 多页签——点击上报 change {key,title},× 关闭上报 close 并让位邻签,[upd id:tabs act:key] 静默切换,[del id:tabX] 整签移除,键盘 ←→ 导航,流式跟随激活闭合按 act 归位。
 - 菜单联动:menu change 载荷 {value,item,path}(path 标题路径数组),宿主一条 `[upd id:header bc:首页,新路径]` 同步面包屑。
 - 表单布局(M2):`[form cols:2 lw:84 gap:14]` 字段网格(1~4 列)+标签统一宽+间距;`v:inline` 过滤条(字段行内,cols 优先);字段 `v:full` 跨整行(备注 textarea 等,全字段类型支持)。
+
+## 视觉变体与滚动入场（T3.2）
+
+- 四视觉变体: `[btn v:gradient tx:开始]` 渐变主色钮(hover 提亮);`[h2 v:gradient 标题]` 渐变标题文字(h1-h6 全族,不支持 background-clip 环境回退纯色);`[card v:glass]` 磨砂玻璃卡(backdrop-filter,彩色底最明显);`[card v:gradient-border]` 渐变描边卡(双层背景保圆角)。与尺寸/形状变体可组合(v:"gradient,pill")。
+- `[reveal v:up delay:120][reveal-item][card tt:一]…[/card][/reveal-item][card tt:二]…[/card][/reveal]` 滚动入场——IntersectionObserver 一次性进场(后不重播);v:up|left|right|zoom 方向;delay:N 基础延迟 ms;直接子元素(含 reveal-item)按序 stagger 递增 80ms(纯 CSS 前 12 档);reduced-motion/无 IO 环境内容直接可见;流式闭合克制定格(已看过不重放,折叠区滚动一次性入场)。
 - 表格增强(M2):`[table fixed fc:1]` 首列钉左+尾列钉右(横滚固定+分界阴影);thead 列宽 `cols:"名称 w:180,金额 w:120/r"`;`loading` 骨架覆盖(upd loading:false 撤除);`empty` 空态;`tr id:x pid:y` 树形行(子行折叠+展开钮+upd act:expand);`tr clk:h` 行点击上报 {index,row[]};分页 page 载荷 {page,size,filter,sort}。
 - 编辑回填闭环(M2):dialog 常驻+逐字段 upd——input v:直写/select v:key/radio v:组值/datepicker v:2024-06-01/time·datetimepicker v:"09:30"/cascader v:"gd/gz"(路径校验)/transfer v:"1,2"(右栏重排)/upload act:fill files:"名,url,大小|…"(回显可删);reset 按钮全控件复原;dialog w:720 加宽弹窗(480~1200,两列编辑表单必配)。
 

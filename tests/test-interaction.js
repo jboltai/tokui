@@ -1241,5 +1241,63 @@ test('suggestions 流式中途点击 suggestion 上报 select（容器未闭合�
   assert.strictEqual(container.querySelectorAll('.tokui-suggestion').length, 2, '闭合后第二张卡片也在');
 });
 
-cleanupHandlers();
+// =============================================
+// clk/sub/on 内联参数引用（"handler?k=v"）
+// =============================================
+
+test('a clk:"onDel?id=1&scene=x" → handler 第一参直接收参数对象', () => {
+  cleanupHandlers();
+  const rc = makeRenderer();
+  let got = null;
+  eventBus.registerHandler('onDel', (d) => { got = d; });
+  const dom = rc.render({ type: 'a', attrs: { u: '#', tx: '删', clk: 'onDel?id=1024&scene=order-list' }, children: [] });
+  rc.bindEvents(dom);
+  fire(dom, 'click');
+  assert.deepStrictEqual(got, { id: '1024', scene: 'order-list' });
+});
+
+test('form 内 btn clk 带参：内联参数覆盖表单同名值，非同名键合并', () => {
+  cleanupHandlers();
+  const rc = makeRenderer();
+  let got = null;
+  eventBus.registerHandler('hLogin', (d) => { got = d; });
+  const nodes = [];
+  new (require('../src/core/parser').TokUIParser)(n => nodes.push(n))
+    .parse('[form sub:hLogin][input n:user val:tom][input n:role val:guest][btn t:submit tx:提交 clk:"hLogin?role=admin&src=form"][/form]');
+  const container = document.createElement('div');
+  nodes.forEach(n => container.appendChild(rc.render(n)));
+  rc.bindEvents(container);
+  // t:submit 无内置 act 印章时走 data-tokui-clk 分发；两种路径都应合并参数，点击触发
+  const btn = container.querySelector('.tokui-btn');
+  fire(btn, 'click');
+  assert.ok(got, 'handler 应被触发');
+  assert.strictEqual(got.user, 'tom', '表单数据保留');
+  assert.strictEqual(got.role, 'admin', '内联参数覆盖表单同名值');
+  assert.strictEqual(got.src, 'form', '内联参数合入');
+});
+
+test('on:"change:hIn?src=header" → detail 与内联参数合并', async () => {
+  cleanupHandlers();
+  const rc = makeRenderer();
+  let detail = null;
+  eventBus.registerHandler('hInQ', (d) => { detail = d; });
+  const dom = rc.render({ type: 'input', attrs: { n: 'city', on: 'change:hInQ?src=header&draft' }, children: [] });
+  const inputEl = dom.querySelector('input');
+  inputEl.value = '上海';
+  fire(inputEl, 'input');
+  await new Promise(r => setTimeout(r, 350));
+  assert.deepStrictEqual(detail, { value: '上海', name: 'city', src: 'header', draft: true });
+});
+
+test('旧式无参 clk 行为不变（第一参 null，不带 form）', () => {
+  cleanupHandlers();
+  const rc = makeRenderer();
+  let got = 'unset';
+  eventBus.registerHandler('hPlain', (d) => { got = d; });
+  const dom = rc.render({ type: 'a', attrs: { u: '#', tx: 'x', clk: 'hPlain' }, children: [] });
+  rc.bindEvents(dom);
+  fire(dom, 'click');
+  assert.strictEqual(got, null);
+});
+
 run();

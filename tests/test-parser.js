@@ -1486,4 +1486,125 @@ test('radio opt:"..." → 原子自闭合', () => {
   assert.strictEqual(r.children.length, 0);
 });
 
+// ===== tr 行内简写格（btn:/tag:/progress）子属性归位（回归修复） =====
+// 此前 parseTag 按空格切 token，btn: 格的子属性（icon:/l:/v:/clk:）被误判为行级属性：
+// [tr 张三,btn:] 整格空白、[tr 李四,btn:详情] 只剩一个按钮且 |btn: 续钮粘进 clk 值被覆盖丢失。
+
+test('tr btn: cell with space-separated sub-attrs stays fully in content', () => {
+  const nodes = [];
+  const parser = new TokUIParser((node) => nodes.push(node));
+  parser.parse('[tr 张三,btn: icon:view l:详情 v:primary clk:toast|btn: icon:edit l:编辑 v:warning clk:toast|btn: icon:delete l:删除 v:danger clk:toast]');
+  const tr = nodes[0];
+  assert.strictEqual(tr.type, 'tr');
+  assert.strictEqual(
+    tr.content,
+    '张三,btn: icon:view l:详情 v:primary clk:toast|btn: icon:edit l:编辑 v:warning clk:toast|btn: icon:delete l:删除 v:danger clk:toast',
+    'btn: 格及其子属性应完整保留在 content'
+  );
+  assert.deepStrictEqual(tr.attrs, {}, '子属性不得漏进行级 attrs');
+});
+
+test('tr btn:text cell with attrs keeps | continuation buttons in content', () => {
+  const nodes = [];
+  const parser = new TokUIParser((node) => nodes.push(node));
+  parser.parse('[tr 李四,btn:详情 clk:toast|btn:删除 v:danger clk:toast]');
+  const tr = nodes[0];
+  assert.strictEqual(tr.content, '李四,btn:详情 clk:toast|btn:删除 v:danger clk:toast');
+  assert.deepStrictEqual(tr.attrs, {});
+});
+
+test('tr plain cells keep trailing row attrs (no action cell regression)', () => {
+  const nodes = [];
+  const parser = new TokUIParser((node) => nodes.push(node));
+  parser.parse('[tr 华东大区,128,张伟 id:r1 clk:onRowClick]');
+  const tr = nodes[0];
+  assert.strictEqual(tr.content, '华东大区,128,张伟');
+  assert.strictEqual(tr.attrs.id, 'r1', 'id: 仍为行属性');
+  assert.strictEqual(tr.attrs.clk, 'onRowClick', 'clk: 仍为行属性');
+});
+
+test('tr v:total variant before content unaffected', () => {
+  const nodes = [];
+  const parser = new TokUIParser((node) => nodes.push(node));
+  parser.parse('[tr v:total 合计,100]');
+  const tr = nodes[0];
+  assert.strictEqual(tr.attrs.v, 'total');
+  assert.strictEqual(tr.content, '合计,100');
+});
+
+test('tr quoted first cell + btn: cell keeps both intact (docs 列宽示例形态)', () => {
+  const nodes = [];
+  const parser = new TokUIParser((node) => nodes.push(node));
+  parser.parse('[tr "精密轴承 6204",内径20mm,2860,2026-09-10,btn:编辑 clk:handleEdit|btn:删除 v:danger clk:handleDelete]');
+  const tr = nodes[0];
+  assert.strictEqual(tr.content, '"精密轴承 6204",内径20mm,2860,2026-09-10,btn:编辑 clk:handleEdit|btn:删除 v:danger clk:handleDelete');
+  assert.deepStrictEqual(tr.attrs, {});
+});
+
+test('tr mid-cell bare word (如「在线 tag」) 不开启简写格、不吞行属性', () => {
+  const nodes = [];
+  const parser = new TokUIParser((node) => nodes.push(node));
+  parser.parse('[tr 状态,在线 tag id:r5]');
+  const tr = nodes[0];
+  assert.strictEqual(tr.attrs.id, 'r5', '格内续词不吞后续行属性');
+});
+
+test('tr single-column action row (btn: 为首 token) 归内容不开属性', () => {
+  const nodes = [];
+  const parser = new TokUIParser((node) => nodes.push(node));
+  parser.parse('[tr btn:详情 clk:toast|btn:删除 v:danger clk:toast]');
+  const tr = nodes[0];
+  assert.strictEqual(tr.content, 'btn:详情 clk:toast|btn:删除 v:danger clk:toast');
+  assert.deepStrictEqual(tr.attrs, {});
+});
+
+test('tr bracket inline component cell ([dot]/[badge]) 裸写不再被空格拆碎', () => {
+  const nodes = [];
+  const parser = new TokUIParser((node) => nodes.push(node));
+  parser.parse('[tr 张三,[dot t:success tx:运行中],28]');
+  const tr = nodes[0];
+  assert.strictEqual(tr.content, '张三,[dot t:success tx:运行中],28');
+  assert.deepStrictEqual(tr.attrs, {});
+});
+
+// =============================================
+// 转义引号 \" ：扫描闭合 / tr 双轨重组 / 流式分片
+// =============================================
+
+test('转义引号：奇数个 \" 的属性标签正确闭合且反转义', () => {
+  const n = parseTag('p tt:"他说\\"好" x');
+  assert.strictEqual(n.type, 'p');
+  assert.strictEqual(n.attrs.tt, '他说"好');
+  assert.strictEqual(n.content, 'x');
+});
+
+test('转义引号：tr 正文保留转义原样（供切格器转义感知）', () => {
+  const tr = parseTag('tr "他说\\"你好,先生\\"",B');
+  assert.strictEqual(tr.content, '"他说\\"你好,先生\\"",B');
+});
+
+test('转义引号：p 正文引号段反转义为最终文本', () => {
+  const n = parseTag('p "关键: 他说\\"好\\"了"');
+  assert.strictEqual(n.content, '关键: 他说"好"了');
+});
+
+test('转义引号：流式分片与一次性解析等价（转义序列任意位置截断重拼）', () => {
+  const dsl = '[p tt:"他说\\"好\\"了" x][tr "欧阳\\"大大,姐\\"",2,btn:编辑 clk:x]';
+  const once = [];
+  new TokUIParser(n => once.push(n)).parse(dsl);
+  const chunked = [];
+  const parser = new TokUIParser(n => chunked.push(n));
+  parser.startStream();
+  for (let i = 0; i < dsl.length; i += 3) parser.feed(dsl.slice(i, i + 3));
+  parser.endStream();
+  assert.strictEqual(chunked.length, once.length, '节点数一致');
+  chunked.forEach((n, i) => {
+    assert.strictEqual(n.type, once[i].type);
+    assert.deepStrictEqual(n.attrs, once[i].attrs);
+    assert.strictEqual(n.content, once[i].content);
+  });
+  assert.strictEqual(once[0].attrs.tt, '他说"好"了', 'attr 反转义');
+  assert.strictEqual(once[1].content, '"欧阳\\"大大,姐\\"",2,btn:编辑 clk:x', 'tr 保转义原样');
+});
+
 run();

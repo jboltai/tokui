@@ -53,6 +53,43 @@ These two universal attributes apply to **every registered component**, landing 
 - **`cls:` rules**: each name must match `^[a-zA-Z][\w-]{0,63}$`; the **`tokui-` prefix is reserved and rejected**; max 8 names, deduplicated; invalid tokens are silently dropped one by one.
 - The channel is a "root-level enhancement": no pass-through to inner elements; coexists with component-private `w:`/`bg:`/`fc:` props (`style:` wins on the same property). The unknown-component fallback does not go through this channel.
 
+### Data attributes: `data-*` (root-level, all components)
+
+Attributes starting with `data-` in the DSL are passed through **as-is** to the component root element. Read them from the third handler argument (`element`) of `clk:`/`sub:` to carry custom data with events:
+
+```html
+[btn tx:Delete t:danger data-id:1024 data-scene:order-list clk:onDel]
+```
+
+```js
+TokUI.registerHandler('onDel', (data, e, el) => {
+  console.log(el.getAttribute('data-id')); // '1024'
+  console.log(el.dataset.scene);           // 'order-list'
+});
+```
+
+- **`data-tokui-*` is the framework's internal namespace** (`clk`/`sub`/`act` stamps etc.) and is **rejected** — DSL cannot forge stamps to hijack event dispatch;
+- Attributes already set by a component are not overridden; values containing spaces must be double-quoted.
+
+### Inline event params: `clk:"handler?k=v"` (works for clk / sub / on)
+
+Handler references can carry query-string style params that land **directly in the handler's first argument**:
+
+```html
+[btn tx:Delete t:danger clk:"onDel?id=1024&scene=order-list"]
+[input n:kw on:"change:onKw?src=header&draft"]
+```
+
+```js
+TokUI.registerHandler('onDel', (data, e, el) => {
+  // data = { id: '1024', scene: 'order-list' }
+});
+```
+
+- After `'?'`, segments split by `'&'`; `k=v` values are strings (URL-decoded; write spaces as `%20`); a segment without `'='` becomes boolean `true`;
+- Merged with form data when coexisting, **inline params win on key conflicts**; `on:` param values must not contain `,` (use `%2C`);
+- Without `'?'` the behavior is identical to older versions; param keys `__proto__`/`constructor`/`prototype` are rejected.
+
 > Form validation: `input` / `pwd` / `textarea` / `select` support declarative rules via `rule:"required|email|…"` + `msg:"custom message"` — enforced uniformly on submit; failures block submission, mark the field red with a hint, and focus the first error. See [Form · DSL validation rules](/en/components/form#dsl-validation-rules).
 
 > **Where text goes — bare content vs `tx:`**: text-**block** components `p` / `h1~h6` / `item` take text as **bare content** inside the tag: `[p body text]`, `[h1 Title]`; `tx:` is the text prop of **self-closing display** components (`btn` / `tag` / `callout` / `stat` / `badge` / `dot`…): `[btn tx:Click]`. Mixing loses content. Combine variants with commas `v:"muted,center"` — never write two `v:` (the second overwrites the first).

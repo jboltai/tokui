@@ -980,6 +980,14 @@ function registerTableComponents(renderer) {
     var depth = 0;
     for (var i = 0; i < str.length; i++) {
       var ch = str[i];
+      // 转义感知：\" 入格为字面引号（不切换引号状态，格内逗号受引号保护）、\\ 入格为字面反斜杠；
+      // 其余 \（如 Windows 路径 \U）按字面处理，与既有行为一致。builder row() 对含引号/逗号
+      // cell 发出「双引号包裹 + 内层 \" 转义」，parser tr 正文亦保留转义原样至此。
+      if (ch === '\\' && (str[i + 1] === '"' || str[i + 1] === '\\')) {
+        current += str[i + 1];
+        i++;
+        continue;
+      }
       if (ch === '"') {
         inQuotes = !inQuotes;
       } else if (inQuotes) {

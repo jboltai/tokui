@@ -64,6 +64,8 @@ const NAV_DATA = [
       { trigger: 'demo-design-tokens', name: { zh: 'Design Tokens 尺度', en: 'Design Tokens' }, desc: { zh: '间距/字号/圆角/阴影 scale', en: 'Space/font/radius/shadow scale' }, icon: '📐' },
       { trigger: 'demo-icons', name: { zh: '图标体系', en: 'Icon System' }, desc: { zh: '61 个内置图标 + registerIcon', en: '61 icons + registerIcon' }, icon: '◆' },
       { trigger: 'demo-cls-style', name: { zh: '样式定制 cls/style', en: 'cls & style' }, desc: { zh: '全组件根级安全定制通道', en: 'Root-level safe customization' }, icon: '🎨' },
+      { trigger: 'demo-visual-variants', name: { zh: '视觉变体四件', en: 'Visual Variants' }, desc: { zh: '渐变钮/渐变标题/玻璃卡/渐变描边', en: 'gradient/glass/gradient-border' }, icon: '🌈' },
+      { trigger: 'demo-reveal', name: { zh: 'reveal 滚动入场', en: 'Reveal on Scroll' }, desc: { zh: 'IO 一次性入场 + stagger + 降级', en: 'IO entrance + stagger' }, icon: '✨' },
       { trigger: 'demo-cls-style-guard', name: { zh: '样式安全过滤', en: 'Style Guard' }, desc: { zh: '白名单放行与注入拦截', en: 'Whitelist vs injection' }, icon: '🛡' },
       { trigger: 'demo-i18n', name: { zh: '多语言 i18n', en: 'i18n' }, desc: { zh: '组件 chrome 文案随语言切换', en: 'Chrome text follows locale toggle' }, icon: '🌐' },
     ]
@@ -94,7 +96,7 @@ const NAV_DATA = [
     name: { zh: '文本与内容', en: 'Text & Content' },
     icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>',
     items: [
-      { trigger: 'show-basic', name: { zh: '段落与链接', en: 'Text & Link' }, desc: { zh: '文本段落、超链接、分割线', en: 'Paragraphs, links, hr' }, icon: '↗' },
+      { trigger: 'show-basic', name: { zh: '段落与链接', en: 'Text & Link' }, desc: { zh: '文本段落、超链接、clk 事件链接、分割线', en: 'Paragraphs, links, clk event links, hr' }, icon: '↗' },
       { trigger: 'demo-inline-format', name: { zh: '行内格式', en: 'Inline Format' }, desc: { zh: 'b/em/mark/del/sub/sup 混排', en: 'Inline b/em/mark/del/sub/sup' }, icon: 'B' },
       { trigger: 'demo-kbd', name: { zh: 'Kbd 键盘按键', en: 'Kbd' }, desc: { zh: '行内键帽/快捷键说明', en: 'Inline keycaps' }, icon: '⌨' },
       { trigger: 'demo-code', name: { zh: '代码块', en: 'Code Block' }, desc: { zh: '多语言语法高亮', en: 'Multi-language highlighting' }, icon: '⌘' },
@@ -374,6 +376,7 @@ const NAV_DATA = [
     icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
     items: [
       { trigger: 'test-fragment', name: { zh: '碎片推送渲染', en: 'Fragment Push' }, desc: { zh: '标签拆碎推送/解析鲁棒性', en: 'Fragmented tag push/parser robustness' }, icon: '🧩' },
+      { trigger: 'test-reveal-stream', name: { zh: 'reveal 随机流', en: 'Reveal Random Stream' }, desc: { zh: '随机碎片流式 + 折叠区一次性入场', en: 'Random-fragment stream + fold one-shot entrance' }, icon: '✨' },
       { trigger: 'test-big-table', name: { zh: '超大型表格流式', en: 'Huge Table Stream' }, desc: { zh: '合并表头+单元格多组件·逐 cell 流式', en: 'Merged header + cell components · cell stream' }, icon: '📋' },
       { trigger: 'test-pie', name: { zh: '饼图独立碎片', en: 'Pie Fragment' }, desc: { zh: '饼图 1/2/3/4 列布局与少/多数据碎片渲染', en: 'Pie chart 1/2/3/4-col layouts, sparse/dense data fragments' }, icon: '🥧' },
     ]
@@ -421,12 +424,13 @@ const I18N = {
   loginData:      { zh: '登录数据', en: 'Login Data' },
   mapClickData:   { zh: '地图点击', en: 'Map Click' },
   addEmpData:     { zh: '添加员工', en: 'Add Employee' },
+  linkClickData:  { zh: '事件链接点击（clk）', en: 'Event Link Click (clk)' },
   action:         { zh: '操作', en: 'Action' },
   eventPanelTitle: { zh: '交互事件', en: 'Events' },
   eventPanelClear: { zh: '清空', en: 'Clear' },
   editClicked:    { zh: '编辑按钮被点击', en: 'Edit button clicked' },
   deleteClicked:  { zh: '删除按钮被点击', en: 'Delete button clicked' },
-  footerVer:      { zh: '当前版本:v0.2.6', en: 'Version: v0.2.6' },
+  footerVer:      { zh: '当前版本:v0.2.7', en: 'Version: v0.2.7' },
   footerCopy:     { zh: '零依赖 · 流式UI描述与渲染框架', en: 'Zero Deps · Streaming UI Framework' },
   dslRef:         { zh: 'DSL 语法速查', en: 'DSL Syntax Ref' },
   clearBtn:       { zh: '清空', en: 'Clear' },
@@ -639,6 +643,15 @@ TokUI.registerHandler('handleCancel', () => addSystemMessage(t('action'), '取�
 TokUI.registerHandler('handleExport', () => addSystemMessage(t('action'), '导出'));
 TokUI.registerHandler('handleSearch', (data) => addSystemMessage('搜索', JSON.stringify(data, null, 2)));
 TokUI.registerHandler('handleSend', (data) => addSystemMessage('Chat Input 发送', (data && data.value) || ''));
+// a 事件链接（clk）：点击拦截默认跳转，handler 第三参拿到链接元素。
+// 数据携带两条通道：data-* 透传（_applyDataAttrs 兜底，从元素读）与 "?k=v" 内联参数（parseHandlerRef，直接进第一参）
+TokUI.registerHandler('handleLinkClick', (data, e, el) => {
+  const id = el && el.getAttribute('data-id');
+  const scene = el && el.getAttribute('data-scene');
+  const inline = data && typeof data === 'object' ? Object.keys(data).filter(k => k !== 'value').map(k => `${k}=${data[k]}`).join(' · ') : '';
+  const via = inline ? `内联参数 ${inline}` : `data-* id=${id}${scene ? ` · scene=${scene}` : ''}`;
+  addSystemMessage(t('linkClickData'), `${via} · 文本「${el && el.textContent}」`);
+});
 // mention 数据源：模拟成员目录（真实场景常为异步接口，这里同步返回；{v, tx} v 值 tx 显示）
 TokUI.registerHandler('iaMention', (q) => {
   const users = [

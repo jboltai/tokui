@@ -161,7 +161,8 @@ function parseOnSpec(on) {
     if (idx <= 0) return;
     var ev = pair.slice(0, idx).trim();
     var h = pair.slice(idx + 1).trim();
-    if (/^[\w-]+$/.test(ev) && /^[\w-]+$/.test(h)) map[ev] = h;
+    // h 允许带 "?k=v" 内联参数段（参数段不含 ','——值里要逗号须 %2C 编码，split 在 decode 之前）
+    if (/^[\w-]+$/.test(ev) && /^[\w-]+(\?[^,:]*)?$/.test(h)) map[ev] = h;
   });
   return map;
 }
@@ -246,8 +247,8 @@ function evaluateRules(value, ruleStr) {
  */
 const VARIANTS = {
   img:    new Set(['avatar', 'rounded', 'bordered']),
-  card:   new Set(['highlight', 'flat', 'bordered', 'center', 'right']),
-  btn:    new Set(['primary', 'danger', 'success', 'warning', 'ghost', 'sm', 'lg', 'pill', 'square', 'block']),
+  card:   new Set(['highlight', 'flat', 'bordered', 'center', 'right', 'glass', 'gradient-border']),
+  btn:    new Set(['primary', 'danger', 'success', 'warning', 'ghost', 'sm', 'lg', 'pill', 'square', 'block', 'gradient']),
   btngroup: new Set(['vertical', 'pill']),
   table:  new Set(['bordered', 'compact']),
   form:   new Set(['inline']), // v:inline 全字段行内（过滤条，T2.2）；与 cols 同写 cols 优先（CSS 顺序）
@@ -261,12 +262,13 @@ const VARIANTS = {
   datepicker: new Set(['full']),
   timepicker: new Set(['full']),
   datetimepicker: new Set(['full']),
-  h1: new Set(['left', 'center', 'right', 'ribbon', 'underline', 'badge', 'pill']),
-  h2: new Set(['left', 'center', 'right', 'ribbon', 'underline', 'badge', 'pill']),
-  h3: new Set(['left', 'center', 'right', 'ribbon', 'underline', 'badge', 'pill']),
-  h4: new Set(['left', 'center', 'right', 'ribbon', 'underline', 'badge', 'pill']),
-  h5: new Set(['left', 'center', 'right', 'ribbon', 'underline', 'badge', 'pill']),
-  h6: new Set(['left', 'center', 'right', 'ribbon', 'underline', 'badge', 'pill']),
+  reveal: new Set(['up', 'left', 'right', 'zoom']), // 滚动入场方向（T3.2）
+  h1: new Set(['left', 'center', 'right', 'ribbon', 'underline', 'badge', 'pill', 'gradient']), // gradient = 渐变文字（T3.2）
+  h2: new Set(['left', 'center', 'right', 'ribbon', 'underline', 'badge', 'pill', 'gradient']), // gradient = 渐变文字（T3.2）
+  h3: new Set(['left', 'center', 'right', 'ribbon', 'underline', 'badge', 'pill', 'gradient']), // gradient = 渐变文字（T3.2）
+  h4: new Set(['left', 'center', 'right', 'ribbon', 'underline', 'badge', 'pill', 'gradient']), // gradient = 渐变文字（T3.2）
+  h5: new Set(['left', 'center', 'right', 'ribbon', 'underline', 'badge', 'pill', 'gradient']), // gradient = 渐变文字（T3.2）
+  h6: new Set(['left', 'center', 'right', 'ribbon', 'underline', 'badge', 'pill', 'gradient']), // gradient = 渐变文字（T3.2）
   p:  new Set(['left', 'center', 'right', 'muted', 'bold', 'sm', 'lg']),
   a:  new Set(['muted', 'danger', 'success', 'underline']),
   ft: new Set(['left', 'center', 'right']),
@@ -360,12 +362,16 @@ class TokUIRenderer {
     return function report(event, detail) {
       var handlerName = onMap[event];
       if (handlerName && self.eventBus) {
-        var fn = self.eventBus.getHandler(handlerName);
+        // on: 引用同样支持 "?k=v" 内联参数（on:"change:onKw?src=header"），参数合并进 detail
+        var ref = self._parseRef(handlerName);
+        var fn = self.eventBus.getHandler(ref.name);
         if (fn) {
-          try { fn(detail != null ? detail : null, null, element || null); }
+          var payload = detail != null ? detail : null;
+          if (ref.params) payload = (payload && typeof payload === 'object') ? Object.assign({}, payload, ref.params) : ref.params;
+          try { fn(payload, null, element || null); }
           catch (e) { console.warn('TokUI: on:' + event + ' handler error', e); }
         } else {
-          self._warnMissingHandler(handlerName);
+          self._warnMissingHandler(ref.name);
         }
       }
       if (self._onComponentEvent) {
@@ -479,6 +485,8 @@ class TokUIRenderer {
     this._applyVariants(dom, node);
     // 通用样式安全通道：cls: / style: 集中落组件根元素（全组件生效）
     this._applyUserStyle(dom, node);
+    // 通用数据属性通道：data-* 透传集中落组件根元素（clk/sub handler 经第三参 element 读取）
+    this._applyDataAttrs(dom, node);
     // 在每个组件根元素盖 data-tokui-tag 源标签印章（文档 Playground / E2E 定位用）。
     // 只盖普通元素（nodeType===1），文本节点 / fragment / null 跳过。
     if (dom && dom.nodeType === 1 && node.type && node.type !== '_text') {
@@ -538,6 +546,25 @@ class TokUIRenderer {
     if (safeStyle) {
       var css = dom.getAttribute('style');
       dom.setAttribute('style', css ? css.replace(/;\s*$/, '') + '; ' + safeStyle : safeStyle);
+    }
+  }
+
+  /**
+   * 通用数据属性通道：DSL 里 data-* 开头的属性集中透传到组件根元素（全组件生效）。
+   * 配合 clk/sub handler 第三参 element 读取（getAttribute / dataset），实现事件携带自定义数据。
+   * - data-tokui-* 为框架内部命名空间（clk/sub/act/tag 印章等），拒绝透传，防 DSL 伪造印章劫持事件分发
+   * - 组件已手动落的同名属性不覆盖（与 id 兜底同口径）
+   */
+  _applyDataAttrs(dom, node) {
+    if (!dom || dom.nodeType !== 1) return;
+    var attrs = node.attrs || {};
+    for (var key in attrs) {
+      if (Object.prototype.hasOwnProperty.call(attrs, key)
+          && key.indexOf('data-') === 0
+          && key.indexOf('data-tokui-') !== 0
+          && !dom.hasAttribute(key)) {
+        dom.setAttribute(key, attrs[key]);
+      }
     }
   }
 
@@ -1165,17 +1192,20 @@ class TokUIRenderer {
         e.preventDefault();
         // 禁用态闸门：aria-disabled 元素不触发 clk（鼠标/键盘同口径）
         if (element.getAttribute('aria-disabled') === 'true') return;
+        // clk 引用可带内联参数（"onDel?id=1&scene=x"）：参数合并进 handler 第一参
+        var ref = self._parseRef(handlerName);
         // 提交按钮在 form 外：用附近 form 的 sub handler 处理
         if (nearbyFormForSubmit) {
           if (!self._checkFormValidity(nearbyFormForSubmit)) return;
           const subName = nearbyFormForSubmit.getAttribute('data-tokui-sub');
-          const handler = subName ? self.eventBus.getHandler(subName) : null;
+          const subRef = subName ? self._parseRef(subName) : { name: subName, params: null };
+          const handler = subName ? self.eventBus.getHandler(subRef.name) : null;
           if (handler) {
-            handler(self._collectFormData(nearbyFormForSubmit), e, nearbyFormForSubmit);
+            handler(self._mergeCallData(self._collectFormData(nearbyFormForSubmit), subRef.params), e, nearbyFormForSubmit);
           }
           return;
         }
-        const handler = self.eventBus.getHandler(handlerName);
+        const handler = self.eventBus.getHandler(ref.name);
         if (handler) {
           // 收集表单数据：优先 DOM 祖先 form；btn 在 form 外时回退 data-tokui-form（form:ID 显式绑定）
           let form = element.closest('form');
@@ -1186,9 +1216,9 @@ class TokUIRenderer {
           // submit 型按钮提交前过统一校验（DSL 规则 + 原生；普通 clk 按钮不触发）
           if (form && element.getAttribute('type') === 'submit' && !self._checkFormValidity(form)) return;
           const data = form ? self._collectFormData(form) : null;
-          handler(data, e, element);
+          handler(self._mergeCallData(data, ref.params), e, element);
         } else {
-          self._warnMissingHandler(handlerName);
+          self._warnMissingHandler(ref.name);
         }
       };
       element.addEventListener('click', clickFn);
@@ -1222,12 +1252,14 @@ class TokUIRenderer {
       var submitFn = function (e) {
         e.preventDefault();
         if (!self._checkFormValidity(form)) return;
-        const handler = self.eventBus.getHandler(handlerName);
+        // sub 引用可带内联参数（"onLogin?src=header"），参数合并进表单数据
+        var ref = self._parseRef(handlerName);
+        const handler = self.eventBus.getHandler(ref.name);
         if (handler) {
           const data = self._collectFormData(form);
-          handler(data, e, form);
+          handler(self._mergeCallData(data, ref.params), e, form);
         } else {
-          self._warnMissingHandler(handlerName);
+          self._warnMissingHandler(ref.name);
         }
       };
       form.addEventListener('submit', submitFn);
@@ -1241,13 +1273,16 @@ class TokUIRenderer {
       if (handlerName) {
         var domClickFn = function (e) {
           e.preventDefault();
-          const handler = self.eventBus.getHandler(handlerName);
+          // 禁用态闸门：与 querySelectorAll 后代路径同口径（根元素路径曾漏此闸门）
+          if (dom.getAttribute('aria-disabled') === 'true') return;
+          var ref = self._parseRef(handlerName);
+          const handler = self.eventBus.getHandler(ref.name);
           if (handler) {
             const form = dom.closest('form');
             const data = form ? self._collectFormData(form) : null;
-            handler(data, e, dom);
+            handler(self._mergeCallData(data, ref.params), e, dom);
           } else {
-            self._warnMissingHandler(handlerName);
+            self._warnMissingHandler(ref.name);
           }
         };
         dom.addEventListener('click', domClickFn);
@@ -1286,8 +1321,9 @@ class TokUIRenderer {
     if (!form) {
       // 无表单上下文（form 外的 t:submit 写法）：退化为普通点击，保持旧行为
       if (handlerName) {
-        var freeHandler = this.eventBus.getHandler(handlerName);
-        if (freeHandler) freeHandler(null, null, btn);
+        var freeRef = this._parseRef(handlerName);
+        var freeHandler = this.eventBus.getHandler(freeRef.name);
+        if (freeHandler) freeHandler(this._mergeCallData(null, freeRef.params), null, btn);
       }
       return;
     }
@@ -1295,8 +1331,9 @@ class TokUIRenderer {
     // 按钮未指名 handler 时回退到表单自身的 sub/clk（[form sub:H] + [btn t:submit] 组合）
     if (!handlerName) handlerName = form.getAttribute('data-tokui-sub') || form.getAttribute('data-tokui-clk');
     if (handlerName) {
-      var handler = this.eventBus.getHandler(handlerName);
-      if (handler) handler(this._collectFormData(form), null, form);
+      var ref = this._parseRef(handlerName);
+      var handler = this.eventBus.getHandler(ref.name);
+      if (handler) handler(this._mergeCallData(this._collectFormData(form), ref.params), null, form);
     }
   }
 
@@ -1315,9 +1352,28 @@ class TokUIRenderer {
     });
     var handlerName = btn.getAttribute('data-tokui-handler');
     if (handlerName) {
-      var handler = this.eventBus.getHandler(handlerName);
-      if (handler) handler(null, null, form);
+      var ref = this._parseRef(handlerName);
+      var handler = this.eventBus.getHandler(ref.name);
+      if (handler) handler(this._mergeCallData(null, ref.params), null, form);
     }
+  }
+
+  /** 解析可能带 "?k=v" 内联参数的 handler 引用（无 eventBus.parseHandlerRef 的旧注入兜底原样返回） */
+  _parseRef(handlerName) {
+    if (this.eventBus && typeof this.eventBus.parseHandlerRef === 'function') {
+      return this.eventBus.parseHandlerRef(handlerName);
+    }
+    return { name: handlerName, params: null };
+  }
+
+  /**
+   * handler 第一参组装：内联参数（clk:"onDel?id=1"）优先级高于表单收集值
+   * （DSL 显式声明意图更强）；无表单数据时直接给参数对象；均无时保持原值（null）。
+   */
+  _mergeCallData(data, params) {
+    if (!params) return data != null ? data : null;
+    if (data && typeof data === 'object') return Object.assign({}, data, params);
+    return params;
   }
 
   /**

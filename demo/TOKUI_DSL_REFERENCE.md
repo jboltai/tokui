@@ -8,7 +8,7 @@
 ## 0. 铁律速记（写之前先读，违反即渲染失败）
 
 1. **属性之间必须空格分隔**——CJK/全角字符（`（）。，！？`）后接新属性也要空格。错 `[item l:服务费（10%）tx:¥48]` → 对 `[item l:服务费（10%） tx:¥48]`。
-2. **`tr` 单元格用英文逗号**，含逗号的 cell 双引号包（`[tr 1,"x,y",2]`），**tr 不要外层引号**。唯二例外：① 单元格是带空格的内联组件（`btn:`/`tag:`/`progress`/`[xxx]`）→ 整行外层引号 + `|` 分隔多钮；② **货币符号金额（`¥/$/€/£/₩` 等）千分位自动识别、无需引号**——`¥2,688.00`、`$1,234,567` 直接裸写，parser 不切。
+2. **`tr` 单元格用英文逗号**，含逗号的 cell 双引号包（`[tr 1,"x,y",2]`），**tr 不要外层引号**。内联组件简写格（`btn:`/`tag:`/`progress` 及 `[xxx]` 方括号组件，含空格子属性、多钮 `|`）**同样裸写**（parser 已归位子属性，格内勿含英文逗号）；**货币符号金额（`¥/$/€/£/₩` 等）千分位自动识别、无需引号**——`¥2,688.00`、`$1,234,567` 直接裸写，parser 不切。
 3. **变体必须带 `v:` 前缀**，多变体逗号合并 `v:"primary,sm"`。裸写 `muted`/`primary` 会变正文乱码。
 4. **`card` 有子元素时禁用 `tx`**（`tx` = 自闭合叶子卡，子内容会漏到卡外）。价签用 `[h3]`/`[stat]`。
 5. **`p` 双模**：有正文=叶子自闭合（可夹内联子节点），无正文=容器 `[p]...[/p]`（放块级组件）。
@@ -88,6 +88,7 @@ v:"primary,sm"                               ;; 多变体用逗号分隔，渲�
 | `on` | 事件上报声明 | `on:"事件:处理器,…"`（**必须双引号**），如 `on:"change:onInput,close:onClose"`，见 §8.4 |
 
 > `clk:` / `sub:` 处理器签名 `(data, event, element)`；表单按钮的 `data` 为 `_collectFormData(form)` 收集结果，同 name 多值自动聚合为数组。
+> 三通道（`clk:` / `sub:` / `on:`）的处理器引用均支持 **`?` 内联参数**：`clk:"onDel?id=1024&scene=order-list"`，参数进 handler 第一参（见 §2.3）。
 
 ### 2.1 样式定制通道：`cls:` / `style:`（全组件根级）
 
@@ -110,6 +111,47 @@ v:"primary,sm"                               ;; 多变体用逗号分隔，渲�
 **`cls:` 规则**：每个类名须匹配 `^[a-zA-Z][\w-]{0,63}$`（字母开头，1~64 字符）；**拒绝 `tokui-` 前缀**（框架保留字）；最多 8 个、自动去重；非法词逐个静默丢弃。
 
 > 通道定位是「根级增强」：只落组件根元素、内部元素不透传；与组件私有 `w:`/`bg:`/`fc:`/`hc:` 等散点属性叠加共存（`style:` 声明追加在私有样式之后，同名属性以 `style:` 为准）。未知组件降级（`tokui-unknown`）不走此通道。
+
+### 2.2 数据属性通道：`data-*`（全组件根级）
+
+DSL 里以 `data-` 开头的属性**原样透传**到组件根元素，配合 `clk:`/`sub:` handler 第三参 `element` 读取（`getAttribute`/`dataset`），实现事件携带自定义数据：
+
+```
+[btn tx:删除 t:danger data-id:1024 data-scene:order-list clk:onDel]
+[a u:# tx:查看详情 data-id:777 clk:onDetail]
+```
+
+```js
+TokUI.registerHandler('onDel', (data, e, el) => {
+  console.log(el.getAttribute('data-id'));    // '1024'
+  console.log(el.dataset.scene);              // 'order-list'
+});
+```
+
+**规则**：`data-tokui-*` 为框架内部命名空间（`clk`/`sub`/`act`/`tag` 印章等），**拒绝透传**（防伪造印章劫持事件分发）；组件已手动落的同名属性不覆盖；值含空格须双引号。表格行另有简写 `d:"k:v k2:v2"`（`tr` 自动加 `data-` 前缀落行元素）；`tr clk:` 行点击则直接上报 `{index,row[]}` 整行数据载荷。
+
+### 2.3 事件内联参数：`clk:"handler?k=v"`（三通道通用）
+
+`clk:` / `sub:` / `on:` 的处理器引用可带查询串风格参数，**参数直接进 handler 第一参**（无需从 DOM 读）：
+
+```
+[btn tx:删除 t:danger clk:"onDel?id=1024&scene=order-list"]
+[a u:# tx:查看 clk:"onDetail?id=777"]
+[form sub:"onLogin?src=header"]…[/form]
+[input n:kw on:"change:onKw?src=header&draft"]
+```
+
+```js
+TokUI.registerHandler('onDel', (data, e, el) => {
+  // data = { id: '1024', scene: 'order-list' }（不在表单内时 data 即参数对象）
+});
+```
+
+**规则**：
+- `'?'` 后按 `'&'` 分段，段内首个 `'='` 分 k/v，值一律字符串（URL decode，空格写 `%20`）；无 `'='` 的段为布尔 `true`（如 `&draft`）；
+- 与表单数据共存时合并进同一对象，**同名键内联参数优先**（DSL 显式声明意图更强）；
+- `on:` 的参数值不能含 `,`（会被事件分段拆断），须写 `%2C`；
+- 无 `'?'` 时行为与旧版完全一致（零开销）；参数键拒绝 `__proto__`/`constructor`/`prototype`。
 
 ---
 
@@ -138,11 +180,12 @@ DSL 写 `v:primary` → 渲染器生成 CSS 类 `tokui-{type}--primary`。多变
 
 | 组件 | 允许的变体 |
 |------|-----------|
-| `btn` | `primary` `danger` `success` `warning` `ghost` `sm` `lg` `pill` `square` `block`（图标走 `icon:` / `i:` 属性，非变体） |
+| `btn` | `primary` `danger` `success` `warning` `ghost` `sm` `lg` `pill` `square` `block` `gradient`（渐变主色钮，T3.2；图标走 `icon:` / `i:` 属性，非变体） |
 | `btngroup` | `vertical` `pill` |
-| `card` | `highlight` `flat` `bordered` `center` `right` |
+| `card` | `highlight` `flat` `bordered` `center` `right` `glass` `gradient-border`（T3.2：磨砂玻璃 / 渐变描边） |
 | `table` | `bordered` `compact` |
-| `h1`~`h6` | `left` `center` `right` `ribbon` `underline` `badge` `pill` |
+| `h1`~`h6` | `left` `center` `right` `ribbon` `underline` `badge` `pill` `gradient`（渐变标题文字，T3.2） |
+| `reveal` | `up` `left` `right` `zoom`（入场方向，T3.2） |
 | `p` | `left` `center` `right` `muted` `bold` `sm` `lg` |
 | `a` | `muted` `danger` `success` `underline` |
 | `ft` | `left` `center` `right` |
@@ -179,7 +222,7 @@ terminal sandbox test-result quote toggle-group conversations welcome welcome-fe
 suggestions attachments artifact artifact-code artifact-preview scroll-area
 sidebar sidebar-content sidebar-footer command command-group hover-card hover-trigger hover-content
 resizable canvas canvas-content chart p tour affix preview-group segmented anchor float-button masonry
-panel kpi scrollboard fit-screen page page-header page-sidebar page-content page-tabs page-tab
+panel kpi scrollboard fit-screen page page-header page-sidebar page-content page-tabs page-tab reveal reveal-item
 ```
 
 **自闭合逃逸**（在容器清单内但特定条件下自动当自闭合叶子）：
@@ -205,7 +248,7 @@ panel kpi scrollboard fit-screen page page-header page-sidebar page-content page
 |-----|------|----------|------|
 | `h1`~`h6` | 自闭合 | `tx`/裸内容 `v` `bg` `fc` | 标题。`v:underline` 时 bg 走 `::after` 下划线色；其余变体见 §4 |
 | `p` | 叶子/容器 | `v` 裸内容 | 段落，**双模**：有正文=叶子自闭合（内联白名单 `a`/`tag`/`b`/`strong`/`em`/`mark`/`spin`/`sub`/`sup`/`code`/`i`/`kbd`），遇块级兄弟自动闭合；无正文=容器 `[p]...[/p]` 放块级组件 |
-| `a` | 自闭合 | `u` `tx`/裸内容 `tt` `target` `dis` `v` | 链接。href 协议白名单 `http(s)`/`mailto`/`tel`/`/`/`#`，其余强制 `#` |
+| `a` | 自闭合 | `u` `tx`/裸内容 `tt` `target` `dis` `v` `clk` | 链接。href 协议白名单 `http(s)`/`mailto`/`tel`/`/`/`#`，其余强制 `#`。带 `clk` 时点击拦截跳转、触发命名 handler（事件链接） |
 | `img` | 自闭合 | `s` `alt` `w` `h` `tt` `v` | 图片，点击灯箱预览。变体 `avatar`/`rounded`/`bordered` |
 | `preview-group` | 容器 | `id` | 图片预览组。子项 `img` 共享灯箱预览会话（缩放/旋转/翻转/计数/前后切换），流式后到的图自动入组；与 `imgs`（九宫格简写布局）不同，是显式「一组图共享预览」语义，排版照旧 |
 | `hr` | 自闭合 | — | 水平分割线 |
@@ -364,6 +407,8 @@ panel kpi scrollboard fit-screen page page-header page-sidebar page-content page
 | `page-content` | 容器 | — | 主区薄包装。纵列 + 自滚动 + overflow 裁剪防护 |
 | `page-tabs` | 容器 | `act` `on` `id` | 多页签容器。`act` 初始激活 key（未命中回落首个可用）；点击页签上报 `change {key,title}`；`[upd id: act:key]` 静默切换；键盘 ←→ 导航 |
 | `page-tab` | 容器 | `n` `tt` `closeable` `dis` | 单页签。`n` key（缺省用 tt）；`closeable` × 关闭（上报 `close {key,title}`，激活让位邻签）；`dis` 禁用；`[del id:]` 整签移除（按钮+面板一体） |
+| `reveal` | 容器 | `v` `delay` | 滚动入场容器（T3.2）。IntersectionObserver 一次性入场（进场后断开不重播）；`v:up\|left\|right\|zoom` 方向（默认 up）；`delay:N` 基础延迟 ms（0~4000，落 `--tokui-reveal-delay`）；**直接子元素按序 stagger 递增 80ms**（纯 CSS 前 12 档，第 12+ 项同档）；渐进增强——prefers-reduced-motion / 无 IO 环境内容直接可见，永不见丢失 |
+| `reveal-item` | 容器 | — | 入场分组包装（可选）。不写则子组件直接作为 reveal 子元素参与 stagger；写了则每个 item 为一个 stagger 单元（自带块级间距） |
 | `float-button` | 容器 | `pos` `offset` | 浮动按钮组。`pos` 四角固位(right-bottom 缺省/right-top/left-bottom/left-top)、`offset` 边距(px 缺省24)；子组件自动圆形悬浮化 |
 
 #### 响应式断点（T0.3，容器查询）
@@ -576,11 +621,13 @@ TokUI.registerHandler('onPage', (d) => {
 - **操作按钮**：`btn:详情 clk:fillSubmit data-prompt:查看详情:<行ID>|btn:删除 v:danger clk:fillSubmit data-prompt:删除:<行ID>`（多个 `|` 分隔，属性空格分）。icon 操作钮 `btn: icon:edit l:编辑 v:warning clk:fillSubmit data-prompt:编辑:<行ID>`。
 - **任意内联组件**：`[badge count:5]`、`[dot t:success tx:运行中]`（方括号包裹组件会内联渲染）。
 
-> **🔴 带空格属性的内联组件格 / 多按钮格 → 整行外层双引号包**：凡 tr 行内有 `btn:`/`progress v:`/`tag:`/`[xxx]` 这类**带空格属性**的格，整行外层双引号包，单元格内不含逗号、多按钮用 `|` 分隔。**货币符号金额（¥/$/€/£ 等）千分位无需引号、整行包也无需内层转义**：
+> **✅ 带空格属性的内联组件格 / 多按钮格 → 直接裸写，无需整行外层引号**：parser 已把 `btn:`/`progress v:`/`tag:` 简写格及 `[xxx]` 方括号内联组件格的空格子属性（`icon:`/`l:`/`v:`/`clk:`/`t:` 等）归位到单元格（2026-09 起）。唯一要求：这些格内**不含英文逗号**（逗号切格、按钮残缺）；多按钮用 `|` 分隔。整行外层引号 + `\"` 转义的旧写法仍兼容但已无必要：
 >
 > ```tokui
-> [tr "ZS001,张三,¥2,688.00,progress v:90 t:span,tag:在职 t:success,btn:详情 clk:fillSubmit data-prompt:详情:ZS001"]
+> [tr ZS001,张三,¥2,688.00,progress v:90 t:span,tag:在职 t:success,btn:详情 clk:fillSubmit data-prompt:详情:ZS001]
 > ```
+>
+> 行级属性（`id:`/`pid:` 树形行）须写在行首，放在简写格之后会被当按钮子属性吞掉。
 
 #### 各列类型引号速查（系统性）
 
@@ -592,33 +639,26 @@ TokUI.registerHandler('onPage', (d) => {
 | 百分比/单位 | `0.8%` / `95分` | 否 | 否 | 无需 |
 | 裸数字千分位（无符号） | `12800,00` | 否 | 是 | **该格双引号包**（无符号歧义） |
 | 多值文本（逗号） | `量程0-50MPa,精度0.1%` | 否 | 是 | **该格双引号包** |
-| 标签 `tag:` | `tag:已发货 t:primary` | 是 | 否 | 整行外层引号（或该格引号） |
-| 进度 `progress` | `progress v:80 t:span` | 是 | 否 | 整行外层引号（或该格引号） |
-| 按钮 `btn:` | `btn:详情 clk:...` | 是 | 否 | 整行外层引号（或该格引号） |
-| 多按钮 | `btn:...|btn:...` | 是 | 否 | 整行外层引号（`|` 分隔） |
+| 标签 `tag:` | `tag:已发货 t:primary` | 是 | 否 | **无需**（简写格子属性已归位；格内勿含逗号） |
+| 进度 `progress` | `progress v:80 t:span` | 是 | 否 | **无需**（同上） |
+| 按钮 `btn:` | `btn:详情 clk:...` | 是 | 否 | **无需**（同上） |
+| 方括号组件 | `[dot t:success tx:x]` | 是 | 否 | **无需**（同上） |
+| 多按钮 | `btn:...|btn:...` | 是 | 否 | **无需**（`|` 分隔） |
 
-**混搭规则**：一行里既有货币金额又有组件格 → 整行外层引号包，货币金额无需内层转义（千分位自动识别）：`[tr ",ORD-001,星辰,¥2,688.00,tag:已发货 t:primary,btn:查看 clk:x"]`。一行里有多值文本逗号格 + 组件格 → 整行外层引号 + 多值格内层 `\"` 转义。
+**混搭规则**：一行里既有货币金额又有组件格 → 直接裸写（千分位自动识别）：`[tr ,ORD-001,星辰,¥2,688.00,tag:已发货 t:primary,btn:查看 clk:x]`。一行里有多值文本逗号格 + 组件格 → 多值格单独双引号包、组件格照旧裸写（或退回整行外层引号 + 多值格 `\"` 转义的旧写法）。
 >
-> **不引号包的后果（实测高频翻车点）**：parser 按**空格**切 tr token，`btn:详情 clk:fillSubmit data-prompt:...` 里的 `clk:`/`data-prompt:` 会被吃成 **tr 自身属性**、content 被截断、操作列/进度列整列渲染不出来。错例：
->
-> ```tokui
-> [tr 01,项目01,42,0.8%,progress v:42 t:span,btn:详情 clk:fillSubmit data-prompt:查看详情:项目01]
-> ```
->
-> → `tr.attrs` 变 `{v:"42", t:"span,btn:详情", clk:"fillSubmit", data-prompt:"查看详情:项目01"}`、`tr.content` 只剩前 5 格 `"01,项目01,42,0.8%,progress"`、操作列消失。
->
-> **改法（整行外层引号包即可）**：`[tr "01,项目01,42,0.8%,progress v:42 t:span,btn:详情 clk:fillSubmit data-prompt:查看详情:项目01"]`。无空格组件格不需引号。
+> **历史坑（已修复）**：2026-09 前 parser 按空格切 tr token，未引号包的 `btn:详情 clk:fillSubmit data-prompt:...` 里的 `clk:`/`data-prompt:` 会被吃成 tr 自身属性、操作列整列渲染不出来；现已在 parser 层归位（`src/core/parser.js` 的 `_trTokenOpensActionCell`），旧 DSL 无需改写。
 
 #### 操作列范例（多按钮 + icon-only）
 
-整行 tr 外层引号包（btn 格含空格）；多按钮 `|` 分隔；`v:danger` 删钮红；**每行 ID 烧进 `data-prompt`**（`动作:ID`）；icon-only 用 `l:` 作 tooltip+无障碍；可用 icon 名：view/edit/delete/copy/download/refresh/check/close/search 等。
+直接裸写（btn 简写格子属性 parser 已归位，无需整行引号）；多按钮 `|` 分隔；`v:danger` 删钮红；**每行 ID 烧进 `data-prompt`**（`动作:ID`）；icon-only 用 `l:` 作 tooltip+无障碍；可用 icon 名：view/edit/delete/copy/download/refresh/check/close/search 等。
 
 ```tokui
 [table stripe bordered]
 [thead cols:"#,项目,数值,趋势,操作"]
 [tbody]
-[tr ",P01,42,progress v:42 t:span,btn:详情 clk:fillSubmit data-prompt:查看详情:P01|btn:编辑 clk:fillSubmit data-prompt:编辑:P01|btn:删除 v:danger clk:fillSubmit data-prompt:删除:P01"]
-[tr ",P02,88,progress v:88 t:span,btn: icon:view l:详情 v:primary clk:fillSubmit data-prompt:查看详情:P02|btn: icon:edit l:编辑 v:warning clk:fillSubmit data-prompt:编辑:P02|btn: icon:delete l:删除 v:danger clk:fillSubmit data-prompt:删除:P02"]
+[tr ,P01,42,progress v:42 t:span,btn:详情 clk:fillSubmit data-prompt:查看详情:P01|btn:编辑 clk:fillSubmit data-prompt:编辑:P01|btn:删除 v:danger clk:fillSubmit data-prompt:删除:P01]
+[tr ,P02,88,progress v:88 t:span,btn: icon:view l:详情 v:primary clk:fillSubmit data-prompt:查看详情:P02|btn: icon:edit l:编辑 v:warning clk:fillSubmit data-prompt:编辑:P02|btn: icon:delete l:删除 v:danger clk:fillSubmit data-prompt:删除:P02]
 [/tbody]
 [/table]
 ```

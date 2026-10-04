@@ -214,11 +214,11 @@
   transition: background-color 0.2s, box-shadow 0.2s, color 0.2s, border-color 0.2s;
 }
 [data-tokui-theme='modern-dark'] .tokui-btn:hover { box-shadow: var(--tokui-surface-shadow-hover); }
-[data-tokui-theme='modern-dark'] .tokui-btn:not(.tokui-btn--primary):not(.tokui-btn--danger):not(.tokui-btn--success):not(.tokui-btn--warning):not(.tokui-btn--ghost) {
+[data-tokui-theme='modern-dark'] .tokui-btn:not(.tokui-btn--primary):not(.tokui-btn--danger):not(.tokui-btn--success):not(.tokui-btn--warning):not(.tokui-btn--ghost):not(.tokui-btn--gradient) {
   background: var(--tokui-bg-muted);
   color: var(--tokui-text);
 }
-[data-tokui-theme='modern-dark'] .tokui-btn:not(.tokui-btn--primary):not(.tokui-btn--danger):not(.tokui-btn--success):not(.tokui-btn--warning):not(.tokui-btn--ghost):hover { background: #454548; }
+[data-tokui-theme='modern-dark'] .tokui-btn:not(.tokui-btn--primary):not(.tokui-btn--danger):not(.tokui-btn--success):not(.tokui-btn--warning):not(.tokui-btn--ghost):not(.tokui-btn--gradient):hover { background: #454548; }
 [data-tokui-theme='modern-dark'] .tokui-btn--primary,
 [data-tokui-theme='modern-dark'] .tokui-btn--danger,
 [data-tokui-theme='modern-dark'] .tokui-btn--success,

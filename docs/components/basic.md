@@ -14,7 +14,7 @@
 | `fc` | 文字颜色（取值同 `bg`） | `fc:danger` |
 | `id` | 元素 ID（供 `upd`/`del`/`ins` 定位） | `id:title1` |
 
-**变体**：`left` / `center` / `right`（对齐），`ribbon`（缎带），`underline`（下划线），`badge` / `pill`（徽标）。装饰色变体（ribbon/badge/pill/underline）统一走「浅底 + 主色文字」配色：`bg:` 指定主色后自动派生 10% 浅底与淡描边，深浅主题自适应。`bg` 不带装饰变体时则为整行实底。
+**变体**：`left` / `center` / `right`（对齐），`ribbon`（缎带），`underline`（下划线），`badge` / `pill`（徽标），`gradient`（渐变标题文字——主色系 `background-clip: text`，不支持该特性的环境自动回退纯主色）。装饰色变体（ribbon/badge/pill/underline）统一走「浅底 + 主色文字」配色：`bg:` 指定主色后自动派生 10% 浅底与淡描边，深浅主题自适应。`bg` 不带装饰变体时则为整行实底。
 
 六级字号对比：
 
@@ -47,7 +47,7 @@
 
 ## 链接 `a`
 
-超链接，自闭合。`u` 地址、`tx` 文本、`target` 打开方式。
+超链接，自闭合。`u` 地址、`tx` 文本、`target` 打开方式。带 `clk` 时为"事件链接"：点击拦截默认跳转，触发命名 handler。
 
 | 属性 | 含义 | 示例 |
 |------|------|------|
@@ -55,6 +55,7 @@
 | `tx` | 文本 | `tx:官网` |
 | `target` | 打开方式 | `target:_blank` |
 | `v` | 变体 | `v:underline` |
+| `clk` | 点击处理器名（触发时拦截跳转；需 `registerHandler` 预注册） | `clk:onLink` |
 
 **变体**：`muted` / `danger` / `success` / `underline`。
 
@@ -147,7 +148,7 @@
 
 > **内置动作**：`sub` / `reset` / `print` 由 renderer 自动解析，无需 `registerHandler`（仅 `sub` 的业务回调仍需注册）。优先级 `print > reset > submit > clk`。详见[表单组件 · 表单动作](/components/form#表单动作-提交-重置-数据收集)与[打印区](/components/form#打印区-print-area)。
 
-**类型变体**：`primary` / `danger` / `success` / `warning` / `ghost`。
+**类型变体**：`primary` / `danger` / `success` / `warning` / `ghost`，另有装饰变体 `gradient`（主色系渐变钮，hover 提亮 8%，可与尺寸/形状组合如 `v:"gradient,pill"`）。
 **尺寸/形状变体**：`sm` / `lg` / `pill`（圆角）/ `square`（直角）/ `block`（块级宽）。
 
 <Playground dsl='[btngroup][btn tx:主要 v:primary][btn tx:成功 v:success][btn tx:警告 v:warning][btn tx:危险 v:danger][btn tx:幽灵 v:ghost][/btngroup][p v:muted][btn tx:小 v:"primary,sm"] [btn tx:默认 v:primary] [btn tx:大 v:"primary,lg"][btn tx:块级 v:"primary,block" tx:占满整行][/p][p v:muted][btn tx:圆角 v:"primary,pill"] [btn tx:直角 v:"primary,square"] [btn tx:禁用 v:primary dis][/p]' />

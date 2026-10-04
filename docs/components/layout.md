@@ -16,7 +16,7 @@
 | `v` | 变体 | `card` | `v:highlight` |
 | `v` | 对齐 | `ft` | `v:right` |
 
-**`card` 变体**：`highlight`（高亮边）、`flat`（扁平无阴影）、`bordered`（描边）、`center` / `right`（标题对齐）。
+**`card` 变体**：`highlight`（高亮边）、`flat`（扁平无阴影）、`bordered`（描边）、`center` / `right`（标题对齐）、`glass`（磨砂玻璃——半透明底 + `backdrop-filter`，彩色/图片背景上效果最明显）、`gradient-border`（渐变描边——双层背景实现，保留圆角，适合「推荐/精选」强调）。
 **`ht` 标题装饰**：`fill`（浅主色底填充）、`accent`（左侧色条）、`underline`（下划线）、`dot`（前缀圆点）、`pill`（浅底胶囊）。fill/pill 为「10% 主色浅底 + 主色文字」柔和配色，`hc` 自定义色同样自动浅化。
 **`ft` 变体**：`left` / `center` / `right`。
 
@@ -291,6 +291,8 @@ auto-fill 卡片墙（随容器宽度自动列数；无需跨区/跨行列时子
 
 **滚动条交互**：默认隐藏不占视觉焦点，三种方式浮现——鼠标悬停容器、滚动进行中（停止约 0.8s 后淡出）、键盘聚焦（`tabindex=0` 方向键滚动，WCAG 2.1.1）。颜色走 `--tokui-scrollbar-*` 主题令牌，四主题 + seed 动态色阶自动适配，thumb 悬停再加深一档。
 
+**折叠边缘渐隐**：纵向内容溢出时，顶部/底部各渲染一道向背景色渐隐的遮罩，提示上下还有更多内容（随滚动位置与内容增减实时增摘，未溢出不显示；纯装饰不拦截交互）——配合 `reveal` 折叠区入场使用，长内容「还有更多」一眼可感知。
+
 | 属性 | 含义 | 示例 |
 |------|------|------|
 | `h` | 高度（纯数字按 px，亦可 `100%`/`50vh`） | `h:160` |
@@ -487,6 +489,22 @@ auto-fill 卡片墙（随容器宽度自动列数；无需跨区/跨行列时子
 | `gap` | 间距（px，缺省 8） | `gap:10` |
 
 <Playground dsl='[masonry cols:3][card tt:A][p 短内容][/card][card tt:B][p 这是一段比较长的内容，用来撑高这张卡片，让瀑布流高低错落的效果更明显。][p 再来一段补充说明。][/card][card tt:C][p 适中内容][p 第二行][/card][card tt:D][p 短][/card][card tt:E][p 长内容示例][p 第二段][p 第三段][p 第四段][/card][card tt:F][p 适中][/card][card tt:G][p 瀑布流按列依次填充，卡片高度各不相同，才能看出与网格布局的区别。][/card][card tt:H][p 短][/card][card tt:I][p 收尾卡片][p 内容][/card][/masonry]' />
+
+
+## 滚动入场 `reveal` / `reveal-item`
+
+容器（T3.2）。IntersectionObserver 驱动的一次性滚动入场：进入视口时子元素按序 stagger 播放进场动画，播完断开观察不再重播。
+
+| 属性 | 含义 | 示例 |
+|------|------|------|
+| `v` | 入场方向：`up`（默认）/ `left` / `right` / `zoom` | `v:left` |
+| `delay` | 基础延迟 ms（0~4000，叠加在 stagger 之上） | `delay:120` |
+
+**stagger**：直接子元素按序递增 80ms（纯 CSS 前 12 档，第 12+ 项同档）。子元素可以是任意组件；`reveal-item` 是可选的分组包装容器（一个 item = 一个 stagger 单元，自带块级间距）。
+
+**渐进增强**：`prefers-reduced-motion` 或无 IntersectionObserver 的环境下内容直接可见，永不见丢失；流式闭合做克制定格——已在视口内或流式期间 transit 看过的组直接定格可见、不重放动画（防闪跳重演），全程在折叠区的组滚动到时一次性入场。
+
+<Playground dsl='[reveal v:up][reveal-item][card tt:向上入场 ①][p 透明 + 上移 16px 进场。][/card][/reveal-item][reveal-item][card tt:向上入场 ②][p 第二项延迟 80ms。][/card][/reveal-item][card tt:直接子元素同样参与 stagger][p 不写 reveal-item 也可以。][/card][/reveal][reveal v:left delay:120][card tt:左侧入场（delay:120）][p 左移 24px，基础延迟 120ms。][/card][/reveal]' />
 
 ## 漫游引导 `tour` / `tour-step`
 

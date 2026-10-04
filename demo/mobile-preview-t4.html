@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>T4 移动端改造 · 前后对照预览（未改框架代码）</title>
+<link rel="stylesheet" href="/lib/tokui.css">
+<style>
+  :root { --pv-gap: 18px; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 28px 24px 60px;
+    background: #0f1115; color: #e8eaf0;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  .pagehead { max-width: 1080px; margin: 0 auto 30px; }
+  .pagehead h1 { font-size: 22px; margin: 0 0 8px; }
+  .pagehead p { margin: 0; color: #9aa3b2; font-size: 13px; line-height: 1.7; }
+  .pagehead code { background: #1d222c; padding: 1px 6px; border-radius: 4px; color: #7dd3fc; font-size: 12px; }
+
+  section { max-width: 1080px; margin: 0 auto 44px; }
+  section > h2 { font-size: 16px; margin: 0 0 4px; color: #fff; }
+  section > .sub { color: #9aa3b2; font-size: 12.5px; margin: 0 0 16px; }
+  section > .sub b { color: #c9d3e0; font-weight: 600; }
+
+  .compare { display: flex; gap: var(--pv-gap); flex-wrap: wrap; align-items: flex-start; }
+
+  figure.phone { margin: 0; width: 375px; max-width: 100%; }
+  figure.phone figcaption {
+    font-size: 13px; font-weight: 600; margin-bottom: 8px; padding-left: 2px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .tagchip { font-size: 11px; font-weight: 500; padding: 2px 8px; border-radius: 999px; }
+  .tagchip.before { background: #3b2430; color: #fda4af; }
+  .tagchip.after { background: #12291f; color: #86efac; }
+  figure.phone .screen {
+    height: 660px; border-radius: 26px; border: 8px solid #2a2f3a; overflow: hidden;
+    position: relative; background: var(--tokui-bg, #fff); color: var(--tokui-text, #1a202c);
+    box-shadow: 0 18px 50px rgba(0,0,0,.45);
+  }
+  .screen .scroller { height: 100%; overflow-y: auto; overflow-x: hidden; padding: 12px; }
+  .screen .scroller::-webkit-scrollbar { width: 4px; }
+  .screen .scroller::-webkit-scrollbar-thumb { background: rgba(0,0,0,.15); border-radius: 2px; }
+
+  /* ===== 改造后：v:cards 卡片 ===== */
+  .pv-cards { display: flex; flex-direction: column; gap: 10px; }
+  .pv-card {
+    border: 1px solid var(--tokui-border, #e2e8f0); border-radius: var(--tokui-radius-lg, 12px);
+    background: var(--tokui-bg, #fff); padding: 12px 14px;
+    box-shadow: var(--tokui-shadow-sm, 0 1px 2px rgba(0,0,0,.05));
+  }
+  .pv-card__top { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .pv-card__id { font-weight: 700; font-size: 14px; letter-spacing: .3px; }
+  .pv-tag { font-size: 11px; padding: 1px 8px; border-radius: 999px; margin-left: auto; }
+  .pv-tag--danger { background: var(--tokui-danger-1, #fee2e2); color: var(--tokui-danger-6, #dc2626); }
+  .pv-tag--warning { background: var(--tokui-warning-1, #fef3c7); color: var(--tokui-warning-6, #d97706); }
+  .pv-tag--info { background: var(--tokui-info-1, #e0f2fe); color: var(--tokui-info-6, #0284c7); }
+  .pv-tag--success { background: var(--tokui-success-1, #dcfce7); color: var(--tokui-success-6, #16a34a); }
+  .pv-card__grid { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin-bottom: 10px; }
+  .pv-card__grid dt { color: var(--tokui-text-3, #94a3b8); font-size: 12px; }
+  .pv-card__grid dd { margin: 0; font-size: 13px; font-weight: 600; }
+  .pv-card__foot { display: flex; align-items: center; gap: 8px; border-top: 1px dashed var(--tokui-border, #e2e8f0); padding-top: 10px; }
+  .pv-card__foot .pv-tag { margin-left: 0; }
+  .pv-card__foot .pv-btns { margin-left: auto; display: flex; gap: 6px; }
+  .pv-mini {
+    font-size: 12px; padding: 3px 10px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--tokui-border, #e2e8f0); background: transparent; color: inherit;
+  }
+  .pv-mini--primary { background: var(--tokui-primary-6, #2563eb); border-color: transparent; color: #fff; }
+
+  /* ===== 改造后：nav-bar ===== */
+  .pv-navbar {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; align-items: center; gap: 8px;
+    background: color-mix(in srgb, var(--tokui-bg, #fff) 88%, transparent);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--tokui-border, #e2e8f0);
+    padding: 8px 12px;
+  }
+  .pv-safearea-top {
+    height: 18px; margin: -12px -12px 0; /* 视觉化 safe-area-inset-top */
+    background: repeating-linear-gradient(45deg, rgba(0,0,0,.05) 0 6px, transparent 6px 12px);
+    border-bottom: 1px solid var(--tokui-border, #e2e8f0);
+  }
+  .pv-iconbtn {
+    width: 32px; height: 32px; border-radius: 10px; border: none; background: transparent;
+    display: flex; align-items: center; justify-content: center; cursor: pointer; color: inherit;
+  }
+  .pv-iconbtn:active { background: rgba(0,0,0,.06); }
+  .pv-navbar__tt { font-size: 15px; font-weight: 700; }
+  .pv-navbar__sub { font-size: 11px; color: var(--tokui-text-3, #94a3b8); }
+  .pv-navbar__right { margin-left: auto; display: flex; gap: 4px; }
+
+  /* ===== 改造后：tabbar ===== */
+  .pv-tabbar {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 6;
+    display: flex;
+    background: color-mix(in srgb, var(--tokui-bg, #fff) 92%, transparent);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid var(--tokui-border, #e2e8f0);
+  }
+  .pv-tabbar__safe {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 14px; pointer-events: none;
+    background: repeating-linear-gradient(45deg, rgba(0,0,0,.06) 0 6px, transparent 6px 12px);
+    border-top: 1px dashed var(--tokui-border, #e2e8f0);
+  }
+  .pv-tabbar__item {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 7px 0 22px; font-size: 10.5px; color: var(--tokui-text-3, #94a3b8);
+    cursor: pointer; position: relative; border: none; background: transparent;
+  }
+  .pv-tabbar__item .ic { position: relative; }
+  .pv-tabbar__item--active { color: var(--tokui-primary-6, #2563eb); font-weight: 600; }
+  .pv-badge {
+    position: absolute; top: -5px; right: -10px; min-width: 15px; height: 15px;
+    border-radius: 999px; background: var(--tokui-danger-6, #ef4444); color: #fff;
+    font-size: 9.5px; line-height: 15px; text-align: center; padding: 0 3px; font-weight: 600;
+  }
+
+  .pv-listitem {
+    display: flex; align-items: center; gap: 10px; padding: 12px 4px;
+    border-bottom: 1px solid var(--tokui-border, #eef2f6);
+  }
+  .pv-listitem .tt { font-size: 13.5px; font-weight: 600; }
+  .pv-listitem .desc { font-size: 11.5px; color: var(--tokui-text-3, #94a3b8); margin-top: 2px; }
+  .pv-listitem .amt { margin-left: auto; font-size: 13px; font-weight: 700; }
+
+  ul.notes { max-width: 780px; margin: 14px 0 0; padding-left: 18px; color: #b7c0cf; font-size: 12.5px; line-height: 1.9; }
+  ul.notes code { background: #1d222c; padding: 1px 6px; border-radius: 4px; color: #7dd3fc; font-size: 11.5px; }
+  .aria-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .aria-chips code { background: #1d222c; border: 1px solid #2c333f; padding: 4px 10px; border-radius: 8px; color: #a5f3c8; font-size: 11.5px; }
+</style>
+</head>
+<body>
+
+<header class="pagehead">
+  <h1>T4 移动端改造 · 前后对照预览</h1>
+  <p>左侧为<b>现状</b>：用当前发布版 <code>/lib/tokui.umd.js</code> 在 375px 视口内真实渲染的 DSL；右侧为 <b>T4.1 / T4.2 提案效果</b>的手工示意（纯 HTML/CSS，未改任何框架代码）。两支手机框内均可上下滚动体验。</p>
+</header>
+
+<!-- ================= 一、table v:cards ================= -->
+<section>
+  <h2>一、表格移动卡片化 <code>table v:cards</code>（T4.2）</h2>
+  <p class="sub">同一份工单表数据：现状在 375px 下被压成密排小字 + 横向滚动；改造后窄容器（&lt;640 容器查询命中）行转卡片，<b>label 取表头</b>、每行一卡纵向铺开。</p>
+  <div class="compare">
+    <figure class="phone">
+      <figcaption>现状（真实渲染 · 375px）<span class="tagchip before">改造前</span></figcaption>
+      <div class="screen"><div class="scroller" id="before-table"></div></div>
+    </figure>
+    <figure class="phone">
+      <figcaption>v:cards 提案示意<span class="tagchip after">改造后</span></figcaption>
+      <div class="screen"><div class="scroller">
+        <div class="pv-cards" id="after-cards"></div>
+      </div></div>
+    </figure>
+  </div>
+  <ul class="notes">
+    <li>触发条件：容器查询 <code>&lt; 640px</code> 自动切换（宽容器仍是表格，同一份 DSL）。</li>
+    <li>卡片头部 = 行首关键列（工单号 + 优先级 tag）；中部 label:value 网格，<b>label 直接取 thead 表头</b>，数据不丢列。</li>
+    <li>操作列收进卡片底部（查看 / 编辑），不再挤占横向空间。</li>
+  </ul>
+</section>
+
+<!-- ================= 二、nav-bar + tabbar ================= -->
+<section>
+  <h2>二、导航壳 <code>nav-bar</code> + <code>tabbar</code>（T4.1）</h2>
+  <p class="sub">现状用 <code>page-header</code>（面包屑+动作区）与 <code>tabs</code> 在 375px 下的真实表现；改造后顶部 nav-bar（返回+标题+动作）、底部 tabbar（图标+角标），斜纹条示意 <code>env(safe-area-inset-*)</code> 安全区。</p>
+  <div class="compare">
+    <figure class="phone">
+      <figcaption>现状（真实渲染 · 375px）<span class="tagchip before">改造前</span></figcaption>
+      <div class="screen"><div class="scroller" id="before-nav"></div></div>
+    </figure>
+    <figure class="phone">
+      <figcaption>nav-bar + tabbar 提案示意<span class="tagchip after">改造后</span></figcaption>
+      <div class="screen"><div class="scroller" id="after-app">
+        <div class="pv-navbar">
+          <button class="pv-iconbtn" aria-label="返回" data-aria="nav-bar back → aria-label=返回">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+          </button>
+          <div>
+            <div class="pv-navbar__tt">工单详情</div>
+            <div class="pv-navbar__sub">WO-1024 · 宁波菱拓科技</div>
+          </div>
+          <div class="pv-navbar__right">
+            <button class="pv-iconbtn" aria-label="刷新">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+            </button>
+            <button class="pv-iconbtn" aria-label="更多">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+            </button>
+          </div>
+        </div>
+        <div id="after-list" style="padding-bottom: 84px;"></div>
+        <nav class="pv-tabbar" role="navigation" aria-label="主导航">
+          <button class="pv-tabbar__item pv-tabbar__item--active" aria-current="page">
+            <span class="ic">
+              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m3 10 9-7 9 7v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M9 22V12h6v10"/></svg>
+            </span>首页
+          </button>
+          <button class="pv-tabbar__item">
+            <span class="ic">
+              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
+            </span>工单
+          </button>
+          <button class="pv-tabbar__item">
+            <span class="ic">
+              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v12H4z"/><path d="M4 8h16"/><path d="M8 20h8"/><path d="M12 16v4"/></svg>
+            </span>报表
+          </button>
+          <button class="pv-tabbar__item">
+            <span class="ic">
+              <span class="pv-badge">3</span>
+              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></svg>
+            </span>消息
+          </button>
+          <button class="pv-tabbar__item">
+            <span class="ic">
+              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            </span>我的
+          </button>
+          <span class="pv-tabbar__safe" title="env(safe-area-inset-bottom)"></span>
+        </nav>
+      </div></div>
+    </figure>
+  </div>
+  <ul class="notes">
+    <li><code>nav-bar</code>：sticky 顶 + <code>back:clk:goBack</code> 返回键 + 右侧动作插槽；顶部斜纹 = <code>env(safe-area-inset-top)</code> 安全区垫高。</li>
+    <li><code>tabbar</code>：fixed 底部 + <code>env(safe-area-inset-bottom)</code>；<code>act</code> 激活切换 + change 事件；角标 <code>badge:3</code> 复用既有 badge 体系。</li>
+    <li>安全区由组件内部处理，宿主无需操心 iPhone 刘海/小白条。</li>
+  </ul>
+  <div class="aria-chips">
+    <code>nav-bar 返回键 → aria-label="返回"（i18n 可配）</code>
+    <code>tabbar → role="navigation" + aria-label="主导航"</code>
+    <code>激活项 → aria-current="page"</code>
+    <code>badge:3 → aria-label="3 条未读"</code>
+  </div>
+</section>
+
+<script src="/lib/tokui.umd.js"></script>
+<script>
+(function () {
+  function renderInto(id, dsl) {
+    var el = document.getElementById(id);
+    if (!el || !window.TokUI || !TokUI.TokUI) return;
+    try { new TokUI.TokUI({ container: el }).render(dsl, el); }
+    catch (e) { el.textContent = '渲染失败: ' + e.message; }
+  }
+
+  // ===== 一、表格：现状（真实 DSL 渲染）=====
+  renderInto('before-table',
+    '[table stripe bordered]' +
+    '[thead cols:"工单号,客户,优先级,金额,状态,操作"]' +
+    '[tbody]' +
+    '[tr WO-1024,宁波菱拓科技,高,¥2,688.00,tag:进行中 t:primary,btn:查看 clk:x|btn:编辑 clk:x]' +
+    '[tr WO-1025,杭州远景智造,中,¥1,280.00,tag:待审核 t:warning,btn:查看 clk:x|btn:编辑 clk:x]' +
+    '[tr WO-1026,苏州汇川联合,高,¥8,320.00,tag:已完成 t:success,btn:查看 clk:x|btn:编辑 clk:x]' +
+    '[tr WO-1027,深圳拓斯达,低,¥620.00,tag:进行中 t:primary,btn:查看 clk:x|btn:编辑 clk:x]' +
+    '[tr WO-1028,合肥埃夫特,中,¥3,450.00,tag:待审核 t:warning,btn:查看 clk:x|btn:编辑 clk:x]' +
+    '[tr WO-1029,佛山隆深机器人,高,¥12,800.00,tag:已完成 t:success,btn:查看 clk:x|btn:编辑 clk:x]' +
+    '[/tbody][/table]');
+
+  // ===== 一、表格：v:cards 示意（同一份数据）=====
+  var rows = [
+    { id: 'WO-1024', cust: '宁波菱拓科技', pri: '高', priCls: 'danger', amt: '¥2,688.00', st: '进行中', stCls: 'info' },
+    { id: 'WO-1025', cust: '杭州远景智造', pri: '中', priCls: 'warning', amt: '¥1,280.00', st: '待审核', stCls: 'warning' },
+    { id: 'WO-1026', cust: '苏州汇川联合', pri: '高', priCls: 'danger', amt: '¥8,320.00', st: '已完成', stCls: 'success' },
+    { id: 'WO-1027', cust: '深圳拓斯达', pri: '低', priCls: 'info', amt: '¥620.00', st: '进行中', stCls: 'info' },
+    { id: 'WO-1028', cust: '合肥埃夫特', pri: '中', priCls: 'warning', amt: '¥3,450.00', st: '待审核', stCls: 'warning' },
+    { id: 'WO-1029', cust: '佛山隆深机器人', pri: '高', priCls: 'danger', amt: '¥12,800.00', st: '已完成', stCls: 'success' }
+  ];
+  document.getElementById('after-cards').innerHTML = rows.map(function (r) {
+    return '<div class="pv-card">' +
+      '<div class="pv-card__top"><span class="pv-card__id">' + r.id + '</span>' +
+      '<span class="pv-tag pv-tag--' + r.priCls + '">' + r.pri + '优先级</span></div>' +
+      '<dl class="pv-card__grid"><dt>客户</dt><dd>' + r.cust + '</dd>' +
+      '<dt>金额</dt><dd>' + r.amt + '</dd></dl>' +
+      '<div class="pv-card__foot"><span class="pv-tag pv-tag--' + r.stCls + '">' + r.st + '</span>' +
+      '<span class="pv-btns"><button class="pv-mini">查看</button><button class="pv-mini pv-mini--primary">编辑</button></span></div>' +
+      '</div>';
+  }).join('');
+
+  // ===== 二、导航壳：现状（page-header + tabs 真实渲染）=====
+  renderInto('before-nav',
+    '[page-header tt:"工单详情 · WO-1024" bc:"工作台,工单管理,详情"][btn v:sm 刷新][btn v:sm t:primary 导出][/page-header]' +
+    '[tabs][tab tt:全部 128][tab tt:进行中][tab tt:待审核][tab tt:已完成][tab tt:已取消][/tabs]' +
+    '[card tt:"工单信息"][desc cols:1][desc-item tt:客户 tx:宁波菱拓科技][desc-item tt:金额 tx:¥2,688.00][desc-item tt:状态 tx:进行中][/desc]' +
+    '[list][item 设备联网模块验收联调][item 能耗分析模块数据核对][item 节拍异常工单挂起待审][/list][/card]');
+
+  // ===== 二、导航壳：示意侧列表内容 =====
+  var todos = [
+    { tt: '设备联网模块验收联调', desc: 'WO-1024 · 今天 16:00 截止', amt: '¥2,688', cls: 'info' },
+    { tt: '能耗分析模块数据核对', desc: 'WO-1025 · 明天 10:00 截止', amt: '¥1,280', cls: 'warning' },
+    { tt: '苏州汇川 · 验收资料提交', desc: 'WO-1026 · 已完成待归档', amt: '¥8,320', cls: 'success' },
+    { tt: '深圳拓斯达 · 巡检复测', desc: 'WO-1027 · 周五前复测', amt: '¥620', cls: 'info' },
+    { tt: '合肥埃夫特 · 对账差异', desc: 'WO-1028 · 财务已介入', amt: '¥3,450', cls: 'warning' },
+    { tt: '佛山隆深 · 二期增购', desc: 'WO-1029 · 合同待寄出', amt: '¥12,800', cls: 'success' }
+  ];
+  document.getElementById('after-list').innerHTML = todos.map(function (t) {
+    return '<div class="pv-listitem"><div><div class="tt">' + t.tt + '</div>' +
+      '<div class="desc">' + t.desc + '</div></div>' +
+      '<span class="pv-tag pv-tag--' + t.cls + '" style="margin-left:auto">' + t.amt + '</span></div>';
+  }).join('');
+})();
+</script>
+</body>
+</html>

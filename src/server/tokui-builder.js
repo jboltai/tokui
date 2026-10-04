@@ -226,8 +226,9 @@ class TokUIBuilder {
     }
     const escaped = values.map(v => {
       const s = String(v);
-      // 只对含逗号的 cell 加引号，含冒号的交给 _selfClosing 统一处理
-      if (s.includes(',')) return `"${s}"`;
+      // 含逗号或双引号的 cell 须整格双引号包裹；包裹时内层 " 转义为 \"
+      // （parser 引号段提取已按转义感知反转义——两侧契约对称，裸发内层引号会切错格）
+      if (s.includes(',') || s.includes('"')) return `"${s.replace(/"/g, '\\"')}"`;
       return s;
     });
     return this._selfClosing('tr', escaped.join(','), attrs);
@@ -710,6 +711,15 @@ class TokUIBuilder {
 
   /** 单页签（n 为 key，closeable 可关闭，del 整签移除） */
   pageTab(attrs) { return this._open('page-tab', attrs); }
+
+
+  // ========== 滚动入场组件（T3.2，均为容器需 .end()） ==========
+
+  /** 滚动入场容器（v:up|left|right|zoom 方向，delay:N 基础延迟 ms；直接子元素按序 stagger） */
+  reveal(attrs) { return this._open('reveal', attrs); }
+
+  /** 入场分组包装（可选；不写则子组件直接作为 reveal 子元素参与 stagger） */
+  revealItem(attrs) { return this._open('reveal-item', attrs); }
 
 
   /** 流式闪光加载（自闭合） */

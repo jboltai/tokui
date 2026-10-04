@@ -16,7 +16,7 @@ Container-type layout components such as cards, grids, lists, tabs, collapse, di
 | `v` | Variant | `card` | `v:highlight` |
 | `v` | Alignment | `ft` | `v:right` |
 
-**`card` variants**: `highlight` (highlighted border), `flat` (flat, no shadow), `bordered` (outlined), `center` / `right` (title alignment).
+**`card` variants**: `highlight` (highlighted border), `flat` (flat, no shadow), `bordered` (outlined), `center` / `right` (title alignment), `glass` (frosted glass — translucent fill + `backdrop-filter`, most visible over colorful/photo backgrounds), `gradient-border` (gradient border — double-background technique that keeps the border radius, great for featured content).
 **`ht` title decorations**: `fill` (tinted fill), `accent` (left color bar), `underline` (underline), `dot` (leading dot), `pill` (tinted pill). fill/pill use a soft "10% tinted background + accent text" scheme; custom `hc` colors are tinted the same way automatically.
 **`ft` variants**: `left` / `center` / `right`.
 
@@ -291,6 +291,8 @@ A general scroll container: fixed size (`h`/`w`) or fill the parent (`h:100%`; w
 
 **Scrollbar behavior**: hidden by default to keep the visuals quiet, and revealed in three ways — hovering the container, while scrolling (fades out ~0.8s after it stops), or keyboard focus (`tabindex=0`, arrow-key scrolling, WCAG 2.1.1). Colors come from `--tokui-scrollbar-*` theme tokens (all four themes + dynamic seed palette); hovering the thumb deepens it a notch.
 
+**Fold-edge fade**: when content overflows vertically, a gradient fade toward the page background renders at the top and bottom edges, hinting there is more content above/below — synced live with scroll position and content growth, removed when content fits (purely decorative, never blocks interaction). Pairs well with `reveal` fold-area entrances.
+
 | Prop | Meaning | Example |
 |------|---------|---------|
 | `h` | Height (bare numbers mean px; also `100%`/`50vh`) | `h:160` |
@@ -488,6 +490,22 @@ Container. A CSS-columns masonry layout: `cols` for a fixed column count or `min
 | `gap` | Gap (px, defaults to 8) | `gap:10` |
 
 <Playground dsl='[masonry cols:3][card tt:A][p 短内容][/card][card tt:B][p 这是一段比较长的内容，用来撑高这张卡片，让瀑布流高低错落的效果更明显。][p 再来一段补充说明。][/card][card tt:C][p 适中内容][p 第二行][/card][card tt:D][p 短][/card][card tt:E][p 长内容示例][p 第二段][p 第三段][p 第四段][/card][card tt:F][p 适中][/card][card tt:G][p 瀑布流按列依次填充，卡片高度各不相同，才能看出与网格布局的区别。][/card][card tt:H][p 短][/card][card tt:I][p 收尾卡片][p 内容][/card][/masonry]' />
+
+
+## Reveal on scroll `reveal` / `reveal-item`
+
+Container (T3.2). IntersectionObserver-driven one-shot scroll entrance: when the container enters the viewport, direct children play their entrance animation staggered in order; the observer disconnects afterwards (no replay).
+
+| Attribute | Meaning | Example |
+|------|------|------|
+| `v` | Direction: `up` (default) / `left` / `right` / `zoom` | `v:left` |
+| `delay` | Base delay in ms (0–4000, added on top of the stagger) | `delay:120` |
+
+**Stagger**: direct children enter 80ms apart (pure CSS for the first 12 tiers; the 12th+ share the last tier). Children can be any component; `reveal-item` is an optional grouping wrapper (one item = one stagger unit, with built-in block spacing).
+
+**Progressive enhancement**: with `prefers-reduced-motion` or without IntersectionObserver the content is simply visible — never lost. When a stream closes, already-seen groups (in viewport at close, or transit-visible while streaming) settle in place without replaying the entrance — no flash for content that streamed into view; groups that stayed below the fold keep their one-shot entrance on scroll.
+
+<Playground dsl='[reveal v:up][reveal-item][card tt:Up 1][p Fade in, translated up 16px.][/card][/reveal-item][reveal-item][card tt:Up 2][p Second item delayed by 80ms.][/card][/reveal-item][card tt:Direct children stagger too][p reveal-item is optional.][/card][/reveal][reveal v:left delay:120][card tt:Left entrance (delay:120)][p Slides 24px from the left, base delay 120ms.][/card][/reveal]' />
 
 ## Tour `tour` / `tour-step`
 

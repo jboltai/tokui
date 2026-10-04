@@ -2,6 +2,44 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### 新增（T3.2 视觉变体 + reveal 滚动入场，摘出实施）
+- **四视觉变体**（VARIANTS 白名单 + 主题令牌配色，四主题 + tech 通用）：`btn v:gradient`（主色系渐变钮，hover 提亮，可与尺寸/形状组合）；`h1~h6 v:gradient`（渐变标题文字，`background-clip: text`，不支持环境回退纯主色）；`card v:glass`（磨砂玻璃，`backdrop-filter` + `--tokui-blur-lg`）；`card v:gradient-border`（双层背景渐变描边，保留圆角）。四主题 `:not()` 中性钮链已补 `:not(.tokui-btn--gradient)` 恢复（modern/modern-dark/dark/tech）。
+- **`reveal` / `reveal-item` 容器**（新文件 `src/components/reveal.js`）：IntersectionObserver 一次性滚动入场；`v:up|left|right|zoom` 方向 + `delay:N`（0~4000ms）；直接子元素按序 stagger 递增 80ms（纯 CSS nth-child 前 12 档）；渐进增强——reduced-motion / 无 IO 环境内容直接可见、流式闭合后视口兜底核对（防闪跳）；observer 经 `_registerCleanup` 登记，`destroy()` 幂等解绑。
+- builder `reveal()` / `revealItem()` 链式方法 + `.d.ts`；demo 案例 `demo-visual-variants` / `demo-reveal`；DSL 参考 / llms.txt / VitePress 中英同步；tests/test-reveal.js 24 用例。
+
+### 优化（克制版收尾行为）
+- **reveal 两 demo 按真实使用场景重写**：`demo-reveal` 改为「季度经营分析报告」——场景一报告总览（随流可见·克制定格）+ 场景二各事业部明细（scroll-area h:480 折叠区，up/left·delay/zoom·KPI 矩阵/right·风险四组滚动入场），卡片为多段文字 + 统计行 + 列表 + 时间线 + callout 组合（19 卡 / 14 统计 / 3 列表 / 1 时间线）；`test-reveal-stream` 改为「车间设备巡检报告」并放慢推送节奏 8~28ms → **30~80ms/chunk**（随机 2~20 字符碎片不变），流式过程可观察。顺带修复 demo 存量笔误：stat 标题属性误写 `l:`（正确为 `tt:`，标签会静默丢失）与 progress 标签误写 `tx:`（正确为 `l:`，共 4 处）。
+- **reveal 流式闭合不再重放已看内容**：闭合时组在视口内（用户正看着）或流式期间进入过视口（自动滚屏 transit 已看过）→ 直接定格可见态（仅补 `--in` 完成标记 + 断开观察，不瞬隐重演 stagger，消除闭合闪跳）；全程折叠区（从未见过）的组保留 IO，滚动相交时一次性入场。流式中的相交从「忽略」改为「记 `seen` 后忽略」，闭合与后续滚动均不再为已看内容重播动画。
+- **reveal 视口核对裁剪感知**：`inViewportSync` 沿祖先链收窄可见矩形——被内层滚动/裁剪容器（overflow ≠ visible 且内容溢出，如 `scroll-area` 视口）折叠区裁掉的组，几何上在窗口内也不算「可见」，闭合时不定格、保留滚动入场（与浏览器 IO 的裁剪语义对齐）。demo 新增特殊测试案例 `test-reveal-stream`（随机 2~20 字符碎片流 + scroll-area 折叠区收留 reveal 组 + 参照组对照克制定格），修复自动跟滚场景下 demo 演示不出入场动画的演示性缺口。
+
+### 修复（发布前实测发现）
+- **tr cell 转义契约对称（builder↔parser↔切格器三端）**：builder `row()` 对含逗号 cell 包引号但**不转义内层引号**，`b.row('他说"你好,先生"')` 裸发 `"他说"你好,先生""` → parser 切格错位（B 格被吞）。现三端打通：①`row()` 含 `,` 或 `"` 的 cell 整格包裹 + 内层 `\"` 转义；②`findCloseBracket`/`findTrCloseBracket` 转义感知（`\` 跳过下一字符——奇数个转义引号不再吞掉标签闭合）；③`parseTag` 引号段双轨存储（属性值/纯正文反转义为最终文本；tr 正文保留转义原样再包引号——先反转义会丢「字面引号」信息、下游切格必错）；④渲染层 `splitCellsDepthAware` 转义感知（`\"` 入格为字面引号、`\\` 入格为字面反斜杠，其余 `\` 如 Windows 路径原样）。测试 +7（奇数转义闭合/tr 双轨/p 反转义/流式分片任意位置截断/往返/渲染级落格）+ lint-smoke +1（137/0）。demo `test-fragment` 表格加转义引号回归样例行。
+- **scroll-area 折叠边缘渐隐**：纵向溢出时顶部/底部各一道向 `--tokui-bg` 渐隐的遮罩（`--more-above`/`--more-below` 状态类，::before/::after 实现，pointer-events:none 不拦截交互），滚动/流式内容增减（MutationObserver）实时同步，未溢出双遮罩摘除；提示「上下还有更多内容」，配合 reveal 折叠区入场可感知性。
+- **reveal 入场时序重做**（demo 实测无动画）：①流式输出 transit 视口会烧掉一次性入场——激活延迟到流闭合（闭合时在视口内立即播完整 stagger 入场；折叠区保持未激活等滚动相交触发）；②`--arm` 隐藏态自带过渡与 `--in` 折返回 1 相互抵消（全程 opacity=1）——过渡与 stagger 延迟全部移至 `--in` 态，arm 瞬隐；③`--in` 覆盖规则单类特异性 (0,1,0) 被方向规则双类 (0,2,0) 压过——left/right/zoom 三组 transform 冻结在入场起点永不归位（up 组共用单类基规则故正常；reduced-motion 兜底同修），覆盖规则升双类并在方向规则后声明。
+- **`btn v:gradient` hover 不可读**：base `.tokui-btn:hover` 洗浅底，hover 规则按 `--primary:hover` 模式重申背景/文字色。
+- **glass 磨砂全链路**：手写「标准+`-webkit-`」双声明令 Lightning 构建丢标准 `backdrop-filter`（连带 dialog 遮罩 blur 存量失效）——源码只写标准属性由构建器补前缀；glass 增顶部内侧高光（纯色底兜底）；demo 玻璃格垫渐变底演示。
+- **demo 文案嵌套双引号**：builder `\"` 转义 parser 不反转义、正文漏反斜杠——文案改为无引号写法。
+
+## [0.2.7] - 2026-10-03
+
+0.2.6 收官后的能力增强与解析修复（补账：版本号已在 c2d6c6b 升至 0.2.7，条目本次补记）。
+
+### 新增
+- **事件处理器内联参数**（724d0cd）：事件引用支持 `"?k=v"` 查询串风格内联参数（`on:"rowClick?id=ORD-001"`），解析并合并进 handler 首参；event-bus 解析容忍带参引用、emit 时合并参数与传入数据；renderer 的 `on:`/`clk:`/`sub:` 三通道统一支持。
+- **`data-*` 属性透传**（724d0cd）：全组件 `data-*` 属性统一由 renderer 集中透传至根元素（排除 `data-tokui-*` 框架内部命名空间），各组件手动透传的冗余代码下线。
+- **`a` 链接 `clk` 动作**（724d0cd）：`[a u:... clk:handler]` 点击阻止默认跳转并触发命名 handler（禁用态不触发）。
+- **`dialog` `w:` 宽度属性**（bbb1976）：480~1200px 落 `max-width`，金标杆编辑弹窗 480→720；中英文档同步补齐（1edfe0b）。
+
+### 修复
+- **parser：tr 行内简写格子属性误判**（c2d6c6b）：`btn:`/`tag:`/`progress` 前缀格带空格子属性（如 `btn:编辑 icon:edit clk:edit`）曾被空格切分误判为 tr 行级属性——修正后无需整行双引号包裹即可正确解析；`|` 分隔多按钮操作列写法可用；普通文本格尾部属性仍正确识别为行属性；lint/文档同步该简写规则。
+- **parser：CJK 漏空格粘连拆分误伤内嵌文本**（33afea4）：「（v:full）」式 CJK 括号内嵌文本被粘连拆分启发式误拆——散文指纹双守卫（CJK 引号/句读）根治。
+- **table：th 列级最小宽兜底**（b568c52）：无 `w:` 定宽的 auto 列被压到 `min-content` 中文竖排。
+
+### 文档
+- dsl-syntax：icon 宿主清单补 kpi；`i:` 属性补 feature 说明（0ff4e73）。
+
 ## [0.2.6] - 2026-09-13
 
 Admin Pack 启航（M2 / T2.1 `page` 应用壳六件套）+ M2 收官三件（T2.2 表单布局 / T2.3 表格增强 / T2.4 编辑回填闭环）。

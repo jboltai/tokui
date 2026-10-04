@@ -14,7 +14,7 @@ Six-level headings, self-closing. `tx` is the text (optional — you can write t
 | `fc` | Text color (same values as `bg`) | `fc:danger` |
 | `id` | Element ID (targeted by `upd`/`del`/`ins`) | `id:title1` |
 
-**Variants**: `left` / `center` / `right` (alignment), `ribbon`, `underline`, `badge` / `pill`. The decorative variants (ribbon/badge/pill/underline) share a "tinted background + accent text" scheme: `bg:` sets the accent color and the 10% tint background and soft border are derived automatically, adapting to light and dark themes. Without a decorative variant, `bg` paints a solid full-width background.
+**Variants**: `left` / `center` / `right` (alignment), `ribbon`, `underline`, `badge` / `pill`, `gradient` (gradient heading text — primary-hue `background-clip: text`, falling back to solid primary where unsupported). The decorative variants (ribbon/badge/pill/underline) share a "tinted background + accent text" scheme: `bg:` sets the accent color and the 10% tint background and soft border are derived automatically, adapting to light and dark themes. Without a decorative variant, `bg` paints a solid full-width background.
 
 Six levels side by side:
 
@@ -47,7 +47,7 @@ Body paragraph, **dual-mode** (same trap as card's `tx` self-closing): **body te
 
 ## Link `a`
 
-Hyperlink, self-closing. `u` is the URL, `tx` is the text, and `target` controls how it opens.
+Hyperlink, self-closing. `u` is the URL, `tx` is the text, and `target` controls how it opens. With `clk` it becomes an "event link": the click is prevented from navigating and dispatches the named handler instead.
 
 | Prop | Meaning | Example |
 |------|---------|---------|
@@ -55,6 +55,7 @@ Hyperlink, self-closing. `u` is the URL, `tx` is the text, and `target` controls
 | `tx` | Text | `tx:官网` |
 | `target` | Open behavior | `target:_blank` |
 | `v` | Variant | `v:underline` |
+| `clk` | Click handler name (prevents navigation; requires `registerHandler`) | `clk:onLink` |
 
 **Variants**: `muted` / `danger` / `success` / `underline`.
 
@@ -143,7 +144,7 @@ Container. Pins a group of children (`btn` / `backtop`, etc.) to a viewport corn
 | `i` | emoji / character icon | `i:🔍` |
 | `l` | icon-only label (a11y + hover tooltip) | `l:删除` |
 
-**Type variants**: `primary` / `danger` / `success` / `warning` / `ghost`.
+**Type variants**: `primary` / `danger` / `success` / `warning` / `ghost`, plus the decorative `gradient` (primary-hue gradient fill, hover brightens 8%, combinable with size/shape variants like `v:"gradient,pill"`).
 **Size / shape variants**: `sm` / `lg` / `pill` (rounded) / `square` (sharp corners) / `block` (full-width).
 
 <Playground dsl='[btngroup][btn tx:主要 v:primary][btn tx:成功 v:success][btn tx:警告 v:warning][btn tx:危险 v:danger][btn tx:幽灵 v:ghost][/btngroup][p v:muted][btn tx:小 v:"primary,sm"] [btn tx:默认 v:primary] [btn tx:大 v:"primary,lg"][btn tx:块级 v:"primary,block" tx:占满整行][/p][p v:muted][btn tx:圆角 v:"primary,pill"] [btn tx:直角 v:"primary,square"] [btn tx:禁用 v:primary dis][/p]' />

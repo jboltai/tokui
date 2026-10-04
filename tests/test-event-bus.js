@@ -177,3 +177,65 @@ test('emit dangerous names are blocked at registration', () => {
 });
 
 run();
+
+// === 内联参数引用（"name?k=v"）解析 ===
+test('parseHandlerRef: 无 ? 原样返回且 params 为 null', () => {
+  assert.deepStrictEqual(TokUIEventBus.parseHandlerRef('onDel'), { name: 'onDel', params: null });
+  assert.deepStrictEqual(TokUIEventBus.parseHandlerRef(''), { name: '', params: null });
+});
+
+test('parseHandlerRef: 单参与多参（& 分隔，值字符串化）', () => {
+  assert.deepStrictEqual(TokUIEventBus.parseHandlerRef('onDel?id=1'), { name: 'onDel', params: { id: '1' } });
+  assert.deepStrictEqual(
+    TokUIEventBus.parseHandlerRef('onDel?id=1024&scene=order-list'),
+    { name: 'onDel', params: { id: '1024', scene: 'order-list' } }
+  );
+});
+
+test('parseHandlerRef: 无 = 段为布尔 true；空段与空键跳过；空查询 params 为 null', () => {
+  assert.deepStrictEqual(TokUIEventBus.parseHandlerRef('h?flag'), { name: 'h', params: { flag: true } });
+  assert.deepStrictEqual(TokUIEventBus.parseHandlerRef('h?a=1&&b=2'), { name: 'h', params: { a: '1', b: '2' } });
+  assert.deepStrictEqual(TokUIEventBus.parseHandlerRef('h?=1'), { name: 'h', params: null });
+  assert.deepStrictEqual(TokUIEventBus.parseHandlerRef('h?'), { name: 'h', params: null });
+});
+
+test('parseHandlerRef: URL 编码解码（%20 空格）+ 解码失败回退原串', () => {
+  assert.deepStrictEqual(
+    TokUIEventBus.parseHandlerRef('onDel?q=hello%20world'),
+    { name: 'onDel', params: { q: 'hello world' } }
+  );
+  assert.deepStrictEqual(
+    TokUIEventBus.parseHandlerRef('onDel?q=%E4%B8%AD%E6%96%87'),
+    { name: 'onDel', params: { q: '中文' } }
+  );
+  assert.deepStrictEqual(
+    TokUIEventBus.parseHandlerRef('onDel?q=%zz'),  // 非法编码回退原串
+    { name: 'onDel', params: { q: '%zz' } }
+  );
+});
+
+test('parseHandlerRef: 危险键跳过（原型污染防护）', () => {
+  var ref = TokUIEventBus.parseHandlerRef('h?__proto__=x&constructor=y&id=1');
+  assert.deepStrictEqual(ref.params, { id: '1' });
+});
+
+test('getHandler 容忍带参引用：按 ? 前名称段查表', () => {
+  TokUIEventBus.registerHandler('onDel', function () {});
+  assert.strictEqual(typeof TokUIEventBus.getHandler('onDel?id=1'), 'function');
+  assert.strictEqual(TokUIEventBus.getHandler('onDelX?id=1'), null);
+  TokUIEventBus.removeHandler('onDel');
+});
+
+test('emit 带参引用：null payload 给参数对象；对象 payload 浅合并', () => {
+  var got = null, got2 = null;
+  TokUIEventBus.registerHandler('hEmit', d => { got = d; });
+  TokUIEventBus.registerHandler('hEmit2', d => { got2 = d; });
+  TokUIEventBus.emit('hEmit?id=1&scene=x', null);
+  assert.deepStrictEqual(got, { id: '1', scene: 'x' });
+  TokUIEventBus.emit('hEmit2?extra=9', { direction: 'up', active: true });
+  assert.deepStrictEqual(got2, { direction: 'up', active: true, extra: '9' });
+  TokUIEventBus.removeHandler('hEmit');
+  TokUIEventBus.removeHandler('hEmit2');
+});
+
+run();

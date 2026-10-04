@@ -120,6 +120,12 @@ export declare class TokUIBuilder {
   /** 单页签（n 为 key，closeable 可关闭） */
   pageTab(attrs?: BuilderAttrs): this;
 
+  // —— 滚动入场（T3.2，容器，需 end() 闭合）——
+  /** 滚动入场容器（v:up|left|right|zoom 方向，delay:N 基础延迟 ms；子元素按序 stagger 80ms） */
+  reveal(attrs?: BuilderAttrs): this;
+  /** 入场分组包装（可选；不写则子组件直接参与 stagger） */
+  revealItem(attrs?: BuilderAttrs): this;
+
   // —— 高级网格布局（容器，需 end() 闭合）——
   grid(attrs?: BuilderAttrs): this;
   cell(attrs?: BuilderAttrs): this;

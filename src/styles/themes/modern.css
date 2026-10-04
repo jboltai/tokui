@@ -219,12 +219,12 @@
 }
 [data-tokui-theme='modern'] .tokui-btn:hover { box-shadow: var(--tokui-surface-shadow-hover); transform: none; }
 /* 仅默认按钮（非彩色变体）= 中性灰底无边框 */
-[data-tokui-theme='modern'] .tokui-btn:not(.tokui-btn--primary):not(.tokui-btn--danger):not(.tokui-btn--success):not(.tokui-btn--warning):not(.tokui-btn--ghost) {
+[data-tokui-theme='modern'] .tokui-btn:not(.tokui-btn--primary):not(.tokui-btn--danger):not(.tokui-btn--success):not(.tokui-btn--warning):not(.tokui-btn--ghost):not(.tokui-btn--gradient) {
   background: var(--tokui-bg-muted);
   color: var(--tokui-text);
   border-color: transparent;
 }
-[data-tokui-theme='modern'] .tokui-btn:not(.tokui-btn--primary):not(.tokui-btn--danger):not(.tokui-btn--success):not(.tokui-btn--warning):not(.tokui-btn--ghost):hover { background: #E4E4E7; }
+[data-tokui-theme='modern'] .tokui-btn:not(.tokui-btn--primary):not(.tokui-btn--danger):not(.tokui-btn--success):not(.tokui-btn--warning):not(.tokui-btn--ghost):not(.tokui-btn--gradient):hover { background: #E4E4E7; }
 [data-tokui-theme='modern'] .tokui-btn:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px var(--tokui-bg), 0 0 0 4px var(--tokui-primary-focus);

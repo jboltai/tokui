@@ -2960,6 +2960,34 @@ function registerLayoutComponents(renderer) {
       if (revealTimer) { clearTimeout(revealTimer); revealTimer = null; }
     });
 
+    // 折叠边缘渐隐：纵向溢出时顶部/底部各一道向背景色渐隐的遮罩（::before/::after），
+    // 提示「上下还有更多内容」。滚动、内容增减（流式经 MO 跟随）时同步状态类；
+    // 未溢出双遮罩全摘。dir:x 横向模式纵向恒不溢出 → 自然无遮罩。
+    function updateEdges() {
+      var sh = viewport.scrollHeight, ch = viewport.clientHeight, st = viewport.scrollTop;
+      if (!(sh > ch + 1)) {
+        outer.classList.remove('tokui-scroll-area--more-above');
+        outer.classList.remove('tokui-scroll-area--more-below');
+        return;
+      }
+      if (st > 1) outer.classList.add('tokui-scroll-area--more-above');
+      else outer.classList.remove('tokui-scroll-area--more-above');
+      if (st + ch < sh - 1) outer.classList.add('tokui-scroll-area--more-below');
+      else outer.classList.remove('tokui-scroll-area--more-below');
+    }
+    viewport.addEventListener('scroll', updateEdges, { passive: true });
+    var edgesMo = null;
+    if (typeof MutationObserver !== 'undefined') {
+      edgesMo = new MutationObserver(function () { updateEdges(); });
+      edgesMo.observe(viewport, { childList: true, subtree: true });
+    }
+    renderer._registerCleanup(outer, function () {
+      viewport.removeEventListener('scroll', updateEdges);
+      if (edgesMo) edgesMo.disconnect();
+    });
+    updateEdges(); // 初始（Node/dom-mock 无布局：scrollHeight undefined → 摘类，安全）
+    outer._tokuiUpdateEdges = updateEdges; // 测试直调入口
+
     if (!isVirtual) {
       // 普通模式：渲染全部子节点到视口（行为与历史版本一致）
       rc(node.children || []).forEach(function(child) {

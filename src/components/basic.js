@@ -387,6 +387,7 @@ function registerBasicComponents(renderer) {
   // attrs.u = URL, attrs.tx = 显示文本
   // attrs.tt = title 提示, attrs.target = 打开方式(默认 _blank)
   // attrs.dis = 禁用, attrs.v = 变体(muted/danger/success/underline)
+  // attrs.clk = 点击处理器名（带 clk 时点击被 preventDefault，不触发默认跳转）
   renderer.register('a', (node) => {
     var isDisabled = node.attrs.dis !== undefined;
     var href = node.attrs.u || '#';
@@ -398,6 +399,8 @@ function registerBasicComponents(renderer) {
       rel: 'noopener noreferrer'
     };
     if (node.attrs.tt) aAttrs.title = node.attrs.tt;
+    // clk 落 data-tokui-clk（bindEvents 统一绑定）；禁用态照落，由 renderer 的 aria-disabled 闸门拦截
+    if (node.attrs.clk) aAttrs['data-tokui-clk'] = node.attrs.clk;
     if (isDisabled) {
       aAttrs.tabindex = '-1';
       aAttrs['aria-disabled'] = 'true';

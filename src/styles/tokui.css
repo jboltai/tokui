@@ -644,6 +644,30 @@ a + .tokui-btn, .tokui-link + .tokui-btn, .tokui-tag + .tokui-btn { margin-left:
   border-radius: var(--tokui-radius);
 }
 
+/* 折叠边缘渐隐：纵向溢出时顶部/底部各一道向页面背景色渐隐的遮罩，提示上下还有内容。
+   状态类（--more-above/--more-below）由组件 JS 按滚动位置同步；纯装饰不拦截交互
+   （pointer-events:none），遮罩横跨含浮现滚动条区域亦不挡拖拽。 */
+.tokui-scroll-area--more-above::before,
+.tokui-scroll-area--more-below::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 28px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.tokui-scroll-area--more-above::before {
+  top: 0;
+  background: linear-gradient(var(--tokui-bg, #fff), transparent);
+}
+
+.tokui-scroll-area--more-below::after {
+  bottom: 0;
+  background: linear-gradient(transparent, var(--tokui-bg, #fff));
+}
+
 .tokui-scroll-area__viewport {
   overflow: auto;
   height: 100%;
@@ -761,7 +785,7 @@ a + .tokui-btn, .tokui-link + .tokui-btn, .tokui-tag + .tokui-btn { margin-left:
 /* === 对话框 === */
 .tokui-dialog { border: none; border-radius: 16px; padding: 0; max-width: 480px; width: 90%; margin: auto; box-shadow: var(--tokui-overlay-shadow-lg); animation: tokuiDialogIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); background: var(--tokui-bg); overflow: hidden; }
 @keyframes tokuiDialogIn { from { opacity: 0; transform: scale(0.96) translateY(12px); } to { opacity: 1; transform: scale(1) translateY(0); } }
-.tokui-dialog::backdrop { background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); animation: tokuiBackdropIn 0.2s ease; }
+.tokui-dialog::backdrop { background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px); animation: tokuiBackdropIn 0.2s ease; }
 @keyframes tokuiBackdropIn { from { opacity: 0; } to { opacity: 1; } }
 .tokui-dialog-header { padding: 18px 24px; font-weight: 600; font-size: 1.05rem; border-bottom: 1px solid var(--tokui-border); color: var(--tokui-text); background: var(--tokui-stripe); display: flex; align-items: center; justify-content: space-between; }
 .tokui-dialog-close { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--tokui-text-muted); width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; transition: background 0.15s, color 0.15s; flex-shrink: 0; }
@@ -995,6 +1019,25 @@ textarea.tokui-textarea--auto { resize: none !important; }
 .tokui-card--flat { box-shadow: none; border: none; background: var(--tokui-stripe); }
 .tokui-card--bordered { border-width: 2px; }
 
+/* === T3.2 视觉变体：玻璃拟态 / 渐变描边（全主题令牌驱动；card base 无主题覆盖，免恢复段） === */
+.tokui-card--glass {
+  background: color-mix(in srgb, var(--tokui-bg) 55%, transparent);
+  backdrop-filter: blur(var(--tokui-blur-lg, 12px));
+  border-color: color-mix(in srgb, var(--tokui-border) 70%, transparent);
+  /* 顶部内侧高光：平面纯色底上无内容可 blur 时的玻璃感兜底（折射亮边）；
+     真正的磨砂效果需彩色/图片背景衬托（见 demo 垫底演示） */
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 0 0 1px color-mix(in srgb, var(--tokui-primary) 6%, transparent),
+    var(--tokui-shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.08));
+}
+/* 双层背景渐变描边：border 透明 + padding-box 实底 + border-box 渐变（保圆角，border-image 做不到） */
+.tokui-card--gradient-border {
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(var(--tokui-bg), var(--tokui-bg)) padding-box,
+    linear-gradient(135deg, var(--tokui-primary), var(--tokui-primary-3, var(--tokui-primary))) border-box;
+}
+
 /* card header 风格 — ht 属性 */
 /* stripe: 经典条纹背景 + 底部分割线（原默认样式） */
 .tokui-card-header--stripe { border-bottom: 1px solid var(--tokui-border); background: var(--tokui-stripe); }
@@ -1060,6 +1103,20 @@ textarea.tokui-textarea--auto { resize: none !important; }
 .tokui-btn--pill { border-radius: 999px; }
 .tokui-btn--square { border-radius: 0; }
 .tokui-btn--block { display: flex; width: 100%; }
+.tokui-btn--gradient {
+  background: linear-gradient(135deg, var(--tokui-primary), var(--tokui-primary-3, var(--tokui-primary)));
+  color: var(--tokui-btn-text-inverse, #fff);
+  border-color: transparent;
+}
+/* hover 须重申背景/文字/边框（同 --primary:hover 模式）：
+   base `.tokui-btn:hover`(L457) 同特异性 (0,2,0) 会把背景换成浅色 hover 底——
+   只写 filter 会被压过，白字配浅底不可读 */
+.tokui-btn--gradient:hover {
+  background: linear-gradient(135deg, var(--tokui-primary), var(--tokui-primary-3, var(--tokui-primary)));
+  color: var(--tokui-btn-text-inverse, #fff);
+  border-color: transparent;
+  filter: brightness(1.08);
+}
 
 /* === 按钮组 === */
 .tokui-btn-group { display: inline-flex; gap: 0; }
@@ -1260,6 +1317,22 @@ textarea.tokui-textarea--auto { resize: none !important; }
 .tokui-row--inline { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; grid-template-columns: none; }
 
 /* === 标题装饰风格 === */
+
+/* === T3.2 渐变标题文字：background-clip:text，色走主题变量；不支持环境回退纯色 === */
+.tokui-h1--gradient, .tokui-h2--gradient, .tokui-h3--gradient,
+.tokui-h4--gradient, .tokui-h5--gradient, .tokui-h6--gradient {
+  background: linear-gradient(120deg, var(--tokui-primary), var(--tokui-primary-3, var(--tokui-primary)));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: var(--tokui-primary);
+}
+@supports not ((background-clip: text) or (-webkit-background-clip: text)) {
+  .tokui-h1--gradient, .tokui-h2--gradient, .tokui-h3--gradient,
+  .tokui-h4--gradient, .tokui-h5--gradient, .tokui-h6--gradient {
+    background: none; -webkit-text-fill-color: currentColor; color: var(--tokui-primary);
+  }
+}
 
 /* Ribbon: 缎带风格 — 浅主色底 + 左侧主色 accent 条 + 底部折角
    配色经 --tokui-title-bg（缺省 --tokui-primary）+ color-mix 派生：10% 浅底、主色文字；
@@ -2411,7 +2484,7 @@ textarea.tokui-textarea--auto { resize: none !important; }
   display: flex; align-items: center; justify-content: center;
   padding: 24px; box-sizing: border-box;
   background: rgba(0, 0, 0, 0.55);
-  -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
   opacity: 0; transition: opacity 0.18s ease;
 }
 .tokui-chart__modal--open { opacity: 1; }
@@ -6923,3 +6996,42 @@ a.tokui-source__title:hover { color: var(--tokui-primary); text-decoration: unde
 .tokui-page-tab--active > .tokui-page-tab__panel { display: block; }
 /* 面板内纵排节奏与 content 一致 */
 .tokui-page-tab__panel > * + * { margin-top: var(--tokui-space-2); }
+
+/* ===================================================================
+ * reveal 滚动入场（T3.2）——渐进增强：未 --arm 永远可见
+ * --arm 观察建立（JS）后才隐藏子项；--in 进场；方向 v:up|left|right|zoom
+ * stagger 纯 CSS nth-child 1~12 档 ×80ms；--tokui-reveal-delay 基础延迟
+ * =================================================================== */
+.tokui-reveal { display: block; }
+.tokui-reveal > .tokui-reveal-item { margin-block-end: var(--tokui-space-3, 12px); }
+.tokui-reveal--arm > * {
+  opacity: 0;
+  transform: translateY(16px); /* 默认 up */
+  /* 隐藏态不得带 transition：arm 瞬时隐藏，过渡只在 --in 上启用——
+     否则 1→0 的隐藏自己在过渡中，--in 折返回 1 时动画相互抵消（全程 opacity=1 无动画） */
+}
+.tokui-reveal--arm.tokui-reveal--left > * { transform: translateX(-24px); }
+.tokui-reveal--arm.tokui-reveal--right > * { transform: translateX(24px); }
+.tokui-reveal--arm.tokui-reveal--zoom > * { transform: scale(0.92); }
+.tokui-reveal.tokui-reveal--in > * {
+  /* 双类特异性 (0,2,0)：须 ≥ 方向规则 --arm.--left/--right/--zoom（同为 0,2,0）——
+     单类会被压过，transform 冻结在方向起点永不归位（left/right/zoom 卡死、up 正常的根因） */
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.45s ease, transform 0.45s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.tokui-reveal.tokui-reveal--in > *:nth-child(1) { transition-delay: calc(var(--tokui-reveal-delay, 0ms) + 0ms); }
+.tokui-reveal.tokui-reveal--in > *:nth-child(2) { transition-delay: calc(var(--tokui-reveal-delay, 0ms) + 80ms); }
+.tokui-reveal.tokui-reveal--in > *:nth-child(3) { transition-delay: calc(var(--tokui-reveal-delay, 0ms) + 160ms); }
+.tokui-reveal.tokui-reveal--in > *:nth-child(4) { transition-delay: calc(var(--tokui-reveal-delay, 0ms) + 240ms); }
+.tokui-reveal.tokui-reveal--in > *:nth-child(5) { transition-delay: calc(var(--tokui-reveal-delay, 0ms) + 320ms); }
+.tokui-reveal.tokui-reveal--in > *:nth-child(6) { transition-delay: calc(var(--tokui-reveal-delay, 0ms) + 400ms); }
+.tokui-reveal.tokui-reveal--in > *:nth-child(7) { transition-delay: calc(var(--tokui-reveal-delay, 0ms) + 480ms); }
+.tokui-reveal.tokui-reveal--in > *:nth-child(8) { transition-delay: calc(var(--tokui-reveal-delay, 0ms) + 560ms); }
+.tokui-reveal.tokui-reveal--in > *:nth-child(9) { transition-delay: calc(var(--tokui-reveal-delay, 0ms) + 640ms); }
+.tokui-reveal.tokui-reveal--in > *:nth-child(10) { transition-delay: calc(var(--tokui-reveal-delay, 0ms) + 720ms); }
+.tokui-reveal.tokui-reveal--in > *:nth-child(11) { transition-delay: calc(var(--tokui-reveal-delay, 0ms) + 800ms); }
+.tokui-reveal.tokui-reveal.tokui-reveal--in > *:nth-child(n+12) { transition-delay: calc(var(--tokui-reveal-delay, 0ms) + 880ms); }
+@media (prefers-reduced-motion: reduce) {
+  .tokui-reveal.tokui-reveal--arm > * { opacity: 1; transform: none; transition: none; }
+}

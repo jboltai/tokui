@@ -2678,9 +2678,7 @@ function registerFormComponents(renderer) {
     if (!action.act && action.handler) attrs['data-tokui-clk'] = action.handler;
     if (node.attrs.id) attrs.id = node.attrs.id;
     if (node.attrs.dis !== undefined) attrs.disabled = 'disabled';
-    Object.keys(node.attrs).forEach(key => {
-      if (key.startsWith('data-')) attrs[key] = node.attrs[key];
-    });
+    // data-* 透传已上移 renderer._applyDataAttrs 集中兜底（全组件生效），此处不再手动遍历
     let style = '';
     const safeW = _safeCssSize(node.attrs.w);
     if (safeW) style += 'width:' + safeW + ';';

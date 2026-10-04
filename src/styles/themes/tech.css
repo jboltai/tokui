@@ -298,7 +298,7 @@
   color: var(--tokui-text-muted);
 }
 
-[data-tokui-theme="tech"] .tokui-btn:not([type="submit"]):not(.tokui-btn--primary):not(.tokui-btn--danger):not(.tokui-btn--success):not(.tokui-btn--warning):not(.tokui-btn--ghost) {
+[data-tokui-theme="tech"] .tokui-btn:not([type="submit"]):not(.tokui-btn--primary):not(.tokui-btn--danger):not(.tokui-btn--success):not(.tokui-btn--warning):not(.tokui-btn--ghost):not(.tokui-btn--gradient) {
   background: var(--tokui-stripe);
   color: var(--tokui-text);
 }
