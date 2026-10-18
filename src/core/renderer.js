@@ -293,7 +293,7 @@ const VARIANTS = {
   anchor: new Set(['horizontal']),
   'scroll-area': new Set(['flush']),
   kbd: new Set(['sm', 'lg']),
-  panel: new Set(['corner', 'glow', 'plain']),
+  panel: new Set(['corner', 'glow', 'plain', 'scan']), // scan = 标题栏下缘扫描线（大屏氛围 M1+）
 };
 
 /**

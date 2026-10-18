@@ -15,6 +15,18 @@
   --tokui-tech-panel-bg: rgba(13, 27, 42, 0.72);
   --tokui-tech-panel-border: rgba(34, 211, 238, 0.22);
 
+  /* ========== 大屏屏幕皮肤令牌（大屏专业化升级 M1） ========== */
+  /* 挂在 theme:tech 的 grid 骨架上：深空底 + 三层径向光晕 + 暗角（inset 阴影实现，内容不受遮挡） */
+  --tokui-screen-bg: #030814;
+  --tokui-screen-halo: radial-gradient(1200px 700px at 50% -10%, rgba(13, 43, 87, 0.85) 0%, transparent 60%),
+    radial-gradient(1000px 600px at 10% 110%, rgba(59, 130, 246, 0.15) 0%, transparent 60%),
+    radial-gradient(1000px 600px at 90% 110%, rgba(126, 87, 247, 0.12) 0%, transparent 60%);
+  --tokui-screen-vignette: inset 0 0 170px rgba(0, 0, 0, 0.5);
+  /* 大数字 display 字体（零依赖系统栈；Windows 回退 mono 数字感可接受） */
+  --tokui-font-display: 'DIN Alternate', 'Bebas Neue', 'Oswald', 'Arial Narrow', ui-monospace, SFMono-Regular, Consolas, monospace;
+  /* 文字辉光（kpi 大数字 / 门头标题） */
+  --tokui-glow-text: 0 0 16px rgba(34, 211, 238, 0.35);
+
   /* ========== 第一层：色板层 ========== */
 
   /* 主色色板（Primary #3983dc） */

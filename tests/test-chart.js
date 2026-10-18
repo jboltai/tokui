@@ -1535,6 +1535,61 @@ test('grad 渐变：defs 注入 linearGradient（每系列色）+ 系列填充�
   assert.ok(urlFills >= 3, '系列填充替换 url(): ' + urlFills);
 });
 
+// === Combo 双轴组合图（大屏专业化 M3）===
+test('chart combo：柱+折线双轴结构（渐变柱/平滑线/图例/双轴刻度）', () => {
+  const r = new TokUIRenderer();
+  registerChartComponents(r);
+  const dom = r.render({ type: 'chart', attrs: { t: 'combo', d: '820,640,1080', d2: '12.4,8.6,15.2', l: '1月,2月,3月', n1: '新签', n2: '环比', y2: '%', smooth: true }, content: '', children: [] });
+  const svg = dom.querySelector('.tokui-chart__svg');
+  assert.ok(svg, 'svg 渲染');
+  assert.strictEqual(svg.querySelectorAll('.tokui-chart-bar').length, 3, '3 根柱');
+  assert.strictEqual(svg.querySelectorAll('.tokui-chart-dot').length, 3, '3 个折线点');
+  let bezier = false, barGrad = false;
+  (function w(n) {
+    if (n.nodeType !== 1) return;
+    if (n._rawTag === 'path' && String(n.getAttribute('d') || '').indexOf(' C') !== -1) bezier = true;
+    if (String(n.getAttribute && n.getAttribute('fill') || '').indexOf('url(#tokui-combo-bar') === 0) barGrad = true;
+    for (const c of (n.childNodes || [])) w(c);
+  })(svg);
+  assert.ok(bezier, 'smooth 贝塞尔路径');
+  assert.ok(barGrad, '柱渐变填充');
+});
+
+test('chart combo：缺 d2 时仅柱正常渲染（不炸）', () => {
+  const r = new TokUIRenderer();
+  registerChartComponents(r);
+  const dom = r.render({ type: 'chart', attrs: { t: 'combo', d: '1,2,3', l: 'a,b,c' }, content: '', children: [] });
+  const svg = dom.querySelector('.tokui-chart__svg');
+  assert.ok(svg && svg.querySelectorAll('.tokui-chart-bar').length === 3, '柱照常');
+  assert.strictEqual(svg.querySelectorAll('.tokui-chart-dot').length, 0, '无折线点');
+});
+
+test('chart combo：空数据占位', () => {
+  const r = new TokUIRenderer();
+  registerChartComponents(r);
+  const dom = r.render({ type: 'chart', attrs: { t: 'combo', l: 'a' }, content: '', children: [] });
+  assert.ok(dom.querySelector('.tokui-chart__svg'), '空态 svg 不炸');
+});
+
+// === 地图涟漪 + TOP-N 侧栏（大屏专业化 M3）===
+test('chart map：散点涟漪（值 TOP12）+ ripple:off 关闭 + topn 侧栏', () => {
+  const r = new TokUIRenderer();
+  registerChartComponents(r);
+  const mk = (extra) => r.render({ type: 'chart', attrs: Object.assign({ t: 'map', region: '广东:100|江苏:50', d: '113.26,23.13,100,name:广州|118.78,32.06,50,name:南京' }, extra), content: '', children: [] });
+  const svg1 = mk({}).querySelector('.tokui-chart__svg');
+  assert.strictEqual(svg1.querySelectorAll('.tokui-chart-map-ripple').length, 2, '两点均涟漪');
+  assert.strictEqual(svg1.querySelectorAll('.tokui-chart-map-point').length, 2, '散点保留');
+  const svg2 = mk({ ripple: 'off' }).querySelector('.tokui-chart__svg');
+  assert.strictEqual(svg2.querySelectorAll('.tokui-chart-map-ripple').length, 0, 'ripple:off 关闭');
+  const svg3 = mk({ topn: 2 }).querySelector('.tokui-chart__svg');
+  assert.ok(svg3.querySelector('.tokui-chart-map-topn'), 'topn 侧栏渲染');
+  const title = svg3.querySelector('.tokui-chart-map-topn-title');
+  assert.ok(title && title.textContent.indexOf('TOP 2') === 0, 'topn 标题');
+  // topn:0 → 不渲染
+  const svg4 = mk({ topn: 0 }).querySelector('.tokui-chart__svg');
+  assert.ok(!svg4.querySelector('.tokui-chart-map-topn'), 'topn:0 关闭');
+});
+
 run();
 
 

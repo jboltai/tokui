@@ -6777,15 +6777,144 @@ a.tokui-source__title:hover { color: var(--tokui-primary); text-decoration: unde
 .tokui-cell > .tokui-chart { min-height: 0; width: 100%; display: flex; flex-direction: column; }
 .tokui-cell > .tokui-chart .tokui-chart__svg { flex: 1 1 auto; min-height: 0; }
 .tokui-panel--corner { border-color: transparent; background-image: linear-gradient(var(--tokui-tech-panel-bg, var(--tokui-bg)), var(--tokui-tech-panel-bg, var(--tokui-bg))); }
-.tokui-panel--corner::before, .tokui-panel--corner::after { content: ''; position: absolute; width: 14px; height: 14px; border: 2px solid var(--tokui-primary); pointer-events: none; }
-.tokui-panel--corner::before { top: 0; left: 0; border-right: none; border-bottom: none; }
-.tokui-panel--corner::after { bottom: 0; right: 0; border-left: none; border-top: none; }
+.tokui-panel--corner::before, .tokui-panel--corner::after { content: none; }
+/* 四角角标（大屏专业化 M1）：8 段渐变绘制 TL/TR/BL/BR 完整 L 形括号（角层先绘、实底垫后，内容恒在上） */
+.tokui-panel--corner {
+  background-image:
+    linear-gradient(var(--tokui-primary), var(--tokui-primary)), linear-gradient(var(--tokui-primary), var(--tokui-primary)),
+    linear-gradient(var(--tokui-primary), var(--tokui-primary)), linear-gradient(var(--tokui-primary), var(--tokui-primary)),
+    linear-gradient(var(--tokui-primary), var(--tokui-primary)), linear-gradient(var(--tokui-primary), var(--tokui-primary)),
+    linear-gradient(var(--tokui-primary), var(--tokui-primary)), linear-gradient(var(--tokui-primary), var(--tokui-primary)),
+    linear-gradient(var(--tokui-tech-panel-bg, var(--tokui-bg)), var(--tokui-tech-panel-bg, var(--tokui-bg)));
+  background-repeat: no-repeat;
+  background-size: 14px 2px, 2px 14px, 14px 2px, 2px 14px, 14px 2px, 2px 14px, 14px 2px, 2px 14px, 100% 100%;
+  background-position: left top, left top, right top, right top, left bottom, left bottom, right bottom, right bottom, 0 0;
+}
 .tokui-panel--glow { box-shadow: var(--tokui-glow-primary, var(--tokui-shadow-md)); }
 .tokui-panel--plain { border: none; background: transparent; }
 .tokui-panel--plain .tokui-panel__head { border-bottom-color: var(--tokui-border); }
+/* scan 变体（大屏氛围 M1）：标题栏下起扫过面板体的主色光线，7s 循环；reduced-motion 关闭 */
+.tokui-panel--scan::after {
+  content: ''; position: absolute; left: 0; right: 0; top: 0; height: 2px; z-index: 2; pointer-events: none;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--tokui-primary, #22d3ee) 60%, transparent), transparent);
+  animation: tokui-panel-scan 7s linear infinite;
+}
+@keyframes tokui-panel-scan { 0% { top: 0; opacity: 0; } 8% { opacity: 0.8; } 92% { opacity: 0.6; } 100% { top: 100%; opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .tokui-panel--scan::after { animation: none; opacity: 0; } }
+/* panel 英文副标题 / 右侧扩展信息（大屏专业化 M1） */
+.tokui-panel__sub { font-size: var(--tokui-font-xs, 11px); color: var(--tokui-text-muted); letter-spacing: 1px; text-transform: uppercase; white-space: nowrap; }
+.tokui-panel__extra { margin-left: auto; font-size: var(--tokui-font-xs, 11px); color: var(--tokui-text-muted); white-space: nowrap; display: inline-flex; align-items: center; }
+.tokui-panel__extra em, .tokui-panel__extra-hl { font-style: normal; color: var(--tokui-primary); font-weight: 600; }
+/* tech 主题面板精致化：标题栏渐变底 + hover 抬升亮起（仅大屏主题生效，不影响其余场景） */
+[data-tokui-theme="tech"] .tokui-panel { transition: border-color 0.35s ease, box-shadow 0.35s ease, transform 0.35s ease; }
+[data-tokui-theme="tech"] .tokui-panel:hover {
+  border-color: color-mix(in srgb, var(--tokui-primary) 50%, transparent);
+  transform: translateY(-2px);
+  box-shadow: var(--tokui-glow-primary, 0 0 12px rgba(34, 211, 238, 0.45)), inset 0 0 42px rgba(0, 102, 204, 0.1);
+}
+[data-tokui-theme="tech"] .tokui-panel__head {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--tokui-primary) 10%, transparent), transparent 65%);
+}
+/* 大屏屏幕皮肤（大屏专业化 M1）：theme:tech 的 grid 骨架自动获得指挥中心氛围——
+   深空底 + 三层径向光晕（--tokui-screen-halo，3 层 auto 尺寸）+ 网格纹理（tech-grid 2 层 32px）+ 暗角（inset 阴影，
+   画在背景之上、内容之下，零遮挡）。尺寸列表按 2 周期循环：halo 层 auto=元素尺寸，grid 层 32px 平铺。 */
+.tokui-grid[data-tokui-theme="tech"] {
+  background-color: var(--tokui-screen-bg, var(--tokui-bg));
+  background-image: var(--tokui-screen-halo, none), var(--tokui-tech-grid, none);
+  background-size: auto, var(--tokui-tech-grid-size, 32px) var(--tokui-tech-grid-size, 32px);
+  background-position: center;
+  box-shadow: var(--tokui-screen-vignette, none);
+}
+/* kpi pct 迷你光条（大屏专业化 M1）：底部 3px 完成度指示 */
+.tokui-kpi__bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--tokui-stripe, rgba(0, 0, 0, 0.06)); }
+.tokui-kpi__bar-fill { display: block; height: 100%; width: 0; background: var(--tokui-primary); box-shadow: 0 0 8px color-mix(in srgb, var(--tokui-primary) 60%, transparent); transition: width 1.4s cubic-bezier(0.22, 1, 0.36, 1); }
+@media (prefers-reduced-motion: reduce) { .tokui-kpi__bar-fill { transition: none; } }
+/* tech 主题 kpi 大数字：display 字体 + 辉光（其他主题不变） */
+[data-tokui-theme="tech"] .tokui-kpi__num {
+  font-family: var(--tokui-font-display, var(--tokui-font-mono, monospace));
+  text-shadow: var(--tokui-glow-text, none);
+  letter-spacing: 1px;
+}
+/* screen-header 大屏门头（大屏专业化 M2）：三段布局 + 底缘主色渐变分隔线 */
+.tokui-screen-header { position: relative; display: flex; align-items: center; gap: 14px; padding: 0 24px; min-width: 0; }
+.tokui-screen-header::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--tokui-primary, #22d3ee) 75%, transparent), transparent);
+}
+.tokui-screen-header__side { display: flex; align-items: center; gap: 12px; flex: 0 1 340px; min-width: 0; }
+.tokui-screen-header__side--right { justify-content: flex-end; }
+.tokui-screen-header__center { flex: 1; text-align: center; min-width: 0; }
+.tokui-screen-header__title {
+  display: block; font-size: 34px; font-weight: 800; letter-spacing: 8px; line-height: 1.15;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  background: linear-gradient(180deg, #ffffff 10%, color-mix(in srgb, var(--tokui-primary, #22d3ee) 45%, #ffffff) 60%, var(--tokui-primary, #22d3ee) 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  text-shadow: 0 0 26px color-mix(in srgb, var(--tokui-primary, #22d3ee) 30%, transparent);
+}
+.tokui-screen-header__sub { display: block; font-size: 12px; letter-spacing: 5px; color: var(--tokui-text-muted); margin-top: 3px; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tokui-screen-header__tag {
+  font-size: 12px; color: var(--tokui-text-secondary); border: 1px solid var(--tokui-border);
+  border-radius: 999px; padding: 4px 10px; white-space: nowrap;
+  background: color-mix(in srgb, var(--tokui-primary) 8%, transparent);
+}
+.tokui-screen-header__clock { display: inline-flex; flex-direction: column; align-items: flex-end; gap: 3px; line-height: 1; }
+.tokui-screen-header__time {
+  font-family: var(--tokui-font-display, var(--tokui-font-mono, monospace));
+  font-size: 24px; color: var(--tokui-text); letter-spacing: 2px; font-variant-numeric: tabular-nums;
+}
+.tokui-screen-header__date { font-size: 11px; color: var(--tokui-text-muted); letter-spacing: 1px; }
+.tokui-screen-header__live { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; letter-spacing: 2px; color: var(--tokui-success); }
+.tokui-screen-header__live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--tokui-success); box-shadow: 0 0 10px var(--tokui-success); animation: tokui-live-blink 1.6s infinite; }
+@keyframes tokui-live-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .tokui-screen-header__live-dot { animation: none; } }
+/* rank-list 龙虎榜（大屏专业化 M2）：奖牌位 + 头像 + 值右对齐；前三名渐变奖牌 */
+.tokui-rank { display: flex; flex-direction: column; min-width: 0; }
+.tokui-rank__viewport { position: relative; overflow: hidden; }
+.tokui-rank__track { display: flex; flex-direction: column; gap: 6px; padding: 8px 12px; will-change: transform; }
+.tokui-rank__row { display: flex; align-items: center; gap: 10px; padding: 3px 0; }
+.tokui-rank__row[role="button"] { cursor: pointer; }
+.tokui-rank__row[role="button"]:hover { background: var(--tokui-stripe); }
+.tokui-rank__no {
+  width: 22px; height: 22px; flex: 0 0 22px; border-radius: 4px; font-size: 12px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--tokui-stripe); color: var(--tokui-text-muted); font-variant-numeric: tabular-nums;
+}
+.tokui-rank__row--top1 .tokui-rank__no { background: linear-gradient(135deg, #ff9f40, #ff5a6e); color: #fff; box-shadow: 0 0 10px rgba(255, 130, 90, 0.55); }
+.tokui-rank__row--top2 .tokui-rank__no { background: linear-gradient(135deg, #22d3ee, #3b82f6); color: #031024; }
+.tokui-rank__row--top3 .tokui-rank__no { background: linear-gradient(135deg, #a855f7, #6366f1); color: #fff; }
+.tokui-rank__av {
+  width: 26px; height: 26px; flex: 0 0 26px; border-radius: 50%; font-size: 12px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: #04122a; background: linear-gradient(135deg, color-mix(in srgb, var(--tokui-primary) 55%, #ffffff), var(--tokui-primary));
+}
+.tokui-rank__main { flex: 1; min-width: 0; display: inline-flex; align-items: baseline; gap: 6px; overflow: hidden; }
+.tokui-rank__name { font-size: var(--tokui-font-md, 14px); color: var(--tokui-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tokui-rank__sub { font-style: normal; font-size: 11px; color: var(--tokui-text-muted); white-space: nowrap; }
+.tokui-rank__val {
+  font-family: var(--tokui-font-display, var(--tokui-font-mono, monospace));
+  font-size: 17px; font-weight: 700; color: var(--tokui-text); white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.tokui-rank__unit { font-style: normal; font-size: 11px; color: var(--tokui-text-muted); margin-left: 2px; }
+.tokui-rank__empty { display: flex; align-items: center; justify-content: center; min-height: 80px; color: var(--tokui-text-muted); font-size: var(--tokui-font-sm, 13px); }
+/* scrollboard 状态胶囊格（大屏专业化 M2）：tag: 前缀语法渲染 .tokui-tag 胶囊 */
+.tokui-scrollboard__pill { display: inline-flex; }
+/* 地图涟漪散点（大屏专业化 M3）：stroke 扩散 + 渐隐，transform-box 保持圆心缩放；TOP12 节流由 JS 控制 */
+.tokui-chart-map-ripple {
+  fill: none; stroke: var(--tokui-chart-c1, #22d3ee); stroke-width: 1.6; opacity: 0;
+  transform-box: fill-box; transform-origin: center; pointer-events: none;
+  animation: tokui-map-ripple 2.6s ease-out infinite;
+}
+@keyframes tokui-map-ripple {
+  0% { transform: scale(0.35); opacity: 0.9; }
+  70% { opacity: 0.25; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .tokui-chart-map-ripple { animation: none; opacity: 0; } }
+/* 地图 TOP-N 侧栏（大屏专业化 M3）：SVG 内绘制，容器样式兜底 */
+.tokui-chart-map-topn-title { fill: var(--tokui-chart-text, #8fa8cd); font-weight: 600; }
 
-/* kpi 指标卡 */
-.tokui-kpi { display: flex; flex-direction: column; gap: var(--tokui-space-1); padding: var(--tokui-space-3) var(--tokui-space-4); background: var(--tokui-bg); border: 1px solid var(--tokui-border); border-radius: var(--tokui-radius-lg); transition: box-shadow 0.2s, transform 0.2s; }
+/* kpi 指标卡（position/overflow 承载底部 pct 光条） */
+.tokui-kpi { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: var(--tokui-space-1); padding: var(--tokui-space-3) var(--tokui-space-4); background: var(--tokui-bg); border: 1px solid var(--tokui-border); border-radius: var(--tokui-radius-lg); transition: box-shadow 0.2s, transform 0.2s; }
 .tokui-kpi--clickable { cursor: pointer; }
 .tokui-kpi--clickable:hover { box-shadow: var(--tokui-shadow-md); transform: translateY(-1px); }
 .tokui-kpi__top { display: flex; align-items: center; gap: var(--tokui-space-2); color: var(--tokui-text-secondary); font-size: var(--tokui-font-sm); }

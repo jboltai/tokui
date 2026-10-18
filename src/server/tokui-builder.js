@@ -689,6 +689,12 @@ class TokUIBuilder {
   /** 轮播榜单（容器，可加 tr 子节点行） */
   scrollboard(attrs) { return this._open('scrollboard', attrs); }
 
+  /** 大屏门头（自闭合：渐变标题+英文副题+两端信息+时钟+LIVE） */
+  screenHeader(attrs) { return this._selfClosing('screen-header', null, attrs); }
+
+  /** 龙虎榜（rows 简写自闭合；无 rows 容器收 tr 子节点） */
+  rankList(attrs) { return this._open('rank-list', attrs); }
+
   /** 大屏缩放容器（1920×1080 设计稿等比适配） */
   fitScreen(attrs) { return this._open('fit-screen', attrs); }
 

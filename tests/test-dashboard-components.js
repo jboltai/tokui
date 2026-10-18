@@ -267,5 +267,99 @@ test('fit-screen width 模式：wrap 贴合视觉内容高 + overflow-y 纵滚 +
   assert.strictEqual(d2.style.alignItems, 'flex-start', '滚动场景顶对齐防溢出不可达');
 });
 
+// ========== 大屏专业化升级（M1/M2）：panel sub/extra/scan、kpi pct、screen-header、rank-list、胶囊格 ==========
+
+test('panel：sub 英文副标题 + extra 高亮段 + scan 变体类', () => {
+  const dom = renderDsl('[panel tt:面板 v:scan sub:PANEL extra:"转化率 {9.8%}" 丫][/panel]', 'panel');
+  assert.ok((dom.className || '').includes('tokui-panel--scan'), 'scan 变体类');
+  const sub = findCls(dom, 'tokui-panel__sub');
+  assert.ok(sub && sub.textContent === 'PANEL', 'sub 副标题');
+  const hl = findCls(dom, 'tokui-panel__extra-hl');
+  assert.ok(hl && hl.textContent === '9.8%', 'extra {段} 高亮');
+  const ex = findCls(dom, 'tokui-panel__extra');
+  assert.ok(ex, 'extra 容器存在');
+});
+
+test('kpi：pct 迷你光条渲染（bar + fill）', () => {
+  const dom = renderDsl('[kpi tt:完成率 v:86.4 unit:% pct:86]', 'kpi');
+  assert.ok(findCls(dom, 'tokui-kpi__bar'), 'pct 光条容器');
+  assert.ok(findCls(dom, 'tokui-kpi__bar-fill'), 'pct 填充条');
+});
+
+test('kpi：无 pct 不渲染光条（向后兼容）', () => {
+  const dom = renderDsl('[kpi tt:x v:100]', 'kpi');
+  assert.ok(!findCls(dom, 'tokui-kpi__bar'), '无 pct 无光条');
+});
+
+test('screen-header：三段结构 + lft/rgt 标签 + live 呼吸灯 + 时钟', () => {
+  const dom = renderDsl('[screen-header tt:指挥中心 sub:"BI CENTER" lft:"节点 8/8" rgt:"数据源 CRM" live clock h:80]', 'screen-header');
+  assert.strictEqual(dom.className, 'tokui-screen-header', '根类');
+  assert.strictEqual(dom.style.height, '80px', 'h 高度');
+  const title = findCls(dom, 'tokui-screen-header__title');
+  assert.ok(title && title.textContent === '指挥中心', '主标题');
+  const sub = findCls(dom, 'tokui-screen-header__sub');
+  assert.ok(sub && sub.textContent === 'BI CENTER', '英文副题');
+  const tags = [];
+  (function walk(n) { if ((n.className || '').split(' ').indexOf('tokui-screen-header__tag') !== -1) tags.push(n.textContent); (n.childNodes || []).forEach(walk); })(dom);
+  assert.deepStrictEqual(tags, ['节点 8/8', '数据源 CRM'], '左右信息标签');
+  assert.ok(findCls(dom, 'tokui-screen-header__live-dot'), 'LIVE 呼吸灯');
+  const time = findCls(dom, 'tokui-screen-header__time');
+  assert.ok(time && /^\d{2}:\d{2}:\d{2}$/.test(time.textContent), '时钟已走时');
+});
+
+test('screen-header：无 clock 不渲染时钟（轻量）', () => {
+  const dom = renderDsl('[screen-header tt:x]', 'screen-header');
+  assert.ok(!findCls(dom, 'tokui-screen-header__clock'), '无 clock 无时钟');
+});
+
+test('rank-list：rows 简写自闭合 + 前三奖牌 + 头像 + 值/单位', () => {
+  const dom = renderDsl('[rank-list rows:"甲,东区,486|乙,西区,432|丙,南区,398|丁,北区,265" unit:万 top:3 av]', 'rank-list');
+  const rank = findCls(dom, 'tokui-rank');
+  assert.ok(rank, 'rank-list 渲染');
+  const rows = [];
+  (function walk(n) { if ((n.className || '').split(' ').indexOf('tokui-rank__row') !== -1) rows.push(n); (n.childNodes || []).forEach(walk); })(rank);
+  assert.strictEqual(rows.length, 4, '4 行数据');
+  assert.ok(rows[0].className.includes('tokui-rank__row--top1'), '第 1 名奖牌位');
+  assert.ok(rows[2].className.includes('tokui-rank__row--top3'), '第 3 名奖牌位');
+  assert.ok(!rows[3].className.includes('--top'), '第 4 名无奖牌');
+  const no = findCls(rows[0], 'tokui-rank__no');
+  const av = findCls(rows[0], 'tokui-rank__av');
+  const name = findCls(rows[0], 'tokui-rank__name');
+  const val = findCls(rows[0], 'tokui-rank__val');
+  const unit = findCls(rows[0], 'tokui-rank__unit');
+  assert.ok(no && no.textContent === '1', '名次号');
+  assert.ok(av && av.textContent === '甲', '首字头像');
+  assert.ok(name && name.textContent === '甲', '名称');
+  assert.ok(val && val.textContent.indexOf('486') !== -1, '值');
+  assert.ok(unit && unit.textContent === '万', '单位后缀');
+});
+
+test('rank-list：无 av 不渲染头像；空态 rank.empty', () => {
+  const dom = renderDsl('[rank-list rows:"甲,100"]', 'rank-list');
+  assert.ok(!findCls(dom, 'tokui-rank__av'), '无 av 无头像');
+  const empty = renderDsl('[rank-list top:3][/rank-list]', 'rank-list');
+  assert.ok(findCls(empty, 'tokui-rank__empty'), '空态占位');
+});
+
+test('rank-list：容器模式收 tr 子节点（无 rows）', () => {
+  const nodes = parseTop('[rank-list top:2][tr 甲,东区,100][/tr][tr 乙,西区,90][/tr][/rank-list]');
+  const dom = makeRenderer().render(nodes[0]);
+  let cnt = 0;
+  (function walk(n) { if ((n.className || '').split(' ').indexOf('tokui-rank__row') !== -1) cnt++; (n.childNodes || []).forEach(walk); })(dom);
+  assert.strictEqual(cnt, 2, 'tr 子节点两行');
+});
+
+test('scrollboard：tag: 胶囊格（类型:文本 冒号语法）', () => {
+  const dom = renderDsl('[scrollboard h:80 cols:"客户,状态" rows:"恒昇,tag:success:已签约|云栖,tag:warning:谈判"]', 'scrollboard');
+  const pill = findCls(dom, 'tokui-scrollboard__pill');
+  assert.ok(pill, '胶囊渲染');
+  assert.ok((pill.className || '').includes('tokui-tag--success'), 'success 类型色');
+  assert.strictEqual(pill.textContent, '已签约', '胶囊文本');
+  // 无类型中性胶囊
+  const dom2 = renderDsl('[scrollboard h:80 rows:"x,tag:待定"]', 'scrollboard');
+  const pill2 = findCls(dom2, 'tokui-scrollboard__pill');
+  assert.ok(pill2 && !(pill2.className || '').includes('tokui-tag--'), '无类型不加色类');
+});
+
 run();
 

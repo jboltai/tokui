@@ -118,6 +118,7 @@ const CONTAINERS = new Set([
   'kpi',
   'scrollboard',
   'fit-screen',
+  'rank-list',
   'page',
   'page-header',
   'page-sidebar',
@@ -185,6 +186,8 @@ const BOOLEAN_ATTRS = new Set([
   'readonly', 'required', 'checked', 'multiple', 'striped', 'auto', 'plain',
   'round', 'closable', 'bordered', 'open', 'grad', 'pill', 'dot', 'leaf',
   'inline', 'rounded', 'container',
+  'clock', 'av', // 大屏：screen-header 时钟 / rank-list 首字头像（大屏专业化 M2）
+  'smooth', 'vals', // 图表：折线平滑 / 数值标签（文档推荐写法，此前 DSL 直写被当正文静默丢弃）
   'copy', 'regenerate', 'like', 'dislike', 'visible', 'delete',
   'controls',
   'active',
@@ -1044,8 +1047,11 @@ class TokUIParser {
     const isTagsSelfClosing = node.type === 'input-tag' && node.attrs.tags;
     // katex 带 f:"公式" 属性 → 行内自闭合（容器 [/katex] 为块级）；与 builder.katex(c, true) 对齐
     const isKatexInlineSelfClosing = node.type === 'katex' && !!node.attrs.f;
+    // rank-list 带 rows 内联数据 → 自闭合（与 scrollboard rows 简写对齐）；无 rows → 容器收 tr 子节点
+    const isRankRowsSelfClosing = node.type === 'rank-list' && node.attrs.rows;
     const isSelfClosing = isTxSelfClosing || isLeafSelfClosing || isTagsSelfClosing
       || isKatexInlineSelfClosing
+      || isRankRowsSelfClosing
       || isOptShorthandSelfClosing(node) || isCheckboxSingleSelfClosing(node);
     // desc/suggestions/masonry use cols as layout attribute, not as self-closing trigger
     // chart 的 cols 是数据列标签（heatmap），非布局自闭合触发，须豁免（否则容器写法 [/chart] 报错）
@@ -1107,8 +1113,11 @@ class TokUIParser {
     const isTagsSelfClosing = node.type === 'input-tag' && node.attrs.tags;
     // katex 带 f:"公式" 属性 → 行内自闭合（容器 [/katex] 为块级）；与 builder.katex(c, true) 对齐
     const isKatexInlineSelfClosing = node.type === 'katex' && !!node.attrs.f;
+    // rank-list 带 rows 内联数据 → 自闭合（与 scrollboard rows 简写对齐）；无 rows → 容器收 tr 子节点
+    const isRankRowsSelfClosing = node.type === 'rank-list' && node.attrs.rows;
     const isSelfClosing = isTxSelfClosing || isLeafSelfClosing || isTagsSelfClosing
       || isKatexInlineSelfClosing
+      || isRankRowsSelfClosing
       || isOptShorthandSelfClosing(node) || isCheckboxSingleSelfClosing(node);
     // desc/suggestions/masonry use cols as layout attribute, not as self-closing trigger
     // chart 的 cols 是数据列标签（heatmap），非布局自闭合触发，须豁免（否则容器写法 [/chart] 报错）

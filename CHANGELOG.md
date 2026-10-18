@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.8] — 2026-10-04 · 大屏专业化升级
+
+目标:数据大屏从「合格 BI 后台」提升到「指挥中心级」,氛围层/组件层/图表层/活感四维齐动;全程向后兼容(旧 DSL 零改动,仅增强)。
+
+### 新增 · 屏幕/氛围层(M1)
+- **tech 主题屏幕皮肤**:`theme:tech` 挂 grid 即自动获得深空底(#030814)+ 三层径向光晕 + 32px 网格纹理(`--tokui-tech-grid` 令牌首次真正投入使用)+ inset 暗角;皮肤选择器 `.tokui-grid[data-tokui-theme="tech"]`,不碰 fit-screen、不影响 card 级局部 tech 主题。
+- **tech 主题组件精致化**:panel hover 抬升+边框亮起+标题栏渐变底;kpi 大数字自动切 display 字体栈(`--tokui-font-display`,DIN Alternate/Bebas Neue/Oswald 系统栈零依赖)+ 文字辉光(`--tokui-glow-text`)。
+
+### 新增 · 组件(M2)
+- **`screen-header` 大屏门头**(自闭合):`tt` 渐变主标题(34px 字距 8px 辉光)/`sub` 英文副题/`lft`·`rgt` 左右信息胶囊/`clock` 走动时钟+日期(1s tick,`_registerCleanup` 注销)/`live` LIVE 呼吸灯(reduced-motion 静止)/`h` 高度(48-240,默认 92);底缘主色渐变分隔线。builder `screenHeader()`。
+- **`rank-list` 龙虎榜**:`rows:"名,区域,值|…"` 简写自闭合(parser 新增 rows 自闭合触发,镜像 scrollboard)或 `[tr]` 子节点容器模式;`top:3` 前三名渐变奖牌(金橙/青蓝/紫)、`av` 首字渐变头像、`unit` 值后缀、`h` 视口高超出自动无缝上滚(hover 暂停,与 scrollboard 同三原则)、空态 i18n(rank.empty 中英)。builder `rankList()`。
+- **panel `sub`/`extra`/`v:scan`**:`sub` 英文副标题;`extra:"转化率 {9.8%}"` 右侧扩展信息(`{段}` 主色高亮);`scan` 变体面板体扫描线(7s 循环);corner 变体升级为**四角完整 L 形角标**(8 段渐变背景绘制,替原双伪元素,腾出伪元素给 scan 组合使用 `v:"corner,scan"`)。
+- **kpi `pct`**:底部 3px 完成度迷你光条(0-100 钳制,双 rAF 过渡生长;`[upd id: pct:]` 可更新);无 pct 完全不渲染。
+- **scrollboard 状态胶囊格**:单元格 `tag:类型:文本`(如 `tag:success:已签约`)渲染 `.tokui-tag` 胶囊;类型白名单 `^[a-z][a-z-]{1,19}$` 防垃圾类名。rows 属性内勿用含空格的 `t:` 写法(parser 引号吞噬修复会拆断,tr 子节点路径两种写法均兼容)。
+
+### 新增 · 图表(M3)
+- **`t:combo` 双轴组合图**(22 种图表):`d` 柱序列(左轴,垂直渐变)+ `d2` 折线序列(右轴,nice 整数刻度)+ `n1`/`n2` 系列名 + `y2` 右轴单位;`smooth` 贝塞尔平滑 + 双描边辉光 + 面积渐变;`vals` 数值标签;缺 d2 退化纯柱不炸。
+- **地图涟漪散点**:值 TOP12 散点自动叠 stroke 扩散圆(CSS `transform-box:fill-box` 动画,错峰 delay;`ripple:off` 关闭;reduced-motion 静止)。
+- **地图 `topn:N`**:region 数据自动生成左下 TOP-N 迷你榜(省名+比例条+数值,与 choropleth 同色阶;0=关,≤10)。
+
+### 修复(存量 bug,本次实测发现)
+- **parser `smooth`/`vals` 布尔属性缺失**:文档推荐的 `[chart t:area smooth vals …]` 直写 DSL 时两属性被当正文静默丢弃(仅 builder 直传 attrs 生效)——加入 BOOLEAN_ATTRS,DSL 与 builder 行为对齐。
+- **`clock`/`av` 布尔属性**:screen-header/rank-list 的裸布尔属性同样入 BOOLEAN_ATTRS。
+
+### 同步 · 生成层四件全联动
+- TokUI:`demo/TOKUI_DSL_REFERENCE.md` 新增 §6.9 数据大屏食谱 + 组件表/图表清单更新(22 种);`demo/llms.txt` 主题清单补 tech、大屏套件摘要。
+- TokUI-Chat:prompt「数据大屏四件套」扩为「八件套」(screen-header/rank-list/combo/pct·sub·extra·scan/涟漪·topn/胶囊格 + 氛围零成本声明);图表类型清单 20→22;cases 新增「CRM 客户经营指挥中心」全屏大屏范例。
+- tokui-skill v0.2.8:component-data(新组件/变体/图表类型/布尔属性)+ references 再生成 + chart.md(combo 专节、map 涟漪/topn)+ patterns.md 模式五重写(screen-header 版)+ dsl-lint 新规则(combo 缺 d2 警告、d2 中文逗号、rank-list rows 自闭合镜像)+ render.mjs 大屏壳 tech 主题感知(`theme:tech` 命中 → 壳底色 #030814 + 顶部光晕,手写 background 优先)。
+- tokui-agent/tokui-skill:component-data.js/dsl-lint.js/references/SKILL.md(pi 版对照同步)+ promptGuidelines 增大屏八件套指引。
+
+### 测试
+- tests/test-dashboard-components.js +9 用例(panel sub/extra/scan、kpi pct 有无、screen-header 结构/时钟/轻量、rank-list 奖牌/头像/单位/空态/tr 子节点、scrollboard 胶囊)→ 26 用例。
+- tests/test-chart.js +4 用例(combo 结构/缺 d2/空态、map 涟漪+topn+ripple:off)→ 131 用例。
+- 全量测试套件 ALL GREEN;旧版大屏 DSL(2026-10-04 生成)在新运行时重渲验证:布局零破坏 + 氛围自动增强。
+- 1920×1080 截图视觉验收 9/9 ACCEPT(氛围/门头/KPI 光条/四角角标/地图 TOP5/双轴整数刻度/奖牌/胶囊/无溢出)。
+
 ## [Unreleased]
 
 ### 新增（T3.2 视觉变体 + reveal 滚动入场，摘出实施）

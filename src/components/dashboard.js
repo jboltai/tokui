@@ -1,6 +1,7 @@
 /**
- * TokUI 数据大屏组件（M1 Dashboard Pack）
- * panel（科技边框容器）/ kpi（指标卡）/ flip-num（数字翻牌器）/ scrollboard（轮播榜单）。
+ * TokUI 数据大屏组件（M1 Dashboard Pack + 大屏专业化升级）
+ * panel（科技边框容器）/ kpi（指标卡）/ flip-num（数字翻牌器）/ scrollboard（轮播榜单）
+ * screen-header（大屏门头：渐变标题+时钟+LIVE）/ rank-list（龙虎榜：奖牌位+自动滚动）。
  * 配合 tech 主题（theme:tech / data-tokui-theme="tech"）为 ChatBI 大屏场景服务；
  * 其余主题下走主题表面色令牌，同样可用。
  */
@@ -39,7 +40,8 @@ function registerDashboardComponents(renderer) {
   }
 
   // === panel：科技边框容器（大屏面板外壳） ===
-  // attrs: tt（标题栏文本，可选）、v（corner/glow/plain 变体，经 VARIANTS 白名单）、theme
+  // attrs: tt（标题栏文本，可选）、v（corner/glow/plain/scan 变体，经 VARIANTS 白名单）、theme
+  //        sub（英文副标题，标题右侧小号大写）、extra（右侧扩展信息，{段} 高亮青色）
   // 容器模式：[panel tt:车间实时产量 v:glow]…[/panel]
   renderer.register('panel', (node, rc) => {
     const panel = el('div', { class: 'tokui-panel' });
@@ -48,6 +50,18 @@ function registerDashboardComponents(renderer) {
       var head = el('div', { class: 'tokui-panel__head' });
       var title = el('span', { class: 'tokui-panel__title' }, node.attrs.tt);
       head.appendChild(title);
+      if (node.attrs.sub) {
+        head.appendChild(el('span', { class: 'tokui-panel__sub' }, node.attrs.sub));
+      }
+      if (node.attrs.extra) {
+        // extra:"整体转化率 {9.8%}" —— {…} 段落高亮（青），其余弱化文本
+        var ex = el('span', { class: 'tokui-panel__extra' });
+        String(node.attrs.extra).split(/\{([^}]*)\}/).forEach(function (seg, i) {
+          if (seg === '') return;
+          ex.appendChild(el(i % 2 ? 'em' : 'span', { class: i % 2 ? 'tokui-panel__extra-hl' : '' }, seg));
+        });
+        head.appendChild(ex);
+      }
       panel.appendChild(head);
     }
     const body = el('div', { class: 'tokui-panel__body' });
@@ -130,6 +144,28 @@ function registerDashboardComponents(renderer) {
     });
     if (foot.childNodes.length) wrap.appendChild(foot);
 
+    // pct 迷你光条（0-100 钳制）：底部 3px 完成度指示；初始 0 宽，双 rAF 后过渡到位（reduced-motion 直显）
+    var pctNum = parseFloat(attrs.pct);
+    if (!isNaN(pctNum)) {
+      pctNum = Math.max(0, Math.min(100, pctNum));
+      var bar = el('div', { class: 'tokui-kpi__bar' });
+      var fill = el('span', { class: 'tokui-kpi__bar-fill' });
+      bar.appendChild(fill);
+      wrap.appendChild(bar);
+      if (_reduceMotion || typeof window === 'undefined' || !window.requestAnimationFrame) {
+        fill.style.width = pctNum + '%';
+      } else {
+        window.requestAnimationFrame(function () {
+          window.requestAnimationFrame(function () { fill.style.width = pctNum + '%'; });
+        });
+      }
+      wrap._updatePct = function (p) {
+        var n2 = parseFloat(p);
+        if (isNaN(n2)) return;
+        fill.style.width = Math.max(0, Math.min(100, n2)) + '%';
+      };
+    }
+
     wrap._update = function (uAttrs) {
       if (uAttrs.v !== undefined) {
         var n = wrap.querySelector('.tokui-kpi__num');
@@ -148,6 +184,7 @@ function registerDashboardComponents(renderer) {
         var tEl = wrap.querySelector('.tokui-kpi__tt');
         if (tEl) tEl.textContent = uAttrs.tt;
       }
+      if (uAttrs.pct !== undefined && wrap._updatePct) wrap._updatePct(uAttrs.pct);
     };
     return wrap;
   });
@@ -276,6 +313,22 @@ function registerDashboardComponents(renderer) {
       }
       cells.forEach(function (c, i) {
         var cell = el('span', { class: 'tokui-scrollboard__cell' });
+        // 状态胶囊格：`tag:类型:文本`（rows 属性内推荐——含空格的 `tag:文本 t:类型` 会被 parser
+        // 引号吞噬修复拆断）；[tr] 子节点路径两种都支持。类型白名单防垃圾类名。
+        if (/^tag:/.test(c)) {
+          var tagText = c.slice(4), tagType = '';
+          var sp = tagText.indexOf(' t:');
+          if (sp !== -1) { tagType = tagText.slice(sp + 3).trim(); tagText = tagText.slice(0, sp).trim(); }
+          else {
+            var ci = tagText.indexOf(':');
+            if (ci !== -1) { tagType = tagText.slice(0, ci); tagText = tagText.slice(ci + 1); }
+          }
+          if (!/^[a-z][a-z-]{1,19}$/.test(tagType)) tagType = '';
+          var pill = el('span', { class: 'tokui-tag tokui-scrollboard__pill' + (tagType ? ' tokui-tag--' + tagType : '') }, tagText);
+          cell.appendChild(pill);
+          row.appendChild(cell);
+          return;
+        }
         // ↑↓ 趋势符号自动着色
         if (/^[↑▲]/.test(c)) cell.classList.add('tokui-scrollboard__cell--up');
         if (/^[↓▼]/.test(c)) cell.classList.add('tokui-scrollboard__cell--down');
@@ -331,6 +384,169 @@ function registerDashboardComponents(renderer) {
     wrap._tokuiType = 'scrollboard';
     return wrap;
   });
+
+  // === screen-header：大屏门头（渐变主标题 + 英文副题 + 两端信息 + 时钟 + LIVE 呼吸灯） ===
+  // attrs: tt(主标题) sub(英文副题) lft/rgt(左右信息位文本) clock(布尔,右端时钟+日期) live(呼吸灯)
+  //        h(高度 px 默认 92, 48-240 钳制) theme
+  // 自闭合组件（纯属性驱动）；底缘主色渐变分隔线。clock 走 setInterval + _registerCleanup 注销。
+  renderer.register('screen-header', (node) => {
+    const attrs = node.attrs || {};
+    var h = Math.max(48, Math.min(240, parseInt(attrs.h, 10) || 92));
+    const wrap = el('div', { class: 'tokui-screen-header' });
+    _applyTheme(wrap, attrs);
+    wrap.style.height = h + 'px';
+    wrap.style.flex = '0 0 ' + h + 'px';
+
+    var left = el('div', { class: 'tokui-screen-header__side' });
+    if (attrs.lft) left.appendChild(el('span', { class: 'tokui-screen-header__tag' }, attrs.lft));
+    wrap.appendChild(left);
+
+    var center = el('div', { class: 'tokui-screen-header__center' });
+    if (attrs.tt) center.appendChild(el('span', { class: 'tokui-screen-header__title' }, attrs.tt));
+    if (attrs.sub) center.appendChild(el('span', { class: 'tokui-screen-header__sub' }, attrs.sub));
+    wrap.appendChild(center);
+
+    var right = el('div', { class: 'tokui-screen-header__side tokui-screen-header__side--right' });
+    if (attrs.rgt) right.appendChild(el('span', { class: 'tokui-screen-header__tag' }, attrs.rgt));
+    if (attrs.live !== undefined) {
+      var live = el('span', { class: 'tokui-screen-header__live' });
+      live.appendChild(el('i', { class: 'tokui-screen-header__live-dot', 'aria-hidden': 'true' }));
+      live.appendChild(el('span', null, 'LIVE'));
+      right.appendChild(live);
+    }
+    if (attrs.clock !== undefined) {
+      var clockBox = el('span', { class: 'tokui-screen-header__clock' });
+      var timeEl = el('span', { class: 'tokui-screen-header__time' }, '--:--:--');
+      var dateEl = el('span', { class: 'tokui-screen-header__date' }, '');
+      clockBox.appendChild(timeEl);
+      clockBox.appendChild(dateEl);
+      right.appendChild(clockBox);
+      var tickClock = function () {
+        var d = new Date();
+        var p = function (n) { return (n < 10 ? '0' : '') + n; };
+        timeEl.textContent = p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+        try {
+          dateEl.textContent = d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
+        } catch (e) {
+          dateEl.textContent = d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+        }
+      };
+      tickClock();
+      if (typeof window !== 'undefined' && window.setInterval) {
+        var iv = window.setInterval(tickClock, 1000);
+        if (renderer && typeof renderer._registerCleanup === 'function') {
+          renderer._registerCleanup(wrap, function () { window.clearInterval(iv); });
+        }
+      }
+    }
+    wrap.appendChild(right);
+
+    wrap._tokuiType = 'screen-header';
+    return wrap;
+  });
+
+  // === rank-list：龙虎榜（奖牌位 + 可选首字头像 + 值右对齐；超高自动无缝上滚） ===
+  // attrs: rows:"名,区域,值|名,区域,值"（2~N 列：首列名、末列值、中间列合并为副文本）
+  //        unit(值后缀小字) top(前 N 名奖牌渐变位,默认 3) av(布尔,首字渐变头像)
+  //        h(视口高 px,内容超出时启用无缝滚动) speed(滚动 px/s 默认 30) clk(行点击) theme
+  // rows 简写 → 自闭合；无 rows → 容器收 [tr 名,区域,值] 子节点（须 [/rank-list]）。
+  // 空态 i18n rank.empty；滚动实现与 scrollboard 同三原则（恒复制首集/挂载后测真实高/静态不复制）。
+  renderer.register('rank-list', (node, rc) => {
+    const attrs = node.attrs || {};
+    const wrap = el('div', { class: 'tokui-rank' });
+    _applyTheme(wrap, attrs);
+    var h = parseInt(attrs.h, 10);
+    if (isNaN(h) || h < 60) h = 0;
+    var speed = Math.max(0, Math.min(200, parseInt(attrs.speed, 10) || 30));
+    var gap = 6;
+
+    var rows = [];
+    if (attrs.rows) {
+      String(attrs.rows).split('|').forEach(function (line) {
+        var cells = line.split(',');
+        if (cells.length >= 2) rows.push(cells.map(function (c) { return c.trim(); }));
+      });
+    }
+    (node.children || []).forEach(function (child) {
+      if (child.type === 'tr' && child.content) {
+        rows.push(String(child.content).split(',').map(function (c) { return c.trim(); }));
+      }
+    });
+
+    var top = Math.max(0, Math.min(10, parseInt(attrs.top, 10) || 3));
+
+    var viewport = el('div', { class: 'tokui-rank__viewport' });
+    if (h) viewport.style.height = h + 'px';
+    var track = el('div', { class: 'tokui-rank__track' });
+
+    if (!rows.length) {
+      viewport.appendChild(el('div', { class: 'tokui-rank__empty' }, _t('rank.empty')));
+      wrap.appendChild(viewport);
+      wrap._tokuiType = 'rank-list';
+      return wrap;
+    }
+
+    var makeRow = function (cells, i, cloneIdx) {
+      var row = el('div', { class: 'tokui-rank__row' + (i < top ? ' tokui-rank__row--top' + (i + 1) : '') });
+      if (attrs.clk) {
+        row.setAttribute('data-tokui-clk', attrs.clk);
+        row.setAttribute('data-value', cells[0] || '');
+        row.setAttribute('role', 'button');
+        row.setAttribute('tabindex', '0');
+      }
+      row.appendChild(el('span', { class: 'tokui-rank__no' }, String(i + 1)));
+      if (attrs.av !== undefined) {
+        row.appendChild(el('span', { class: 'tokui-rank__av' }, (cells[0] || '?').charAt(0) || '?'));
+      }
+      var main = el('span', { class: 'tokui-rank__main' });
+      main.appendChild(el('span', { class: 'tokui-rank__name' }, cells[0] || ''));
+      var subTxt = cells.slice(1, -1).filter(Boolean).join(' · ');
+      if (subTxt) main.appendChild(el('em', { class: 'tokui-rank__sub' }, subTxt));
+      row.appendChild(main);
+      var val = el('span', { class: 'tokui-rank__val' }, cells[cells.length - 1] || '');
+      if (attrs.unit) val.appendChild(el('i', { class: 'tokui-rank__unit' }, attrs.unit));
+      row.appendChild(val);
+      if (cloneIdx !== undefined) row.setAttribute('aria-hidden', 'true');
+      return row;
+    };
+
+    rows.forEach(function (cells, i) { track.appendChild(makeRow(cells, i)); });
+    viewport.appendChild(track);
+    wrap.appendChild(viewport);
+
+    // 无缝滚动（与 scrollboard 同三原则；行高经挂载后首帧测量精确回绕）
+    var animated = h > 0 && typeof window !== 'undefined' && window.requestAnimationFrame && speed > 0 && !_reduceMotion;
+    var rafId = null, offset = 0, lastTs = null, paused = false, firstSetHeight = 0, measured = false;
+    var tickRank = function (ts) {
+      if (lastTs === null) lastTs = ts;
+      var dt = (ts - lastTs) / 1000;
+      lastTs = ts;
+      if (!measured) {
+        measured = true;
+        var total = track.scrollHeight;
+        if (total > 0) firstSetHeight = Math.max(1, (total - gap) / 2);
+      }
+      if (!paused && firstSetHeight > 0) {
+        offset += speed * dt;
+        if (offset >= firstSetHeight + gap) offset -= (firstSetHeight + gap);
+        track.style.transform = 'translateY(' + (-offset) + 'px)';
+      }
+      rafId = window.requestAnimationFrame(tickRank);
+    };
+    if (animated) {
+      rows.forEach(function (cells, i) { track.appendChild(makeRow(cells, i, 1)); });
+      wrap.addEventListener('mouseenter', function () { paused = true; });
+      wrap.addEventListener('mouseleave', function () { paused = false; lastTs = null; });
+      rafId = window.requestAnimationFrame(tickRank);
+      if (renderer && typeof renderer._registerCleanup === 'function') {
+        renderer._registerCleanup(wrap, function () { if (rafId) window.cancelAnimationFrame(rafId); });
+      }
+    }
+
+    wrap._tokuiType = 'rank-list';
+    return wrap;
+  });
+
   // === fit-screen：大屏缩放容器（1920×1080 设计稿等比适配） ===
   // attrs: w(设计稿宽 默认1920) h(设计稿高 默认1080) mode(scale 等比居中/width 等宽纵滚/full 拉伸铺满)
   //        maxh(width 模式可选视口高上限 px：内容超高部分纵向滚动)

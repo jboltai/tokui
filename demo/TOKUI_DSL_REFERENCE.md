@@ -222,7 +222,7 @@ terminal sandbox test-result quote toggle-group conversations welcome welcome-fe
 suggestions attachments artifact artifact-code artifact-preview scroll-area
 sidebar sidebar-content sidebar-footer command command-group hover-card hover-trigger hover-content
 resizable canvas canvas-content chart p tour affix preview-group segmented anchor float-button masonry
-panel kpi scrollboard fit-screen page page-header page-sidebar page-content page-tabs page-tab reveal reveal-item
+panel kpi screen-header rank-list scrollboard fit-screen page page-header page-sidebar page-content page-tabs page-tab reveal reveal-item
 ```
 
 **自闭合逃逸**（在容器清单内但特定条件下自动当自闭合叶子）：
@@ -395,12 +395,14 @@ panel kpi scrollboard fit-screen page page-header page-sidebar page-content page
 | `anchor` | 双模式 | `opt` `top` `on` `id` | 锚点导航。简写 `opt:"目标id:标题;…"` 原子自闭合；容器 `[lk h:目标 tx:标题 d:层级]` 支持二级锚点；`top` spy 激活偏移（缺省 12）；变体 `horizontal`；点击平滑滚动 + scroll-spy 高亮（目标需带 id）；`upd v:目标id` 程序化高亮（silent） |
 | `affix` | 容器 | `top` `bottom` `target` `on` | 固钉。滚动越过偏移即 `position:fixed` 固定：`top` 固顶（缺省 0）/ `bottom` 固底（经过原位置后释放）/ `target` 显式滚动容器；自动插占位防跳动；`change` 上报 `{fixed}`；监听 window 捕获阶段，嵌套滚动容器可感知 |
 | `masonry` | 容器 | `cols` `minw` `gap` | 瀑布流。`cols` 固定列数(1-6 缺省2)、`minw` 自动列（子项最小宽度 px，列数随宽度自适应，优先于 cols）、`gap` 间距(px 缺省8)；CSS columns 自动分列，子项 break-inside: avoid 不截断 |
-| `panel` | 容器 | `tt` `v` `theme` | 数据大屏科技边框容器（M1）。`tt` 标题栏（左右装饰线）；`v:corner` 四角角标 / `v:glow` 发光 / `v:plain`；`theme:tech` 子树切换科技主题 |
-| `kpi` | 容器 | `tt` `v` `pre` `suf` `unit` `trend` `dec` `icon` `clk` `t` | 指标卡（M1）。数值滚动动画（easeOutExpo）；`trend:12.4`/`-1.2`/`up`/`down` 自动 ↑↓ 徽章着色；`t:danger/success/warning` 状态色；`icon:` 注册表图标；`[upd id: v:/trend:/tt:]` 更新走动画 |
+| `panel` | 容器 | `tt` `sub` `extra` `v` `theme` | 数据大屏科技边框容器（M1）。`tt` 标题栏（左右装饰线）；`sub` 英文副标题（标题右小号大写）；`extra:"转化率 {9.8%}"` 右侧扩展信息（`{…}` 段主色高亮）；`v:corner` 四角角标（四角完整 L 形括号）/ `v:glow` 发光 / `v:plain` / `v:scan` 扫描线（面板体扫过主色光线 7s 循环，可与 corner 逗号组合 `v:"corner,scan"`）；`theme:tech` 子树科技主题（hover 抬升+边框亮起+标题栏渐变底） |
+| `kpi` | 容器 | `tt` `v` `pre` `suf` `unit` `trend` `dec` `icon` `pct` `clk` `t` | 指标卡（M1）。数值滚动动画（easeOutExpo）；`trend:12.4`/`-1.2`/`up`/`down` 自动 ↑↓ 徽章着色；`t:danger/success/warning` 状态色；`icon:` 注册表图标；`pct:78` 底部迷你完成度光条（0-100，`[upd id: pct:]` 可更新）；tech 主题下大数字自动切 display 字体+辉光；`[upd id: v:/trend:/tt:/pct:]` 更新走动画 |
+| `screen-header` | 自闭合 | `tt` `sub` `lft` `rgt` `clock` `live` `h` `theme` | 大屏门头（大屏专业化 M2）。`tt` 渐变主标题（34px 字距 8px 辉光）/ `sub` 英文副题 / `lft`/`rgt` 左右信息胶囊位 / `clock` 右端时钟+日期（1s 走时，销毁自动注销）/ `live` LIVE 呼吸灯 / `h` 高度默认 92（48-240）；底缘主色渐变分隔线。整页大屏以它开头替代裸 `h1` |
+| `rank-list` | 容器 | `rows` `unit` `top` `av` `h` `speed` `clk` `theme` | 龙虎榜（大屏专业化 M2）。`rows:"名,区域,值\|…"`（首列名、末列值、中间列合并为副文本）；`rows` 简写**自闭合**，无 rows 容器收 `[tr 名,区域,值]` 子节点；`top:3` 前三名渐变奖牌位（金橙/青蓝/紫，默认 3）；`av` 首字渐变头像；`unit` 值后缀小字；`h` 视口高（内容超出自动无缝上滚 + hover 暂停）；空态 i18n |
 | `flip-num` | 自闭合 | `v` `dur` `s` | 数字翻牌器（M1）。`v` 数字串（可含逗号/小数点/百分号，逐位翻牌）；`dur` 单位过渡 ms 默认 600；`s:sm/lg` 尺寸档；reduced-motion 直显；`[upd v:]` 各位滚到位 |
-| `chart t:map` | 自闭合 | `region` `d` `label` `unit` `vmin` `vmax` `w` `on` | 中国地图。`region:"浙江:86\|江苏:74"` 省级热力（34 省级行政区含港澳台，省名简称/全名均可；多 stop 色阶 蓝→青→绿→黄→红）；`d:"120.15,30.28,88,name:杭州"` 散点层（经纬度+值+名称，对数映射半径，越界钳制画布内）；`label:full\|name\|off` 标注三档（默认 full：含数据省 名+值 两行、无数据省灰名，文字盒碰撞自动避让；name=仅含数据省显名；off=纯色块）；`unit` 单位（tooltip/色阶刻度/半径图例共用，≤8 字符）；`vmin/vmax` 锁定色阶域。交互：hover 省份/散点多行 tooltip（省名 / 值+单位+占比）+ 高亮描边压暗其余；点击含数据省份上报 `mapClick {province,value}`（`on:"mapClick:handler"`）。图内左下 visualMap 色阶条（仅散点时自动换为半径图例），右下南海诸岛小图（九段线+西沙/中沙黄岩/南沙/曾母暗沙）。数据源 vendor/china-geo.js（~33KB 按需加载） |
+| `chart t:map` | 自闭合 | `region` `d` `label` `unit` `vmin` `vmax` `ripple` `topn` `w` `on` | 中国地图。`region:"浙江:86\|江苏:74"` 省级热力（34 省级行政区含港澳台，省名简称/全名均可；多 stop 色阶 蓝→青→绿→黄→红）；`d:"120.15,30.28,88,name:杭州"` 散点层（经纬度+值+名称，对数映射半径，越界钳制画布内；**值 TOP12 散点自动涟漪扩散**，`ripple:off` 关闭）；`label:full\|name\|off` 标注三档（默认 full：含数据省 名+值 两行、无数据省灰名，文字盒碰撞自动避让；name=仅含数据省显名；off=纯色块）；`unit` 单位（tooltip/色阶刻度/半径图例共用，≤8 字符）；`vmin/vmax` 锁定色阶域；`topn:5` 左下自动生成区域 TOP-N 迷你榜（省名+比例条+数值，与 choropleth 同色阶；0=关）。交互：hover 省份/散点多行 tooltip（省名 / 值+单位+占比）+ 高亮描边压暗其余；点击含数据省份上报 `mapClick {province,value}`（`on:"mapClick:handler"`）。图内左下 visualMap 色阶条（仅散点时自动换为半径图例），右下南海诸岛小图（九段线+西沙/中沙黄岩/南沙/曾母暗沙）。数据源 vendor/china-geo.js（~33KB 按需加载） |
 | `fit-screen` | 容器 | `w` `h` `mode` `maxh` | 大屏缩放容器（M1）。`w/h` 设计稿尺寸默认 1920×1080；`mode:scale` 等比缩放居中留空（默认）/`width` 等宽缩放贴合内容高（配 `maxh:` 视口高上限后内容超高纵滚）/`full` 双轴拉伸铺满；内部 grid 必带 h:100% 满幅挂载（缺省 fr 行按内容解析、底行被画布裁剪）；ResizeObserver 随挂载区重算；scale/full 要求挂载区有确定高度 |
-| `scrollboard` | 容器 | `h` `speed` `gap` `cols` `rows` `clk` | 轮播榜单（M1）。`h` 视口高默认 300；`speed` px/s 默认 36（0=静止）；`cols:"列1,列2"` 表头；`rows:"a,1,↑2\|b,2,↓3"` 简写行（或 `[tr]` 子节点）；↑↓ 列自动着色；hover 暂停 + 无缝循环；空态 i18n |
+| `scrollboard` | 容器 | `h` `speed` `gap` `cols` `rows` `clk` | 轮播榜单（M1）。`h` 视口高默认 300；`speed` px/s 默认 36（0=静止）；`cols:"列1,列2"` 表头；`rows:"a,1,↑2\|b,2,↓3"` 简写行（或 `[tr]` 子节点）；↑↓ 列自动着色；**状态胶囊格** `tag:success:已签约`（`tag:类型:文本`——rows 属性内勿用含空格的 `t:` 写法，会被引号修复拆断）；hover 暂停 + 无缝循环；空态 i18n |
 | `page` | 容器 | `w` `theme` | 后台应用壳（M2）。grid areas 三区骨架（header 横贯顶 / sidebar+content 两列）；`w` 侧栏宽 px 默认 240；宿主有确定高度自动铺满，否则按内容；子元素约定为 page-header/page-sidebar/page-content 三件套（其余子元素 CSS 兜底落主区） |
 | `page-header` | 容器 | `tt` `bc` `sticky` | 页头。`bc:"首页,系统,用户"` 逗号分级面包屑（末项自动当前页）；`sticky` 吸顶；子节点（btn 等）落右侧动作插槽；`[upd id: tt:/bc:]` 就地更新 |
 | `page-sidebar` | 容器 | `tt` | 侧栏。品牌行 + 折叠钮（联动 page 列宽 240⇄64 过渡，上报 `toggle {folded}`）+ 滚动主体；脱离 page 单独用折叠自身类不崩 |
@@ -695,7 +697,7 @@ col spec 顺序：`列名[=cN[rM]][/对齐][/配色]`。
 错误：[chart t:bar d:"10,24,18,30,22" l:"Mon,..." vals orient:h]   ;; 样式写在数据后 → 预览翻转
 ```
 
-支持类型（20）：`bar` `line` `area` `pie` `donut` `rose` `funnel` `radar` `scatter` `bubble` `heatmap` `histogram` `waterfall` `boxplot` `treemap` `sankey` `candlestick` `progress` `gauge` `gantt`。
+支持类型（21）：`bar` `line` `area` `pie` `donut` `rose` `funnel` `radar` `scatter` `bubble` `heatmap` `histogram` `waterfall` `boxplot` `treemap` `sankey` `candlestick` `progress` `gauge` `gantt` `map` `combo`。
 
 #### 通用属性
 
@@ -724,7 +726,8 @@ col spec 顺序：`列名[=cN[rM]][/对齐][/配色]`。
 
 | 图表 | `d` 格式 | 例 |
 |------|---------|-----|
-| `bar` `line` `area` `radar` | 多系列 `|`、点 `,` | `d:"10,20,30\|15,25,35"` |
+| `bar` `line` `area` `radar` | 多系列 `\|`、点 `,` | `d:"10,20,30\|15,25,35"` |
+| `combo` | 柱 `d`、线 `d2`（双轴） | `d:"820,640,980" d2:"12.4,8.6,15.2"` |
 | `pie` `donut`(单环) `rose` `funnel` `waterfall` `histogram` | 单系列 `,` | `d:"10,20,30"` |
 | `donut` 多环 | 环 `|`、点 `,` | `d:"40,30,20,10\|35,25,30,10"` |
 | `scatter` | 点 `;`、坐标 `,` | `d:"1,2;3,5;6,4"` |
@@ -833,6 +836,43 @@ col spec 顺序：`列名[=cN[rM]][/对齐][/配色]`。
 ```
 
 > 自闭合 `[chart ... d:...]` 与容器写法**都支持流式**（含 gantt 长数据、双引号多任务值）。数据点少/单值用自闭合更简洁；数据点多或 gantt 复杂用容器更直观。
+
+#### combo 双轴组合图（柱+线，大屏趋势面板标配）
+
+`d` = 柱序列（左轴，渐变填充），`d2` = 折线序列（右轴，适合百分比/增速）；`n1`/`n2` 系列名进图例与 tooltip，`y2` 右轴单位；`smooth` 平滑、`vals` 数值标签与其它图表语义一致。缺 `d2` 时退化为纯柱图（不炸）。
+
+```tokui
+[chart t:combo tt:业绩趋势与回款 l:"1月,2月,3月,4月,5月,6月" d:"820,640,1080,1260,1150,1420" d2:"12.4,8.6,15.2,9.1,4.2,10.8" n1:新签金额 n2:环比增速 y2:% smooth]
+```
+
+---
+
+## 6.9 数据大屏食谱（Screen Recipes，大屏专业化）
+
+整页大屏 = **门头 + KPI 带 + 三列 grid areas + 每格 panel**。氛围（深空底+三层光晕+网格纹理+暗角+组件辉光）由 `theme:tech` 挂在 grid 上自动生效，**无需手写 style 背景**。
+
+```
+[fit-screen w:1920 h:1080 mode:scale]
+[grid cols:"452px 1fr 452px" rows:"92px 1fr 1fr" gap:12 h:100% areas:"head head head|left mid1 right1|left mid2 right2" theme:tech]
+
+[cell area:head][screen-header tt:"CRM 客户经营指挥中心" sub:"CUSTOMER BI · REAL-TIME" lft:"数据源 CRM-Prod" rgt:"节点 8/8 正常" clock live][/cell]
+
+[cell area:mid1]  ← KPI 带：用嵌套 [grid cols:6] 平铺 kpi（pct 光条 + trend 徽章）
+[cell area:left]  ← [panel tt:销售漏斗 v:corner sub:FUNNEL extra:"转化率 {9.8%}"][chart t:funnel …][/panel]
+[cell area:mid2]  ← [panel tt:客户地域分布 v:"corner,scan" sub:GEO][chart t:map region:"…" d:"…" topn:5 ripple …][/panel]
+[cell area:right1]← [panel tt:销售龙虎榜 v:glow][rank-list rows:"陈亦然,华东,486|…" unit:万 top:3 av][/panel]
+[cell area:mid3]  ← [panel tt:业绩趋势][chart t:combo d:"…" d2:"…" n1:新签 n2:环比 y2:% smooth][/panel]
+[cell area:right2]← [panel tt:实时动态][scrollboard h:300 cols:"客户,金额,状态" rows:"恒昇,286,tag:success:已签约|…"][/panel]
+
+[/grid][/fit-screen]
+```
+
+要点：
+- **门头必用 `screen-header`**（自带渐变标题/时钟/LIVE），替代裸 `h1 v:gradient`；左右信息位写运行状态类文本。
+- **氛围零成本**：`theme:tech` 挂 grid 一处，屏幕皮肤+panel hover+KPI display 字体全联动；深色底不要再手写 `style:"background:…"`。
+- **趋势对比用 `t:combo`**（柱+线双轴），勿拆成两张图；排行榜用 `rank-list`（奖牌位），滚动明细用 `scrollboard`（胶囊格 `tag:类型:文本`）。
+- 地图 `topn:5` 自动出区域 TOP 榜；散点值 TOP12 自动涟漪（`ripple:off` 关）。
+- KPI 带 `pct:` 完成度光条；panel `v:"corner,scan"` 组合变体让重点面板有扫描线。
 
 ---
 

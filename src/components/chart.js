@@ -1557,6 +1557,166 @@ function renderLine(data, labels, colors, attrs) {
   return svg;
 }
 
+// === Combo 双轴组合图（大屏专业化 M3）：柱（左轴）+ 折线（右轴），趋势+增速面板标配 ===
+// attrs: d(柱序列，| 分多系列) l(类目) d2(折线序列，右轴) n1/n2(两系列名，进图例/tooltip)
+//        y2(右轴单位标签) yl(左轴单位) smooth(折线平滑) vals(柱顶数值) c(色序：首色柱、次色线)
+function renderCombo(data, labels, colors, attrs) {
+  var series = parseMultiSeries(attrs.d);
+  if (!series.length) series = [data];
+  var line2 = parseData(attrs.d2);
+  if (series.every(function (s) { return !s.length; }) && !line2.length) {
+    return emptyChartSvg(parseInt(attrs.w) || 400, parseInt(attrs.h) || 200);
+  }
+  var lens = series.map(function (s) { return s.length; }).concat([line2.length]);
+  var n = Math.max.apply(null, lens);
+  if (n < 1) n = 1;
+  var n1 = attrs.n1 || _t('chart.seriesDefault', { n: 1 });
+  var n2 = attrs.n2 || _t('chart.seriesDefault', { n: 2 });
+  var barColor = colors[0] || '#22d3ee';
+  var lineColor = colors[1] || '#a78bfa';
+
+  var w = autoSize(attrs, 'w', n, 56, 26, 360, 2400);
+  var h = chartH(attrs, w, 200);
+  var totalH = h + LEGEND_H;
+
+  // 左轴（柱）域：含 0 起；右轴（线）域：自然极值（增速可负）
+  var bMax = 0, bMin = 0;
+  series.forEach(function (s) { s.forEach(function (v) { if (v > bMax) bMax = v; if (v < bMin) bMin = v; }); });
+  if (bMax === 0 && bMin === 0) bMax = 1;
+  var bRange = bMax - bMin || 1;
+  var lMax = -Infinity, lMin = Infinity;
+  line2.forEach(function (v) { if (v > lMax) lMax = v; if (v < lMin) lMin = v; });
+  if (lMax === -Infinity) { lMax = 1; lMin = 0; }
+  // 右轴 nice 量化（复用 candlestick 的 niceBounds）：刻度取整、避免 -35.6/23.4 类碎数
+  var lnb = niceBounds(lMin, lMax);
+  lMin = lnb[0]; lMax = lnb[1];
+  if (lMax === lMin) { lMax = lMin + 1; }
+  var lRange = lMax - lMin;
+
+  var padL = attrs._padL ? +attrs._padL : (attrs.yl ? 50 : 44);
+  var padR = attrs.y2 ? 46 : 38; // 右轴刻度占位
+  var padT = 18;
+  var slotW = n > 1 ? (w - padL - padR) / (n - 1) : (w - padL - padR);
+  var xl = axisXLayout(labels.slice(0, n), slotW, attrs.xl ? 38 : 28, w - padL - padR, attrs.interval, !!attrs.xl);
+  var padB = xl.padB;
+  var cw = w - padL - padR;
+  var ch = h - padT - padB;
+
+  var svg = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + totalH, class: 'tokui-chart__svg', preserveAspectRatio: 'xMidYMid meet' });
+  var tips = createTipMgr(w, totalH);
+
+  // 柱渐变（垂直上实下透）+ 线渐变面积
+  var uid = _gradUid();
+  var defs = svgEl('defs');
+  var bg = svgEl('linearGradient', { id: 'tokui-combo-bar-' + uid, x1: '0', y1: '0', x2: '0', y2: '1' });
+  bg.appendChild(svgEl('stop', { offset: '0%', 'stop-color': barColor, 'stop-opacity': '0.95' }));
+  bg.appendChild(svgEl('stop', { offset: '100%', 'stop-color': barColor, 'stop-opacity': '0.18' }));
+  defs.appendChild(bg);
+  var ag = svgEl('linearGradient', { id: 'tokui-combo-area-' + uid, x1: '0', y1: '0', x2: '0', y2: '1' });
+  ag.appendChild(svgEl('stop', { offset: '0%', 'stop-color': lineColor, 'stop-opacity': '0.22' }));
+  ag.appendChild(svgEl('stop', { offset: '100%', 'stop-color': lineColor, 'stop-opacity': '0' }));
+  defs.appendChild(ag);
+  svg.appendChild(defs);
+
+  function xOf(i) { return padL + (n > 1 ? i * cw / (n - 1) : cw / 2); }
+  function yBar(v) { return padT + ch * (1 - (v - bMin) / bRange); }
+  function yLine(v) { return padT + ch * (1 - (v - lMin) / lRange); }
+
+  // 网格 + 双轴刻度（同一组横线，左侧柱值、右侧线值）
+  for (var g = 0; g <= 4; g++) {
+    var gv = bMin + bRange * g / 4;
+    var gy = yBar(gv);
+    svg.appendChild(svgEl('line', { x1: padL, y1: gy, x2: w - padR, y2: gy, stroke: 'var(--tokui-chart-grid, #e8e8e8)', 'stroke-width': 1 }));
+    var lt = svgEl('text', { x: padL - 4, y: gy + 4, 'text-anchor': 'end', fill: 'var(--tokui-chart-text, #999)', 'font-size': '9' });
+    lt.textContent = Math.round(gv * 10) / 10;
+    svg.appendChild(lt);
+    if (attrs.y2 !== undefined) {
+      var lv = lMin + lRange * g / 4;
+      var rt = svgEl('text', { x: w - padR + 4, y: gy + 4, 'text-anchor': 'start', fill: lineColor, 'font-size': '8.5', opacity: '0.85' });
+      rt.textContent = Math.round(lv * 10) / 10;
+      svg.appendChild(rt);
+    }
+  }
+
+  // 柱（按槽心居中，多系列并排）
+  var groupW = cw / Math.max(n, 1);
+  var barW = Math.max(3, Math.min(18, groupW * (series.length > 1 ? 0.28 : 0.42)));
+  series.forEach(function (s, si) {
+    var fill = series.length > 1 ? (colors[si % colors.length] || barColor) : 'url(#tokui-combo-bar-' + uid + ')';
+    s.forEach(function (val, i) {
+      if (val === undefined || val === null) return;
+      var bx = xOf(i) - (series.length * barW) / 2 + si * barW;
+      var by = yBar(Math.max(val, 0));
+      var bh = Math.abs(yBar(val) - yBar(0));
+      var grp = svgEl('g', { class: 'tokui-chart-tip-group' });
+      grp.appendChild(svgEl('rect', { x: bx.toFixed(1), y: by.toFixed(1), width: (barW - 1).toFixed(1), height: Math.max(1, bh).toFixed(1), fill: fill, rx: 2, class: 'tokui-chart-bar' }));
+      tips.add(grp, (labels[i] || '') + ' · ' + (series.length > 1 ? (si === 0 ? n1 : n2) : n1) + ': ' + val, bx + barW / 2, by);
+      svg.appendChild(grp);
+      if (attrs.vals !== undefined) {
+        var vt = svgEl('text', { x: bx + barW / 2, y: by - 4, 'text-anchor': 'middle', fill: 'var(--tokui-chart-text, #666)', 'font-size': '8' });
+        vt.textContent = val;
+        svg.appendChild(vt);
+      }
+    });
+  });
+
+  // 折线（右轴）：默认直线；smooth 用 Catmull-Rom→三次贝塞尔（同 renderLine）
+  if (line2.length) {
+    var pts = [];
+    for (var li = 0; li < line2.length && li < n; li++) {
+      var v2 = line2[li];
+      if (v2 === undefined || v2 === null) continue;
+      pts.push({ x: xOf(li), y: yLine(v2), idx: li });
+    }
+    if (pts.length) {
+      // 面积（贴左轴 0 线的视觉底线用线域中线更稳：贴绘图区底部）
+      var ap = 'M' + pts[0].x + ',' + (padT + ch);
+      pts.forEach(function (p) { ap += ' L' + p.x + ',' + p.y; });
+      ap += ' L' + pts[pts.length - 1].x + ',' + (padT + ch) + ' Z';
+      svg.appendChild(svgEl('path', { d: ap, fill: 'url(#tokui-combo-area-' + uid + ')', stroke: 'none' }));
+      // 发光底线（宽低透明描边叠主描边）
+      var dPath;
+      if (attrs.smooth !== undefined && pts.length > 2) {
+        dPath = 'M' + pts[0].x + ',' + pts[0].y;
+        for (var si2 = 0; si2 < pts.length - 1; si2++) {
+          var p0 = pts[si2 - 1] || pts[si2], p1 = pts[si2], p2 = pts[si2 + 1], p3 = pts[si2 + 2] || p2;
+          dPath += ' C' + (p1.x + (p2.x - p0.x) / 6) + ',' + (p1.y + (p2.y - p0.y) / 6) + ' ' +
+            (p2.x - (p3.x - p1.x) / 6) + ',' + (p2.y - (p3.y - p1.y) / 6) + ' ' + p2.x + ',' + p2.y;
+        }
+      } else {
+        dPath = 'M' + pts.map(function (p) { return p.x + ',' + p.y; }).join(' L');
+      }
+      svg.appendChild(svgEl('path', { d: dPath, fill: 'none', stroke: lineColor, 'stroke-width': 5, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: '0.18' }));
+      svg.appendChild(svgEl('path', { d: dPath, fill: 'none', stroke: lineColor, 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
+      pts.forEach(function (p) {
+        var dot = svgEl('circle', { cx: p.x.toFixed(1), cy: p.y.toFixed(1), r: 3, fill: '#fff', stroke: lineColor, 'stroke-width': 2, class: 'tokui-chart-dot' });
+        tips.add(dot, (labels[p.idx] || '') + ' · ' + n2 + ': ' + line2[p.idx], p.x, p.y);
+        svg.appendChild(dot);
+        if (attrs.vals !== undefined) {
+          var t3 = svgEl('text', { x: p.x, y: p.y - 6, 'text-anchor': 'middle', fill: lineColor, 'font-size': '8' });
+          t3.textContent = line2[p.idx];
+          svg.appendChild(t3);
+        }
+      });
+    }
+  }
+
+  // x 轴类目标签
+  var positions = [];
+  for (var k2 = 0; k2 < n; k2++) positions.push(xOf(k2));
+  appendXLabels(svg, labels.slice(0, n), positions, xLabelBaseY(h, padB, xl.rotate, !!attrs.xl), slotW, xl.rotate, xl.interval);
+  if (attrs.xl) appendAxisUnit(svg, attrs.xl, padL + cw / 2, h - 3, false);
+  if (attrs.yl) appendAxisUnit(svg, attrs.yl, 12, padT + ch / 2, true);
+  if (attrs.y2) appendAxisUnit(svg, attrs.y2, w - 10, padT + ch / 2, true);
+  appendLegend(svg, [
+    { color: barColor, text: n1 },
+    { color: lineColor, text: n2 }
+  ], w, h + 6);
+  svg.appendChild(tips.layer);
+  bindTooltips(svg);
+  return svg;
+}
+
 // === Pie 饼图 ===
 
 // 饼图布局（按字号 fs 求）：标签宽度按 estTextW * (fs/PIE_FS_REF) 随 fs 缩放，
@@ -1917,6 +2077,7 @@ function renderMap(data, labels, colors, attrs) {
   var lngMin = 73.4, lngMax = 135.1, latMin = 17.8, latMax = 53.6;
   var COS35 = Math.cos(35 * Math.PI / 180);
   var K = gw / ((lngMax - lngMin) * COS35);
+  var scatterPts = [];
   if (attrs.d) {
     String(attrs.d).split('|').forEach(function (item) {
       var parts = item.split(',');
@@ -1932,12 +2093,33 @@ function renderMap(data, labels, colors, attrs) {
       var cx = Math.max(6, Math.min(gw - 6, (lng - lngMin) * COS35 * K)); // 越界点钳制画布内
       var cy = Math.max(6, Math.min(gh - 6, (latMax - lat) * K));
       var r = Math.max(3, Math.min(16, 3 + Math.log(val + 1) * 2.2));
-      var dot = svgEl('circle', { cx: cx.toFixed(1), cy: cy.toFixed(1), r: r.toFixed(1), class: 'tokui-chart-map-point', fill: colors[0] || '#22d3ee' });
-      tips.add(dot, (name || '点') + (parts[2] !== undefined && !isNaN(val) ? '  ' + parts[2] + unit : ''), cx, cy - r);
+      scatterPts.push({ cx: cx, cy: cy, r: r, val: val, raw: parts[2], name: name });
+    });
+  }
+  if (scatterPts.length) {
+    // 涟漪散点（大屏专业化 M3）：值 TOP12 加 stroke 扩散圆（CSS 动画，transform-box 圆心缩放）；
+    // ripple:off 关闭；节流兼顾低端大屏机性能与视觉噪音
+    var rippleOn = attrs.ripple !== 'off';
+    var rippleSet = {};
+    if (rippleOn) {
+      scatterPts.slice().sort(function (a, b) { return b.val - a.val; }).slice(0, 12).forEach(function (p) {
+        rippleSet[p.cx.toFixed(1) + ',' + p.cy.toFixed(1) + ',' + p.r.toFixed(1)] = true;
+      });
+    }
+    var rippleIdx = 0;
+    scatterPts.forEach(function (p) {
+      var key = p.cx.toFixed(1) + ',' + p.cy.toFixed(1) + ',' + p.r.toFixed(1);
+      if (rippleSet[key]) {
+        var rp = svgEl('circle', { cx: key.split(',')[0], cy: key.split(',')[1], r: key.split(',')[2], class: 'tokui-chart-map-ripple' });
+        rp.setAttribute('style', 'animation-delay:' + ((rippleIdx++) % 12) * 0.22 + 's');
+        svg.appendChild(rp);
+      }
+      var dot = svgEl('circle', { cx: p.cx.toFixed(1), cy: p.cy.toFixed(1), r: p.r.toFixed(1), class: 'tokui-chart-map-point', fill: colors[0] || '#22d3ee' });
+      tips.add(dot, (p.name || '点') + (p.raw !== undefined && !isNaN(p.val) ? '  ' + p.raw + unit : ''), p.cx, p.cy - p.r);
       svg.appendChild(dot);
-      if (name) {
-        var t2 = svgEl('text', { x: cx.toFixed(1), y: (cy - r - 3).toFixed(1), 'text-anchor': 'middle', class: 'tokui-chart-map-label', 'font-size': String(fs) });
-        t2.textContent = name;
+      if (p.name) {
+        var t2 = svgEl('text', { x: p.cx.toFixed(1), y: (p.cy - p.r - 3).toFixed(1), 'text-anchor': 'middle', class: 'tokui-chart-map-label', 'font-size': String(fs) });
+        t2.textContent = p.name;
         svg.appendChild(t2);
       }
     });
@@ -1974,6 +2156,37 @@ function renderMap(data, labels, colors, attrs) {
     rt2.textContent = scMax + unit;
     rl.appendChild(rt1); rl.appendChild(rt2);
     svg.appendChild(rl);
+  }
+
+  // TOP-N 侧栏（大屏专业化 M3）：region 数据按值降序取前 N（默认 5），左下色阶条上方生成
+  // 省名+比例条+数值迷你榜（与 choropleth 同数据源，条色随值走同一色阶）；topn:0/未写不渲染
+  if (rKeys.length && attrs.topn !== undefined) {
+    var tnN = parseInt(attrs.topn, 10);
+    if (isNaN(tnN)) tnN = 5;
+    if (tnN > 0) {
+      var tnList = rKeys.map(function (k) { return { n: k, v: regions[k] }; })
+        .sort(function (a, b) { return b.v - a.v; }).slice(0, Math.min(tnN, 10));
+      var tn = svgEl('g', { class: 'tokui-chart-map-topn' });
+      var rowH = 17, tnX = 20, tnY0 = 660;
+      var tnTitle = svgEl('text', { x: tnX, y: tnY0 - tnList.length * rowH - 4, class: 'tokui-chart-map-topn-title', 'font-size': '9' });
+      tnTitle.textContent = 'TOP ' + tnList.length + (unit ? ' (' + unit + ')' : '');
+      tn.appendChild(tnTitle);
+      var tnMax = tnList.length ? tnList[0].v : 1;
+      tnList.forEach(function (it, i) {
+        var ry = tnY0 - (tnList.length - 1 - i) * rowH;
+        var nmT = svgEl('text', { x: tnX, y: ry, class: 'tokui-chart-map-tick', 'font-size': '8.5' });
+        nmT.textContent = shortName(it.n);
+        tn.appendChild(nmT);
+        var trackX = tnX + 52, trackW = 100;
+        tn.appendChild(svgEl('rect', { x: trackX, y: ry - 6, width: trackW, height: 5, rx: 2, fill: 'rgba(127,127,127,0.18)' }));
+        var fillW = Math.max(3, trackW * (it.v / (tnMax || 1)));
+        tn.appendChild(svgEl('rect', { x: trackX, y: ry - 6, width: fillW.toFixed(1), height: 5, rx: 2, fill: lerpColor(MAP_STOPS, (it.v - vMin) / ((vMax - vMin) || 1)) }));
+        var vt = svgEl('text', { x: trackX + trackW + 5, y: ry, class: 'tokui-chart-map-tick', 'font-size': '8.5' });
+        vt.textContent = it.v;
+        tn.appendChild(vt);
+      });
+      svg.appendChild(tn);
+    }
   }
 
   // 省份点击上报（T3）：含数据省份 → mapClick {province, value}；委托绑 svg 一次
@@ -3244,6 +3457,7 @@ function registerChartRenderer(type, fn) {
 function registerChartComponents(renderer) {
   registerChartRenderer('bar', renderBar);
   registerChartRenderer('line', renderLine);
+  registerChartRenderer('combo', renderCombo);
   registerChartRenderer('pie', renderPie);
   registerChartRenderer('donut', renderDonut);
   registerChartRenderer('radar', renderRadar);
