@@ -2,6 +2,46 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.9] — 2026-10-23 · 多系列系列名 sn 全链路
+
+目标:补齐多系列图表「系列只能叫系列1/系列2」的命名能力缺失——新增通用 `sn` 系列名属性,渲染器/文档/DSL 校验/生成层(AI 提示词与两个 skill 项目)四层联动;同时收录 0.2.8 发布后积累的视觉变体与 reveal 滚动入场(原 [Unreleased];版本号已升至 0.2.9,条目本次补记——口径同 0.2.7)。全程向后兼容:不写 sn 渲染行为与旧版完全一致。
+
+### 新增 · 图表 `sn` 系列名(核心)
+- **`sn` 系列名属性**(通用):`sn:"名1,名2,..."` 逗号分隔、与 `d` 的系列按序一一对应,进图例与 tooltip;缺省回退 i18n 默认名「系列N」(环形图「环N」,en 环境 Series N);名不足的系列逐个回退、名多余忽略;名字两侧引号自动剥(流式半成品容错)。适用 bar/line/area/radar/donut 多环/combo。
+- **combo 命名优先级**:`n1`/`n2` 显式名优先,缺省回退 `sn` 前两名;顺带修正原 `d` 多系列柱 si≥1 全标 `n2`(线名)的问题——现按系列取名(n1/sn 优先,逐系列回退)。
+- 实现单点收敛:`seriesNameOf(attrs, fallbackKey)` 助手(chart.js),bar/line/radar/donut 四渲染器 + combo 共用;`chart.ringDefault` i18n 复用,不新增 key。
+
+### 同步 · 生成层与下游项目全联动
+- **TokUI 文档**:VitePress 中英 chart.md(通用属性表 sn 行、bar/line/area/radar/donut 各表格与 Playground 示例、属性顺序铁律扩为 `t→样式→l/sn→数据`);demo(demo-chart 案例:多系列柱/折线/堆叠面积三图配 sn + 说明 callout;demo.js 组件速查补 sn);dist 重建并同步 demo/lib、TokUI-Chat/lib、tokui-skill assets、tokui-agent node_modules(@jboltai/tokui file: 副本,下次 npm install 需重装)。
+- **TokUI-Chat**:tokui-prompt.js 新增「🔴 多系列必配 sn(高频漏点)」规则、属性顺序铁律第 3 段扩为「l 标签与 sn 系列名」、属性表/数据格式/5 处图表示例全部带 sn。
+- **tokui-skill(独立项目)**:SKILL.md 选型铁律(多系列一律配 sn,正式交付严禁占位名)、chart.md(sn 属性行/数据格式速查/各图要点/combo 节)、component-data.mjs 词条更新并经 build-references 再生成 components.md;**dsl-lint 新增 4 条 sn 规则**——多系列缺 sn 警告、名数≠系列数警告、sn 中文逗号 error、sn 排 d 后流式翻转警告(单系列/combo 带 n1n2/地图 `|` 是数据点非系列,均不误报);资产 umd/css 同步。
+- **tokui-agent/tokui-skill(扩展)**:SKILL.md(交付契约+选型两处)、chart.md、component-data.js/components.md、extensions/lib/dsl-lint.js 同款 4 条 sn 规则。
+- 仓库根新增跨项目指南 `chart-multi-series-sn.md`(数据格式/回退规则/7 类图案例/顺序铁律/lint 规则/FAQ;9 个示例 DSL 全部经运行时渲染验证)。
+
+### 测试
+- tests/test-chart.js +8 用例(bar sn 图例替换占位名/位不足逐系列回退/line/area stack/radar/donut 多环不炸/combo n1n2 优先与 sn 回退/sn 引号剥除)→ 139 用例;UMD 产物 DSL 字符串端到端冒烟(bar/line/radar/combo 图例实名、无占位名)。
+- 下游全绿:tokui-skill 15/15、tokui-agent/tokui-skill 154/154(各含 sn 规则 7 场景行为验证);demo:validate ALL_DEMOS_STRUCTURE_OK;demo-chart SSE 流含 sn 且端到端渲染实名。
+
+### 亦含 · 视觉变体 + reveal 滚动入场(原 [Unreleased] 随版发布,明细如下)
+
+### 新增（T3.2 视觉变体 + reveal 滚动入场，摘出实施）
+- **四视觉变体**（VARIANTS 白名单 + 主题令牌配色，四主题 + tech 通用）：`btn v:gradient`（主色系渐变钮，hover 提亮，可与尺寸/形状组合）；`h1~h6 v:gradient`（渐变标题文字，`background-clip: text`，不支持环境回退纯主色）；`card v:glass`（磨砂玻璃，`backdrop-filter` + `--tokui-blur-lg`）；`card v:gradient-border`（双层背景渐变描边，保留圆角）。四主题 `:not()` 中性钮链已补 `:not(.tokui-btn--gradient)` 恢复（modern/modern-dark/dark/tech）。
+- **`reveal` / `reveal-item` 容器**（新文件 `src/components/reveal.js`）：IntersectionObserver 一次性滚动入场；`v:up|left|right|zoom` 方向 + `delay:N`（0~4000ms）；直接子元素按序 stagger 递增 80ms（纯 CSS nth-child 前 12 档）；渐进增强——reduced-motion / 无 IO 环境内容直接可见、流式闭合后视口兜底核对（防闪跳）；observer 经 `_registerCleanup` 登记，`destroy()` 幂等解绑。
+- builder `reveal()` / `revealItem()` 链式方法 + `.d.ts`；demo 案例 `demo-visual-variants` / `demo-reveal`；DSL 参考 / llms.txt / VitePress 中英同步；tests/test-reveal.js 24 用例。
+
+### 优化（克制版收尾行为）
+- **reveal 两 demo 按真实使用场景重写**：`demo-reveal` 改为「季度经营分析报告」——场景一报告总览（随流可见·克制定格）+ 场景二各事业部明细（scroll-area h:480 折叠区，up/left·delay/zoom·KPI 矩阵/right·风险四组滚动入场），卡片为多段文字 + 统计行 + 列表 + 时间线 + callout 组合（19 卡 / 14 统计 / 3 列表 / 1 时间线）；`test-reveal-stream` 改为「车间设备巡检报告」并放慢推送节奏 8~28ms → **30~80ms/chunk**（随机 2~20 字符碎片不变），流式过程可观察。顺带修复 demo 存量笔误：stat 标题属性误写 `l:`（正确为 `tt:`，标签会静默丢失）与 progress 标签误写 `tx:`（正确为 `l:`，共 4 处）。
+- **reveal 流式闭合不再重放已看内容**：闭合时组在视口内（用户正看着）或流式期间进入过视口（自动滚屏 transit 已看过）→ 直接定格可见态（仅补 `--in` 完成标记 + 断开观察，不瞬隐重演 stagger，消除闭合闪跳）；全程折叠区（从未见过）的组保留 IO，滚动相交时一次性入场。流式中的相交从「忽略」改为「记 `seen` 后忽略」，闭合与后续滚动均不再为已看内容重播动画。
+- **reveal 视口核对裁剪感知**：`inViewportSync` 沿祖先链收窄可见矩形——被内层滚动/裁剪容器（overflow ≠ visible 且内容溢出，如 `scroll-area` 视口）折叠区裁掉的组，几何上在窗口内也不算「可见」，闭合时不定格、保留滚动入场（与浏览器 IO 的裁剪语义对齐）。demo 新增特殊测试案例 `test-reveal-stream`（随机 2~20 字符碎片流 + scroll-area 折叠区收留 reveal 组 + 参照组对照克制定格），修复自动跟滚场景下 demo 演示不出入场动画的演示性缺口。
+
+### 修复（发布前实测发现）
+- **tr cell 转义契约对称（builder↔parser↔切格器三端）**：builder `row()` 对含逗号 cell 包引号但**不转义内层引号**，`b.row('他说"你好,先生"')` 裸发 `"他说"你好,先生""` → parser 切格错位（B 格被吞）。现三端打通：①`row()` 含 `,` 或 `"` 的 cell 整格包裹 + 内层 `\"` 转义；②`findCloseBracket`/`findTrCloseBracket` 转义感知（`\` 跳过下一字符——奇数个转义引号不再吞掉标签闭合）；③`parseTag` 引号段双轨存储（属性值/纯正文反转义为最终文本；tr 正文保留转义原样再包引号——先反转义会丢「字面引号」信息、下游切格必错）；④渲染层 `splitCellsDepthAware` 转义感知（`\"` 入格为字面引号、`\\` 入格为字面反斜杠，其余 `\` 如 Windows 路径原样）。测试 +7（奇数转义闭合/tr 双轨/p 反转义/流式分片任意位置截断/往返/渲染级落格）+ lint-smoke +1（137/0）。demo `test-fragment` 表格加转义引号回归样例行。
+- **scroll-area 折叠边缘渐隐**：纵向溢出时顶部/底部各一道向 `--tokui-bg` 渐隐的遮罩（`--more-above`/`--more-below` 状态类，::before/::after 实现，pointer-events:none 不拦截交互），滚动/流式内容增减（MutationObserver）实时同步，未溢出双遮罩摘除；提示「上下还有更多内容」，配合 reveal 折叠区入场可感知性。
+- **reveal 入场时序重做**（demo 实测无动画）：①流式输出 transit 视口会烧掉一次性入场——激活延迟到流闭合（闭合时在视口内立即播完整 stagger 入场；折叠区保持未激活等滚动相交触发）；②`--arm` 隐藏态自带过渡与 `--in` 折返回 1 相互抵消（全程 opacity=1）——过渡与 stagger 延迟全部移至 `--in` 态，arm 瞬隐；③`--in` 覆盖规则单类特异性 (0,1,0) 被方向规则双类 (0,2,0) 压过——left/right/zoom 三组 transform 冻结在入场起点永不归位（up 组共用单类基规则故正常；reduced-motion 兜底同修），覆盖规则升双类并在方向规则后声明。
+- **`btn v:gradient` hover 不可读**：base `.tokui-btn:hover` 洗浅底，hover 规则按 `--primary:hover` 模式重申背景/文字色。
+- **glass 磨砂全链路**：手写「标准+`-webkit-`」双声明令 Lightning 构建丢标准 `backdrop-filter`（连带 dialog 遮罩 blur 存量失效）——源码只写标准属性由构建器补前缀；glass 增顶部内侧高光（纯色底兜底）；demo 玻璃格垫渐变底演示。
+- **demo 文案嵌套双引号**：builder `\"` 转义 parser 不反转义、正文漏反斜杠——文案改为无引号写法。
+
 ## [0.2.8] — 2026-10-04 · 大屏专业化升级
 
 目标:数据大屏从「合格 BI 后台」提升到「指挥中心级」,氛围层/组件层/图表层/活感四维齐动;全程向后兼容(旧 DSL 零改动,仅增强)。
@@ -37,26 +77,6 @@ All notable changes to this project will be documented in this file.
 - tests/test-chart.js +4 用例(combo 结构/缺 d2/空态、map 涟漪+topn+ripple:off)→ 131 用例。
 - 全量测试套件 ALL GREEN;旧版大屏 DSL(2026-10-04 生成)在新运行时重渲验证:布局零破坏 + 氛围自动增强。
 - 1920×1080 截图视觉验收 9/9 ACCEPT(氛围/门头/KPI 光条/四角角标/地图 TOP5/双轴整数刻度/奖牌/胶囊/无溢出)。
-
-## [Unreleased]
-
-### 新增（T3.2 视觉变体 + reveal 滚动入场，摘出实施）
-- **四视觉变体**（VARIANTS 白名单 + 主题令牌配色，四主题 + tech 通用）：`btn v:gradient`（主色系渐变钮，hover 提亮，可与尺寸/形状组合）；`h1~h6 v:gradient`（渐变标题文字，`background-clip: text`，不支持环境回退纯主色）；`card v:glass`（磨砂玻璃，`backdrop-filter` + `--tokui-blur-lg`）；`card v:gradient-border`（双层背景渐变描边，保留圆角）。四主题 `:not()` 中性钮链已补 `:not(.tokui-btn--gradient)` 恢复（modern/modern-dark/dark/tech）。
-- **`reveal` / `reveal-item` 容器**（新文件 `src/components/reveal.js`）：IntersectionObserver 一次性滚动入场；`v:up|left|right|zoom` 方向 + `delay:N`（0~4000ms）；直接子元素按序 stagger 递增 80ms（纯 CSS nth-child 前 12 档）；渐进增强——reduced-motion / 无 IO 环境内容直接可见、流式闭合后视口兜底核对（防闪跳）；observer 经 `_registerCleanup` 登记，`destroy()` 幂等解绑。
-- builder `reveal()` / `revealItem()` 链式方法 + `.d.ts`；demo 案例 `demo-visual-variants` / `demo-reveal`；DSL 参考 / llms.txt / VitePress 中英同步；tests/test-reveal.js 24 用例。
-
-### 优化（克制版收尾行为）
-- **reveal 两 demo 按真实使用场景重写**：`demo-reveal` 改为「季度经营分析报告」——场景一报告总览（随流可见·克制定格）+ 场景二各事业部明细（scroll-area h:480 折叠区，up/left·delay/zoom·KPI 矩阵/right·风险四组滚动入场），卡片为多段文字 + 统计行 + 列表 + 时间线 + callout 组合（19 卡 / 14 统计 / 3 列表 / 1 时间线）；`test-reveal-stream` 改为「车间设备巡检报告」并放慢推送节奏 8~28ms → **30~80ms/chunk**（随机 2~20 字符碎片不变），流式过程可观察。顺带修复 demo 存量笔误：stat 标题属性误写 `l:`（正确为 `tt:`，标签会静默丢失）与 progress 标签误写 `tx:`（正确为 `l:`，共 4 处）。
-- **reveal 流式闭合不再重放已看内容**：闭合时组在视口内（用户正看着）或流式期间进入过视口（自动滚屏 transit 已看过）→ 直接定格可见态（仅补 `--in` 完成标记 + 断开观察，不瞬隐重演 stagger，消除闭合闪跳）；全程折叠区（从未见过）的组保留 IO，滚动相交时一次性入场。流式中的相交从「忽略」改为「记 `seen` 后忽略」，闭合与后续滚动均不再为已看内容重播动画。
-- **reveal 视口核对裁剪感知**：`inViewportSync` 沿祖先链收窄可见矩形——被内层滚动/裁剪容器（overflow ≠ visible 且内容溢出，如 `scroll-area` 视口）折叠区裁掉的组，几何上在窗口内也不算「可见」，闭合时不定格、保留滚动入场（与浏览器 IO 的裁剪语义对齐）。demo 新增特殊测试案例 `test-reveal-stream`（随机 2~20 字符碎片流 + scroll-area 折叠区收留 reveal 组 + 参照组对照克制定格），修复自动跟滚场景下 demo 演示不出入场动画的演示性缺口。
-
-### 修复（发布前实测发现）
-- **tr cell 转义契约对称（builder↔parser↔切格器三端）**：builder `row()` 对含逗号 cell 包引号但**不转义内层引号**，`b.row('他说"你好,先生"')` 裸发 `"他说"你好,先生""` → parser 切格错位（B 格被吞）。现三端打通：①`row()` 含 `,` 或 `"` 的 cell 整格包裹 + 内层 `\"` 转义；②`findCloseBracket`/`findTrCloseBracket` 转义感知（`\` 跳过下一字符——奇数个转义引号不再吞掉标签闭合）；③`parseTag` 引号段双轨存储（属性值/纯正文反转义为最终文本；tr 正文保留转义原样再包引号——先反转义会丢「字面引号」信息、下游切格必错）；④渲染层 `splitCellsDepthAware` 转义感知（`\"` 入格为字面引号、`\\` 入格为字面反斜杠，其余 `\` 如 Windows 路径原样）。测试 +7（奇数转义闭合/tr 双轨/p 反转义/流式分片任意位置截断/往返/渲染级落格）+ lint-smoke +1（137/0）。demo `test-fragment` 表格加转义引号回归样例行。
-- **scroll-area 折叠边缘渐隐**：纵向溢出时顶部/底部各一道向 `--tokui-bg` 渐隐的遮罩（`--more-above`/`--more-below` 状态类，::before/::after 实现，pointer-events:none 不拦截交互），滚动/流式内容增减（MutationObserver）实时同步，未溢出双遮罩摘除；提示「上下还有更多内容」，配合 reveal 折叠区入场可感知性。
-- **reveal 入场时序重做**（demo 实测无动画）：①流式输出 transit 视口会烧掉一次性入场——激活延迟到流闭合（闭合时在视口内立即播完整 stagger 入场；折叠区保持未激活等滚动相交触发）；②`--arm` 隐藏态自带过渡与 `--in` 折返回 1 相互抵消（全程 opacity=1）——过渡与 stagger 延迟全部移至 `--in` 态，arm 瞬隐；③`--in` 覆盖规则单类特异性 (0,1,0) 被方向规则双类 (0,2,0) 压过——left/right/zoom 三组 transform 冻结在入场起点永不归位（up 组共用单类基规则故正常；reduced-motion 兜底同修），覆盖规则升双类并在方向规则后声明。
-- **`btn v:gradient` hover 不可读**：base `.tokui-btn:hover` 洗浅底，hover 规则按 `--primary:hover` 模式重申背景/文字色。
-- **glass 磨砂全链路**：手写「标准+`-webkit-`」双声明令 Lightning 构建丢标准 `backdrop-filter`（连带 dialog 遮罩 blur 存量失效）——源码只写标准属性由构建器补前缀；glass 增顶部内侧高光（纯色底兜底）；demo 玻璃格垫渐变底演示。
-- **demo 文案嵌套双引号**：builder `\"` 转义 parser 不反转义、正文漏反斜杠——文案改为无引号写法。
 
 ## [0.2.7] - 2026-10-03
 

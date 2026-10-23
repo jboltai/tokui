@@ -2238,7 +2238,7 @@ const DEMOS = [
             .cardTx('快捷操作', '点击左侧导航选择更多组件示例。')
           .end()
           .col_layout({ span: 6 })
-            .cardTx('版本更新', 'TokUI v0.2.8 已发布，支持卡片自闭合模式。')
+            .cardTx('版本更新', 'TokUI v0.2.9 已发布，支持卡片自闭合模式。')
           .end()
         .end()
         .hr()
@@ -2428,7 +2428,7 @@ const DEMOS = [
                 .a({ tx: '帮助文档', u: '/docs' })
                 .p(' | ')
                 .a({ tx: '联系我们', u: '/contact' })
-                .p('版本 v0.2.8')
+                .p('版本 v0.2.9')
               .end()
             .end()
           .end()
@@ -5758,6 +5758,7 @@ const DEMOS = [
     build() {
       const b = new TokUIBuilder();
       b.p('纯 SVG 零依赖图表组件，支持 20 种图表类型，可扩展接入外部图表库。');
+      b.callout({ t: 'info', tt: '多系列与系列名', tx: 'd 用 | 分隔多系列；sn 属性命名各系列（逗号分隔、按序对应），进图例与 tooltip，未设置时回退默认「系列1、系列2…」。适用于 bar/line/area/radar/环形多环/combo（combo 中 n1/n2 显式名优先于 sn）。' });
       b.dv({});
       // 柱状图：两列并排
       b.row_layout()
@@ -5768,7 +5769,7 @@ const DEMOS = [
         .end()
         .col_layout({ span: 6 })
           .card({})
-            .chart({ t: 'bar', d: '80,120,100|60,90,140|110,70,95', l: '产品A,产品B,产品C', tt: '季度销售对比（多系列）', h: 200 })
+            .chart({ t: 'bar', sn: '线上,门店,分销', d: '80,120,100|60,90,140|110,70,95', l: '产品A,产品B,产品C', tt: '季度销售对比（多系列 sn 命名）', h: 200 })
           .end()
         .end()
       .end();
@@ -5782,7 +5783,7 @@ const DEMOS = [
         .end()
         .col_layout({ span: 6 })
           .card({})
-            .chart({ t: 'line', d: '20,35,25,50,45,70,60|40,30,45,35,60,55,80', l: '1月,2月,3月,4月,5月,6月,7月', tt: '多系列对比趋势', h: 200, area: true })
+            .chart({ t: 'line', sn: '新用户,老用户', d: '20,35,25,50,45,70,60|40,30,45,35,60,55,80', l: '1月,2月,3月,4月,5月,6月,7月', tt: '多系列对比趋势（sn 命名）', h: 200, area: true })
           .end()
         .end()
       .end();
@@ -5901,7 +5902,7 @@ const DEMOS = [
       b.row_layout()
         .col_layout({ span: 6 })
           .card({})
-            .chart({ t: 'area', d: '30,45,38,60,52|15,25,20,35,28', l: 'Q1,Q2,Q3,Q4,Q5', tt: '堆叠面积图', stack: true, h: 200 })
+            .chart({ t: 'area', sn: '线上,门店', d: '30,45,38,60,52|15,25,20,35,28', l: 'Q1,Q2,Q3,Q4,Q5', tt: '堆叠面积图（sn 命名）', stack: true, h: 200 })
           .end()
         .end()
         .col_layout({ span: 6 })

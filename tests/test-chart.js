@@ -382,6 +382,93 @@ test('chart bar multi-series', () => {
   assert.ok(rects.length >= 6);
 });
 
+// === sn 系列名（多系列图表：bar/line/area/radar/donut 环/combo）===
+
+test('chart bar sn 系列名进图例，替换默认「系列N」', () => {
+  const renderer = new TokUIRenderer();
+  registerChartComponents(renderer);
+  const node = { type: 'chart', attrs: { t: 'bar', d: '30,45,38|40,42,50', sn: '销售额,目标' }, content: '', children: [] };
+  const dom = renderer.render(node);
+  const txt = collectText(dom.querySelector('.tokui-chart__svg'));
+  assert.ok(txt.indexOf('销售额') >= 0, '图例应显示 sn 第一项');
+  assert.ok(txt.indexOf('目标') >= 0, '图例应显示 sn 第二项');
+  assert.ok(txt.indexOf('系列1') < 0 && txt.indexOf('系列2') < 0, '提供 sn 时不应出现默认系列名');
+});
+
+test('chart bar sn 位不足时逐系列回退默认名', () => {
+  const renderer = new TokUIRenderer();
+  registerChartComponents(renderer);
+  // 3 系列仅 1 名：第 1 系列用 sn[0]，第 2/3 系列回退「系列2/系列3」
+  const node = { type: 'chart', attrs: { t: 'bar', d: '1,2|3,4|5,6', sn: '销量' }, content: '', children: [] };
+  const dom = renderer.render(node);
+  const txt = collectText(dom.querySelector('.tokui-chart__svg'));
+  assert.ok(txt.indexOf('销量') >= 0);
+  assert.ok(txt.indexOf('系列2') >= 0 && txt.indexOf('系列3') >= 0, 'sn 位不足应回退默认名');
+});
+
+test('chart line sn 系列名进图例', () => {
+  const renderer = new TokUIRenderer();
+  registerChartComponents(renderer);
+  const node = { type: 'chart', attrs: { t: 'line', d: '30,45,38|40,42,50', sn: '实际,预期' }, content: '', children: [] };
+  const dom = renderer.render(node);
+  const txt = collectText(dom.querySelector('.tokui-chart__svg'));
+  assert.ok(txt.indexOf('实际') >= 0 && txt.indexOf('预期') >= 0);
+  assert.ok(txt.indexOf('系列1') < 0 && txt.indexOf('系列2') < 0);
+});
+
+test('chart area stack sn 系列名进图例', () => {
+  const renderer = new TokUIRenderer();
+  registerChartComponents(renderer);
+  const node = { type: 'chart', attrs: { t: 'line', area: true, stack: true, d: '30,45|40,42|10,5', sn: '线上,线下,其他' }, content: '', children: [] };
+  const dom = renderer.render(node);
+  const txt = collectText(dom.querySelector('.tokui-chart__svg'));
+  assert.ok(txt.indexOf('线上') >= 0 && txt.indexOf('线下') >= 0 && txt.indexOf('其他') >= 0);
+});
+
+test('chart radar sn 系列名进图例', () => {
+  const renderer = new TokUIRenderer();
+  registerChartComponents(renderer);
+  const node = { type: 'chart', attrs: { t: 'radar', l: '速度,力量,技巧', d: '80,90,70|60,75,85', sn: '产品A,产品B' }, content: '', children: [] };
+  const dom = renderer.render(node);
+  const txt = collectText(dom.querySelector('.tokui-chart__svg'));
+  assert.ok(txt.indexOf('产品A') >= 0 && txt.indexOf('产品B') >= 0);
+  assert.ok(txt.indexOf('系列1') < 0 && txt.indexOf('系列2') < 0);
+});
+
+test('chart donut 多环 sn 不崩溃且图例不受影响', () => {
+  const renderer = new TokUIRenderer();
+  registerChartComponents(renderer);
+  const node = { type: 'chart', attrs: { t: 'donut', l: 'A,B', d: '1,2|3,4', sn: '本年,去年' }, content: '', children: [] };
+  const dom = renderer.render(node);
+  const svg = dom.querySelector('.tokui-chart__svg');
+  assert.ok(svg, 'donut 多环 + sn 不应崩溃');
+  assert.ok(svg.querySelectorAll('.tokui-chart-slice').length >= 4);
+});
+
+test('chart combo sn 作为 n1/n2 缺省回退，n1/n2 显式优先', () => {
+  const renderer = new TokUIRenderer();
+  registerChartComponents(renderer);
+  // sn 回退：未给 n1/n2 时图例用 sn 前两名
+  const dom1 = renderer.render({ type: 'chart', attrs: { t: 'combo', l: 'Q1,Q2,Q3', d: '10,20,30', d2: '5,15,25', sn: '销量,增速' }, content: '', children: [] });
+  const txt1 = collectText(dom1.querySelector('.tokui-chart__svg'));
+  assert.ok(txt1.indexOf('销量') >= 0 && txt1.indexOf('增速') >= 0, 'combo 未设 n1/n2 时应回退 sn');
+  // n1/n2 显式优先于 sn
+  const dom2 = renderer.render({ type: 'chart', attrs: { t: 'combo', l: 'Q1,Q2,Q3', d: '10,20,30', d2: '5,15,25', n1: '营收', n2: '利润', sn: '销量,增速' }, content: '', children: [] });
+  const txt2 = collectText(dom2.querySelector('.tokui-chart__svg'));
+  assert.ok(txt2.indexOf('营收') >= 0 && txt2.indexOf('利润') >= 0, 'n1/n2 显式值应生效');
+  assert.ok(txt2.indexOf('销量') < 0 && txt2.indexOf('增速') < 0, 'n1/n2 显式时应覆盖 sn');
+});
+
+test('chart bar sn 引号包裹名与含引号流式半成品', () => {
+  const renderer = new TokUIRenderer();
+  registerChartComponents(renderer);
+  // 属性值带引号包裹（DSL 中含逗号属性须加引号，attrs 已是解析后结果）应剥引号
+  const node = { type: 'chart', attrs: { t: 'bar', d: '1,2|3,4', sn: '"本季","上季"' }, content: '', children: [] };
+  const dom = renderer.render(node);
+  const txt = collectText(dom.querySelector('.tokui-chart__svg'));
+  assert.ok(txt.indexOf('本季') >= 0 && txt.indexOf('"') < 0, 'sn 名应剥引号');
+});
+
 test('chart custom colors', () => {
   const renderer = new TokUIRenderer();
   registerChartComponents(renderer);

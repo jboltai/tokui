@@ -10,7 +10,7 @@ When emitting `[chart]`, attributes must follow **type → style/layout → labe
 
 1. `t` type (always first)
 2. **Style/layout attributes** (affect render shape, data-independent): `tt`, `orient`, `stack`, `smooth`, `area`, `vals`, `w`, `h`, `range`, `anim`, `xl`, `yl`, `status`, `zones`, `zc`, `c`, `u`, `dec`, `ticks`, `sub`, `bins`, `mode`, `deps`, etc.
-3. `l` labels (data-related, but must precede data — build axis/legend ticks first, then plot points)
+3. `l` labels and `sn` series names (data-related, but must precede data — build axis/legend ticks first, then plot points)
 4. **Data payload** (last): `d` / `tasks` / `rows` / `nodes`+`flows` / `ms` / `v`
 
 ```tokui
@@ -28,6 +28,7 @@ All chart types share these props, self-closing.
 | `t` | Chart type | `t:bar` |
 | `d` | Data. Single series comma-separated; multi-series (bar/line/donut) use `|`; scatter/bubble pairs use `;` | `d:"10,20,30"` / `d:"1,2;3,4"` |
 | `l` | Labels, comma-separated | `l:"Jan,Feb,Mar"` |
+| `sn` | **Series names**, comma-separated, mapped to `d` series in order (multi-series charts bar/line/area/radar/donut rings/combo). Used in legend & tooltips; falls back to defaults "Series 1, Series 2…" ("Ring 1…" for donut) when unset; missing slots fall back per-series; in combo acts as the default for `n1`/`n2` | `sn:"Sales,Target"` |
 | `c` | Custom color sequence, comma-separated; supports `#hex` / `rgb()` / `var(--x)` | `c:"#1677ff,#52c41a"` |
 | `tt` | Title | `tt:Monthly Sales` |
 | `w` / `h` | SVG width/height (px, internal ratio; auto re-rendered to fill fixed-height cells, except map) | `w:480` |
@@ -57,19 +58,20 @@ Grouped bar chart, self-closing. Multi-series `d` uses `|`, one group of bars pe
 |------|---------|---------|
 | `d` | Data, multi-series via `|` | `d:"120,190,300|90,150,260"` |
 | `l` | X-axis labels, comma-separated | `l:"Q1,Q2,Q3"` |
+| `sn` | Series names, comma-separated, one per series (legend/tooltip; defaults to "Series N" when unset) | `sn:"Sales,Target"` |
 | `stack` | Stack (boolean) | `stack` |
 | `orient` | `h` horizontal bars (long-label friendly) | `orient:h` |
 | `vals` | Show bar-top values | `vals` |
 
 <Playground dsl='[chart t:bar tt:季度销售额（万元） l:"Q1,Q2,Q3,Q4" d:"120,190,300,250"]' />
 
-Multi-series comparison (auto legend):
+Multi-series comparison (`sn` names series, auto legend):
 
-<Playground dsl='[chart t:bar tt:销售 vs 目标 vals c:"#1677ff,#faad14" l:"1月,2月,3月,4月,5月" d:"30,45,38,60,52|40,42,50,55,58"]' />
+<Playground dsl='[chart t:bar tt:销售 vs 目标 sn:"销售,目标" vals c:"#1677ff,#faad14" l:"1月,2月,3月,4月,5月" d:"30,45,38,60,52|40,42,50,55,58"]' />
 
-Stacked bars (columns accumulate):
+Stacked bars (columns accumulate, `sn` names layers):
 
-<Playground dsl='[chart t:bar tt:成本结构（堆叠） stack c:"#1677ff,#52c41a,#faad14" l:"Q1,Q2,Q3,Q4" d:"60,70,80,90|30,35,40,45|10,15,20,25"]' />
+<Playground dsl='[chart t:bar tt:成本结构（堆叠） stack sn:"原材料,人力,其他" c:"#1677ff,#52c41a,#faad14" l:"Q1,Q2,Q3,Q4" d:"60,70,80,90|30,35,40,45|10,15,20,25"]' />
 
 Horizontal bars (`orient:h`, good for long labels):
 
@@ -85,6 +87,7 @@ Line trend chart, self-closing. Add `area` for translucent fill; `smooth` for a 
 |------|---------|---------|
 | `d` | Data, multi-series via `|` | `d:"30,45,38,60,52"` |
 | `l` | X-axis labels, comma-separated | `l:"Mon,Tue,Wed"` |
+| `sn` | Series names (multi-series legend/crosshair tooltip; defaults to "Series N") | `sn:"New,Returning"` |
 | `area` | Area fill (boolean) | `area` |
 | `smooth` | Smooth curve (boolean) | `smooth` |
 | `stack` | Stack (boolean) | `stack` |
@@ -92,9 +95,9 @@ Line trend chart, self-closing. Add `area` for translucent fill; `smooth` for a 
 
 <Playground dsl='[chart t:line tt:每日访问趋势 area l:"周一,周二,周三,周四,周五,周六,周日" d:"120,150,140,180,210,260,220"]' />
 
-Multi-series line + smooth curve:
+Multi-series line + smooth curve (`sn` names series):
 
-<Playground dsl='[chart t:line tt:新老用户对比（平滑） smooth c:"#1677ff,#52c41a" l:"1月,2月,3月,4月,5月,6月" d:"80,120,160,200,240,300|40,60,90,120,150,200"]' />
+<Playground dsl='[chart t:line tt:新老用户对比（平滑） smooth sn:"新用户,老用户" c:"#1677ff,#52c41a" l:"1月,2月,3月,4月,5月,6月" d:"80,120,160,200,240,300|40,60,90,120,150,200"]' />
 
 ## Area Chart `t:area`
 
@@ -104,14 +107,15 @@ Area chart = line chart + default fill, self-closing. Supports multi-series and 
 |------|---------|---------|
 | `d` | Data, multi-series via `|` | `d:"30,45,38,60,52"` |
 | `l` | X-axis labels | `l:"Jan,Feb,Mar"` |
+| `sn` | Series names (multi-series legend; defaults to "Series N") | `sn:"Online,Offline"` |
 | `stack` | Stacked area (boolean) | `stack` |
 | `smooth` | Smooth curve (boolean) | `smooth` |
 
 <Playground dsl='[chart t:area tt:流量趋势 l:"1月,2月,3月,4月,5月,6月" d:"120,180,150,210,260,240"]' />
 
-Stacked area (cumulative composition):
+Stacked area (cumulative composition, `sn` names layers):
 
-<Playground dsl='[chart t:area tt:收入构成（堆叠面积） stack c:"#1677ff,#52c41a,#faad14" l:"Q1,Q2,Q3,Q4" d:"60,80,100,120|40,50,60,70|20,30,40,50"]' />
+<Playground dsl='[chart t:area tt:收入构成（堆叠面积） stack sn:"订阅,广告,其他" c:"#1677ff,#52c41a,#faad14" l:"Q1,Q2,Q3,Q4" d:"60,80,100,120|40,50,60,70|20,30,40,50"]' />
 
 ## Pie Chart `t:pie`
 
@@ -133,14 +137,15 @@ Donut chart, self-closing. Same structure as pie, plus a `v` prop to show a numb
 |------|---------|---------|
 | `d` | Per-item values; multi-ring via `|` | `d:"55,35,10"` |
 | `l` | Per-item names, comma-separated | `l:"PC,Mobile,Tablet"` |
+| `sn` | Ring names (multi-ring tooltips; defaults to "Ring N"; outer→inner in series order) | `sn:"Current,Previous"` |
 | `c` | Per-item colors | `c:"#1677ff,#52c41a,#faad14"` |
 | `v` | Center text (single ring) | `v:78` |
 
 <Playground dsl='[chart t:donut tt:目标完成率 l:"已完成,剩余" d:"78,22" v:78]' />
 
-Multi-ring comparison (current vs previous, outer = current):
+Multi-ring comparison (`sn` names rings, current vs previous, outer = current):
 
-<Playground dsl='[chart t:donut tt:本期 vs 上期 c:"#1677ff,#52c41a,#faad14,#f5222d" l:"A,B,C,D" d:"40,30,20,10|35,25,30,10"]' />
+<Playground dsl='[chart t:donut tt:本期 vs 上期 sn:"本期,上期" c:"#1677ff,#52c41a,#faad14,#f5222d" l:"A,B,C,D" d:"40,30,20,10|35,25,30,10"]' />
 
 ## Rose Chart `t:rose`
 
@@ -174,13 +179,14 @@ Multi-dimension radar, self-closing. `l` is dimension names, `d` the scores (0-1
 |------|---------|---------|
 | `d` | Per-dimension values, multi-series via `|` | `d:"80,90,70,85,75"` |
 | `l` | Dimension names, comma-separated | `l:"Speed,Quality,Cost,UX,Stability"` |
+| `sn` | Per-series entity names (legend/tooltip; defaults to "Series N") | `sn:"Product A,Product B"` |
 | `c` | Per-series fill color | `c:"#1677ff,#52c41a"` |
 
 <Playground dsl='[chart t:radar tt:综合能力评估 l:"速度,质量,成本,体验,稳定,创新" d:"80,90,70,85,75,88"]' />
 
-Multi-series comparison (Product A vs B):
+Multi-series comparison (`sn` names entities, Product A vs B):
 
-<Playground dsl='[chart t:radar tt:产品能力对比 c:"#1677ff,#52c41a" l:"性能,体验,价格,生态,服务,创新" d:"85,90,70,80,75,88|70,75,90,85,88,72"]' />
+<Playground dsl='[chart t:radar tt:产品能力对比 sn:"产品A,产品B" c:"#1677ff,#52c41a" l:"性能,体验,价格,生态,服务,创新" d:"85,90,70,80,75,88|70,75,90,85,88,72"]' />
 
 ## Scatter Chart `t:scatter`
 

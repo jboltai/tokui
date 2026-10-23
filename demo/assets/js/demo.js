@@ -430,7 +430,7 @@ const I18N = {
   eventPanelClear: { zh: '清空', en: 'Clear' },
   editClicked:    { zh: '编辑按钮被点击', en: 'Edit button clicked' },
   deleteClicked:  { zh: '删除按钮被点击', en: 'Delete button clicked' },
-  footerVer:      { zh: '当前版本:v0.2.8', en: 'Version: v0.2.8' },
+  footerVer:      { zh: '当前版本:v0.2.9', en: 'Version: v0.2.9' },
   footerCopy:     { zh: '零依赖 · 流式UI描述与渲染框架', en: 'Zero Deps · Streaming UI Framework' },
   dslRef:         { zh: 'DSL 语法速查', en: 'DSL Syntax Ref' },
   clearBtn:       { zh: '清空', en: 'Clear' },
@@ -2261,7 +2261,7 @@ const DSL_REF = {
         { tag: 'tbody', desc: '表体 容器', self: false },
         { tag: 'tr', desc: '表格行 cs:colspan 内容逗号分隔单元格', self: true },
         { tag: 'tcol', desc: '列占位', self: true },
-        { tag: 'chart', desc: '图表(20种) t:bar/line/area/pie/donut/rose/funnel/radar/scatter/bubble/heatmap/histogram/waterfall/boxplot/treemap/sankey/candlestick/progress/gauge/gantt d/l/c/tt w/h stack smooth orient xl/yl range anim', self: true },
+        { tag: 'chart', desc: '图表(20种) t:bar/line/area/pie/donut/rose/funnel/radar/scatter/bubble/heatmap/histogram/waterfall/boxplot/treemap/sankey/candlestick/progress/gauge/gantt d/l/sn/c/tt w/h stack smooth orient xl/yl range anim', self: true },
         { tag: 'chart', desc: '甘特 t:gantt tasks:任务列表 gnames:组名 deps:依赖 ms:里程碑 mode w/h', self: true }
       ]
     },
