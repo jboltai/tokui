@@ -258,15 +258,27 @@ test('容器 bubble 流式半径维度 sMax 只扩不缩（防已画点半径跳
   assert.ok(dom._sMax >= s1 && dom._sMax >= 20, '大 s 只扩不缩');
 });
 
-test('容器 scatter 显式 ymin/ymax 锁轴：极值扩张时已画点 cy 绝对稳定（零跳变）', () => {
+test('容器 scatter 显式 ymin/ymax 锁轴：量程内极值扩张已画点 cy 零跳变；超锁让位重投影（原绝对锁把超域点画到轴外为 bug）', () => {
   const dom = newRenderer().render(chartOpen('scatter', { ymin: 0, ymax: 100 }));
   dom._tokuiChartAppend(pt('1,10'));
   dom._tokuiChartAppend(pt('2,90'));
   const cy1 = dom.querySelectorAll('.tokui-chart-point')[0].getAttribute('cy');
-  dom._tokuiChartAppend(pt('3,5'));    // 数据 yMin 降到 5，但锁轴 0..100 → cy 不变
-  dom._tokuiChartAppend(pt('4,200'));  // 超 ymax，仍按 0..100 投影 → cy 不变
+  dom._tokuiChartAppend(pt('3,5'));    // 数据 yMin 降到 5，仍在锁内 → 轴不动，cy 不变（防抖语义保留）
   const cy2 = dom.querySelectorAll('.tokui-chart-point')[0].getAttribute('cy');
-  assert.strictEqual(cy1, cy2, '显式锁轴：极值扩张时已画点 cy 绝对不变');
+  assert.strictEqual(cy1, cy2, '量程内极值变化：显式锁轴零跳变');
+  dom._tokuiChartAppend(pt('4,200'));  // 超 ymax → 轴让位扩程（nice 量化），全量重投影（修复前该点画到轴外）
+  const pts = dom.querySelectorAll('.tokui-chart-point');
+  const cy3 = pts[0].getAttribute('cy');
+  assert.notStrictEqual(cy2, cy3, '超锁让位：轴扩展触发已画点重投影');
+  var hl = dom.querySelectorAll('line').filter(function (l) { return l.getAttribute('y1') === l.getAttribute('y2'); });
+  var top = Math.min.apply(null, hl.map(function (l) { return parseFloat(l.getAttribute('y1')); }));
+  var bottom = Math.max.apply(null, hl.map(function (l) { return parseFloat(l.getAttribute('y1')); }));
+  var out = 0;
+  pts.forEach(function (c) {
+    var cy = parseFloat(c.getAttribute('cy'));
+    if (cy < top - 0.5 || cy > bottom + 0.5) out++;
+  });
+  assert.strictEqual(out, 0, '让位后 y=200 的点也投在网格内');
 });
 
 test('自闭合 scatter 显式 xmin/xmax/ymin/ymax 覆盖裸 min/max', () => {

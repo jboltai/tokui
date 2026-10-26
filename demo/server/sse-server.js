@@ -2238,7 +2238,7 @@ const DEMOS = [
             .cardTx('快捷操作', '点击左侧导航选择更多组件示例。')
           .end()
           .col_layout({ span: 6 })
-            .cardTx('版本更新', 'TokUI v0.2.9 已发布，支持卡片自闭合模式。')
+            .cardTx('版本更新', 'TokUI v0.3.0 已发布，支持卡片自闭合模式。')
           .end()
         .end()
         .hr()
@@ -2428,7 +2428,7 @@ const DEMOS = [
                 .a({ tx: '帮助文档', u: '/docs' })
                 .p(' | ')
                 .a({ tx: '联系我们', u: '/contact' })
-                .p('版本 v0.2.9')
+                .p('版本 v0.3.0')
               .end()
             .end()
           .end()
@@ -5749,18 +5749,21 @@ const DEMOS = [
     }
   },
 
-  // ===== Chart 数据可视化 =====
+  // ===== Chart 图表（按类型拆分：一型一 demo） =====
+
+  // ----- Bar 柱状图（含大规模与横向柱·长标签） -----
 
   {
-    trigger: 'demo-chart',
-    title: 'Chart 图表',
-    desc: '纯 SVG 零依赖数据可视化',
+    trigger: 'demo-chart-bar',
+    title: 'Bar 柱状图',
+    desc: '基础 / 多系列 sn / 大规模 / interval / 横向柱·长标签',
     build() {
       const b = new TokUIBuilder();
-      b.p('纯 SVG 零依赖图表组件，支持 20 种图表类型，可扩展接入外部图表库。');
+      b.p('柱状图：单系列与多系列对比；大规模数据自动处理 X 轴标签拥挤（横排 → 旋转 → 按步长跳过三级降级，interval 精确控制，zoom 拖拽缩放）；横向柱（orient:h）左侧长标签自适应折行（见本页末尾）。');
       b.callout({ t: 'info', tt: '多系列与系列名', tx: 'd 用 | 分隔多系列；sn 属性命名各系列（逗号分隔、按序对应），进图例与 tooltip，未设置时回退默认「系列1、系列2…」。适用于 bar/line/area/radar/环形多环/combo（combo 中 n1/n2 显式名优先于 sn）。' });
       b.dv({});
-      // 柱状图：两列并排
+
+      // 基础 + 多系列 sn
       b.row_layout()
         .col_layout({ span: 6 })
           .card({})
@@ -5773,222 +5776,6 @@ const DEMOS = [
           .end()
         .end()
       .end();
-      b.dv({});
-      // 折线图：两列并排
-      b.row_layout()
-        .col_layout({ span: 6 })
-          .card({})
-            .chart({ t: 'line', d: '30,45,28,60,55,80,72,90', l: '周一,周二,周三,周四,周五,周六,周日,下周一', tt: '本周访问量趋势', h: 200 })
-          .end()
-        .end()
-        .col_layout({ span: 6 })
-          .card({})
-            .chart({ t: 'line', sn: '新用户,老用户', d: '20,35,25,50,45,70,60|40,30,45,35,60,55,80', l: '1月,2月,3月,4月,5月,6月,7月', tt: '多系列对比趋势（sn 命名）', h: 200, area: true })
-          .end()
-        .end()
-      .end();
-      b.dv({});
-      // 饼图 + 环形图：三列并排
-      b.row_layout()
-        .col_layout({ span: 4 })
-          .card({})
-            .chart({ t: 'pie', d: '35,25,20,12,8', l: '微信,抖音,淘宝,京东,其他', tt: '流量来源占比', w: 240, h: 240 })
-          .end()
-        .end()
-        .col_layout({ span: 4 })
-          .card({})
-            .chart({ t: 'donut', d: '75,25', l: '已完成,剩余', tt: '项目进度', v: 75, w: 200, h: 200 })
-          .end()
-        .end()
-        .col_layout({ span: 4 })
-          .card({})
-            .chart({ t: 'donut', d: '60,30,10', l: '代码,文档,测试', tt: '工作内容分布', w: 200, h: 200 })
-          .end()
-        .end()
-      .end();
-      b.dv({});
-      // 雷达图 + 散点图：两列并排
-      b.row_layout()
-        .col_layout({ span: 6 })
-          .card({})
-            .chart({ t: 'radar', d: '90,70,85,60,95,75', l: '速度,力量,技巧,耐力,智慧,协作', tt: '能力评估雷达图', w: 260, h: 260 })
-          .end()
-        .end()
-        .col_layout({ span: 6 })
-          .card({})
-            .chart({ t: 'scatter', d: '10,20;25,45;30,35;50,70;65,55;80,90;45,60;15,30;70,85;35,50', tt: '学习时长 vs 考试成绩', h: 200, xl: '学习时长', yl: '考试成绩' })
-          .end()
-        .end()
-      .end();
-      b.dv({});
-      // 仪表盘 gauge：单值 KPI 基础（4 列：完成率/CPU/时速/健康度）
-      b.p('仪表盘 gauge 用于单值 KPI（完成率、CPU、时速、健康度）：半圆弧 + 指针 + 中心大字；status 按语义染色并出角标（良好/注意/告警），sub 加副标题。');
-      b.row_layout()
-        .col_layout({ span: 6 })
-          .card({})
-            .chart({ t: 'gauge', v: 78, tt: '项目完成率', l: '已完成', sub: '数据来源: 项目系统', w: 260, h: 200 })
-          .end()
-        .end()
-        .col_layout({ span: 6 })
-          .card({})
-            .chart({ t: 'gauge', v: 92, tt: 'CPU 使用率', l: '8 核均值', status: 'danger', sub: '阈值 85%', w: 260, h: 200 })
-          .end()
-        .end()
-      .end();
-      b.row_layout()
-        .col_layout({ span: 6 })
-          .card({})
-            .chart({ t: 'gauge', v: 120, max: 240, u: ' km/h', tt: '当前时速', l: '限速 240', status: 'success', w: 260, h: 200 })
-          .end()
-        .end()
-        .col_layout({ span: 6 })
-          .card({})
-            .chart({ t: 'gauge', v: 65, max: 100, tt: '服务健康度', l: 'SLA 指标', status: 'warning', w: 260, h: 200 })
-          .end()
-        .end()
-      .end();
-      b.dv({});
-      // gauge 进阶：阶段分布 zones + 数字动画 anim
-      b.p('进阶：zones 阶段分布色带（阈值把轨道分段，弧色自动取值所在段），anim 数字+弧+指针动画，dec 小数位，ticks 刻度密度。');
-      b.row_layout()
-        .col_layout({ span: 6 })
-          .card({})
-            .chart({ t: 'gauge', v: 92, tt: '达标率（阶段分布）', zones: '60,85', l: 'Q2 目标 90%', anim: 1200, sub: '红线 85% / 警戒 60%', w: 300, h: 220 })
-          .end()
-        .end()
-        .col_layout({ span: 6 })
-          .card({})
-            .chart({ t: 'gauge', v: 30, tt: '错误率（高=差，反向配色）', zones: '3,8', zc: '#52c41a,#faad14,#f5222d', u: '%', dec: 1, l: '近 1 小时', anim: 1000, w: 300, h: 220 })
-          .end()
-        .end()
-      .end();
-      b.row_layout()
-        .col_layout({ span: 6 })
-          .card({})
-            .chart({ t: 'gauge', v: 7.2, max: 10, tt: '评分（带小数）', dec: 1, l: '满分 10', status: 'success', ticks: 10, anim: 1200, w: 300, h: 220 })
-          .end()
-        .end()
-        .col_layout({ span: 6 })
-          .card({})
-            .chart({ t: 'gauge', v: 46, tt: '磁盘使用率', zones: '60,85', zc: '#52c41a,#faad14,#f5222d', l: 'SSD 1TB', status: 'success', anim: 1200, sub: '安全区', w: 300, h: 220 })
-          .end()
-        .end()
-      .end();
-      b.dv({});
-      b.p('容器写法同样支持流式 —— 逐个喂入 pt 子节点（属性 v:数值），指针随数值实时跳动：');
-      b.card({ tt: '达标率（流式容器写法）' })
-        .chart({ t: 'gauge', tt: '季度达标率', l: 'Q2 目标 90%', w: 320, h: 220 })
-          .chartPoint({ v: 86 })
-        .end()
-      .end();
-      b.dv({});
-      b.card({ tt: 'AI 数据分析场景' })
-        .p('AI 分析用户行为数据后，生成可视化报告：')
-        .callout({ t: 'info', tt: '分析结论', tx: '用户活跃度在 5-6 月显著上升，主要来源为微信渠道（35%）。' })
-        .dv({})
-        .row_layout()
-          .col_layout({ span: 6 })
-            .chart({ t: 'line', d: '120,150,130,200,250,280', l: '1月,2月,3月,4月,5月,6月', tt: 'DAU 趋势', h: 180 })
-          .end()
-          .col_layout({ span: 6 })
-            .chart({ t: 'pie', d: '35,25,20,12,8', l: '微信,抖音,淘宝,京东,其他', tt: '流量来源', w: 220, h: 220 })
-          .end()
-        .end()
-      .end();
-      // ===== 新增 11 种图表（v2）：面积/玫瑰/气泡/热力/直方/瀑布/箱线/树图/桑基/K线/进度条 =====
-      b.dv({});
-      b.p('进阶图表（11 种）：面积、玫瑰、气泡、热力、直方、瀑布、箱线、树图、桑基、K 线、进度条。');
-      // 面积 + 玫瑰
-      b.row_layout()
-        .col_layout({ span: 6 })
-          .card({})
-            .chart({ t: 'area', sn: '线上,门店', d: '30,45,38,60,52|15,25,20,35,28', l: 'Q1,Q2,Q3,Q4,Q5', tt: '堆叠面积图（sn 命名）', stack: true, h: 200 })
-          .end()
-        .end()
-        .col_layout({ span: 6 })
-          .card({})
-            .chart({ t: 'rose', d: '320,580,450,280', l: '春,夏,秋,冬', tt: '玫瑰图（半径 ∝ 值）', w: 240, h: 240 })
-          .end()
-        .end()
-      .end();
-      // 气泡 + 热力
-      b.row_layout()
-        .col_layout({ span: 6 })
-          .card({})
-            .chart({ t: 'bubble', d: '1.2,8,300;2.5,15,800;3.8,24,1500;1.8,10,450;4.5,30,2200', xl: 'GDP', yl: '人口', sl: '产值', tt: '气泡图（三维）', h: 200 })
-          .end()
-        .end()
-        .col_layout({ span: 6 })
-          .card({})
-            .chart({ t: 'heatmap', rows: '20,35,40,50,80|60,75,80,90,95|30,50,55,65,70', cols: '周一,周二,周三,周四,周五', l: '早,中,晚', tt: '热力图（时段密度）', h: 200 })
-          .end()
-        .end()
-      .end();
-      // 直方 + 瀑布
-      b.row_layout()
-        .col_layout({ span: 6 })
-          .card({})
-            .chart({ t: 'histogram', d: '56,62,68,71,73,75,78,80,82,85,88,90,92,95', bins: 6, tt: '直方图（频次分布）', h: 200 })
-          .end()
-        .end()
-        .col_layout({ span: 6 })
-          .card({})
-            .chart({ t: 'waterfall', d: '100,-35,28,-12,-8', l: '营收,成本,毛利,费用,净利', tt: '瀑布图（增减累计）', h: 200 })
-          .end()
-        .end()
-      .end();
-      // 箱线 + K线
-      b.row_layout()
-        .col_layout({ span: 6 })
-          .card({})
-            .chart({ t: 'boxplot', d: '45,62,72,85,98;50,65,70,82,95;40,58,68,78,92', l: '甲班,乙班,丙班', tt: '箱线图（五数分布）', h: 220 })
-          .end()
-        .end()
-        .col_layout({ span: 6 })
-          .card({})
-            .chart({ t: 'candlestick', d: '10,12,8,11;11,13,9,10;10,14,9,13;11,11.5,9.5,10.5', l: 'D1,D2,D3,D4', tt: 'K 线图（OHLC）', h: 220 })
-          .end()
-        .end()
-      .end();
-      // 树图 + 桑基
-      b.row_layout()
-        .col_layout({ span: 6 })
-          .card({})
-            .chart({ t: 'treemap', d: 'iOS:320,Android:580,Web:450,小程序:280,其他:150', tt: '矩形树图（占比）', h: 220 })
-          .end()
-        .end()
-        .col_layout({ span: 6 })
-          .card({})
-            .chart({ t: 'sankey', nodes: '首页,搜索,详情,下单,支付', flows: '首页->搜索:100,搜索->详情:70,详情->下单:45,下单->支付:38', tt: '桑基图（流向）', h: 220 })
-          .end()
-        .end()
-      .end();
-      // 进度条 + 仪表盘 270°（range 新属性）
-      b.row_layout()
-        .col_layout({ span: 6 })
-          .card({})
-            .chart({ t: 'progress', v: 68, l: '迭代完成', tt: '进度条', anim: 1000, h: 80 })
-          .end()
-        .end()
-        .col_layout({ span: 6 })
-          .card({})
-            .chart({ t: 'gauge', v: 78, range: 270, tt: '健康度（270° 仪表盘）', l: '满分 100', status: 'success', anim: 1000, w: 260, h: 220 })
-          .end()
-        .end()
-      .end();
-      return b;
-    }
-  },
-
-  // ===== Bar 大规模柱状图 =====
-
-  {
-    trigger: 'demo-chart-bar',
-    title: 'Bar 柱状图',
-    desc: '大规模数据柱状图 · 50 / 40 数据点',
-    build() {
-      const b = new TokUIBuilder();
-      b.p('柱状图大规模数据展示。TokUI 自动处理 X 轴标签拥挤：横排 → 旋转 → 按步长跳过三级降级（保留首末）；可用 interval 精确控制步长，zoom 开启拖拽缩放查看局部。');
 
       // 生成确定性数据（正弦波 + 线性趋势，无随机，每次渲染一致）
       function barData(n, base, amp, trend) {
@@ -6065,6 +5852,718 @@ const DEMOS = [
         .end()
       .end();
 
+      // ===== 横向柱·长标签自适应 =====
+      b.dv({});
+      b.p('横向柱状图（orient:h）左侧类别标签自适应：标签列宽随最长标签收缩/扩张（上限为图宽 30%，防标签吞噬柱区），超预算自动折行 ≤2 行 —— CJK 逐字断行、英文按词断行（不切断单词）、无断点长串硬断；两行仍装不下时末行省略号收尾（完整内容 hover 柱子可见 tooltip）。折行后每类行高自动加高，柱距与两行标签互不挤压；窄容器下字号抬大后按真实渲染字号重排，标签列不溢出。');
+
+      // 长中文标签（16 字）— 折行两行 + vals + 轴单位
+      b.card({})
+        .chart({
+          t: 'bar',
+          tt: '长中文标签 · 自动折行 ≤2 行',
+          orient: 'h',
+          vals: true,
+          xl: '万元',
+          l: '华东区域销售一部年度目标达成情况,华南区域销售二部年度目标达成情况,华北区域销售三部年度目标达成情况,西南区域销售四部年度目标达成情况',
+          d: '320,280,245,198',
+        })
+      .end();
+
+      // 英文标签 — 按词折行（断点在空格，不切断单词）
+      b.dv({});
+      b.card({})
+        .chart({
+          t: 'bar',
+          tt: 'English labels · word-boundary wrap',
+          orient: 'h',
+          vals: true,
+          l: 'Regional Sales Performance Summary,North America Revenue Breakdown,EMEA Channel Partner Program',
+          d: '320,245,180',
+        })
+      .end();
+
+      // 中英混合 | 短标签对照（列宽收缩，柱区更大）
+      b.dv({});
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({
+              t: 'bar',
+              tt: '中英混合 · 混排折行',
+              orient: 'h',
+              vals: true,
+              l: '华东区 East Sales 一部,华南区 South Sales 二部,华北区 North Sales 三部',
+              d: '300,260,220',
+            })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({
+              t: 'bar',
+              tt: '短标签 · 标签列收缩柱区更大',
+              orient: 'h',
+              vals: true,
+              l: '一月,二月,三月,四月,五月,六月',
+              d: '320,280,245,198,156,120',
+            })
+          .end()
+        .end()
+      .end();
+
+      // 超长标签省略号降级 | 多系列分组
+      b.dv({});
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({
+              t: 'bar',
+              tt: '超长标签 · 两行封顶 + 省略号',
+              orient: 'h',
+              vals: true,
+              l: Array(31).join('销') + '一,' + Array(31).join('销') + '二',
+              d: '86,64',
+            })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({
+              t: 'bar',
+              tt: '多系列分组 · 折行与柱组间距协同',
+              orient: 'h',
+              sn: '目标,实际',
+              l: '华东区域销售一部,华南区域销售二部,华北区域销售三部',
+              d: '300,260,240|280,240,220',
+            })
+          .end()
+        .end()
+      .end();
+
+      return b;
+    }
+  },
+
+  // ----- Line 折线图 -----
+
+  {
+    trigger: 'demo-chart-line',
+    title: 'Line 折线图',
+    desc: '趋势 / 多系列 sn / smooth 曲线 / 面积填充',
+    build() {
+      const b = new TokUIBuilder();
+      b.p('折线图展示趋势变化：单系列基础、多系列对比（sn 命名进图例）、smooth 平滑曲线；area 布尔属性可在折线下叠加面积填充。');
+      b.dv({});
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'line', d: '30,45,28,60,55,80,72,90', l: '周一,周二,周三,周四,周五,周六,周日,下周一', tt: '本周访问量趋势', h: 200 })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'line', sn: '新用户,老用户', d: '20,35,25,50,45,70,60|40,30,45,35,60,55,80', l: '1月,2月,3月,4月,5月,6月,7月', tt: '多系列对比趋势（sn 命名）', h: 200 })
+          .end()
+        .end()
+      .end();
+      b.dv({});
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'line', d: '120,150,130,200,250,280', l: '1月,2月,3月,4月,5月,6月', tt: 'smooth 平滑曲线', smooth: true, h: 200 })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'line', d: '30,45,28,60,55,80,72,90', l: '周一,周二,周三,周四,周五,周六,周日,下周一', tt: '折线 + 面积填充（area）', area: true, h: 200 })
+          .end()
+        .end()
+      .end();
+      return b;
+    }
+  },
+
+  // ----- Area 面积图 -----
+
+  {
+    trigger: 'demo-chart-area',
+    title: 'Area 面积图',
+    desc: '堆叠 / 分组 / 单系列',
+    build() {
+      const b = new TokUIBuilder();
+      b.p('面积图强调累积量级：stack 堆叠各系列、多系列分组对比、单系列趋势；grad 渐变填充见「动画与渐变」分类。');
+      b.dv({});
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'area', sn: '线上,门店', d: '30,45,38,60,52|15,25,20,35,28', l: 'Q1,Q2,Q3,Q4,Q5', tt: '堆叠面积图（sn 命名）', stack: true, h: 200 })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'area', sn: '线上,门店,分销', d: '30,45,38,60,52|15,25,20,35,28|10,12,18,22,15', l: 'Q1,Q2,Q3,Q4,Q5', tt: '三系列堆叠', stack: true, h: 200 })
+          .end()
+        .end()
+      .end();
+      b.dv({});
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'area', d: '30,45,38,60,52', l: 'Q1,Q2,Q3,Q4,Q5', tt: '单系列面积趋势', h: 200 })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'area', sn: '线上,门店', d: '30,45,38,60,52|15,25,20,35,28', l: 'Q1,Q2,Q3,Q4,Q5', tt: '分组面积（不堆叠）', h: 200 })
+          .end()
+        .end()
+      .end();
+      return b;
+    }
+  },
+
+  // ----- Pie 饼图 -----
+
+  {
+    trigger: 'demo-chart-pie',
+    title: 'Pie 饼图',
+    desc: '占比构成 · 引线标签',
+    build() {
+      const b = new TokUIBuilder();
+      b.p('饼图展示构成占比：引线标签自动避让，长标签自动适配，hover 扇区看 tooltip。');
+      b.dv({});
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'pie', d: '35,25,20,12,8', l: '微信,抖音,淘宝,京东,其他', tt: '流量来源占比', w: 240, h: 240 })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'pie', d: '32,26,18,12,7,5', l: 'Chrome,Safari,Edge,Firefox,其他,Opera', tt: '浏览器份额（6 类）', w: 240, h: 240 })
+          .end()
+        .end()
+      .end();
+      return b;
+    }
+  },
+
+  // ----- Donut 环形图 -----
+
+  {
+    trigger: 'demo-chart-donut',
+    title: 'Donut 环形图',
+    desc: '进度环 / 构成环 · 中心值 v',
+    build() {
+      const b = new TokUIBuilder();
+      b.p('环形图：v 属性出中心大字（进度场景），构成场景用 l 标注各环段；grad 渐变见「动画与渐变」。');
+      b.dv({});
+      b.row_layout()
+        .col_layout({ span: 4 })
+          .card({})
+            .chart({ t: 'donut', d: '75,25', l: '已完成,剩余', tt: '项目进度', v: 75, w: 200, h: 200 })
+          .end()
+        .end()
+        .col_layout({ span: 4 })
+          .card({})
+            .chart({ t: 'donut', d: '60,30,10', l: '代码,文档,测试', tt: '工作内容分布', w: 200, h: 200 })
+          .end()
+        .end()
+        .col_layout({ span: 4 })
+          .card({})
+            .chart({ t: 'donut', d: '42,28,18,12', l: '直发,分销,电商,其他', tt: '渠道构成', v: '42%' })
+          .end()
+        .end()
+      .end();
+      return b;
+    }
+  },
+
+  // ----- Rose 玫瑰图 -----
+
+  {
+    trigger: 'demo-chart-rose',
+    title: 'Rose 玫瑰图',
+    desc: '半径 ∝ 值的占比对比',
+    build() {
+      const b = new TokUIBuilder();
+      b.p('玫瑰图（南丁格尔玫瑰）：扇区角度均分、半径与数值成比例，适合类目数较多时的占比对比。');
+      b.dv({});
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'rose', d: '320,580,450,280', l: '春,夏,秋,冬', tt: '四季销量（半径 ∝ 值）', w: 240, h: 240 })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'rose', d: '120,200,160,240,180,140', l: '华北,华东,华南,西南,东北,西北', tt: '各大区门店数（6 区）' })
+          .end()
+        .end()
+      .end();
+      return b;
+    }
+  },
+
+  // ----- Radar 雷达图 -----
+
+  {
+    trigger: 'demo-chart-radar',
+    title: 'Radar 雷达图',
+    desc: '多维能力评估 · 多期对比',
+    build() {
+      const b = new TokUIBuilder();
+      b.p('雷达图展示多维指标：单组画像与多组对比（d 用 | 分隔、sn 命名进图例）。');
+      b.dv({});
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'radar', d: '90,70,85,60,95,75', l: '速度,力量,技巧,耐力,智慧,协作', tt: '能力评估雷达图', w: 260, h: 260 })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'radar', sn: '本季,上季', d: '90,70,85,60,95,75|80,65,90,55,85,70', l: '速度,力量,技巧,耐力,智慧,协作', tt: '两期能力对比（sn 命名）', w: 260, h: 260 })
+          .end()
+        .end()
+      .end();
+      return b;
+    }
+  },
+
+  // ----- Scatter 散点图 -----
+
+  {
+    trigger: 'demo-chart-scatter',
+    title: 'Scatter 散点图',
+    desc: '二维相关分布',
+    build() {
+      const b = new TokUIBuilder();
+      b.p('散点图观察两变量相关性：d 每点 "x,y" 分号分隔，xl/yl 标注两轴含义。');
+      b.dv({});
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'scatter', d: '10,20;25,45;30,35;50,70;65,55;80,90;45,60;15,30;70,85;35,50', tt: '学习时长 vs 考试成绩', h: 220, xl: '学习时长', yl: '考试成绩' })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'scatter', d: '155,50;160,55;162,58;168,62;170,60;175,68;178,70;180,72;182,75;185,78', tt: '身高 vs 体重', h: 220, xl: '身高', yl: '体重' })
+          .end()
+        .end()
+      .end();
+      return b;
+    }
+  },
+
+  // ----- Bubble 气泡图 -----
+
+  {
+    trigger: 'demo-chart-bubble',
+    title: 'Bubble 气泡图',
+    desc: '三维数据（x / y / 尺寸）',
+    build() {
+      const b = new TokUIBuilder();
+      b.p('气泡图在散点基础上加第三维：每点 "x,y,尺寸" 分号分隔，sl 标注尺寸含义。');
+      b.dv({});
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'bubble', d: '1.2,8,300;2.5,15,800;3.8,24,1500;1.8,10,450;4.5,30,2200', xl: 'GDP', yl: '人口', sl: '产值', tt: '各国经济三维对比', h: 220 })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'bubble', d: '2.1,850,12000;3.6,1200,28000;5.2,2200,56000;7.8,900,18000;9.5,3100,82000', xl: 'GDP', yl: '人口', sl: 'GDP总量', tt: '城市能级三维对比', h: 220 })
+          .end()
+        .end()
+      .end();
+      return b;
+    }
+  },
+
+  // ----- Heatmap 热力图 -----
+
+  {
+    trigger: 'demo-chart-heatmap',
+    title: 'Heatmap 热力图',
+    desc: '矩阵密度 · 色阶',
+    build() {
+      const b = new TokUIBuilder();
+      b.p('热力图用色深表达矩阵密度：rows 每行分号分隔、cols 列标签、l 行标签。');
+      b.dv({});
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'heatmap', rows: '20,35,40,50,80|60,75,80,90,95|30,50,55,65,70', cols: '周一,周二,周三,周四,周五', l: '早,中,晚', tt: '时段客流密度', h: 220 })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'heatmap', rows: '20,35,40,50,80,60|60,75,80,90,95,88|30,50,55,65,70,45', cols: '周一,周二,周三,周四,周五,周六', l: '早,中,晚', tt: '一周（含周六）时段密度', h: 220 })
+          .end()
+        .end()
+      .end();
+      b.dv({});
+      b.p('锁定色阶（vmin/vmax）：绝对服从不扩域，保多张图横向比色；超域格子钳到端点色并自动加警示角标（右上=超上限 / 左下=低于下限）+ tooltip 注记 —— 一片顶色也能看出哪些格子超了域。');
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'heatmap', rows: '10,20,30|40,60,80|50,95,70', cols: 'A,B,C', l: 'r1,r2,r3', vmin: 0, vmax: 50, tt: '锁定色阶 0~50（含超域角标）', h: 220 })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'heatmap', rows: '5,45|55,65|35,48', cols: 'A,B', l: 'r1,r2,r3', vmin: 30, vmax: 60, tt: '锁定色阶 30~60（低于下限角标）', h: 220 })
+          .end()
+        .end()
+      .end();
+      return b;
+    }
+  },
+
+  // ----- Histogram 直方图 -----
+
+  {
+    trigger: 'demo-chart-histogram',
+    title: 'Histogram 直方图',
+    desc: '频次分布 · bins 分箱',
+    build() {
+      const b = new TokUIBuilder();
+      b.p('直方图展示数值分布：bins 指定箱数，柱高为落箱频次。');
+      b.dv({});
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'histogram', d: '56,62,68,71,73,75,78,80,82,85,88,90,92,95', bins: 6, tt: '成绩分布（bins:6）', h: 220 })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'histogram', d: '42,48,52,56,58,60,63,65,67,68,70,71,72,74,75,76,78,79,80,81,82,83,84,85,86,87,88,89,90,92', bins: 10, tt: '加工尺寸分布（bins:10）', h: 220 })
+          .end()
+        .end()
+      .end();
+      return b;
+    }
+  },
+
+  // ----- Waterfall 瀑布图 -----
+
+  {
+    trigger: 'demo-chart-waterfall',
+    title: 'Waterfall 瀑布图',
+    desc: '增减累计分解',
+    build() {
+      const b = new TokUIBuilder();
+      b.p('瀑布图拆解增减贡献：正值向上、负值向下，累计落点即期末值。');
+      b.dv({});
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'waterfall', d: '100,-35,28,-12,-8', l: '营收,成本,毛利,费用,净利', tt: '利润分解（增减累计）', h: 220 })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'waterfall', d: '500,-120,80,-60,40', l: '期初,出库,入库,损耗,盘盈', tt: '库存流水分解', h: 220 })
+          .end()
+        .end()
+      .end();
+      return b;
+    }
+  },
+
+  // ----- Boxplot 箱线图 -----
+
+  {
+    trigger: 'demo-chart-boxplot',
+    title: 'Boxplot 箱线图',
+    desc: '五数概括 · 分布对比',
+    build() {
+      const b = new TokUIBuilder();
+      b.p('箱线图展示分布五数（最小 / 下四分位 / 中位 / 上四分位 / 最大）：每组 "min,q1,med,q3,max" 分号分隔。');
+      b.dv({});
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'boxplot', d: '45,62,72,85,98;50,65,70,82,95;40,58,68,78,92', l: '甲班,乙班,丙班', tt: '三班成绩分布', h: 240 })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'boxplot', d: '12,18,22,27,35;15,20,24,28,32;10,16,21,25,30;14,19,23,26,33', l: 'A组,B组,C组,D组', tt: '四产线响应时长', h: 240 })
+          .end()
+        .end()
+      .end();
+      return b;
+    }
+  },
+
+  // ----- Candlestick K 线图 -----
+
+  {
+    trigger: 'demo-chart-candlestick',
+    title: 'Candlestick K 线图',
+    desc: 'OHLC 行情',
+    build() {
+      const b = new TokUIBuilder();
+      b.p('K 线图每根 "开,高,低,收" 分号分隔，涨跌自动着色；大规模拖拽缩放见「缩放 Zoom」分类。');
+      b.dv({});
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'candlestick', d: '10,12,8,11;11,13,9,10;10,14,9,13;11,11.5,9.5,10.5', l: 'D1,D2,D3,D4', tt: '日 K（OHLC）', h: 240 })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'candlestick', d: '10,12,8,11;11,13,9,10;10,14,9,13;11,11.5,9.5,10.5;12,14,10,13;13,15,11,12;12,13,10.5,11;11,12.5,10,12;13,14.5,11,13.5;14,16,12,13', l: 'W1,W2,W3,W4,W5,W6,W7,W8,W9,W10', tt: '十周行情', h: 240 })
+          .end()
+        .end()
+      .end();
+      return b;
+    }
+  },
+
+  // ----- Treemap 树图 -----
+
+  {
+    trigger: 'demo-chart-treemap',
+    title: 'Treemap 树图',
+    desc: '矩形占比',
+    build() {
+      const b = new TokUIBuilder();
+      b.p('矩形树图用面积表达占比：d 每项 "名称:值" 逗号分隔。');
+      b.dv({});
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'treemap', d: 'iOS:320,Android:580,Web:450,小程序:280,其他:150', tt: '终端占比', h: 240 })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'treemap', d: '人力成本:320,原材料:450,设备折旧:180,营销费用:260,研发投入:380', tt: '成本结构', h: 240 })
+          .end()
+        .end()
+      .end();
+      return b;
+    }
+  },
+
+  // ----- Sankey 桑基图 -----
+
+  {
+    trigger: 'demo-chart-sankey',
+    title: 'Sankey 桑基图',
+    desc: '流向与分流',
+    build() {
+      const b = new TokUIBuilder();
+      b.p('桑基图表达流向：nodes 节点逗号分隔，flows "源->目标:流量" 逗号分隔。');
+      b.dv({});
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'sankey', nodes: '首页,搜索,详情,下单,支付', flows: '首页->搜索:100,搜索->详情:70,详情->下单:45,下单->支付:38', tt: '用户行为流向', h: 240 })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'sankey', nodes: '供应商,工厂,仓库,零售,电商,客户', flows: '供应商->工厂:100,工厂->仓库:75,工厂->电商:25,仓库->零售:50,仓库->电商:25,零售->客户:45,电商->客户:48', tt: '供应链流向', h: 240 })
+          .end()
+        .end()
+      .end();
+      return b;
+    }
+  },
+
+  // ----- Gauge 仪表盘 -----
+
+  {
+    trigger: 'demo-chart-gauge',
+    title: 'Gauge 仪表盘',
+    desc: '单值 KPI / zones 阶段 / 流式容器 / 270°',
+    build() {
+      const b = new TokUIBuilder();
+      b.p('仪表盘用于单值 KPI（完成率、CPU、时速、健康度）：半圆弧 + 指针 + 中心大字；status 按语义染色并出角标（良好/注意/告警），sub 加副标题。');
+      b.dv({});
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'gauge', v: 78, tt: '项目完成率', l: '已完成', sub: '数据来源: 项目系统', w: 260, h: 200 })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'gauge', v: 92, tt: 'CPU 使用率', l: '8 核均值', status: 'danger', sub: '阈值 85%', w: 260, h: 200 })
+          .end()
+        .end()
+      .end();
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'gauge', v: 120, max: 240, u: ' km/h', tt: '当前时速', l: '限速 240', status: 'success', w: 260, h: 200 })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'gauge', v: 65, max: 100, tt: '服务健康度', l: 'SLA 指标', status: 'warning', w: 260, h: 200 })
+          .end()
+        .end()
+      .end();
+      b.dv({});
+      // 进阶：zones 阶段分布色带 + 数字动画 anim
+      b.p('进阶：zones 阶段分布色带（阈值把轨道分段，弧色自动取值所在段），anim 数字+弧+指针动画，dec 小数位，ticks 刻度密度。');
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'gauge', v: 92, tt: '达标率（阶段分布）', zones: '60,85', l: 'Q2 目标 90%', anim: 1200, sub: '红线 85% / 警戒 60%', w: 300, h: 220 })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'gauge', v: 30, tt: '错误率（高=差，反向配色）', zones: '3,8', zc: '#52c41a,#faad14,#f5222d', u: '%', dec: 1, l: '近 1 小时', anim: 1000, w: 300, h: 220 })
+          .end()
+        .end()
+      .end();
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'gauge', v: 7.2, max: 10, tt: '评分（带小数）', dec: 1, l: '满分 10', status: 'success', ticks: 10, anim: 1200, w: 300, h: 220 })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'gauge', v: 46, tt: '磁盘使用率', zones: '60,85', zc: '#52c41a,#faad14,#f5222d', l: 'SSD 1TB', status: 'success', anim: 1200, sub: '安全区', w: 300, h: 220 })
+          .end()
+        .end()
+      .end();
+      b.dv({});
+      // 超量程自动扩刻度：v > max 不再钳死（现场反馈：库存 700/max:500 曾显示 500 误导）
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'gauge', v: 700, max: 500, tt: '库存金额超量程 · 自动扩刻度', l: '库存金额', u: ' 万', status: 'danger', sub: '量程 500 → 自动扩到 1000', anim: 1200, w: 300, h: 220 })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'progress', v: 700, max: 500, tt: '进度超目标 · 显示真实百分比', l: '库存进度', anim: 800, h: 80 })
+          .end()
+        .end()
+      .end();
+      b.dv({});
+      // 270° 仪表盘（range 属性）
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'gauge', v: 78, range: 270, tt: '健康度（270° 仪表盘）', l: '满分 100', status: 'success', anim: 1000, w: 260, h: 220 })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .p('容器写法同样支持流式 —— 逐个喂入 pt 子节点（属性 v:数值），指针随数值实时跳动（右图）：')
+            .chart({ t: 'gauge', tt: '季度达标率', l: 'Q2 目标 90%', w: 260, h: 220 })
+              .chartPoint({ v: 86 })
+            .end()
+          .end()
+        .end()
+      .end();
+      return b;
+    }
+  },
+
+  // ----- Progress 进度条 -----
+
+  {
+    trigger: 'demo-chart-progress',
+    title: 'Progress 进度条',
+    desc: '单值进度 · anim 动画',
+    build() {
+      const b = new TokUIBuilder();
+      b.p('进度条用于单值完成度：v 数值 + l 标签 + anim 数字滚动动画。');
+      b.dv({});
+      b.row_layout()
+        .col_layout({ span: 4 })
+          .card({})
+            .chart({ t: 'progress', v: 68, l: '迭代完成', tt: '进度条', anim: 1000, h: 80 })
+          .end()
+        .end()
+        .col_layout({ span: 4 })
+          .card({})
+            .chart({ t: 'progress', v: 45, l: '灰度部署', tt: '发布进度', anim: 800, h: 80 })
+          .end()
+        .end()
+        .col_layout({ span: 4 })
+          .card({})
+            .chart({ t: 'progress', v: 92, l: '测试通过率', tt: '质量指标', anim: 1200, h: 80 })
+          .end()
+        .end()
+      .end();
+      return b;
+    }
+  },
+
+  // ----- Wordcloud 词云 -----
+
+  {
+    trigger: 'demo-chart-wordcloud',
+    title: 'Wordcloud 词云',
+    desc: '词频权重 · 螺线碰撞布局 · 竖排点缀',
+    build() {
+      const b = new TokUIBuilder();
+      b.p('词云展示词频/权重热度：d 每项 "词:权重" 逗号分隔（同树图格式）。字号 ∝ 权重，阿基米德螺线碰撞布局，确定性渲染（流式重绘词位不跳）；每第 3 个词竖排点缀，放不下自动缩字号、仍放不下弃词；hover 词看权重 tooltip。');
+      b.dv({});
+      b.card({})
+        .chart({
+          t: 'wordcloud',
+          tt: 'AI 技术热词',
+          d: '人工智能:100,机器学习:85,深度学习:72,大语言模型:64,自然语言处理:58,计算机视觉:52,强化学习:46,知识图谱:40,数据挖掘:35,智能体:30,提示工程:26,多模态:22,向量检索:18,参数微调:14,价值对齐:10',
+          h: 300,
+        })
+      .end();
+      b.dv({});
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'wordcloud', tt: '产品评价关键词', d: '流畅:95,好用:80,省电:66,响应快:60,界面清爽:52,功能丰富:45,稳定:38,启动快:30,占用小:24,更新勤:18', h: 260 })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'wordcloud', tt: 'English tech buzzwords', d: 'AI:100,Agent:82,RAG:70,LLM:62,Vector:50,Prompt:44,Fine-tune:36,Alignment:28,Multimodal:20,MCP:14', h: 260 })
+          .end()
+        .end()
+      .end();
+      return b;
+    }
+  },
+
+  // ----- Scene 综合场景 -----
+
+  {
+    trigger: 'demo-chart-scene',
+    title: '综合场景',
+    desc: 'AI 分析报告中的图表组合',
+    build() {
+      const b = new TokUIBuilder();
+      b.p('AI 数据分析场景：分析结论（callout）+ 关键图表组合，多种类型协同讲一个故事。');
+      b.dv({});
+      b.card({ tt: 'AI 数据分析场景' })
+        .p('AI 分析用户行为数据后，生成可视化报告：')
+        .callout({ t: 'info', tt: '分析结论', tx: '用户活跃度在 5-6 月显著上升，主要来源为微信渠道（35%）。' })
+        .dv({})
+        .row_layout()
+          .col_layout({ span: 6 })
+            .chart({ t: 'line', d: '120,150,130,200,250,280', l: '1月,2月,3月,4月,5月,6月', tt: 'DAU 趋势', h: 180 })
+          .end()
+          .col_layout({ span: 6 })
+            .chart({ t: 'pie', d: '35,25,20,12,8', l: '微信,抖音,淘宝,京东,其他', tt: '流量来源', w: 220, h: 220 })
+          .end()
+        .end()
+      .end();
       return b;
     }
   },

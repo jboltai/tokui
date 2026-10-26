@@ -4,7 +4,7 @@ const { setupDOM, teardownDOM } = require('./helpers/dom-mock');
 setupDOM();
 
 const { TokUIRenderer } = require('../src/core/renderer');
-const { registerChartComponents, registerChartRenderer, bumpFsUnits, solvePieFs, pieSizing, MIN_CHART_PX, MAX_CHART_PX, applyTipScale, axisXLayout } = require('../src/components/chart');
+const { registerChartComponents, registerChartRenderer, bumpFsUnits, solvePieFs, pieSizing, MIN_CHART_PX, MAX_CHART_PX, applyTipScale, axisXLayout, wrapLabelLines, estTextW, niceCeil, axisBound } = require('../src/components/chart');
 
 // 递归收集元素及其后代的 textContent（dom-mock 不自动汇总）
 function collectText(el) {
@@ -188,15 +188,84 @@ test('chart gauge renders arc + center value', () => {
   assert.ok(found, '中心应显示 72% (max=100 默认 %)');
 });
 
-test('chart gauge clamps out-of-range value', () => {
+test('chart gauge 超量程自动扩刻度：显示真实值 + 量程上扩（原 clamp 钳死为 bug）', () => {
   const renderer = new TokUIRenderer();
   registerChartComponents(renderer);
-  var node = { type: 'chart', attrs: { t: 'gauge', v: 250, max: 100 }, content: '', children: [] };
-  var dom = renderer.render(node);
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'gauge', v: 250, max: 100 }, content: '', children: [] });
   var svg = dom.querySelector('.tokui-chart__svg');
-  var found = false;
-  svg.querySelectorAll('text').forEach(function (t) { if (t.textContent === '100%') found = true; });
-  assert.ok(found, '超界值应 clamp 到 max=100');
+  var texts = svg.querySelectorAll('text').map(function (t) { return t.textContent; });
+  assert.ok(texts.indexOf('250%') >= 0, '中心显示真实值 250%（原行为钳成 100%，现场 700/max:500 显示 500 属同类 bug）');
+  assert.ok(texts.indexOf('500') >= 0, '量程自动上扩到 nice 刻度 500（250×1.25=312.5 → 1/2/5 取整 500）');
+});
+
+test('chart gauge 超量程现场案例：库存 700 / max:500 → 中心 700，刻度端点 1000', () => {
+  const renderer = new TokUIRenderer();
+  registerChartComponents(renderer);
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'gauge', v: 700, max: 500, u: ' 万', l: '库存金额' }, content: '', children: [] });
+  var svg = dom.querySelector('.tokui-chart__svg');
+  var texts = svg.querySelectorAll('text').map(function (t) { return t.textContent; });
+  assert.ok(texts.indexOf('700 万') >= 0, '中心显示真实库存 700 万');
+  assert.ok(texts.indexOf('1000') >= 0, '量程扩到 nice 刻度 1000（875 → 1000）');
+  // 指针不顶死：数值弧 < 满弧（val < max 严格成立）
+  var arcD = svg.querySelector('.tokui-chart-gauge-arc').getAttribute('d') || '';
+  assert.ok(/A/.test(arcD), '数值弧存在');
+});
+
+test('chart gauge 超量程 + zones 联动：v:140 max:100 zones:60,85 → 仍显示 140 且段带按新量程重排', () => {
+  const renderer = new TokUIRenderer();
+  registerChartComponents(renderer);
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'gauge', v: 140, max: 100, zones: '60,85', u: '%' }, content: '', children: [] });
+  var svg = dom.querySelector('.tokui-chart__svg');
+  var texts = svg.querySelectorAll('text').map(function (t) { return t.textContent; });
+  assert.ok(texts.indexOf('140%') >= 0, '中心显示真实值 140%');
+  assert.ok(texts.indexOf('200') >= 0, '量程扩到 200（175 → 200），zones 段带以 [0,60,85,200] 重排');
+  assert.strictEqual(svg.querySelectorAll('.tokui-chart-gauge-track').length, 3, 'zones 三段色带完整');
+});
+
+test('chart gauge 量程内不扩：92/100 与 320/500 维持原刻度原读数', () => {
+  const renderer = new TokUIRenderer();
+  registerChartComponents(renderer);
+  var d1 = renderer.render({ type: 'chart', attrs: { t: 'gauge', v: 92, max: 100, u: '%' }, content: '', children: [] });
+  var t1 = d1.querySelectorAll('text').map(function (t) { return t.textContent; });
+  assert.ok(t1.indexOf('92%') >= 0, '量程内读数不变');
+  assert.ok(t1.indexOf('100') >= 0 && t1.indexOf('200') < 0, '量程未被扩大');
+  var d2 = renderer.render({ type: 'chart', attrs: { t: 'gauge', v: 320, max: 500, u: ' 万' }, content: '', children: [] });
+  var t2 = d2.querySelectorAll('text').map(function (t) { return t.textContent; });
+  assert.ok(t2.indexOf('320 万') >= 0 && t2.indexOf('500') >= 0, '320/500 维持原刻度');
+});
+
+test('chart progress 超量程：百分比显示真实值 140%（条宽物理钳满，不扩量程）', () => {
+  const renderer = new TokUIRenderer();
+  registerChartComponents(renderer);
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'progress', v: 700, max: 500, l: '库存进度' }, content: '', children: [] });
+  var texts = dom.querySelectorAll('text').map(function (t) { return t.textContent; });
+  assert.ok(texts.some(function (t) { return t.indexOf('140') >= 0; }), '显示真实百分比 140%（原 clamp 显示 100% 掩盖超标），实际：' + texts.join('|'));
+  var fill = dom.querySelector('.tokui-chart-fill');
+  var vbW = parseFloat(dom.querySelector('.tokui-chart__svg').getAttribute('viewBox').split(' ')[2]);
+  assert.ok(parseFloat(fill.getAttribute('width')) >= vbW - 5, '条宽钳满轨道（物理上限）');
+});
+
+test('chart progress 量程内与负值：64% 正常、负值贴底 0%', () => {
+  const renderer = new TokUIRenderer();
+  registerChartComponents(renderer);
+  var d1 = renderer.render({ type: 'chart', attrs: { t: 'progress', v: 320, max: 500, l: '库存进度' }, content: '', children: [] });
+  var t1 = d1.querySelectorAll('text').map(function (t) { return t.textContent; });
+  assert.ok(t1.some(function (t) { return t.indexOf('64') >= 0; }), '320/500 = 64%');
+  var d2 = renderer.render({ type: 'chart', attrs: { t: 'progress', v: -20, l: '负值' }, content: '', children: [] });
+  var t2 = d2.querySelectorAll('text').map(function (t) { return t.textContent; });
+  assert.ok(t2.some(function (t) { return /(^|\s)0/.test(t); }), '负值贴底显示 0%');
+  assert.strictEqual(parseFloat(d2.querySelector('.tokui-chart-fill').getAttribute('width')), 0, '负值条宽为 0');
+});
+
+test('niceCeil 单元：向上取整到 1/2/5×10^k（正负两侧）', () => {
+  const { niceCeil } = require('../src/components/chart');
+  assert.strictEqual(niceCeil(875), 1000);
+  assert.strictEqual(niceCeil(312.5), 500);
+  assert.strictEqual(niceCeil(175), 200);
+  assert.strictEqual(niceCeil(100), 100, '恰在刻度上幂等');
+  assert.strictEqual(niceCeil(0), 0);
+  assert.strictEqual(niceCeil(-37.5), -20, '负数向靠近 0 方向取整');
+  assert.strictEqual(niceCeil(-5), -5);
 });
 
 test('chart gauge custom unit + min/max', () => {
@@ -845,6 +914,213 @@ test('chart 横向 bar 动态高度：20 类 orient:h → viewBox 高 > 默认 2
   assert.ok(sz.h > 200, '横向柱类别多 → 高度随 n 增，实际 ' + sz.h);
 });
 
+// === 横向 bar 左侧类别标签自适应（对齐 ECharts containLabel + overflow:wrap） ===
+// 取首条竖向网格线 x1 = padL（标签列右界）；类别标签 = text-anchor:end 且 x < padL
+function hBarLabels(dom) {
+  var svg = dom.querySelector('.tokui-chart__svg');
+  var padL = parseFloat(svg.querySelector('line').getAttribute('x1'));
+  var els = svg.querySelectorAll('text[text-anchor="end"]').filter(function (t) {
+    return parseFloat(t.getAttribute('x')) < padL;
+  });
+  return { svg: svg, padL: padL, els: els };
+}
+function tspansOf(t) {
+  return t.querySelectorAll('tspan');
+}
+
+test('chart 横向 bar 长标签：折行 ≤2 行、拼回完整不截断、padL 随标签加宽', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  var labels = ['华东区域销售一部年度目标达成情况', '华南区域销售二部年度目标达成情况', '华北区域销售三部年度目标达成情况', '西南区域销售四部年度目标达成情况'];
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'bar', d: '320,280,245,198', l: labels.join(','), orient: 'h' }, content: '', children: [] });
+  var h = hBarLabels(dom);
+  assert.strictEqual(h.els.length, 4, '4 个类别标签，实际 ' + h.els.length);
+  h.els.forEach(function (t, i) {
+    var spans = tspansOf(t);
+    assert.ok(spans.length >= 1 && spans.length <= 2, '标签' + i + ' 折行 ≤2 行，实际 ' + spans.length);
+    var joined = spans.map(function (s) { return s.textContent; }).join('');
+    assert.strictEqual(joined, labels[i], '折行拼回完整标签（不截断）');
+  });
+  // 16 CJK 字 @fs9 ≈ 128 单位 > 旧写死 padL=70-6 可容纳的 ~54 → 列必须自适应加宽
+  assert.ok(h.padL > 70, '标签列自适应加宽，padL=' + h.padL + ' 应 > 70');
+});
+
+test('chart 横向 bar 折行行高加高：同 n 下 2 行标签 viewBox 高 > 单行标签', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  var d = nums(8);
+  var shortDom = renderer.render({ type: 'chart', attrs: { t: 'bar', d: d, l: 'a,b,c,d,e,f,g,h', orient: 'h' }, content: '', children: [] });
+  var longLabs = []; for (var i = 0; i < 8; i++) longLabs.push('华东区域销售一部年度目标达成情况' + i);
+  var longDom = renderer.render({ type: 'chart', attrs: { t: 'bar', d: d, l: longLabs.join(','), orient: 'h' }, content: '', children: [] });
+  var hShort = viewBoxSize(shortDom.querySelector('.tokui-chart__svg')).h;
+  var hLong = viewBoxSize(longDom.querySelector('.tokui-chart__svg')).h;
+  assert.ok(hLong > hShort, '折行 → 每类行高 26→34，实际 ' + hLong + ' vs ' + hShort);
+});
+
+test('chart 横向 bar 超预算长标签：2 行封顶 + 末行省略号（不溢出标签列）', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  var long1 = Array(31).join('销'); // 30 个 CJK（预算 14 字/行 ×2 行装不下）
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'bar', d: '1,2', l: long1 + ',' + long1 + '二', orient: 'h' }, content: '', children: [] });
+  var h = hBarLabels(dom);
+  assert.strictEqual(h.els.length, 2);
+  h.els.forEach(function (t) {
+    var spans = tspansOf(t);
+    assert.strictEqual(spans.length, 2, '30 字标签折 2 行封顶，实际 ' + spans.length);
+    var last = spans[1].textContent;
+    assert.strictEqual(last.charAt(last.length - 1), '…', '末行省略号收尾：' + last);
+  });
+});
+
+test('chart 横向 bar 短标签：单行单 tspan、padL 收缩到标签实际宽（不吞噬柱区）', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'bar', d: '3,5,2', l: '一月,二月,三月', orient: 'h' }, content: '', children: [] });
+  var h = hBarLabels(dom);
+  assert.strictEqual(h.els.length, 3);
+  h.els.forEach(function (t, i) {
+    var spans = tspansOf(t);
+    assert.strictEqual(spans.length, 1, '短标签单行');
+    assert.strictEqual(spans[0].textContent, ['一月', '二月', '三月'][i]);
+  });
+  // 3 CJK ≈ 31 单位 + 14 间隙 < 46 地板 → padL 取地板 46（旧写死 70，柱区多 24 单位）
+  assert.strictEqual(h.padL, 46, 'padL 收缩至 46 地板，实际 ' + h.padL);
+});
+
+test('chart 横向 bar 西文标签按词折行（不在词中间断开）', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'bar', d: '320,198', l: 'Regional Sales Performance Summary,North America Revenue Breakdown', orient: 'h' }, content: '', children: [] });
+  var h = hBarLabels(dom);
+  h.els.forEach(function (t) {
+    var spans = tspansOf(t);
+    assert.ok(spans.length <= 2, '西文 ≤2 行');
+    spans.forEach(function (s) {
+      // 行首/行尾不为空格（断行处空格丢弃）
+      var txt = s.textContent;
+      assert.ok(!/^\s|\s$/.test(txt), '行首尾无空格："' + txt + '"');
+    });
+    // 词完整性：折行点在空格处（每行内容由完整词拼成）
+    if (spans.length === 2) {
+      var l1 = spans[0].textContent, l2 = spans[1].textContent;
+      assert.ok(/^[A-Z]/.test(l2), '第二行从词首开始：' + l2);
+      assert.ok(estTextW(l1) > 0 && estTextW(l2) > 0, '两行均非空');
+    }
+  });
+});
+
+test('chart 横向 bar _labFs 注入（窄容器 bump 修正）：按真实字号折行且标签不溢出标签列', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  // 16 CJK 标签：fs9 下预算 14 字/行 → 2 行；_labFs=14（窄容器 bump）下预算 9 字/行 → 2 行但更早折
+  var labels = ['华东区域销售一部年度目标达成情况', '华南区域销售二部年度目标达成情况'];
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'bar', d: '320,280', l: labels.join(','), orient: 'h', _labFs: 14 }, content: '', children: [] });
+  var h = hBarLabels(dom);
+  assert.strictEqual(h.svg.getAttribute('data-labfs'), '14', 'data-labfs 记录生效字号');
+  h.els.forEach(function (t) {
+    assert.strictEqual(t.getAttribute('font-size'), '14', '标签按注入字号渲染');
+    var spans = tspansOf(t);
+    assert.strictEqual(spans.length, 2, 'fs14 预算 9 字/行 → 2 行');
+    // 每行在 fs14 下的实际宽 ≤ 标签列可用宽（padL - 6 锚点间隙）
+    spans.forEach(function (s) {
+      var w14 = estTextW(s.textContent) * (14 / 7);
+      assert.ok(w14 <= h.padL - 6, '行宽 ' + w14 + ' ≤ 标签列 ' + (h.padL - 6));
+    });
+  });
+});
+
+test('chart 横向 bar vals 值文本与末位刻度不越过右缘（padRh 自适应）', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'bar', d: '320000,280000,245000', l: '甲,乙,丙', orient: 'h', vals: true }, content: '', children: [] });
+  var svg = dom.querySelector('.tokui-chart__svg');
+  var w = parseFloat(svg.getAttribute('viewBox').split(' ')[2]);
+  // 末位竖向网格线 x1 = w - padRh（标签右界之后的柱区右缘）
+  var xs = svg.querySelectorAll('line').map(function (l) { return parseFloat(l.getAttribute('x1')); });
+  var maxX = Math.max.apply(null, xs);
+  // 最宽值文本 "320000" @fs9：estTextW=27 → 27·9/7≈35 → 需右缘留白 ≥ 35+6
+  assert.ok(w - maxX >= 40, '右缘留白 ≥ 值文本宽+间隙，实际 ' + (w - maxX));
+});
+
+test('chart 横向 bar 窄容器大字号（_labFs 21.32）：行高随字号撑开，两行标签不重叠', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  var labs = []; for (var i = 0; i < 8; i++) labs.push('华东区域销售一部年度目标达成情况');
+  var d = '1,2,3,4,5,6,7,8';
+  var fs9 = viewBoxSize(renderer.render({ type: 'chart', attrs: { t: 'bar', d: d, l: labs.join(','), orient: 'h' }, content: '', children: [] }).querySelector('.tokui-chart__svg')).h;
+  var big = viewBoxSize(renderer.render({ type: 'chart', attrs: { t: 'bar', d: d, l: labs.join(','), orient: 'h', _labFs: 21.32 }, content: '', children: [] }).querySelector('.tokui-chart__svg')).h;
+  // fs9：perCat=34 → 36+272=308；fs21.32：lineH=23 → perCat=52 → 36+416=452
+  assert.strictEqual(fs9, 308, 'fs9 折行行高 34');
+  assert.strictEqual(big, 452, '大字号行高随 lineH×2+6 撑开');
+});
+
+// === Wordcloud 词云 ===
+test('chart wordcloud：权重映射字号分层、螺线放置不出界、竖排点缀 + tooltip + 确定性', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  var d = '人工智能:100,机器学习:85,深度学习:72,大语言模型:64,自然语言处理:58,计算机视觉:52,强化学习:46,知识图谱:40,数据挖掘:35,智能体:30,提示工程:26,多模态:22,向量检索:18,参数微调:14,价值对齐:10';
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'wordcloud', d: d, h: 300 }, content: '', children: [] });
+  var svg = dom.querySelector('.tokui-chart__svg');
+  assert.ok(svg, 'svg 渲染');
+  var words = svg.querySelectorAll('text.tokui-chart-wc-word');
+  assert.strictEqual(words.length, 15, '15 词全放下（该规模不弃词），实际 ' + words.length);
+  // 字号 ∝ 权重：最大权重词 ≥ 最小权重词 2.5 倍字号
+  var fsArr = words.map(function (t) { return parseFloat(t.getAttribute('font-size')); });
+  var fsMax = Math.max.apply(null, fsArr), fsMin = Math.min.apply(null, fsArr);
+  assert.ok(fsMax >= fsMin * 2.5, '字号分层，实际 [' + fsMin + ', ' + fsMax + ']');
+  // 全部词盒（与渲染器同口径估算）在 viewBox 内（横/竖排分别推算）
+  var sz = viewBoxSize(svg);
+  words.forEach(function (t) {
+    var fs = parseFloat(t.getAttribute('font-size'));
+    var bw0 = estTextW(t.textContent) * fs / 7 + fs * 0.25, bh0 = fs * 1.18;
+    var vert = !!t.getAttribute('transform');
+    var bw = vert ? bh0 : bw0, bh = vert ? bw0 : bh0;
+    var cx = parseFloat(t.getAttribute('x')), cy = parseFloat(t.getAttribute('y'));
+    assert.ok(cx - bw / 2 >= 1 && cx + bw / 2 <= sz.w - 1, '词横向不出界：' + t.textContent);
+    assert.ok(cy - bh / 2 >= 1 && cy + bh / 2 <= sz.h - 1, '词纵向不出界：' + t.textContent);
+  });
+  // 确定性竖排点缀：idx%5===2（idx≥2）→ 15 词中 3 个竖排
+  var vertCount = words.filter(function (t) { return t.getAttribute('transform'); }).length;
+  assert.ok(vertCount >= 2, '竖排点缀存在，实际 ' + vertCount);
+  // tooltip 含 词:权重
+  var all = collectText(dom);
+  assert.ok(all.indexOf('人工智能: 100') >= 0, 'tooltip 文本含词与权重');
+  // 确定性：两次渲染词位逐字一致（无随机 → 流式重绘不跳位）
+  var dom2 = renderer.render({ type: 'chart', attrs: { t: 'wordcloud', d: d, h: 300 }, content: '', children: [] });
+  var pos1 = words.map(function (t) { return t.getAttribute('x') + ',' + t.getAttribute('y'); });
+  var pos2 = dom2.querySelectorAll('.tokui-chart-wc-word').map(function (t) { return t.getAttribute('x') + ',' + t.getAttribute('y'); });
+  assert.deepStrictEqual(pos2, pos1, '两次渲染词位一致');
+});
+
+test('chart wordcloud 单词/等权重：不落入除零路径（字号不为 fsMin）', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'wordcloud', d: '独词:88' }, content: '', children: [] });
+  var fs = parseFloat(dom.querySelector('.tokui-chart-wc-word').getAttribute('font-size'));
+  assert.ok(fs > 20, '单词给中等字号，实际 ' + fs);
+  var dom2 = renderer.render({ type: 'chart', attrs: { t: 'wordcloud', d: '等一:50,等二:50,等三:50,等四:50' }, content: '', children: [] });
+  var fs2 = dom2.querySelectorAll('.tokui-chart-wc-word').map(function (t) { return parseFloat(t.getAttribute('font-size')); });
+  assert.ok(Math.min.apply(null, fs2) > 12, '等权重词不为最小字号，实际 ' + fs2.join(','));
+});
+
+test('chart wordcloud 空数据占位 + 非法段过滤（负权重/无冒号）', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'wordcloud', d: '' }, content: '', children: [] });
+  var svg = dom.querySelector('.tokui-chart__svg');
+  assert.ok(svg.classList.contains('tokui-chart__svg--empty'), '空数据占位');
+  var dom2 = renderer.render({ type: 'chart', attrs: { t: 'wordcloud', d: '好词:50,坏词:-1,无权重' }, content: '', children: [] });
+  assert.strictEqual(dom2.querySelectorAll('.tokui-chart-wc-word').length, 1, '负权重/无冒号段被过滤');
+});
+
+test('wrapLabelLines 单元：CJK 逐字 / 西文按词 / 超长词硬断 / 省略号', () => {
+  // CJK 逐字折行（预算 112 = 14 CJK）
+  assert.deepStrictEqual(wrapLabelLines('华东区域销售一部年度目标达成情况', 112, 2), ['华东区域销售一部年度目标达成', '情况']);
+  // 短文本不折
+  assert.deepStrictEqual(wrapLabelLines('华东区域', 112, 2), ['华东区域']);
+  // 西文按词折行（断点在空格，行首尾无空格）
+  assert.deepStrictEqual(wrapLabelLines('Regional Sales Performance', 100, 2), ['Regional Sales', 'Performance']);
+  // 超长无断点词硬断成预算段
+  var hard = wrapLabelLines('abcdefghijklmnopqrstuvwxyz', 40, 2);
+  assert.strictEqual(hard.length, 2);
+  assert.ok(estTextW(hard[0]) <= 40, '硬断段 ≤ 预算');
+  assert.strictEqual(hard[1].charAt(hard[1].length - 1), '…', '超 2 行省略号');
+  // 超 maxLines 截断 + 省略号计入预算宽
+  var trunc = wrapLabelLines(Array(40).join('销'), 112, 2); // 39 CJK → 3 行 → 截 2 行
+  assert.strictEqual(trunc.length, 2);
+  assert.ok(estTextW(trunc[1]) <= 112, '省略号行 ≤ 预算，实际 ' + estTextW(trunc[1]));
+  assert.strictEqual(trunc[1].charAt(trunc[1].length - 1), '…');
+});
+
 test('chart candlestick 动态宽度：50 根 viewBox 宽 > 默认 480', () => {
   const renderer = new TokUIRenderer(); registerChartComponents(renderer);
   // 50 根 OHLC，分号分隔
@@ -1026,6 +1302,134 @@ test('axisXLayout：50 短标签窄宽 → auto 跳过 interval>1', () => {
 test('axisXLayout：40 短标签半宽 → auto 跳过 interval>1', () => {
   var r = axisXLayout(mkLabels(40, 'W'), 26, 30, 1040);
   assert.ok(r.interval > 1, '40 点半宽应跳过，得 interval=' + r.interval);
+});
+
+// === X 轴长标签压扁 bug（padB 保底封顶 + 标签省略号截断） ===
+test('axisXLayout 封顶：h 传入 → padB ≤ h−18−max(60,h·32%) 且返回有限截断预算；不传 h 维持旧行为', () => {
+  var labs = Array(6).fill('测'.repeat(14)); // 14 全角字，未封顶需 padB≈196
+  var capped = axisXLayout(labs, 60, 28, 360, undefined, false, 200);
+  assert.ok(capped.rotate, '长标签应旋转');
+  assert.ok(capped.padB <= 118, 'padB 封顶 ≤ 118（200−18−max(60,64)），实际 ' + capped.padB);
+  assert.ok(isFinite(capped.rotBudget) && capped.rotBudget > 0, '返回有限截断预算');
+  var legacy = axisXLayout(labs, 60, 28, 360); // 不传 h：旧签名/旧行为不封顶
+  assert.ok(legacy.padB > 118, '不传 h 不封顶（旧行为），实际 ' + legacy.padB);
+  var short = axisXLayout(['一月', '二月', '三月'], 60, 28, 360, undefined, false, 200);
+  assert.ok(short.padB < 118, '短标签不触顶');
+  var tall = axisXLayout(labs, 60, 28, 360, undefined, false, 560); // 高图：上限更大
+  assert.ok(tall.padB > 118, 'h=560 上限随高自适应（560−18−179=363），实际 ' + tall.padB);
+});
+
+test('chart bar 14 字标签：柱子不再消失（柱高 ≥60）、旋转标签省略号截断、tooltip 保留全名', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  var labs = ['总装车间第二生产线一号甲班组', '焊装车间第三生产线二号乙班组', '涂装车间第一生产线三号丙班组',
+              '冲压车间第四生产线四号丁班组', '注塑车间第五生产线五号戊班组', '电池车间第六生产线六号己班组'];
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'bar', d: '180,240,150,280,210,260', l: labs.join(',') }, content: '', children: [] });
+  var svg = dom.querySelector('.tokui-chart__svg');
+  var bars = svg.querySelectorAll('.tokui-chart-bar');
+  assert.strictEqual(bars.length, 6, '6 根柱全在');
+  var barMax = Math.max.apply(null, Array.from(bars).map(function (b) { return parseFloat(b.getAttribute('height')); }));
+  assert.ok(barMax >= 60, '柱子不再消失（修复前高度 0），最大柱高 ' + barMax + ' ≥ 60');
+  var trunc = svg.querySelectorAll('text').filter(function (t) { return t.textContent.indexOf('…') >= 0; });
+  assert.strictEqual(trunc.length, 6, '6 个旋转标签全部省略号截断');
+  var all = collectText(dom);
+  assert.ok(all.indexOf('总装车间第二生产线一号甲班组: 180') >= 0, 'tooltip 保留完整标签名');
+});
+
+test('chart bar 30 字极端 / 4 字回归：保底柱高 ≥60；短标签柱高不变（~120）', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  var long30 = Array.from({ length: 6 }, function (_, i) { return '测'.repeat(28) + (i + 1) + '班'; });
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'bar', d: '180,240,150,280,210,260', l: long30.join(',') }, content: '', children: [] });
+  var barMax30 = Math.max.apply(null, dom.querySelectorAll('.tokui-chart-bar').map(function (b) { return parseFloat(b.getAttribute('height')); }));
+  assert.ok(barMax30 >= 60, '30 字极端仍保底绘图区，柱高 ' + barMax30);
+  var short = Array.from({ length: 6 }, function (_, i) { return '测' + (i + 1) + '班'; });
+  var dom2 = renderer.render({ type: 'chart', attrs: { t: 'bar', d: '180,240,150,280,210,260', l: short.join(',') }, content: '', children: [] });
+  var barMax4 = Math.max.apply(null, dom2.querySelectorAll('.tokui-chart-bar').map(function (b) { return parseFloat(b.getAttribute('height')); }));
+  assert.ok(barMax4 >= 110, '短标签（4 字）柱高不受影响（修复前 120），实际 ' + barMax4);
+  assert.ok(dom2.querySelectorAll('text').every(function (t) { return t.textContent.indexOf('…') < 0; }), '短标签不截断');
+});
+
+test('chart line/area 14 字标签：绘图区 ≥60 不再倒挂塌缩（修复前仅 ~15）', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  var labs = Array.from({ length: 6 }, function (_, i) { return '总装车间第二生产线甲班组' + (i + 1); });
+  ['line', 'area'].forEach(function (t) {
+    var dom = renderer.render({ type: 'chart', attrs: { t: t, d: '180,240,150,280,210,260', l: labs.join(',') }, content: '', children: [] });
+    var ys = dom.querySelectorAll('line').map(function (l) { return parseFloat(l.getAttribute('y1')); }).filter(function (y) { return !isNaN(y); });
+    var extent = Math.max.apply(null, ys) - Math.min.apply(null, ys);
+    assert.ok(extent >= 60, t + ' 绘图区 ' + extent + ' ≥ 60（修复前 ~15 倒挂）');
+  });
+});
+
+// === 显式锁定让位（数据超锁定值 → nice 扩展；未超 → 原样；heatmap 豁免） ===
+test('axisBound 让位单元：超锁 → nice 量化扩展；未超 / 无显式 / noYield → 原样', () => {
+  assert.strictEqual(axisBound({ xmax: 100 }, 'xmax', '_xMax', 150), 160, 'xmax 锁 100、数据 150 → 让位 160（150×1.05 nice 对齐）');
+  assert.strictEqual(axisBound({ xmax: 100 }, 'xmax', '_xMax', 80), 100, '未超锁定 → 原样 100（防抖语义保留）');
+  assert.strictEqual(axisBound({ xmax: 100 }, 'xmax', '_xMax', 100), 100, '恰等于锁定 → 原样');
+  assert.strictEqual(axisBound({}, 'xmax', '_xMax', 120), 120, '无显式锁 → 数据极值');
+  assert.strictEqual(axisBound({ xmax: 100 }, 'xmax', '_xMax', 150, true), 100, 'noYield（heatmap 色阶）绝对服从');
+  assert.strictEqual(axisBound({ xmin: 0 }, 'xmin', '_xMin', -30), -40, 'xmin 锁 0、数据 -30 → 负向让位 -40（-31.5 按 step10 向下对齐）');
+});
+
+test('chart scatter/bubble 锁轴 + 超域点：全部入格（修复前画到轴外）', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  [['scatter', '20,30;50,60;130,140'], ['bubble', '30,40,500;80,70,800;150,160,1000']].forEach(function (q) {
+    var dom = renderer.render({ type: 'chart', attrs: { t: q[0], d: q[1], xmin: 0, xmax: 100, ymin: 0, ymax: 100 }, content: '', children: [] });
+    var svg = dom.querySelector('.tokui-chart__svg');
+    var hl = svg.querySelectorAll('line').filter(function (l) { return l.getAttribute('y1') === l.getAttribute('y2'); });
+    var right = Math.max.apply(null, hl.map(function (l) { return parseFloat(l.getAttribute('x2')); }));
+    var top = Math.min.apply(null, hl.map(function (l) { return parseFloat(l.getAttribute('y1')); }));
+    var out = svg.querySelectorAll('.tokui-chart-point').filter(function (c) {
+      return parseFloat(c.getAttribute('cx')) > right + 0.5 || parseFloat(c.getAttribute('cy')) < top - 0.5;
+    });
+    assert.strictEqual(out.length, 0, q[0] + ' 超域点应随轴让位入格（修复前画到轴外）');
+  });
+  // 未超锁定：轴原样 0~100
+  var dom2 = renderer.render({ type: 'chart', attrs: { t: 'scatter', d: '20,30;50,60;80,90', xmin: 0, xmax: 100, ymin: 0, ymax: 100 }, content: '', children: [] });
+  var ticks = dom2.querySelectorAll('text').map(function (t) { return t.textContent; });
+  assert.ok(ticks.indexOf('100') >= 0 && ticks.indexOf('150') < 0, '未超锁定 → 刻度仍 0~100');
+});
+
+test('chart histogram 锁域 + 超域：边界箱不再灌爆（分布恢复真实）；范围标签锁定绝对服从不变', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  var hd = '55,62,68,71,73,75,78,82,85,88,90,92,95,97,99,120,150,180';
+  var locked = renderer.render({ type: 'chart', attrs: { t: 'histogram', d: hd, min: 0, max: 100, bins: 5 }, content: '', children: [] });
+  var bl = locked.querySelectorAll('.tokui-chart-bar').map(function (b) { return parseFloat(b.getAttribute('height')); });
+  var last = bl[bl.length - 1], maxOther = Math.max.apply(null, bl.slice(0, -1));
+  assert.ok(last < maxOther, '让位扩域后末箱高度 ' + last + ' 不再是假众数（修复前 154 > 其他全部）');
+  // 范围标签（l:"40-50,…"）定义箱沿：超域仍归末箱，行为不变
+  var rl = renderer.render({ type: 'chart', attrs: { t: 'histogram', d: '42,55,68,75,82,95,130', l: '40-50,50-60,60-70,70-80,80-90,90-100' }, content: '', children: [] });
+  var rlH = rl.querySelectorAll('.tokui-chart-bar').map(function (b) { return parseFloat(b.getAttribute('height')); });
+  assert.strictEqual(rlH[rlH.length - 1], Math.max.apply(null, rlH), '范围标签版末箱仍收纳超域 130（标签绝对语义不变）');
+});
+
+test('chart heatmap 锁色阶：豁免让位，超域值仍钳到顶色（多图对比语义保留）', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'heatmap', rows: '10,20,30|40,60,80|50,95,70', cols: 'A,B,C', l: 'r1,r2,r3', vmin: 0, vmax: 50 }, content: '', children: [] });
+  var fl = dom.querySelectorAll('.tokui-chart-cell').map(function (c) { return c.getAttribute('fill'); });
+  assert.ok(fl[4] === fl[5] && fl[5] === fl[7], '值 60/80/95 仍钳到同一顶色（vmax 锁定不被让位改写）');
+});
+
+test('chart heatmap 超域角标：锁色阶下超上限/低于下限加警示三角 + tooltip 注记；不锁无角标', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'heatmap', rows: '10,20,30|40,60,80|50,95,70', cols: 'A,B,C', l: 'r1,r2,r3', vmin: 0, vmax: 50 }, content: '', children: [] });
+  assert.strictEqual(dom.querySelectorAll('.tokui-chart-cell-flag--over').length, 4, '60/80/95/70 四格超上限角标');
+  assert.strictEqual(dom.querySelectorAll('.tokui-chart-cell-flag--under').length, 0, '无低于下限格');
+  var all = collectText(dom);
+  assert.ok(all.indexOf('⚠超上限') >= 0, 'tooltip 含超上限注记');
+  var under = renderer.render({ type: 'chart', attrs: { t: 'heatmap', rows: '5,45|55,65', cols: 'A,B', l: 'r1,r2', vmin: 30, vmax: 60 }, content: '', children: [] });
+  assert.strictEqual(under.querySelectorAll('.tokui-chart-cell-flag--under').length, 1, '5 < vmin 30 → 左下角低于下限角标');
+  var free = renderer.render({ type: 'chart', attrs: { t: 'heatmap', rows: '10,20,30|40,60,80|50,95,70', cols: 'A,B,C', l: 'r1,r2,r3' }, content: '', children: [] });
+  assert.strictEqual(free.querySelectorAll('.tokui-chart-cell-flag').length, 0, '不锁色阶（域随数据）→ 无角标');
+});
+
+test('chart bar 锁 ymax + 超域柱：柱顶回到绘图区内（附带同根因修复）', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'bar', d: '50,80,150', l: 'A,B,C', ymax: 100 }, content: '', children: [] });
+  var svg = dom.querySelector('.tokui-chart__svg');
+  var ys = svg.querySelectorAll('line').filter(function (l) { return l.getAttribute('y1') === l.getAttribute('y2'); });
+  var top = Math.min.apply(null, ys.map(function (l) { return parseFloat(l.getAttribute('y1')); }));
+  dom.querySelectorAll('.tokui-chart-bar').forEach(function (b) {
+    assert.ok(parseFloat(b.getAttribute('y')) >= top - 0.5, '柱顶 y=' + b.getAttribute('y') + ' 不越出绘图区上缘 ' + top + '（修复前 y=-59）');
+  });
 });
 
 test('axisXLayout：中等密度（旋转能装下）→ 旋转不跳过 interval=1', () => {

@@ -1,8 +1,8 @@
 # Chart
 
-Zero-dependency pure-SVG chart component, `chart` is self-closing. `t` selects the type, `d` feeds data, `l` provides labels, `c` customizes colors — 20 chart types render with no external chart library. Every example shows DSL on the left and a live render on the right; click "edit" to tweak instantly.
+Zero-dependency pure-SVG chart component, `chart` is self-closing. `t` selects the type, `d` feeds data, `l` provides labels, `c` customizes colors — 21 chart types render with no external chart library. Every example shows DSL on the left and a live render on the right; click "edit" to tweak instantly.
 
-Supported types: `bar`, `line`, `area`, `pie`, `donut`, `rose`, `funnel`, `radar`, `scatter`, `bubble`, `heatmap`, `histogram`, `waterfall`, `boxplot`, `treemap`, `sankey`, `candlestick`, `progress`, `gauge`, `gantt`, `map` (China map).
+Supported types: `bar`, `line`, `area`, `pie`, `donut`, `rose`, `funnel`, `radar`, `scatter`, `bubble`, `heatmap`, `histogram`, `waterfall`, `boxplot`, `treemap`, `sankey`, `candlestick`, `wordcloud`, `progress`, `gauge`, `gantt`, `map` (China map).
 
 ## Attribute Output Order (Streaming Render Constraint)
 
@@ -48,7 +48,10 @@ All chart types share these props, self-closing.
 
 > **dataZoom**: for >30 points (long time series, large bar/line, many candles/boxes) add `zoom:auto` — a slider appears, drag to inspect a window (rect tracks cursor, bars/lines snap to data points; single-series bars are pooled for smoothness). bar (vertical; NOT horizontal `orient:h`)/line/area/boxplot/candlestick only; histogram and continuous-X charts like scatter/bubble are not supported.
 
-> **Responsive sizing**: charts default to `width:100%` filling the container, capped per type (max-width × max-height): bar/line/area/scatter/bubble/histogram/waterfall/boxplot 1400×600 (**horizontal bars `orient:h` height cap relaxed to 1200**, viewBox height grows automatically with category count), candlestick 1400×600, gantt 1400×640, **pie/donut/radar/rose 600×600**, gauge 600×400, funnel 1000×600, heatmap/treemap 1000×600, sankey 1000×600, progress 780×120. Beyond the cap it scales & centers without distortion. `w`/`h` only affect the internal coord ratio, not final render size — usually leave them out; the renderer grows horizontal bars automatically for many categories, no manual `h` needed.
+> **Responsive sizing**: charts default to `width:100%` filling the container, capped per type (max-width × max-height): bar/line/area/scatter/bubble/histogram/waterfall/boxplot 1400×600 (**horizontal bars `orient:h` height cap relaxed to 1200**, viewBox height grows automatically with category count), candlestick 1400×600, gantt 1400×640, **pie/donut/radar/rose 600×600**, gauge 600×400, funnel 1000×600, heatmap/treemap 1000×600, sankey/wordcloud 1000×600, progress 780×120. Beyond the cap it scales & centers without distortion. `w`/`h` only affect the internal coord ratio, not final render size — usually leave them out; the renderer grows horizontal bars automatically for many categories, no manual `h` needed.
+
+
+> **Range locks & overflow behavior (v0.3.0)**: ① Explicitly locked axes (`xmin/xmax/ymin/ymax`, histogram `min/max`, bar `ymax`) **yield to data** when extrema exceed the lock — expanding by 5% of magnitude, snapped to nice 1/2/5×10^k ticks (scatter points stay in grid; histogram out-of-range values no longer pile into edge bins); within range, locks apply as-is (streaming jitter-free). ② Heatmap `vmin/vmax` and histogram range labels (`l:"40-50,…"`) are **absolute locks** — multi-map color comparison wins; out-of-range cells clamp to end colors with corner flags. ③ Gauge `v > max` auto-extends the dial; progress shows the true percentage (can exceed 100%). ④ Rotated X labels cap their footprint (plot-area floor max(60, 32% of height)); over-budget labels truncate with ellipsis (tooltip keeps the full name). ⑤ Horizontal bars (`orient:h`) wrap long category labels to ≤2 lines (CJK per-char, Latin per-word, ellipsis) with an auto-fitting label column.
 
 ## Bar Chart `t:bar`
 
@@ -229,7 +232,7 @@ Matrix heatmap, self-closing. `rows` holds grid data (`|` between rows, `,` betw
 | `cols` | Column labels, comma-separated | `cols:"Mon,Tue,Wed"` |
 | `l` | Row labels, comma-separated | `l:"Morning,Noon,Night"` |
 | `c` | Color-scale stops (comma-separated, low→high) | `c:"#bae0ff,#1677ff,#0958d9"` |
-| `vmin`/`vmax` | Explicitly lock color-scale range (jitter-free streaming) | `vmin:0 vmax:100` |
+| `vmin`/`vmax` | Explicitly lock color-scale range (jitter-free streaming; absolute lock — out-of-range cells clamp to end colors with a warning corner-flag + tooltip note) | `vmin:0 vmax:100` |
 
 <Playground dsl='[chart t:heatmap tt:一周访问热力 cols:"周一,周二,周三,周四,周五,周六,周日" l:"早,中,晚" rows:"20,35,40,45,50,80,90|60,75,80,85,90,95,98|30,50,55,60,65,70,75"]' />
 
@@ -305,6 +308,17 @@ OHLC candlestick, self-closing. `d` uses `;` between candles, each `open,high,lo
 
 <Playground dsl='[chart t:candlestick tt:某股 8 日行情 l:"6/10,6/11,6/12,6/13,6/14,6/17,6/18,6/19" d:"10.2,10.8,9.8,10.5;10.5,11.2,10.3,11.0;11.0,11.5,10.7,10.9;10.9,11.3,10.6,11.1;11.1,11.6,10.9,11.4;11.4,11.7,11.0,11.2;11.2,11.4,10.8,10.9;10.9,11.3,10.7,11.2"]' />
 
+## Wordcloud `t:wordcloud`
+
+Word-frequency / weight cloud, self-closing. `d` is `word:weight` comma-separated (same as treemap `name:value`). Font size ∝ weight; archimedean-spiral collision layout, deterministic rendering (word positions never jump on streaming redraw); every 3rd word renders vertically; over-budget words shrink then drop; hover a word for its weight tooltip. Great for keyword heat, review tags and tech-radar summaries.
+
+| Attr | Meaning | Example |
+|------|---------|---------|
+| `d` | `word:weight` list, comma-separated | `d:"AI:100,Agent:82,RAG:70"` |
+| `c` | Word color sequence (defaults to theme palette) | `c:"#1677ff,#52c41a,#faad14"` |
+
+<Playground dsl='[chart t:wordcloud tt:AI tech buzzwords d:"人工智能:100,机器学习:85,深度学习:72,大语言模型:64,自然语言处理:58,计算机视觉:52,强化学习:46,知识图谱:40,数据挖掘:35,智能体:30,提示工程:26,多模态:22,向量检索:18,参数微调:14,价值对齐:10" h:300]' />
+
 ## Progress `t:progress`
 
 Horizontal progress bar, self-closing. Track + fill + percentage text; `v` sets current, `max`/`min` the range, `anim` animates from min to v. Lighter than gauge, good for KPI/task progress.
@@ -322,7 +336,7 @@ Horizontal progress bar, self-closing. Track + fill + percentage text; `v` sets 
 
 ## Gauge `t:gauge`
 
-Single-value gauge / KPI speedometer, self-closing. Half-circle track + value arc + needle + center number + ticks, for showing **where a single value sits in a range** (completion rate, CPU load, speed, health, compliance). Feed the value via `v`, not `d`.
+Single-value gauge / KPI speedometer, self-closing. Half-circle track + value arc + needle + center number + ticks, for showing **where a single value sits in a range** (completion rate, CPU load, speed, health, compliance). Feed the value via `v`, not `d`. When `v > max`, the scale auto-extends to a nice tick (e.g. 700/max:500 → 1000) — the center number always shows the true value and the needle stays meaningful.
 
 | Prop | Meaning | Example |
 |------|---------|---------|

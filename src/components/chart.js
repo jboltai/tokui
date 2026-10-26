@@ -736,6 +736,54 @@ function estTextW(str) {
   return w;
 }
 
+// 文本折行（estTextW 同基准的预算宽内贪心折行，≤ maxLines 行）：
+// CJK/全角逐字可断；西文按词（空格为断点）；无断点超长词（URL/长数字串）硬断成预算段。
+// 仍装不下 → 截断到 maxLines 行、末行加 '…'。返回行数组（空串返回 ['']，调用方自行过滤）。
+// 横向 bar 左侧类别标签用（对齐 ECharts axisLabel overflow:'wrap' 行为）。
+function wrapLabelLines(str, budget, maxLines) {
+  if (!str) return [''];
+  maxLines = maxLines || 2;
+  if (!(budget > 0)) budget = 8;
+  // 分词：CJK 单字 / 西文连续词 / 空格
+  var tokens = [], word = '';
+  for (var i = 0; i < str.length; i++) {
+    var ch = str.charAt(i);
+    if (str.charCodeAt(i) > 127) { if (word) { tokens.push(word); word = ''; } tokens.push(ch); }
+    else if (ch === ' ') { if (word) { tokens.push(word); word = ''; } tokens.push(' '); }
+    else word += ch;
+  }
+  if (word) tokens.push(word);
+  // 超预算长词硬断成 ≤ 预算段（保证每 token 都能独占一行，贪心有进展）
+  var toks = [];
+  tokens.forEach(function (tk) {
+    if (tk !== ' ' && estTextW(tk) > budget) {
+      var part = '';
+      for (var c = 0; c < tk.length; c++) {
+        if (part !== '' && estTextW(part + tk.charAt(c)) > budget) { toks.push(part); part = tk.charAt(c); }
+        else part += tk.charAt(c);
+      }
+      if (part) toks.push(part);
+    } else toks.push(tk);
+  });
+  // 贪心装行：行首不吃空格；断行处空格丢弃
+  var lines = [], cur = '';
+  for (var k = 0; k < toks.length; k++) {
+    var tk = toks[k];
+    if (tk === ' ' && cur === '') continue;
+    if (cur === '' || estTextW(cur + tk) <= budget) cur += tk;
+    else { lines.push(cur.replace(/\s+$/, '')); cur = (tk === ' ') ? '' : tk; }
+  }
+  if (cur) lines.push(cur.replace(/\s+$/, ''));
+  // 超出 maxLines 行：截断 + 末行省略号（省略号计入预算宽）
+  if (lines.length > maxLines) {
+    lines = lines.slice(0, maxLines);
+    var last = lines[maxLines - 1];
+    while (last.length > 1 && estTextW(last + '…') > budget) last = last.slice(0, -1);
+    lines[maxLines - 1] = last.replace(/\s+$/, '') + '…';
+  }
+  return lines;
+}
+
 // === 图表信息文字渲染 px 钳制（双向）===
 // 图表 SVG 用 viewBox + preserveAspectRatio="meet" 等比缩放，文字 font-size 是 viewBox 单位、
 // 随图形同 scale 缩。窄容器下小号字（7/8/9）渲染 px 偏小不可读 → 抬到 ≥ MIN_CHART_PX；
@@ -823,14 +871,40 @@ function niceBounds(lo, hi) {
   return [Math.floor(lo / step) * step, Math.ceil(hi / step) * step];
 }
 
+// 向上取整到 1/2/5×10^k 的「漂亮刻度」（≥ x 的最小 nice 值；负数向靠近 0 方向）：
+// gauge 超量程自动扩刻度用 —— niceCeil(875)=1000、niceCeil(175)=200、niceCeil(-37.5)=-20。
+function niceCeil(x) {
+  if (!isFinite(x) || x === 0) return x;
+  var sign = x > 0 ? 1 : -1, ax = Math.abs(x);
+  var base = Math.pow(10, Math.floor(Math.log10(ax)));
+  var f = ax / base;
+  var nf = sign > 0
+    ? (f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10)   // 正：≥ x 的最小档
+    : (f < 1 ? 0.1 : f < 2 ? 1 : f < 5 ? 2 : 5);    // 负：-n ≥ x → 取 ≤ ax 的最大档
+  return sign * nf * base;
+}
+
 // 轴边界三级优先：显式 attrs.{xmin/xmax/ymin/ymax}（用户/后端锁定，绝对稳定）>
 // 流式缓存 attrs._{_xMin/...}（只扩不缩 + nice 量化）> 当前数据 min/max。
 // Axis bound priority — explicit attrs.{axis} (locked, jitter-free even on extrema expand) >
 // streaming cache (expand-only) > current data min/max. Used by scatter/bubble.
-function axisBound(attrs, explicit, cachedKey, fallback) {
+// 显式锁定让位规则（bug 修复：原绝对服从 → 数据超域后散点画到轴外/直方图超域值全灌进
+// 边界箱分布失真/bar 柱顶越出绘图区）。数据极值超出锁定值 → 让位给数据并 nice 量化留余量
+// （niceBounds 1/2/5×10^k 对齐 + 5% 余量 → 轴按漂亮档位离散扩展，流式防抖语义保留）；
+// 未超出 → 原样服从（锁定防抖初衷不变）。noYield（heatmap 色阶）绝对服从：锁定色阶用于
+// 多图横向对比，超域钳到顶色是 visualMap 同款标准行为，让位反而破坏对比语义。
+function axisBound(attrs, explicit, cachedKey, fallback, noYield) {
   if (attrs[explicit] !== undefined && attrs[explicit] !== '') {
     var ex = parseFloat(attrs[explicit]);
-    if (!isNaN(ex)) return ex;
+    if (!isNaN(ex)) {
+      if (!noYield && typeof fallback === 'number' && isFinite(fallback)) {
+        // 余量按数据量级向让位方向外扩 5%（×1.05 对负向 min 会向零收缩，量级减法才方向正确）
+        var isMax = /max$/.test(explicit), isMin = /min$/.test(explicit);
+        if (isMax && fallback > ex) return niceBounds(ex, fallback + Math.abs(fallback) * 0.05)[1];
+        if (isMin && fallback < ex) return niceBounds(fallback - Math.abs(fallback || 1) * 0.05, ex)[0];
+      }
+      return ex;
+    }
   }
   if (attrs[cachedKey] !== undefined) return +attrs[cachedKey];
   return fallback;
@@ -850,7 +924,7 @@ var X_LABEL_MIN_SLOT = 24; // 短标签可读槽位下限（viewBox 单位）：
 var X_LABEL_ROT_FLOOR = 38 * 0.72; // 旋转判定维持保守口径（旧 MIN_SLOT=38 折算）：高密度标签仍走抽稀
                                     // 而非「全部旋转」，与既有行为/测试一致。
 var X_LABEL_ROT_GAP = 12;  // 旋转标签锚点低于轴线的距离（viewBox 单位）
-function axisXLayout(labels, slotW, basePadB, availW, intervalAttr, xUnit) {
+function axisXLayout(labels, slotW, basePadB, availW, intervalAttr, xUnit, h) {
   var n = labels.length;
   var padB = basePadB || 30;
   if (!n) return { rotate: false, padB: padB, interval: 1 };
@@ -889,13 +963,22 @@ function axisXLayout(labels, slotW, basePadB, availW, intervalAttr, xUnit) {
       rotate = n > fitH;
     }
   }
+  // 旋转标签渲染宽预算（px 折算口径与 effW 一致）：超预算的标签由 appendXLabels 省略号截断
+  var rotBudget = Infinity;
   if (rotate) {
     // 旋转标签竖向足迹：锚点低于轴 X_LABEL_ROT_GAP，文本沿 -45° 自锚点下延 ≈0.707·标签宽，
     // +3 余量；有 x 轴单位（xUnit）再留一行。宽度按渲染目标 px 折算（effW，与容量估算同口径）。
-    // 不再取固定 52：padB 必须 ≥ 锚点下落 + 下延，否则文本底部越过 viewBox 下缘被 SVG 裁剪。
-    padB = Math.max(basePadB || 30, Math.ceil(X_LABEL_ROT_GAP + effW * Math.SQRT1_2 + 3 + (xUnit ? X_LABEL_ROT_GAP : 0)));
+    var needPadB = Math.ceil(X_LABEL_ROT_GAP + effW * Math.SQRT1_2 + 3 + (xUnit ? X_LABEL_ROT_GAP : 0));
+    // 占位封顶（bug 修复：padB 随最长标签线性增长无上限 → ch = h−padT−padB 变负、柱高 max(0,·)
+    // 归零消失，14 全角字即可杀死默认高 200 的图）。上限由「绘图区保底」反推：
+    //   padB ≤ h − padT − minCh，minCh = max(60, h×32%)（各渲染器 padT 统一 18）
+    // 反馈方经验值「封 120」即 h:200 特例（200−18−62≈120）。触顶后超预算标签省略号截断
+    // （rotBudget），完整文本在数据点 tooltip。h 未传（旧调用/既有单测）→ 不封顶，维持旧行为。
+    var padBCap = (h > 0) ? Math.max(basePadB || 30, Math.floor(h - 18 - Math.max(60, h * 0.32))) : Infinity;
+    padB = Math.max(basePadB || 30, Math.min(needPadB, padBCap));
+    rotBudget = Math.max(24, (padB - X_LABEL_ROT_GAP - 3 - (xUnit ? X_LABEL_ROT_GAP : 0)) / Math.SQRT1_2);
   }
-  return { rotate: rotate, padB: padB, interval: interval };
+  return { rotate: rotate, padB: padB, interval: interval, rotBudget: rotBudget };
 }
 
 // dataZoom 缩放滑块：zoom 属性开启（zoom:auto | zoom:N | zoom:on）；默认关。
@@ -939,7 +1022,8 @@ function xLabelBaseY(h, padB, rotate, xUnit) {
 // x 轴标签渲染：rotate 为布尔 → 整体统一（全转 / 全横排，由 axisXLayout 预决策）；
 // rotate 省略 → 旧逐标签判定（向后兼容）。positions：每 label 的 x 坐标；slotW：单标签可用宽阈值。
 // interval>1 → 跳过渲染：仅显首/末/步长倍数索引（首末强制保留，保证边界可读）。
-function appendXLabels(svg, labels, positions, baseY, slotW, rotate, interval) {
+// rotBudget（axisXLayout 返回，px 口径）：旋转标签超出 padB 预算时省略号截断（全名在 tooltip）。
+function appendXLabels(svg, labels, positions, baseY, slotW, rotate, interval, rotBudget) {
   var threshold = (slotW || 40) * 0.9;
   var uniform = typeof rotate === 'boolean';
   var step = (interval && interval > 1) ? interval : 1;
@@ -949,13 +1033,18 @@ function appendXLabels(svg, labels, positions, baseY, slotW, rotate, interval) {
     if (step > 1 && !(i === 0 || i === last || i % step === 0)) return; // 跳过：仅显首/末/步长倍数
     var lx = positions[i];
     var needRotate = uniform ? rotate : (estTextW(String(lb)) > threshold);
+    var txt = String(lb);
+    // 旋转标签超 padB 预算 → 省略号截断（预算与 axisXLayout 的 effW 同 px 口径，含 bump 目标 16/7）
+    if (needRotate && isFinite(rotBudget) && estTextW(txt) * (MAX_CHART_PX / PIE_FS_REF) > rotBudget) {
+      txt = wrapLabelLines(txt, rotBudget * PIE_FS_REF / MAX_CHART_PX, 1)[0];
+    }
     var t = svgEl('text', {
       x: lx, y: baseY,
       'text-anchor': needRotate ? 'end' : 'middle',
       fill: 'var(--tokui-chart-text, #999)', 'font-size': '9'
     });
     if (needRotate) t.setAttribute('transform', 'rotate(-45 ' + lx + ' ' + baseY + ')');
-    t.textContent = lb;
+    t.textContent = txt;
     svg.appendChild(t);
   });
 }
@@ -1039,7 +1128,36 @@ function renderBar(data, labels, colors, attrs) {
   var w, h;
   if (horizontal) {
     w = parseInt(attrs.w) || 480;                       // 宽由值域决定，非点数
-    h = autoSize(attrs, 'h', n, 36, 26, 200, 1200);     // padTop+padBot≈36，每类一行
+    // 左侧类别标签自适应列（ECharts containLabel + axisLabel overflow:'wrap' 思路）：
+    // 标签实测宽（estTextW 折算 labFs）≤ 列预算 → 单行、padLh 随最长标签收缩/扩张；
+    // 超预算 → 折行 ≤2 行、行高 26→34 加高（柱距随折行智能撑开）。
+    // _labFs：客户端 adjustChartFs 按真实缩放注入的目标字号 —— 窄容器 bump（fs9→更大）后
+    // 按真实字号折行，标签列不再溢出（见 adjustChartFs 横向 bar 分支）。
+    var labFs = (attrs._labFs > 0) ? +attrs._labFs : 9;
+    var uPer7 = labFs / PIE_FS_REF;                     // estTextW(fs7 基准) → labFs 单位宽换算
+    var gapL = attrs.yl ? 30 : 14;                      // 右对齐锚点间隙（yl 时再留竖排单位条）
+    var colBudget = Math.max(24, w * 0.3);              // 标签列宽预算（防标签吞噬柱区）
+    var hWrapped = labels.slice(0, n).map(function (lb) {
+      return (lb === undefined || lb === null || lb === '') ? null
+        : wrapLabelLines(String(lb), colBudget / uPer7, 2);
+    });
+    var maxLabLines = 1, maxLineW = 0;
+    hWrapped.forEach(function (ls) {
+      if (!ls) return;
+      if (ls.length > maxLabLines) maxLabLines = ls.length;
+      for (var li = 0; li < ls.length; li++) {
+        var lw = estTextW(ls[li]) * uPer7;
+        if (lw > maxLineW) maxLineW = lw;
+      }
+    });
+    var padLh = Math.max(46, Math.ceil(maxLineW) + gapL); // 标签列地板 46（短标签不过窄）
+    // 行高随折行数与字号自适应：折行 → ≥34 且 ≥ 行高×行数+6；单行 → ≥26 且 ≥ 字号×1.3。
+    // （窄容器 _labFs 被 bump 抬大后行距同步撑开，两行标签不互相重叠/挤压）
+    var lineH = Math.round(labFs + 1.5);
+    var perCat = maxLabLines > 1
+      ? Math.max(34, lineH * maxLabLines + 6)
+      : Math.max(26, Math.round(labFs * 1.3));
+    h = autoSize(attrs, 'h', n, 36, perCat, 200, 1200); // padTop+padBot≈36，每类一行（折行/字号加高）
   } else {
     w = autoSize(attrs, 'w', n, 52, 26, 360, 2400);
     h = chartH(attrs, w, 200);
@@ -1076,8 +1194,26 @@ function renderBar(data, labels, colors, attrs) {
   var accPos = [], accNeg = [];
 
   if (horizontal) {
-    // 横向柱：类别在 y 轴自上而下，数值在 x 轴
-    var padLh = 70, padBh = attrs.xl ? 30 : 22, padTh = 14, padRh = attrs.yl ? 30 : 16;
+    // 横向柱：类别在 y 轴自上而下，数值在 x 轴（padLh 由标签测量自适应，见上方尺寸计算）
+    var padBh = attrs.xl ? 30 : 22, padTh = 14;
+    // 右侧留白自适应：vals 值文本（贴最长柱右端 +3）与末位刻度数字（居中于右网格线）都可能
+    // 伸过右缘被裁 —— 均按 labFs 单位估算（客户端 bump 后两者同被抬大，_labFs 已含修正）。
+    var valTxtW = 0;
+    if (attrs.vals !== undefined) {
+      series.forEach(function (s) {
+        s.forEach(function (v) {
+          var wv = estTextW(String(v)) * uPer7;
+          if (wv > valTxtW) valTxtW = wv;
+        });
+      });
+    }
+    var gridNumHalfW = 0;
+    for (var gq = 0; gq <= 4; gq++) {
+      var gw = estTextW(String(Math.round(valMin + range * gq / 4)));
+      if (gw > gridNumHalfW) gridNumHalfW = gw;
+    }
+    gridNumHalfW = Math.ceil(gridNumHalfW * uPer7 / 2);
+    var padRh = Math.max(attrs.yl ? 30 : 16, gridNumHalfW + 3, Math.ceil(valTxtW) + 6);
     var cwh = w - padLh - padRh;
     var chh = h - padTh - padBh;
     var groupH = chh / n;
@@ -1107,11 +1243,23 @@ function renderBar(data, labels, colors, attrs) {
         }
       });
     });
-    // 类别标签（左侧 y 轴，每行右对齐）
+    // 类别标签（左侧 y 轴，每行右对齐）：超列预算的标签已折行 ≤2 行，tspan 逐行、整块垂直居中。
+    // 字号 labFs / 行高 lineH 均在上方尺寸块按折行与 bump 字号算好。
+    svg.setAttribute('data-labfs', String(labFs)); // adjustChartFs 据此判断 _labFs 是否已生效（防重复注入）
     labels.slice(0, n).forEach(function (lb, i) {
       if (lb === undefined || lb === null || lb === '') return;
+      var ls = hWrapped[i];
       var ly = padTh + i * groupH + groupH / 2;
-      svg.appendChild(svgEl('text', { x: padLh - 6, y: ly + 3, 'text-anchor': 'end', fill: 'var(--tokui-chart-text, #999)', 'font-size': '9' })).textContent = lb;
+      var t = svgEl('text', {
+        x: padLh - 6, y: ly + 3 - (ls.length - 1) * lineH / 2,
+        'text-anchor': 'end', fill: 'var(--tokui-chart-text, #999)', 'font-size': String(labFs)
+      });
+      for (var li = 0; li < ls.length; li++) {
+        var ts = svgEl('tspan', { x: padLh - 6, dy: li === 0 ? 0 : lineH });
+        ts.textContent = ls[li];
+        t.appendChild(ts);
+      }
+      svg.appendChild(t);
     });
     if (attrs.xl) appendAxisUnit(svg, attrs.xl, padLh + cwh / 2, padTh + chh + 22, false);
     if (attrs.yl) appendAxisUnit(svg, attrs.yl, 12, padTh + chh / 2, true);
@@ -1120,7 +1268,7 @@ function renderBar(data, labels, colors, attrs) {
     var padL = attrs._padL ? +attrs._padL : (attrs.yl ? 46 : 40), padR = 12, padT = 18;
     var cw = w - padL - padR;
     var groupW = cw / n;
-    var xl = axisXLayout(labels.slice(0, n), groupW, attrs.xl ? 38 : 28, cw, attrs.interval, !!attrs.xl);
+    var xl = axisXLayout(labels.slice(0, n), groupW, attrs.xl ? 38 : 28, cw, attrs.interval, !!attrs.xl, h);
     var padB = xl.padB;
     var ch = h - padT - padB;
     function yOf(v) { return padT + ch * (1 - (v - valMin) / range); }
@@ -1203,7 +1351,7 @@ function renderBar(data, labels, colors, attrs) {
           var pgw = cw / wn;
           var ppositions = [];
           for (var pk = 0; pk < wn; pk++) ppositions.push(padL + pk * pgw + pgw / 2);
-          appendXLabels(labelG, labels.slice(s, e + 1), ppositions, xLabelBaseY(h, padB, xl.rotate, !!attrs.xl), pgw, xl.rotate, xl.interval);
+          appendXLabels(labelG, labels.slice(s, e + 1), ppositions, xLabelBaseY(h, padB, xl.rotate, !!attrs.xl), pgw, xl.rotate, xl.interval, xl.rotBudget);
           bumpZoomTextFs(labelG, svg); // 重建标签回基础 fs9 → 抬回保底字号（防 zoom 后字变小）
         }
         return;
@@ -1238,7 +1386,7 @@ function renderBar(data, labels, colors, attrs) {
       });
       var positions = [];
       for (var k = 0; k < wn; k++) positions.push(padL + k * gw + gw / 2);
-      appendXLabels(plotG, labels.slice(s, e + 1), positions, xLabelBaseY(h, padB, xl.rotate, !!attrs.xl), gw, xl.rotate, xl.interval);
+      appendXLabels(plotG, labels.slice(s, e + 1), positions, xLabelBaseY(h, padB, xl.rotate, !!attrs.xl), gw, xl.rotate, xl.interval, xl.rotBudget);
       bumpZoomTextFs(plotG, svg); // 重建标签/vals 回基础字号 → 抬回保底字号（防 zoom 后字变小）
       // zoom redraw 重建的柱/点由 svg 级事件委托自动覆盖，无需重绑 hover
     }
@@ -1420,7 +1568,7 @@ function renderLine(data, labels, colors, attrs) {
   var padL = attrs._padL ? +attrs._padL : (attrs.yl ? 46 : 40);
   var cw = w - padL - padR;
   var slotW = n > 1 ? cw / (n - 1) : cw;
-  var xl = axisXLayout(labels.slice(0, n), slotW, attrs.xl ? 38 : 28, cw, attrs.interval, !!attrs.xl);
+  var xl = axisXLayout(labels.slice(0, n), slotW, attrs.xl ? 38 : 28, cw, attrs.interval, !!attrs.xl, h);
   var padB = xl.padB;
   var ch = h - padT - padB;
   var svg = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + totalH, class: 'tokui-chart__svg', preserveAspectRatio: 'xMidYMid meet' });
@@ -1519,7 +1667,7 @@ function renderLine(data, labels, colors, attrs) {
       renderLabels: function (labelG, s, e) {
         var span = e - s, pos = [];
         for (var kk = s; kk <= e; kk++) pos.push(span > 0 ? (padL + (kk - s) * cw / span) : padL + cw / 2);
-        appendXLabels(labelG, labels.slice(s, e + 1), pos, xLabelBaseY(h, padB, xl.rotate, !!attrs.xl), slotW, xl.rotate, xl.interval);
+        appendXLabels(labelG, labels.slice(s, e + 1), pos, xLabelBaseY(h, padB, xl.rotate, !!attrs.xl), slotW, xl.rotate, xl.interval, xl.rotBudget);
       },
       // 圆点重定位：dotG 不随 X 缩放（防椭圆），按当前窗口变换算 cx（仅 [s,e] 内点，余下 clipG 裁掉）
       onZoom: function (s, e, sx, tx) {
@@ -1550,7 +1698,7 @@ function renderLine(data, labels, colors, attrs) {
   } else {
     var positions = [];
     for (var k2 = 0; k2 < n; k2++) positions.push(xOf(k2));
-    appendXLabels(svg, labels.slice(0, n), positions, xLabelBaseY(h, padB, xl.rotate, !!attrs.xl), slotW, xl.rotate, xl.interval);
+    appendXLabels(svg, labels.slice(0, n), positions, xLabelBaseY(h, padB, xl.rotate, !!attrs.xl), slotW, xl.rotate, xl.interval, xl.rotBudget);
     // axis 十字 tooltip（非 zoom）：toViewX=xOf，toIdx 反算索引，inWindow 恒真
     var _seriesInfo2 = series.map(function (sr, si) {
       return { color: colors[si % colors.length], name: seriesName(si), vals: sr, markerVals: stacked[si] };
@@ -1614,7 +1762,7 @@ function renderCombo(data, labels, colors, attrs) {
   var padR = attrs.y2 ? 46 : 38; // 右轴刻度占位
   var padT = 18;
   var slotW = n > 1 ? (w - padL - padR) / (n - 1) : (w - padL - padR);
-  var xl = axisXLayout(labels.slice(0, n), slotW, attrs.xl ? 38 : 28, w - padL - padR, attrs.interval, !!attrs.xl);
+  var xl = axisXLayout(labels.slice(0, n), slotW, attrs.xl ? 38 : 28, w - padL - padR, attrs.interval, !!attrs.xl, h);
   var padB = xl.padB;
   var cw = w - padL - padR;
   var ch = h - padT - padB;
@@ -1721,7 +1869,7 @@ function renderCombo(data, labels, colors, attrs) {
   // x 轴类目标签
   var positions = [];
   for (var k2 = 0; k2 < n; k2++) positions.push(xOf(k2));
-  appendXLabels(svg, labels.slice(0, n), positions, xLabelBaseY(h, padB, xl.rotate, !!attrs.xl), slotW, xl.rotate, xl.interval);
+  appendXLabels(svg, labels.slice(0, n), positions, xLabelBaseY(h, padB, xl.rotate, !!attrs.xl), slotW, xl.rotate, xl.interval, xl.rotBudget);
   if (attrs.xl) appendAxisUnit(svg, attrs.xl, padL + cw / 2, h - 3, false);
   if (attrs.yl) appendAxisUnit(svg, attrs.yl, 12, padT + ch / 2, true);
   if (attrs.y2) appendAxisUnit(svg, attrs.y2, w - 10, padT + ch / 2, true);
@@ -2316,11 +2464,18 @@ function renderGauge(data, labels, colors, attrs) {
     : Math.max(36, Math.min(cx - 30, (h - 28) / (1 + endSin + 0.35)));
   var min = parseFloat(attrs.min); if (isNaN(min)) min = 0;
   var max = parseFloat(attrs.max); if (isNaN(max)) max = 100;
-  var span = max - min || 1;
   // v 缺省时回退 data[0]（容器模式 pt v:N → data=[N]）
   var val = parseFloat(attrs.v); if (isNaN(val) && data.length) val = data[0]; if (isNaN(val)) val = 0;
+  // 单位启发式按「作者原量程」判定（扩刻度后 (0,100) 不再成立，但 % 语义属作者意图，保留）
+  var isPctScale = (min === 0 && max === 100);
+  // 超量程自动扩刻度（bug 修复：原无条件 clamp 把 v>max 钳成 max —— 指针顶死、中心数字失真，
+  // 现场库存 700/max:500 显示 500 严重误导）。v > max → max 上扩到 v×1.25 的 nice 刻度
+  // （1/2/5×10^k，25% 余量防流式增长反复扩），span/刻度/zones 随新量程重算，数字显示真实值；
+  // v < min 仍钳到 min（低于下界的语义是「贴底」，未见误读反馈）。
+  if (val > max) max = niceCeil(val * 1.25);
+  var span = max - min || 1;
   val = clamp(val, min, max);
-  var unit = attrs.u !== undefined ? attrs.u : ((min === 0 && max === 100) ? '%' : '');
+  var unit = attrs.u !== undefined ? attrs.u : (isPctScale ? '%' : '');
   var dec = parseInt(attrs.dec, 10); if (isNaN(dec)) dec = (span <= 10 ? 1 : 0);
 
   var STATUS_COLORS = {
@@ -2912,7 +3067,10 @@ function renderProgress(data, labels, colors, attrs) {
   var min = parseFloat(attrs.min); if (isNaN(min)) min = 0;
   var span = max - min || 1;
   var val = parseFloat(attrs.v); if (isNaN(val) && data.length) val = data[0]; if (isNaN(val)) val = 0;
-  val = clamp(val, min, max);
+  // 超量程不钳「真实比值」（bug 修复：原 clamp 后超额目标也显示 100%，掩盖超标事实）：
+  // 条宽仍物理钳到 [0,1]（轨道就那么长），但百分比文本显示真实值 —— 700/500 显示 140%。
+  // 与 gauge 的「扩刻度」不同：progress 的 100% = 目标语义必须保留，扩量程反而会把 140% 读成 78% 掩盖超标。
+  val = Math.max(min, val);
   var unit = attrs.u !== undefined ? attrs.u : ((min === 0 && max === 100) ? '%' : '');
   var color = isValidColor(attrs.c) ? attrs.c : (colors[0] || 'var(--tokui-primary, #1677ff)');
   var svg = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + h, class: 'tokui-chart__svg tokui-chart__svg--progress', preserveAspectRatio: 'xMidYMid meet' });
@@ -2924,10 +3082,11 @@ function renderProgress(data, labels, colors, attrs) {
   var txt = svgEl('text', { x: w - 8, y: h / 2, 'text-anchor': 'end', 'dominant-baseline': 'central', fill: 'var(--tokui-text, #333)', 'font-size': '13', 'font-weight': '700' });
   svg.appendChild(txt);
   function setState(vv) {
-    var p = clamp((vv - min) / span, 0, 1);
+    var ratio = Math.max(0, (vv - min) / span);   // 真实比值：可 >1（超额），负向钳 0
+    var p = Math.min(1, ratio);                    // 条宽物理钳制（轨道上限）
     fill.setAttribute('x', 2);
     fill.setAttribute('width', Math.max(0, (w - 4) * p));
-    txt.textContent = (label ? label + ' ' : '') + Math.round(p * 100) + unit;
+    txt.textContent = (label ? label + ' ' : '') + Math.round(ratio * 100) + unit;
   }
   animateValue(min, val, parseInt(attrs.anim, 10) || 0, setState);
   return svg;
@@ -3017,8 +3176,13 @@ function histogramParams(attrs, data) {
   var rl = parseRangeLabels(attrs.l);
   var bins = parseInt(attrs.bins, 10);
   if (isNaN(bins)) bins = rl ? rl.bins : (attrs._bins !== undefined ? +attrs._bins : Math.min(20, Math.max(5, Math.ceil(Math.sqrt(data.length)))));
-  var lo = axisBound(attrs, 'min', '_lo', rl ? rl.lo : minOf(data));
-  var hi = axisBound(attrs, 'max', '_hi', rl ? rl.hi : maxOf(data));
+  // 让位比较基于数据极值：显式 min/max 存在时 fallback 传数据极值（yield 判定用；不 yield 时显式值
+  // 本就优先返回，fallback 不生效）；无显式锁 + 范围标签（l:"40-50,…"）→ 标签定义箱边界，绝对服从
+  // （标签写死的箱沿若被让位改写，标签与实际箱错位成谎言）。
+  var dataLo = data.length ? minOf(data) : 0, dataHi = data.length ? maxOf(data) : 1;
+  var exLo = attrs.min !== undefined && attrs.min !== '', exHi = attrs.max !== undefined && attrs.max !== '';
+  var lo = axisBound(attrs, 'min', '_lo', rl && !exLo ? rl.lo : dataLo);
+  var hi = axisBound(attrs, 'max', '_hi', rl && !exHi ? rl.hi : dataHi);
   if (lo === hi) { lo -= 1; hi += 1; }
   var width = (hi - lo) / bins;
   var counts = [];
@@ -3045,8 +3209,8 @@ function renderHeatmap(data, labels, colors, attrs) {
   var vals = [];
   matrix.forEach(function (r) { r.forEach(function (v) { if (!isNaN(v)) vals.push(v); }); });
   var hasRange = vals.length > 0;
-  var vMin = hasRange ? axisBound(attrs, 'vmin', '_vMin', minOf(vals)) : 0;
-  var vMax = hasRange ? axisBound(attrs, 'vmax', '_vMax', maxOf(vals)) : 1;
+  var vMin = hasRange ? axisBound(attrs, 'vmin', '_vMin', minOf(vals), true) : 0;
+  var vMax = hasRange ? axisBound(attrs, 'vmax', '_vMax', maxOf(vals), true) : 1;
   var vRange = vMax - vMin || 1;
   var stops = parseColorList(attrs.c).length ? parseColorList(attrs.c) : ['#bae0ff', '#1677ff', '#0958d9'];
   var skelFill = 'var(--tokui-chart-grid, #f0f0f0)';
@@ -3061,7 +3225,17 @@ function renderHeatmap(data, labels, colors, attrs) {
       var x = padL + ci * cellW, y = padT + ri * cellH;
       var grp = svgEl('g', { class: 'tokui-chart-tip-group' });
       grp.appendChild(svgEl('rect', { x: x + 1, y: y + 1, width: cellW - 2, height: cellH - 2, rx: 2, fill: color, opacity: filled ? '1' : '0.5', class: 'tokui-chart-cell' + (filled ? '' : ' tokui-chart-cell--skeleton') }));
-      if (filled) tips.add(grp, (rowLabels[ri] || ('R' + (ri + 1))) + ' / ' + (colLabels[ci] || ('C' + (ci + 1))) + ': ' + v, x + cellW / 2, y + cellH / 2);
+      // 锁定色阶超域角标（独立增强）：超 vmax / 低于 vmin 的格子保持钳制色（多图对比语义不变），
+      // 但右上角（超上限）/左下角（低于下限）加警示色小三角 + tooltip 注记 —— 一片顶色也能看出超域。
+      if (filled && hasRange && (v > vMax || v < vMin)) {
+        var fs2 = Math.max(3.5, Math.min(7, Math.min(cellW, cellH) * 0.26));
+        var flagD = v > vMax
+          ? 'M' + (x + cellW - 1 - fs2) + ',' + (y + 1) + 'L' + (x + cellW - 1) + ',' + (y + 1) + 'L' + (x + cellW - 1) + ',' + (y + 1 + fs2) + 'Z'
+          : 'M' + (x + 1) + ',' + (y + cellH - 1) + 'L' + (x + 1 + fs2) + ',' + (y + cellH - 1) + 'L' + (x + 1) + ',' + (y + cellH - 1 - fs2) + 'Z';
+        grp.appendChild(svgEl('path', { d: flagD, fill: 'var(--tokui-warning, #faad14)', class: 'tokui-chart-cell-flag tokui-chart-cell-flag--' + (v > vMax ? 'over' : 'under') }));
+      }
+      if (filled) tips.add(grp, (rowLabels[ri] || ('R' + (ri + 1))) + ' / ' + (colLabels[ci] || ('C' + (ci + 1))) + ': ' + v +
+        (filled && hasRange && v > vMax ? ' ⚠超上限' : (filled && hasRange && v < vMin ? ' ⚠低于下限' : '')), x + cellW / 2, y + cellH / 2);
       svg.appendChild(grp);
     }
   }
@@ -3143,7 +3317,7 @@ function renderWaterfall(data, labels, colors, attrs) {
   var padL = attrs._padL ? +attrs._padL : 44, padT = 18, padR = 12;
   var cw = w - padL - padR;
   var groupW = cw / data.length, barW = Math.max(4, groupW * 0.6);
-  var xl = axisXLayout(labels.slice(0, data.length), groupW, 30, cw, attrs.interval);
+  var xl = axisXLayout(labels.slice(0, data.length), groupW, 30, cw, attrs.interval, undefined, h);
   var padB = xl.padB;
   var ch = h - padT - padB;
   var posColor = colors[0] || '#52c41a', negColor = colors[1] || '#f5222d';
@@ -3170,7 +3344,7 @@ function renderWaterfall(data, labels, colors, attrs) {
   });
   var positions = [];
   for (var k = 0; k < data.length; k++) positions.push(padL + k * groupW + groupW / 2);
-  appendXLabels(svg, labels.slice(0, data.length), positions, xLabelBaseY(h, padB, xl.rotate), groupW, xl.rotate, xl.interval);
+  appendXLabels(svg, labels.slice(0, data.length), positions, xLabelBaseY(h, padB, xl.rotate), groupW, xl.rotate, xl.interval, xl.rotBudget);
   svg.appendChild(tips.layer);
   bindTooltips(svg);
   return svg;
@@ -3199,7 +3373,7 @@ function renderBoxplot(data, labels, colors, attrs) {
   var zoomOn = zoomEnabled(attrs, boxes.length);
   var ZOOM_H = zoomOn ? 28 : 0;
   var groupW = cw / boxes.length, boxW = Math.max(20, groupW * 0.5);
-  var xl = axisXLayout(labels.slice(0, boxes.length), groupW, 30, cw, attrs.interval);
+  var xl = axisXLayout(labels.slice(0, boxes.length), groupW, 30, cw, attrs.interval, undefined, h);
   var padB = xl.padB;
   var ch = h - padT - padB;
   var svg = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + (h + ZOOM_H), class: 'tokui-chart__svg', preserveAspectRatio: 'xMidYMid meet' });
@@ -3242,7 +3416,7 @@ function renderBoxplot(data, labels, colors, attrs) {
       renderLabels: function (labelG, s, e) {
         var wn = e - s + 1, gw = cw / wn, pos = [];
         for (var kk = s; kk <= e; kk++) pos.push(padL + (kk - s) * gw + gw / 2);
-        appendXLabels(labelG, labels.slice(s, e + 1), pos, xLabelBaseY(h, padB, xl.rotate), gw, xl.rotate, xl.interval);
+        appendXLabels(labelG, labels.slice(s, e + 1), pos, xLabelBaseY(h, padB, xl.rotate), gw, xl.rotate, xl.interval, xl.rotBudget);
       }
     });
     hoverGrps.forEach(function (hg) {
@@ -3254,7 +3428,7 @@ function renderBoxplot(data, labels, colors, attrs) {
   } else {
     var positions = [];
     for (var k = 0; k < boxes.length; k++) positions.push(padL + k * groupW + groupW / 2);
-    appendXLabels(svg, labels.slice(0, boxes.length), positions, xLabelBaseY(h, padB, xl.rotate), groupW, xl.rotate, xl.interval);
+    appendXLabels(svg, labels.slice(0, boxes.length), positions, xLabelBaseY(h, padB, xl.rotate), groupW, xl.rotate, xl.interval, xl.rotBudget);
   }
   svg.appendChild(tips.layer);
   if (!zoomOn) bindTooltips(svg);
@@ -3308,6 +3482,97 @@ function renderTreemap(data, labels, colors, attrs) {
     }
   }
   layout(items, 0, 0, w, h);
+  svg.appendChild(tips.layer);
+  bindTooltips(svg);
+  return svg;
+}
+
+// === Wordcloud 词云（字号 ∝ 权重，阿基米德螺线碰撞布局，确定性渲染） ===
+// d: "词:权重,词:权重,..."（同 treemap 名:值 格式；权重决定字号与放置顺序，降序先放）。
+// 无随机：螺线固定步进 + 索引定竖排 → 流式重绘词位稳定不跳；放不下自动缩字号重试，
+// 最小字号仍放不下则弃词（词数过多的合理降级）。adjustChartFs 跳过词文字 bump
+// （bump 抬字号会撑破已算好的碰撞布局；词云天然有字号层级，不做最小 px 保底）。
+function parseWordcloudData(d) {
+  if (!d) return [];
+  return String(d).split(',').map(function (seg) {
+    var p = seg.split(':');
+    return { name: (p[0] || '').trim().replace(/^["']|["']$/g, ''), value: parseFloat(p[1]) || 0 };
+  }).filter(function (it) { return it.name && it.value > 0; });
+}
+
+function renderWordcloud(data, labels, colors, attrs) {
+  var items = parseWordcloudData(attrs.d);
+  var n = items.length;
+  var w = parseInt(attrs.w) || 480;
+  var h = parseInt(attrs.h) || clamp(Math.round(150 + n * 7), 200, 460);
+  if (!n) return emptyChartSvg(w, h);
+  items.sort(function (a, b) { return b.value - a.value; });
+  var svg = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + h, class: 'tokui-chart__svg', preserveAspectRatio: 'xMidYMid meet' });
+  var tips = createTipMgr(w, h);
+  var maxV = items[0].value, minV = items[n - 1].value;
+  // fsMax 随词数收敛：词越多单词越小，整体仍装得下（画布占比经验值 0.26/0.16）
+  var fsMax = Math.min(h * 0.26, w * 0.16) * clamp(Math.pow(14 / n, 0.3), 0.55, 1);
+  var fsMin = 9;
+  function fsOf(v) {
+    // 全等权重 → 统一中等字号（vRange||1 的除零路径会把所有词压到 fsMin）
+    var ratio = (maxV > minV) ? (v - minV) / (maxV - minV) : 0.6;
+    return Math.round((fsMin + (fsMax - fsMin) * Math.pow(ratio, 0.75)) * 10) / 10;
+  }
+  // 词盒估算：estTextW 为 fs7 基准 → 按 fs/7 折算；宽留 25% 字距余量
+  function boxOf(word, fs) {
+    return { w: estTextW(word) * fs / PIE_FS_REF + fs * 0.25, h: fs * 1.18 };
+  }
+  var placed = [];
+  var MARGIN = 2;
+  function collides(x, y, bw, bh) {
+    if (x < MARGIN || y < MARGIN || x + bw > w - MARGIN || y + bh > h - MARGIN) return true;
+    for (var i = 0; i < placed.length; i++) {
+      var p = placed[i];
+      if (x < p.x + p.w && x + bw > p.x && y < p.y + p.h && y + bh > p.y) return true;
+    }
+    return false;
+  }
+  items.forEach(function (it, idx) {
+    var fs = fsOf(it.value);
+    // 确定性竖排点缀：每第 3 个词竖排（idx%5===2）；头部 2 个大词不转，保视觉锚点
+    var vertical = idx >= 2 && idx % 5 === 2;
+    while (fs >= fsMin - 0.01) {
+      var box = boxOf(it.name, fs);
+      var bw = vertical ? box.h : box.w, bh = vertical ? box.w : box.h;
+      // 阿基米德螺线：θ 与 r 同步步进、自中心旋出；x 向拉伸适配横排词为主的画布形态
+      var ok = false, px = 0, py = 0;
+      // 自适应步长：已放词越多步进越细 —— 密集云后期的碎片空隙在大步长下会被跳过
+      var aStep = 0.42 / (1 + placed.length / 25);
+      var rStep = 0.24 / (1 + placed.length / 60);
+      // 螺线椭圆比随画布纵横比归一：宽画布横向铺开、高画布纵向铺满
+      var sx = 2 * w / (w + h), sy = 2 * h / (w + h);
+      for (var t = 0; t < 3600; t++) {
+        var r = t * rStep;
+        var x = w / 2 + r * sx * Math.cos(t * aStep) - bw / 2;
+        var y = h / 2 + r * sy * Math.sin(t * aStep) - bh / 2;
+        if (!collides(x, y, bw, bh)) { ok = true; px = x; py = y; break; }
+      }
+      if (ok) {
+        placed.push({ x: px, y: py, w: bw, h: bh });
+        var tx = px + bw / 2, ty = py + bh / 2;
+        var grp = svgEl('g', { class: 'tokui-chart-tip-group' });
+        var txt = svgEl('text', {
+          x: tx, y: ty, 'text-anchor': 'middle', 'dominant-baseline': 'central',
+          'font-size': String(fs),
+          'font-weight': fs > (fsMin + fsMax) / 2 ? '700' : '400',
+          fill: colors[idx % colors.length], class: 'tokui-chart-wc-word'
+        });
+        if (vertical) txt.setAttribute('transform', 'rotate(90 ' + tx + ' ' + ty + ')');
+        txt.textContent = it.name;
+        grp.appendChild(txt);
+        tips.add(grp, it.name + ': ' + it.value, tx, ty);
+        svg.appendChild(grp);
+        return;
+      }
+      if (fs <= fsMin) return; // 最小字号仍放不下 → 弃词
+      fs = Math.max(fsMin, Math.round(fs * 0.82 * 10) / 10);
+    }
+  });
   svg.appendChild(tips.layer);
   bindTooltips(svg);
   return svg;
@@ -3404,7 +3669,7 @@ function renderCandlestick(data, labels, colors, attrs) {
   var zoomOn = zoomEnabled(attrs, candles.length);
   var ZOOM_H = zoomOn ? 28 : 0;
   var groupW = cw / candles.length, bodyW = Math.max(3, groupW * 0.6);
-  var xl = axisXLayout(labels.slice(0, candles.length), groupW, 30, cw, attrs.interval);
+  var xl = axisXLayout(labels.slice(0, candles.length), groupW, 30, cw, attrs.interval, undefined, h);
   var padB = xl.padB;
   var ch = h - padT - padB;
   var customColors = parseColorList(attrs.c);
@@ -3448,7 +3713,7 @@ function renderCandlestick(data, labels, colors, attrs) {
       renderLabels: function (labelG, s, e) {
         var wn = e - s + 1, gw = cw / wn, pos = [];
         for (var kk = s; kk <= e; kk++) pos.push(padL + (kk - s) * gw + gw / 2);
-        appendXLabels(labelG, labels.slice(s, e + 1), pos, xLabelBaseY(h, padB, xl.rotate), gw, xl.rotate, xl.interval);
+        appendXLabels(labelG, labels.slice(s, e + 1), pos, xLabelBaseY(h, padB, xl.rotate), gw, xl.rotate, xl.interval, xl.rotBudget);
       }
     });
     hoverGrps.forEach(function (hg) {
@@ -3460,7 +3725,7 @@ function renderCandlestick(data, labels, colors, attrs) {
   } else {
     var positions = [];
     for (var k = 0; k < candles.length; k++) positions.push(padL + k * groupW + groupW / 2);
-    appendXLabels(svg, labels.slice(0, candles.length), positions, xLabelBaseY(h, padB, xl.rotate), groupW, xl.rotate, xl.interval);
+    appendXLabels(svg, labels.slice(0, candles.length), positions, xLabelBaseY(h, padB, xl.rotate), groupW, xl.rotate, xl.interval, xl.rotBudget);
   }
   svg.appendChild(tips.layer);
   if (!zoomOn) bindTooltips(svg);
@@ -3496,6 +3761,7 @@ function registerChartComponents(renderer) {
   registerChartRenderer('treemap', renderTreemap);
   registerChartRenderer('sankey', renderSankey);
   registerChartRenderer('candlestick', renderCandlestick);
+  registerChartRenderer('wordcloud', renderWordcloud);
 
   // === 容器模式：图表流式增量重绘 ===
   // chart 容器无内联数据时，子节点 pt/task/ms 逐个喂入累积，每次 rebuild 整张 SVG。
@@ -3636,6 +3902,12 @@ function registerChartComponents(renderer) {
       return;
     }
     wrapper._xyInc = null; // 全量路径：旧增量记录失效（scatter/bubble 在末尾重建）
+    // 横向 bar 标签字号缓存：adjustChartFs 注入的 _labFs 跨流式帧续用
+    // （流式新 attrs 不带 _labFs，缺缓存则每帧回退 fs9 布局、再被纠偏重画一次）
+    if (type === 'bar' && (attrs.orient === 'h' || attrs.orientation === 'h')) {
+      if (!(attrs._labFs > 0) && wrapper._tokuiLabFs > 0) attrs._labFs = wrapper._tokuiLabFs;
+      if (attrs._labFs > 0) wrapper._tokuiLabFs = +attrs._labFs;
+    }
     var olds = [];
     for (var i = 0; i < wrapper.childNodes.length; i++) {
       var c = wrapper.childNodes[i];
@@ -3918,7 +4190,20 @@ function registerChartComponents(renderer) {
     // 关键「一次性」：首次算完设 _tokuiPadLSet 标志，后续不再重算——否则 bump(fs9→bfs) 后 getBBox 变、
     // _need 漂移 → redraw 重置 fs9 → bump 再跑 → 死循环（标签停 fs9、bump 跑数百次）。
     var _xyTypes = { bar: 1, line: 1, area: 1, histogram: 1, boxplot: 1, candlestick: 1, waterfall: 1 };
-    if (_xyTypes[type] && typeof svg.createSVGPoint === 'function' && !wrapper._tokuiPadLSet) {
+    // 横向 bar：左侧类别标签列宽/折行已由 renderBar 按估算宽自适应；此处按真实缩放注入目标
+    // 字号 _labFs 重渲染一次 —— 折行在真实渲染字号下计算，窄容器（scale<1，fs9→bfs 变宽）不溢出。
+    // _labFs 纯由 scale 决定（无 getBBox 实测漂移）→ 与 svg 上的 data-labfs 一致即跳过，天然收敛。
+    // 同时缓存 wrapper._tokuiLabFs，供 redrawChart 跨流式帧续用（否则每帧回退 fs9 再纠偏重画）。
+    if (type === 'bar' && svg.getAttribute('data-orient') === 'h') {
+      var _bfsH = bumpFsUnits(9, scale, MIN_CHART_PX, MAX_CHART_PX);
+      var _curFsH = parseFloat(svg.getAttribute('data-labfs')) || 9;
+      if (Math.abs(_bfsH - _curFsH) > 0.05 && spec && spec.attrs) {
+        var _labFsH = Math.round(_bfsH * 100) / 100;
+        wrapper._tokuiLabFs = _labFsH;
+        scheduleFullRedraw(wrapper, Object.assign({}, spec.attrs, { _labFs: _labFsH }));
+        return; // 重渲染后 scheduleAdjust 复算：data-labfs 已同值 → 落到通用 bump（幂等不重画）
+      }
+    } else if (_xyTypes[type] && typeof svg.createSVGPoint === 'function' && !wrapper._tokuiPadLSet) {
       wrapper._tokuiPadLSet = true; // 一次性：不论结果如何，不再重算（防 bump 前后测值漂移致循环）
       var _bfs = bumpFsUnits(9, scale, MIN_CHART_PX, MAX_CHART_PX);
       var _gridLine = svg.querySelector('line');
@@ -3961,8 +4246,9 @@ function registerChartComponents(renderer) {
         p = p.parentNode;
       }
       if (!t) continue;
-      // 跳过 hero 大标题（仪表盘中心值/环形中心值，用户明确不动）
-      if (t.classList.contains('tokui-chart-gauge-value') || t.classList.contains('tokui-chart-donut-value')) continue;
+      // 跳过 hero 大标题（仪表盘中心值/环形中心值，用户明确不动）与词云词文字
+      // （词云 bump 抬字号会撑破已算好的螺线碰撞布局，词云天然有字号层级、不做最小 px 保底）
+      if (t.classList.contains('tokui-chart-gauge-value') || t.classList.contains('tokui-chart-donut-value') || t.classList.contains('tokui-chart-wc-word')) continue;
       var base = parseFloat(t.getAttribute('font-size'));
       if (!(base > 0) || base >= 13) continue;          // 已 ≥13 单位视为标题/已够大，不动
       var fs2 = bumpFsUnits(base, scale, MIN_CHART_PX, MAX_CHART_PX);
@@ -4328,6 +4614,6 @@ if (typeof window !== 'undefined') {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
     registerChartComponents, registerChartRenderer, invalidateChartColors,
-    bumpFsUnits, solvePieFs, pieSizing, MIN_CHART_PX, MAX_CHART_PX, applyTipScale, axisXLayout, zoomBounds, zoomEnabled, bumpZoomTextFs
+    bumpFsUnits, solvePieFs, pieSizing, MIN_CHART_PX, MAX_CHART_PX, applyTipScale, axisXLayout, zoomBounds, zoomEnabled, bumpZoomTextFs, wrapLabelLines, estTextW, niceCeil, axisBound
   };
 }

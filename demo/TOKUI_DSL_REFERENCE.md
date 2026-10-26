@@ -688,7 +688,7 @@ col spec 顺序：`列名[=cN[rM]][/对齐][/配色]`。
 [/tbody]
 ```
 
-### 6.8 图表（`chart`，纯 SVG 零依赖，20 种）
+### 6.8 图表（`chart`，纯 SVG 零依赖，21 种）
 
 **🔴 属性输出顺序铁律（流式强约束）**：`t 类型 → 样式/布局 → l 标签 → 数据`。样式属性必须在数据之前、`l` 必须在 `d` 之前，否则流式预览先按默认布局画、闭合才翻转。
 
@@ -697,7 +697,7 @@ col spec 顺序：`列名[=cN[rM]][/对齐][/配色]`。
 错误：[chart t:bar d:"10,24,18,30,22" l:"Mon,..." vals orient:h]   ;; 样式写在数据后 → 预览翻转
 ```
 
-支持类型（21）：`bar` `line` `area` `pie` `donut` `rose` `funnel` `radar` `scatter` `bubble` `heatmap` `histogram` `waterfall` `boxplot` `treemap` `sankey` `candlestick` `progress` `gauge` `gantt` `map` `combo`。
+支持类型（22）：`bar` `line` `area` `pie` `donut` `rose` `funnel` `radar` `scatter` `bubble` `heatmap` `histogram` `waterfall` `boxplot` `treemap` `sankey` `candlestick` `wordcloud` `progress` `gauge` `gantt` `map` `combo`。
 
 #### 通用属性
 
@@ -736,24 +736,26 @@ col spec 顺序：`列名[=cN[rM]][/对齐][/配色]`。
 | `candlestick` | 根 `;`、OHLC `,` | `d:"10,12,8,11;11,13,9,10"` |
 | `heatmap` | `rows` 属性：行 `|`、列 `,` | `rows:"1,2,3\|4,5,6"` |
 | `treemap` | `名:值` `,` | `d:"A:100,B:60,C:40"` |
+| `wordcloud` | `词:权重` `,` | `d:"AI:100,Agent:82"` |
 | `sankey` | `flows` 属性：`源->目标:值` `,` | `flows:"A->B:10,B->C:5"` |
 | `gauge` `progress` | `v` 单值 | `v:72` |
 
 #### 各类型专属属性
 
-- **bar**：`stack` `orient:h` `vals` `ymax`。横向柱（`orient:h`）高度随类别数自动增长（viewBox 高 ≈ 36+26px×类别数，钳 200–1200，CSS 显示上限 1200），**无需手设 `h`**；显式 `h` 原样优先（>1200 部分被 CSS 截断）。
+- **bar**：`stack` `orient:h`（左侧长标签自动折行 ≤2 行）`vals` `ymax`（数据超锁自动让位扩程）。横向柱（`orient:h`）高度随类别数自动增长（viewBox 高 ≈ 36+26px×类别数，钳 200–1200，CSS 显示上限 1200），**无需手设 `h`**；显式 `h` 原样优先（>1200 部分被 CSS 截断）。
 - **line**：`area` `smooth` `stack` `vals`。
 - **area**：= line + 默认填充，同 line。
 - **pie**/**donut**/**rose**：`l` 各项名；donut `v` 中心文字（单环）。
 - **funnel**：建议数据**降序**（首层=漏斗口），自动标相对首层转化率。
 - **radar**：多系列 `|` 对比。
-- **scatter**/**bubble**：`xl`/`yl`（bubble 加 `sl` 第三维名）+ `xmin/xmax/ymin/ymax` 锁轴。
-- **heatmap**：`rows` 矩阵、`cols` 列标签、`l` 行标签（须匹配）、`vmin`/`vmax` 锁值域、`c` 色阶 stops。
+- **scatter**/**bubble**：`xl`/`yl`（bubble 加 `sl` 第三维名）+ `xmin/xmax/ymin/ymax` 锁轴（数据超锁自动让位扩 nice 刻度、点不画出轴外；量程内锁定防抖不变）。
+- **heatmap**：`rows` 矩阵、`cols` 列标签、`l` 行标签（须匹配）、`vmin`/`vmax` 锁值域（绝对服从不扩域，保多图比色；超域格钳端点色并加右上/左下警示角标 + tooltip 注记）、`c` 色阶 stops。
 - **histogram**：`d` 原始值序列（前端分箱）；`bins` 箱数（须 = `l` 段数）；`l` 范围段标签（`40-50,...,90-100` 自动锁 lo/hi/bins）；`min`/`max`/`ymax` 锁值域/频次。
 - **waterfall**：`d` 带符号增减；`c` 前 2 个为正/负色（默认绿/红）。
 - **boxplot**：`d` 五数；`l` 组名。
 - **treemap**：`d` `名:值`；`c` 配色。
 - **sankey**：`nodes`（可省，从 flows 提）+ `flows`；`c` 配色。
+- **wordcloud**：`d` `词:权重`（同 treemap 格式）；字号 ∝ 权重、螺线碰撞布局、确定性渲染（流式重绘词位不跳）；放不下自动缩字号、最小字号仍放不下弃词；`c` 配色。
 - **candlestick**：`d` OHLC；`l` 日期；`c` 阳/阴色（默认红涨绿跌，中国惯例）。
 - **progress**：`v` `max`/`min` `u` `l` `c` `anim`。
 - **gauge**：见下方专节。

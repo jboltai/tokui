@@ -2449,6 +2449,7 @@ textarea.tokui-textarea--auto { resize: none !important; }
 .tokui-chart__svg[data-chart-type="heatmap"],
 .tokui-chart__svg[data-chart-type="treemap"] { max-width: 1000px; max-height: 600px; }
 .tokui-chart__svg[data-chart-type="sankey"] { max-width: 1000px; max-height: 600px; }
+.tokui-chart__svg[data-chart-type="wordcloud"] { max-width: 1000px; max-height: 600px; }
 .tokui-chart__svg[data-chart-type="rose"] { max-width: 600px; max-height: 600px; }
 .tokui-chart__svg[data-chart-type="progress"] { max-width: 780px; max-height: 120px; }
 /* 图表悬浮工具条：复制 / 下载高清 PNG，默认隐藏，hover 显出 */
