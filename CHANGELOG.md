@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.1] — 2026-10-28 · X 轴标签竖排 + 推理链 upd 动态推进 + tooltip 视口裁剪修复
+
+目标:图表 X 轴标签新增竖排档与 `xvertical` 属性(CJK 密集类目全显不隐藏、与抽稀正交组合),补齐推理链 `think-step`/`think-chain` 的 `[upd id:]` 动态推进通路,修复边缘数据点 tooltip 被 SVG 视口裁剪;全程向后兼容,非 CJK 标签/无 id 无 upd 用法/居中 tooltip 既有行为逐位不变。
+
+### 新增 · X 轴标签竖排（CJK 密集类目全显不隐藏）
+- **降级阶梯扩为四级**：【横排 → -45° 旋转 → 竖排 → 竖排+按步长跳过】（非 CJK 标签维持原三级，行为逐位不变）。竖排每标签水平占宽降至单字符（容量约为旋转口径的 4 倍），30+ 中文部门名类场景从「抽稀隐藏大半」变为全显可读；竖排也装不下时退为竖排+抽稀（两者不互斥，跳过步长按竖排容量口径计算，远小于横排口径）。
+- **智能判定**（`xvertical:auto` 默认）：仅当**全部**非空标签为「CJK 为主」（CJK 占可见字符 ≥50% 且长度 ≥2）才启用竖排档——中文堆叠阅读自然，拉丁/数字堆叠不可读故维持旋转/抽稀；all-or-nothing 与整体旋转决策同口径。`xvertical:on` 强制竖排（拉丁也竖、优先于旋转档），`off` 关闭（回到旧行为）。
+- **渲染与预算**：逐字符 `<tspan x dy>` 同列下排，**行距用 em 单位（1.25em）随字号缩放**——挂载后 bump 抬大 font-size 时字距恒定，不因字号变化挤压重叠；首字 `dy=0.95em` 基线落位，首字「顶部」恒在轴下锚点间隙处（fs 抬大后 ascent 不再上侵轴线/柱底）；每个竖排标签挂 `data-vmax` 栈高字号上限，`adjustChartFs`/`bumpZoomTextFs` 两处 bump 按其钳制，宽画布（点数多自动撑宽、scale<1）下「字数×行距」不越 padB 带伸出 viewBox 底缘（极端纵横比下渲染 px 可低于 14，宁小勿溢出，同 pie fsCap 降级哲学）；`interval:0`/`interval:N` 与竖排正交组合；竖排 `padB` 按最长标签字数×每字 20 单位（fs9×1.25em×bump 上限 16/9 口径，与旋转 effW 的 16/7 折算同理）预留、沿用绘图区保底封顶，超预算尾部省略号截断（全名在 tooltip）；zoom 缩放窗口内保持竖排。
+- 覆盖 bar（纵向）/line/area/grouped/boxplot/candlestick 等 x 类目轴全部 6 条路径；docs 图表属性表与降级说明同步。
+- demo 新增「X轴标签竖排」（`demo-chart-xvertical`，SVG 图表组、柱状图后）：bar/line/area 三图型 ×【①横排 ②旋转-45° ③竖排全显 ④竖排+抽稀】四形态 + 拉丁标签 auto/on 对照，共 14 例、一行两列布局，标题标注各形态触发条件与关键属性。
+- 测试:test-chart 新增 7 例——竖排全显（30×4 字）、竖排+抽稀（60 标签 interval=2）、拉丁 auto 不竖排、on/off 显式覆盖、interval 0/N 组合、padB 封顶+字符截断预算、渲染级 tspan 全量可见+截断省略号+data-vmax 钳制断言;全量套件通过。
+
+### 修复 · 边缘数据点 tooltip 被 SVG 视口裁掉（首/末柱 hover 显示不全）
+- **根因**：tooltip 创建时（`appendTipToLayer`）按 fs10 口径钳制在 viewBox 内，但挂载后 `applyTipScale` 围绕数据点锚点把 tip 组放大 s 倍（窄容器 s≈1.4~1.6），**放大后无人再钳制**——首/末柱锚点贴边，tooltip 左/右缘越出 SVG 视口被 overflow 裁掉；贴顶高点顶部同理。
+- **修复**：`applyTipScale` 缩放后加 confine 平移补偿——按 rect 放大后的四缘与 viewBox（边距 2）求 dx/dy，越界即整体平移回界内再缩放（等价 ECharts confine 语义）。一处修复覆盖全部图表类型；dataZoom 共享 tip / 轴 tip（自管几何）不受影响；无 viewBox 或居中锚点时零补偿、行为不变。
+- 测试:test-chart 新增 1 例（三断言）——首柱越左/上界平移补偿、末柱越右界左移补偿、居中锚点零补偿;全量套件通过。
+
+### 修复 · 推理链不能被 upd 动态推进（think-step/think-chain 补 `_update` + id 落 DOM）
+此前 `think-step` 只能靠初始 `status` 一次性渲染,后端无法像 tool-call/plan-step 那样用 `[upd id:]` 推进推理进度;全程向后兼容,无 id/无 upd 的既有用法行为逐位不变。
+- **根因**:`[upd id:x ...]` 的执行通路是「按 id 定位元素 → 向上爬到带 `_update` 的组件根 → 调用 `_update(attrs)`」,而 `think-step` 渲染器两者皆缺:`attrs.id` 未落到 wrapper(定位直接失败),wrapper 上也无 `_update`(即使定位到也会继续向上爬、误伤祖先组件)。`think-chain` 落了 id 但同样缺 `_update`。
+- **think-step**:`id` 落 DOM(对齐 plan-step/tool-call);新增 `_update` 支持 `status`(类名切换 + 状态图标就地重建:done=check / running=spinner / error·danger=close / 其余=pending dot,body 已流入内容不丢)、`tt`(缺失时补建标题)、`dur`(缺失时补建耗时)。
+- **think-chain**:新增 `_update` 支持 `status`(链级状态类)、`tt`(标题更新)、`act:open`/`act:close`(details 开合,对齐 collapse/dialog 契约)。
+- 范式对齐 plan-step:`[think-step id:s1 tt:分析 status:running]…[/think-step]` → `[upd id:s1 status:done dur:1.2s]` 逐步推进;链级收尾 `[upd id:chain status:done tt:推理完成 act:close]`。
+- demo 新增「UPD 推理链推进」(`demo-upd-think`,3 步 pending→running→done + 链级收尾);DSL 参考组件表、「AI 组件 id 锚点」说明(think-chain 从「无 _update」名单移出)、docs/ai-chat 属性表、llms.txt 同步更新。
+- 测试:test-misc 新增 3 例——think-step upd 经 DSL 全通路(status/图标重建/dur 补建/body 保留/error 切换)、tt 缺失补建、think-chain upd 全通路(status/tt/act 开合);全量套件通过。
+
 ## [0.3.0] — 2026-10-26 · 图表健壮性四连修 + 词云第 21 种图表 + demo 按类型重构
 
 目标:集中收敛外部现场反馈的四类图表显示 BUG(横向柱长标签截断、gauge/progress 超量程钳死、X 轴长标签压扁图表、显式锁定量程不让位),新增词云类型补齐常用图表版图,demo 站图表分组按「一类型一导航」重构;全程向后兼容,量程内/短标签等既有行为逐位不变。

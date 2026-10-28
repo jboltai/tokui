@@ -5,7 +5,7 @@
 ## Docs
 
 - [TokUI 演示主页](https://tokui-demo.jboltai.com): 组件画廊 + AI 对话式 SSE 流式渲染。左侧分类导航与搜索，触发关键词实时流式推送 DSL，前端增量渲染为 DOM，支持 default/dark/modern/modern-dark 四主题与中英双语切换。
-- [DSL 语法参考](https://tokui-demo.jboltai.com/TOKUI_DSL_REFERENCE.md): TokUI DSL 完整语法手册。自闭合与容器标签、属性简写（t/l/tx/ph/v 等）、布尔属性、变体 v:primary、表格流式 cell 级渲染、colspan/rowspan 合并、列对齐/列配色、按钮内置动作（submit/reset/print）与动态更新。AI 对话组件（bubble/tool-call/plan/chat-input 等）支持 id 锚点 + del/ins 动态编排、plan-step 经 upd 逐步推进（status/tt/desc）、tool-call collapsed 折叠与 HITL 审批，交互事件经 on: 声明与统一出口（onEvent）上报。
+- [DSL 语法参考](https://tokui-demo.jboltai.com/TOKUI_DSL_REFERENCE.md): TokUI DSL 完整语法手册。自闭合与容器标签、属性简写（t/l/tx/ph/v 等）、布尔属性、变体 v:primary、表格流式 cell 级渲染、colspan/rowspan 合并、列对齐/列配色、按钮内置动作（submit/reset/print）与动态更新。AI 对话组件（bubble/tool-call/plan/chat-input 等）支持 id 锚点 + del/ins 动态编排、plan-step 经 upd 逐步推进（status/tt/desc）、think-step 经 upd 推进推理状态（status/tt/dur，think-chain 链级 status/tt/act）、tool-call collapsed 折叠与 HITL 审批，交互事件经 on: 声明与统一出口（onEvent）上报。
 - [演示包说明（中文）](https://tokui-demo.jboltai.com/README.md): demo 目录中文文档。特性概览、demo.sh 管理脚本（start/stop/restart/status）、目录结构、SSE 接口表、与主项目 TokUI 的快照关系及 demo:sync 刷新方式。
 - [演示包说明（英文）](https://tokui-demo.jboltai.com/README_EN.md): demo 目录英文文档。面向英文读者，覆盖同等特性、启动方式、目录结构、SSE 接口与主项目关系。
 
@@ -18,10 +18,11 @@
 
 ## Key Facts
 
-- 项目: TokUI（当前演示版本 v0.3.0）
+- 项目: TokUI（当前演示版本 v0.3.1）
 - 定位: 零依赖的流式 UI 描述与渲染框架，核心场景为 AI 对话中的流式 UI 生成
 - 架构: 后端 TokUIBuilder 生成 DSL → SSE 流式推送 → 前端 TokUIParser 增量解析 → TokUIRenderer 渲染真实 DOM
 - 组件数: 150+，含表格、表单、图表（柱状/折线/饼图/雷达/散点/甘特/漏斗/仪表盘）、卡片、12 栅格 row/col 与高级网格 grid/cell、列表、AI 对话气泡、流式 Markdown、代码高亮、时间线、步骤条等
+- 图表 X 轴标签四级降级: 横排 → -45°旋转 → 竖排(逐字上下堆叠,`xvertical:auto` 默认仅 CJK 标签自动启用、`on`/`off` 强制开关;30+ 中文类目全显不隐藏) → 按步长跳过(保留首末,`interval:N`/`0` 精确控制;竖排与抽稀可组合)。
 - 图表含中国地图 `chart t:map`: `region:"浙江:86|江苏:74"` 省级热力(34 省含港澳台,简称/全名均可)+`d:"lng,lat,val,name:城市"` 散点层(对数半径,值 TOP12 自动涟漪扩散,`ripple:off` 关);`label:full|name|off` 标注三档(默认 名+值 两行/无数据省灰名/碰撞避让);`unit` 单位;`topn:5` 左下自动生成区域 TOP-N 迷你榜(0=关);hover 多行 tooltip+高亮压暗;点击省份 `on:"mapClick:handler"` 上报 {province,value};`vmin/vmax` 锁色阶,左下 visualMap 色阶条/半径图例,右下南海诸岛小图(九段线+四大群岛)。
 - 数据大屏套件: `fit-screen`(1920×1080 等比缩放) + `screen-header`(门头:渐变标题/英文副题/两端信息/时钟 clock/LIVE 呼吸灯 live) + `kpi`(指标卡,pct:完成度光条,trend 徽章,tech 下 display 字体+辉光) + `panel`(科技边框,v:corner 四角角标/glow/scan 扫描线,sub 英文副题,extra:"…{高亮}…" 右侧信息) + `rank-list`(龙虎榜:前三渐变奖牌/首字头像/超高自动滚动,rows:"名,区域,值|…") + `scrollboard`(无缝滚动表,胶囊格 `tag:类型:文本`) + `flip-num`(翻牌器);趋势对比 `chart t:combo`(柱 d 左轴+线 d2 右轴,n1/n2 系列名,y2 右轴单位)。整页范式:fit-screen > grid(h:100% areas theme:tech) > screen-header + KPI 带 + panel×N,详见「DSL 语法参考」§6.9 数据大屏食谱。
 - 主题: default / dark / modern / modern-dark / tech（CSS 变量驱动，data-tokui-theme 属性切换；tech 为数据大屏主题：深蓝底+荧光青，`theme:tech` 挂 grid 自动获得屏幕级氛围——三层径向光晕+网格纹理+暗角+组件辉光）

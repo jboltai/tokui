@@ -293,6 +293,7 @@ const NAV_DATA = [
     icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>',
     items: [
       { trigger: 'demo-chart-bar', name: { zh: '柱状图', en: 'Bar' }, desc: { zh: '多系列·大规模·横向长标签', en: 'Multi-series · large · h-bar' }, icon: '📊' },
+      { trigger: 'demo-chart-xvertical', name: { zh: 'X轴标签竖排', en: 'X Label Vertical' }, desc: { zh: '横排·斜45°·竖排·竖排+抽稀', en: 'H · 45° · vertical · +skip' }, icon: '↕' },
       { trigger: 'demo-chart-line', name: { zh: '折线图', en: 'Line' }, desc: { zh: '趋势·smooth·面积填充', en: 'Trend · smooth · area' }, icon: '📈' },
       { trigger: 'demo-chart-area', name: { zh: '面积图', en: 'Area' }, desc: { zh: '堆叠·分组·单系列', en: 'Stack · grouped' }, icon: '🏔' },
       { trigger: 'demo-chart-pie', name: { zh: '饼图', en: 'Pie' }, desc: { zh: '占比构成·引线标签', en: 'Proportion' }, icon: '🥧' },
@@ -377,6 +378,7 @@ const NAV_DATA = [
       { trigger: 'demo-upd-collapse', name: { zh: '折叠更新', en: 'Collapse' }, desc: { zh: '展开/折叠切换', en: 'Open/close toggle' }, icon: '▼' },
       { trigger: 'demo-upd-dialog', name: { zh: '对话框更新', en: 'Dialog' }, desc: { zh: '打开/关闭/标题更新', en: 'Open/close/title update' }, icon: '◻' },
       { trigger: 'demo-upd-tool-call', name: { zh: '工具调用流转', en: 'Tool-Call' }, desc: { zh: 'pending→running→done', en: 'Status transitions' }, icon: '⚡' },
+      { trigger: 'demo-upd-think', name: { zh: '推理链推进', en: 'Think Chain' }, desc: { zh: 'think-step 状态流转+链级收尾', en: 'think-step transitions + chain finish' }, icon: '🧠' },
       { trigger: 'demo-upd-steps', name: { zh: '步骤推进', en: 'Steps' }, desc: { zh: '步骤条动态推进', en: 'Step progression' }, icon: '▶' },
       { trigger: 'demo-upd-switch', name: { zh: '开关切换', en: 'Switch' }, desc: { zh: '自动启用/禁用', en: 'Auto enable/disable' }, icon: '🔄' },
       { trigger: 'demo-upd-drawer', name: { zh: '抽屉更新', en: 'Drawer' }, desc: { zh: '自动弹出/关闭', en: 'Auto open/close' }, icon: '◧' },
@@ -397,6 +399,7 @@ const NAV_DATA = [
       { trigger: 'test-reveal-stream', name: { zh: 'reveal 随机流', en: 'Reveal Random Stream' }, desc: { zh: '随机碎片流式 + 折叠区一次性入场', en: 'Random-fragment stream + fold one-shot entrance' }, icon: '✨' },
       { trigger: 'test-big-table', name: { zh: '超大型表格流式', en: 'Huge Table Stream' }, desc: { zh: '合并表头+单元格多组件·逐 cell 流式', en: 'Merged header + cell components · cell stream' }, icon: '📋' },
       { trigger: 'test-pie', name: { zh: '饼图独立碎片', en: 'Pie Fragment' }, desc: { zh: '饼图 1/2/3/4 列布局与少/多数据碎片渲染', en: 'Pie chart 1/2/3/4-col layouts, sparse/dense data fragments' }, icon: '🥧' },
+      { trigger: 'test-hbar', name: { zh: '横向柱状图独立碎片', en: 'H-Bar Fragment' }, desc: { zh: '横向柱 1/2/3/4 列布局与 8~24 类多数据点碎片流式', en: 'H-bar 1/2/3/4-col layouts, 8~24 dense data fragments' }, icon: '📊' },
     ]
   }
 ];
@@ -448,7 +451,7 @@ const I18N = {
   eventPanelClear: { zh: '清空', en: 'Clear' },
   editClicked:    { zh: '编辑按钮被点击', en: 'Edit button clicked' },
   deleteClicked:  { zh: '删除按钮被点击', en: 'Delete button clicked' },
-  footerVer:      { zh: '当前版本:v0.3.0', en: 'Version: v0.3.0' },
+  footerVer:      { zh: '当前版本:v0.3.1', en: 'Version: v0.3.1' },
   footerCopy:     { zh: '零依赖 · 流式UI描述与渲染框架', en: 'Zero Deps · Streaming UI Framework' },
   dslRef:         { zh: 'DSL 语法速查', en: 'DSL Syntax Ref' },
   clearBtn:       { zh: '清空', en: 'Clear' },

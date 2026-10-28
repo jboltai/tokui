@@ -1570,6 +1570,17 @@ function registerBasicComponents(renderer) {
     details.appendChild(stepsBody);
     details._slot = stepsBody;
     details._tokuiType = 'think-chain';
+    // 推理链整体推进：[upd id:chain status:done tt:思考完成 act:open|close]
+    // （id 已落 DOM 但缺 _update 时 upd 会爬到祖先组件误伤，补齐后链级更新闭环）
+    details._update = function (uAttrs) {
+      if (uAttrs.status) {
+        // 类名全量重写：think-chain 仅 base + 状态两类，无其他修饰类需保留
+        details.className = 'tokui-think-chain tokui-think-chain--' + uAttrs.status;
+      }
+      if (uAttrs.tt !== undefined) titleSpan.textContent = uAttrs.tt;
+      if (uAttrs.act === 'open') details.setAttribute('open', '');
+      else if (uAttrs.act === 'close') details.removeAttribute('open');
+    };
     return details;
   });
 
@@ -1582,38 +1593,49 @@ function registerBasicComponents(renderer) {
     var title = attrs.tt || '';
     var dur = attrs.dur || '';
     var classes = ['tokui-think-step', 'tokui-think-step--' + status];
-    var wrapper = el('div', { class: classes.join(' ') });
+    var wrapperAttrs = { class: classes.join(' ') };
+    // id 落 DOM：[upd id:stepN status:done] 推理推进 / del·ins 锚点定位的前提
+    if (attrs.id) wrapperAttrs.id = attrs.id;
+    var wrapper = el('div', wrapperAttrs);
 
     // Header row: icon + title + duration
     var header = el('div', { class: 'tokui-think-step__header' });
 
-    if (status === 'done') {
-      var icon = el('span', { class: 'tokui-think-step__icon', 'aria-hidden': 'true' });
-      // 白色 check（stroke=currentColor=#fff，sw=3 在小圆内更清晰），替换原 ✓ 文本
-      icon.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
-      header.appendChild(icon);
-    } else if (status === 'running') {
-      var spinner = el('span', { class: 'tokui-think-step__spinner', 'aria-hidden': 'true' });
-      header.appendChild(spinner);
-    } else if (status === 'error' || status === 'danger') {
-      // error/danger 双类名（与 CSS 双写对齐，danger 为别名）
-      var errIcon = el('span', { class: 'tokui-think-step__icon tokui-think-step__icon--' + status, 'aria-hidden': 'true' });
-      // 白色 close，替换原 ✗ 文本
-      errIcon.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>';
-      header.appendChild(errIcon);
-    } else {
-      var pendingDot = el('span', { class: 'tokui-think-step__dot', 'aria-hidden': 'true' });
-      header.appendChild(pendingDot);
+    // 状态图标工厂：渲染与 _update 共用，保证 upd 推进后的图标与初始渲染同构
+    // （done=check / running=spinner / error·danger=close / 其余=pending dot）
+    function statusIcon(s) {
+      if (s === 'done') {
+        var icon = el('span', { class: 'tokui-think-step__icon', 'aria-hidden': 'true' });
+        // 白色 check（stroke=currentColor=#fff，sw=3 在小圆内更清晰），替换原 ✓ 文本
+        icon.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+        return icon;
+      }
+      if (s === 'running') {
+        return el('span', { class: 'tokui-think-step__spinner', 'aria-hidden': 'true' });
+      }
+      if (s === 'error' || s === 'danger') {
+        // error/danger 双类名（与 CSS 双写对齐，danger 为别名）
+        var errIcon = el('span', { class: 'tokui-think-step__icon tokui-think-step__icon--' + s, 'aria-hidden': 'true' });
+        // 白色 close，替换原 ✗ 文本
+        errIcon.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>';
+        return errIcon;
+      }
+      return el('span', { class: 'tokui-think-step__dot', 'aria-hidden': 'true' });
     }
 
+    var iconEl = statusIcon(status);
+    header.appendChild(iconEl);
+
+    var titleEl = null;
     if (title) {
-      var titleEl = el('span', { class: 'tokui-think-step__title' });
+      titleEl = el('span', { class: 'tokui-think-step__title' });
       titleEl.textContent = title;
       header.appendChild(titleEl);
     }
 
+    var durEl = null;
     if (dur) {
-      var durEl = el('span', { class: 'tokui-think-step__dur' });
+      durEl = el('span', { class: 'tokui-think-step__dur' });
       durEl.textContent = dur;
       header.appendChild(durEl);
     }
@@ -1634,6 +1656,31 @@ function registerBasicComponents(renderer) {
 
     wrapper._slot = body;
     wrapper._tokuiType = 'think-step';
+    // 推理推进通路：[upd id:stepN status:running|done|error tt:新标题 dur:1.2s]
+    // （对齐 plan-step/tool-call：改类名 + 就地重建 header 图标，不销毁 body 已流入内容）
+    wrapper._update = function (uAttrs) {
+      if (uAttrs.status) {
+        wrapper.className = 'tokui-think-step tokui-think-step--' + uAttrs.status;
+        var nextIcon = statusIcon(uAttrs.status);
+        header.insertBefore(nextIcon, iconEl);
+        header.removeChild(iconEl);
+        iconEl = nextIcon;
+      }
+      if (uAttrs.tt !== undefined) {
+        if (!titleEl) {
+          titleEl = el('span', { class: 'tokui-think-step__title' });
+          header.insertBefore(titleEl, iconEl.nextSibling);
+        }
+        titleEl.textContent = uAttrs.tt;
+      }
+      if (uAttrs.dur !== undefined) {
+        if (!durEl) {
+          durEl = el('span', { class: 'tokui-think-step__dur' });
+          header.appendChild(durEl);
+        }
+        durEl.textContent = uAttrs.dur;
+      }
+    };
     return wrapper;
   });
 

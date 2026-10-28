@@ -815,6 +815,10 @@ function applyTipScale(svg, scale) {
   var tipFs = bumpFsUnits(10, scale, MIN_CHART_PX, MAX_CHART_PX);
   var s = tipFs / 10;
   if (Math.abs(s - 1) < 0.005) return; // scale≈1 无需变换
+  // confine 界：缩放后组的平移补偿用 viewBox 宽高（边缘数据点的 tip 放大后左右/上下越出
+  // SVG 视口被 overflow 裁掉——appendTipToLayer 的钳制是 fs10 口径，围绕锚点放大 s 倍后失效）
+  var vb = (svg.getAttribute('viewBox') || '').trim().split(/\s+/);
+  var vw = parseFloat(vb[2]), vh = parseFloat(vb[3]);
   // 排除 dataZoom 共享 tip（hover 动态定位、自管几何，不参与整组缩放）
   // 排除共享 tip(--shared，dataZoom hover) + 轴 tip(--axis，attachAxisTooltip 自管几何/字号)
   var groups = svg.querySelectorAll('.tokui-chart-tips-layer .tokui-chart-tip:not(.tokui-chart-tip--shared):not(.tokui-chart-tip--axis)');
@@ -830,7 +834,22 @@ function applyTipScale(svg, scale) {
         ay = parseFloat(r.getAttribute('y')) + parseFloat(r.getAttribute('height')) / 2;
       } else { ax = 0; ay = 0; }
     }
-    g.setAttribute('transform', 'translate(' + ax + ' ' + ay + ') scale(' + (Math.round(s * 1000) / 1000) + ') translate(' + (-ax) + ' ' + (-ay) + ')');
+    // confine：围绕锚点放大后 rect 若越出 viewBox（边距 2），整体平移回界内再缩放——
+    // 边缘数据点（首/末柱、贴顶高点）的 tip 不被 SVG 视口裁掉，等价 ECharts confine 语义。
+    var r2 = g.querySelector('rect');
+    var dx = 0, dy = 0;
+    if (r2 && isFinite(vw) && isFinite(vh) && vw > 0 && vh > 0) {
+      var l0 = parseFloat(r2.getAttribute('x')), t0 = parseFloat(r2.getAttribute('y'));
+      var w0 = parseFloat(r2.getAttribute('width')), h0 = parseFloat(r2.getAttribute('height'));
+      if (isFinite(l0) && isFinite(t0) && isFinite(w0) && isFinite(h0)) {
+        var left = ax + (l0 - ax) * s, right = left + w0 * s;
+        var top = ay + (t0 - ay) * s, bottom = top + h0 * s;
+        if (left < 2) dx = 2 - left; else if (right > vw - 2) dx = (vw - 2) - right;
+        if (top < 2) dy = 2 - top; else if (bottom > vh - 2) dy = (vh - 2) - bottom;
+        dx = Math.round(dx * 100) / 100; dy = Math.round(dy * 100) / 100;
+      }
+    }
+    g.setAttribute('transform', 'translate(' + (Math.round((ax + dx) * 100) / 100) + ' ' + (Math.round((ay + dy) * 100) / 100) + ') scale(' + (Math.round(s * 1000) / 1000) + ') translate(' + (-ax) + ' ' + (-ay) + ')');
   }
 }
 
@@ -910,21 +929,63 @@ function axisBound(attrs, explicit, cachedKey, fallback, noYield) {
   return fallback;
 }
 
-// x 轴标签密度自适应：【横排 → 旋转 → 跳过】三级降级 + interval 显式控制。
+// x 轴标签密度自适应：【横排 → 旋转 → 竖排 → 竖排+跳过 / 跳过】降级 + interval 显式控制。
 //   slotW  ：每标签槽宽（groupW / line 间距）—— 用于旧式逐标签旋转阈值（向后兼容）。
 //   availW ：轴总宽 cw（缺失则 slotW*N 估算）—— 用于密度容量计算。
-//   intervalAttr：undefined/'auto' 自动三级降级；'0' 强制全显（仅按需旋转）；N>1 锁定跳过步长。
+//   intervalAttr：undefined/'auto' 自动降级；'0' 强制全显（仅按需旋转/竖排）；N>1 锁定跳过步长。
+//   vertAttr：xvertical 属性 'auto'（默认）/'on'/'off'。auto 时仅当全部非空标签均为
+//   「CJK 为主」（CJK 占可见字符 ≥50% 且长度 ≥2，vertLabelsEligible）才启用竖排档 ——
+//   中文堆叠阅读自然、每标签水平占宽降至单字符（X_LABEL_VERT_SLOT），容量远高于旋转；
+//   拉丁/数字为主的标签堆叠后不可读，维持旋转/跳过路径。竖排与跳过不互斥：竖排也装
+//   不下时退为「竖排 + 按步长跳过」（每标签占宽骤减，跳过步长远小于横排口径）。
 // 容量按「渲染目标 px」折算标签宽（MAX_CHART_PX/PIE_FS_REF），与 bumpFsUnits 上限一致——
 // 窄容器下 font-size 被 bump 抬高，按裸 fs7 估算会严重低估致拥挤（见 chart 50/40 点用例）。
-// 少量标签（n≤10）宁可旋转重叠也不隐藏（旋转仍可读）；多量则按步长跳过、保留首末。
-// 返回 {rotate, padB, interval}。
+// 少量标签（n≤10）宁可旋转重叠也不隐藏（旋转仍可读）；多量则竖排/按步长跳过、保留首末。
+// 返回 {rotate, vertical, padB, interval, rotBudget, vertBudget}。
 var X_LABEL_MIN_SLOT = 24; // 短标签可读槽位下限（viewBox 单位）：38 过宽——纯数字短标签（"30"≈20 单位）
                            // 30 点序列每点仅 ~23 单位，恒被抽稀显示不全；24 允许数字序列横排全显，
                            // CJK/长标签不受影响（其槽位由文字宽度 effW×1.15 主导，恒大于本下限）。
 var X_LABEL_ROT_FLOOR = 38 * 0.72; // 旋转判定维持保守口径（旧 MIN_SLOT=38 折算）：高密度标签仍走抽稀
                                     // 而非「全部旋转」，与既有行为/测试一致。
-var X_LABEL_ROT_GAP = 12;  // 旋转标签锚点低于轴线的距离（viewBox 单位）
-function axisXLayout(labels, slotW, basePadB, availW, intervalAttr, xUnit, h) {
+var X_LABEL_ROT_GAP = 12;  // 旋转/竖排标签锚点低于轴线的距离（viewBox 单位）
+var X_LABEL_VERT_SLOT = 12; // 竖排每标签水平槽宽（viewBox 单位）：fs9 CJK 字宽 9 + 列间间隙
+var X_LABEL_VERT_LH_EM = 1.25; // 竖排行距（em）：随字号缩放——挂载后 bump 抬大 font-size 时 dy 同步放大，
+                               // 字距恒为 1.25em，不会因 fs 变大而上下挤压重叠（绝对单位 dy 的坑）。
+var X_LABEL_VERT_LH = 20;  // 竖排每字竖向足迹预算（viewBox 单位）：fs9×1.25em×bump 上限口径（16/9），
+                           // 与旋转 effW 的 16/7 折算同理——按最坏 bump 预留，任一字号下不溢出 padB。
+var X_LABEL_VERT_GAP = 12; // 竖排首字低于轴线的距离：与旋转锚点同带同值（xLabelBaseY 共用低锚点公式）
+// CJK 为主判定用字符集：汉字/注音/假名/韩文 + CJK 标点 + 全角形式（拉丁/半角数字不计）
+var VERT_CJK_RE = /[\u1100-\u11FF\u2E80-\u9FFF\uAC00-\uD7A3\uF900-\uFAFF\uFF00-\uFFEF]/;
+
+// xvertical 属性 → 'auto' | 'on' | 'off'（缺省 auto；on/true/1 强制、off/false/0 关闭）
+function xVerticalAttr(vertAttr) {
+  if (vertAttr === undefined || vertAttr === '') return 'auto';
+  var s = String(vertAttr).toLowerCase();
+  if (s === 'on' || s === 'true' || s === '1') return 'on';
+  if (s === 'off' || s === 'false' || s === '0') return 'off';
+  return 'auto';
+}
+
+// 整轴标签是否适合竖排：all-or-nothing —— 任一非空标签非「CJK 为主」即整轴不竖排
+// （竖排为整体模式，混排横竖不齐反伤可读性；个别长英文词堆叠后不可读）。单字符标签
+// 无竖排收益（横排本就最窄），排除。长度不设上限：超预算由 padB 封顶 + vertBudget 截断兜底。
+function vertLabelsEligible(labels) {
+  var seen = 0;
+  for (var i = 0; i < labels.length; i++) {
+    if (labels[i] == null || labels[i] === '') continue;
+    seen++;
+    var txt = String(labels[i]), cjk = 0, vis = 0;
+    for (var k = 0; k < txt.length; k++) {
+      var ch = txt.charAt(k);
+      if (ch === ' ') continue;
+      vis++;
+      if (VERT_CJK_RE.test(ch)) cjk++;
+    }
+    if (vis < 2 || cjk * 2 < vis) return false;
+  }
+  return seen > 0;
+}
+function axisXLayout(labels, slotW, basePadB, availW, intervalAttr, xUnit, h, vertAttr) {
   var n = labels.length;
   var padB = basePadB || 30;
   if (!n) return { rotate: false, padB: padB, interval: 1 };
@@ -942,29 +1003,38 @@ function axisXLayout(labels, slotW, basePadB, availW, intervalAttr, xUnit, h) {
   var fitH = Math.max(1, Math.floor(cw / slotNeeded));         // 横排最多容纳数
   var fitR = Math.max(1, Math.floor(cw / rotNeeded));          // 旋转最多容纳数
 
-  var interval = 1, rotate = false;
+  var interval = 1, rotate = false, vertical = false;
   var mode = intervalAttr === undefined ? 'auto' : String(intervalAttr);
+  var vmode = xVerticalAttr(vertAttr);
+  var vertOk = vmode === 'on' || (vmode === 'auto' && vertLabelsEligible(labels));
+  var fitV = vertOk ? Math.max(1, Math.floor(cw / X_LABEL_VERT_SLOT)) : 0; // 竖排最多容纳数
   if (mode === '0') {
-    // 强制全显：仅在横排放不下时旋转（不跳过）
+    // 强制全显：横排放不下时旋转/竖排（不跳过）；on 强制竖排优先于旋转
     interval = 1;
-    rotate = n > fitH && (n <= fitR || n <= 10);
+    rotate = n > fitH && (n <= fitR || n <= 10) && vmode !== 'on';
+    vertical = n > fitH && !rotate && vertOk;
   } else if (mode === 'auto') {
     if (n <= fitH) { interval = 1; rotate = false; }
-    else if (n <= 10) { interval = 1; rotate = true; }         // 少量：旋转优于隐藏
+    else if (vmode === 'on') { interval = 1; rotate = false; vertical = true; } // 强制：装不下也全竖
+    else if (n <= 10) { interval = 1; rotate = true; }         // 少量：旋转优于隐藏/竖排
     else if (n <= fitR) { interval = 1; rotate = true; }       // 旋转能装下：全显旋转
+    else if (n <= fitV) { interval = 1; vertical = true; }     // 竖排能装下：全显竖排（优于隐藏）
+    else if (vertOk) { interval = Math.ceil(n / fitV); vertical = true; } // 竖排 + 跳过（不互斥）
     else { interval = Math.ceil(n / fitH); rotate = false; }   // 装不下：按步长跳过
   } else {
     var num = parseInt(mode, 10);
     if (!isNaN(num) && num > 1) {
-      interval = num;                                          // 显式步长：横排稀疏
-      rotate = Math.ceil(n / interval) > fitH && Math.ceil(n / interval) <= fitR;
+      interval = num;                                          // 显式步长：跳过后仍装不下则竖排/旋转
+      var visN = Math.ceil(n / num);
+      rotate = visN > fitH && visN <= fitR;
+      vertical = visN > fitH && !rotate && vertOk;
     } else {
       interval = 1;
       rotate = n > fitH;
     }
   }
-  // 旋转标签渲染宽预算（px 折算口径与 effW 一致）：超预算的标签由 appendXLabels 省略号截断
-  var rotBudget = Infinity;
+  // 旋转/竖排标签渲染宽预算（px / 字符数口径）：超预算的标签由 appendXLabels 省略号截断
+  var rotBudget = Infinity, vertBudget = Infinity;
   if (rotate) {
     // 旋转标签竖向足迹：锚点低于轴 X_LABEL_ROT_GAP，文本沿 -45° 自锚点下延 ≈0.707·标签宽，
     // +3 余量；有 x 轴单位（xUnit）再留一行。宽度按渲染目标 px 折算（effW，与容量估算同口径）。
@@ -977,8 +1047,21 @@ function axisXLayout(labels, slotW, basePadB, availW, intervalAttr, xUnit, h) {
     var padBCap = (h > 0) ? Math.max(basePadB || 30, Math.floor(h - 18 - Math.max(60, h * 0.32))) : Infinity;
     padB = Math.max(basePadB || 30, Math.min(needPadB, padBCap));
     rotBudget = Math.max(24, (padB - X_LABEL_ROT_GAP - 3 - (xUnit ? X_LABEL_ROT_GAP : 0)) / Math.SQRT1_2);
+  } else if (vertical) {
+    // 竖排竖向足迹：锚点低于轴 X_LABEL_VERT_GAP，逐字下排 maxLen·行高，+3 底缘余量；
+    // xUnit 再留一行。封顶口径与旋转一致（padBCap），触顶后按 vertBudget 字符数省略号截断。
+    var maxLen = 0;
+    for (var li = 0; li < n; li++) {
+      if (labels[li] == null || labels[li] === '') continue;
+      var ll = String(labels[li]).length;
+      if (ll > maxLen) maxLen = ll;
+    }
+    var needPadV = X_LABEL_VERT_GAP + maxLen * X_LABEL_VERT_LH + 3 + (xUnit ? 12 : 0);
+    var padVCap = (h > 0) ? Math.max(basePadB || 30, Math.floor(h - 18 - Math.max(60, h * 0.32))) : Infinity;
+    padB = Math.max(basePadB || 30, Math.min(needPadV, padVCap));
+    vertBudget = Math.max(2, Math.floor((padB - X_LABEL_VERT_GAP - 3 - (xUnit ? 12 : 0)) / X_LABEL_VERT_LH));
   }
-  return { rotate: rotate, padB: padB, interval: interval, rotBudget: rotBudget };
+  return { rotate: rotate, vertical: vertical, padB: padB, interval: interval, rotBudget: rotBudget, vertBudget: vertBudget };
 }
 
 // dataZoom 缩放滑块：zoom 属性开启（zoom:auto | zoom:N | zoom:on）；默认关。
@@ -1012,18 +1095,21 @@ function zoomBounds(n, startFrac, endFrac) {
   return { s: s, e: e };
 }
 
-// x 轴标签锚点 y：旋转时贴轴线下方 X_LABEL_ROT_GAP（文本沿 -45° 下延进 padB 预留带内，
-// 底部不越过 viewBox 下缘——锚在 h-8 会让文本伸出 SVG 视口被裁掉）；横排保持 h-8
-// （有 x 轴单位时上移 12 腾出单位行）。
+// x 轴标签锚点 y：旋转/竖排时贴轴线下方 X_LABEL_ROT_GAP（旋转文本沿 -45°、竖排首字沿列
+// 向下延伸进 padB 预留带内，底部不越过 viewBox 下缘——锚在 h-8 会让文本伸出 SVG 视口被裁掉）；
+// 横排保持 h-8（有 x 轴单位时上移 12 腾出单位行）。调用方以 rotate||vertical 传入低锚点态。
 function xLabelBaseY(h, padB, rotate, xUnit) {
   return rotate ? (h - padB + X_LABEL_ROT_GAP) : (h - 8 - (xUnit ? 12 : 0));
 }
 
 // x 轴标签渲染：rotate 为布尔 → 整体统一（全转 / 全横排，由 axisXLayout 预决策）；
 // rotate 省略 → 旧逐标签判定（向后兼容）。positions：每 label 的 x 坐标；slotW：单标签可用宽阈值。
-// interval>1 → 跳过渲染：仅显首/末/步长倍数索引（首末强制保留，保证边界可读）。
+// interval>1 → 跳过渲染：仅显首/末/步长倍数索引（首末强制保留，保证边界可读）——竖排模式同样生效。
 // rotBudget（axisXLayout 返回，px 口径）：旋转标签超出 padB 预算时省略号截断（全名在 tooltip）。
-function appendXLabels(svg, labels, positions, baseY, slotW, rotate, interval, rotBudget) {
+// vertical：竖排模式 —— 逐字符 tspan 同 x 下排（SVG writing-mode 渲染器/jsdom 支持不稳，
+// tspan 方案确定性强、与 estTextW 布局口径一致）；vertBudget 为每标签字符数预算，超预算
+// 尾部省略号截断（全名在 tooltip）。
+function appendXLabels(svg, labels, positions, baseY, slotW, rotate, interval, rotBudget, vertical, vertBudget) {
   var threshold = (slotW || 40) * 0.9;
   var uniform = typeof rotate === 'boolean';
   var step = (interval && interval > 1) ? interval : 1;
@@ -1032,8 +1118,32 @@ function appendXLabels(svg, labels, positions, baseY, slotW, rotate, interval, r
     if (lb === undefined || lb === null || lb === '') return;
     if (step > 1 && !(i === 0 || i === last || i % step === 0)) return; // 跳过：仅显首/末/步长倍数
     var lx = positions[i];
-    var needRotate = uniform ? rotate : (estTextW(String(lb)) > threshold);
     var txt = String(lb);
+    if (vertical) {
+      if (isFinite(vertBudget) && txt.length > vertBudget) txt = txt.slice(0, vertBudget - 1) + '…';
+      var vt = svgEl('text', {
+        x: lx, y: baseY, 'text-anchor': 'middle',
+        fill: 'var(--tokui-chart-text, #999)', 'font-size': '9'
+      });
+      if (isFinite(vertBudget) && txt.length > 0) {
+        // 栈高字号上限：bump 抬 fs（宽画布 scale<1 时 fs 单位值可远超 16）会让 字数×行距 越过
+        // padB 带底缘伸出 viewBox。按「预算字符数 × 每字预算 / 实际字数」反推 fs 上限挂 data-vmax，
+        // adjustChartFs / bumpZoomTextFs 两处 bump 按此钳制（极端纵横比下渲染 px 可能 <14，合理降级，
+        // 同 pie fsCap 哲学——放不下时宁小勿溢出）。截断后 len ≤ vertBudget → vmax ≥ 16，正常容器不钳。
+        var vmaxFs = X_LABEL_VERT_LH / X_LABEL_VERT_LH_EM * vertBudget / txt.length;
+        vt.setAttribute('data-vmax', String(Math.round(vmaxFs * 100) / 100));
+      }
+      for (var vk = 0; vk < txt.length; vk++) {
+        // 首字 dy=0.95em：锚点 y 是「基线」位——fs 被 bump 抬大后字形 ascent（≈0.88em）会上越基线，
+        // 首字顶几乎顶到轴线/柱底。基线下移一个字高 → 首字「顶部」恒落锚点（轴下 GAP），字号无关。
+        var vts = svgEl('tspan', { x: lx, dy: vk === 0 ? '0.95em' : X_LABEL_VERT_LH_EM + 'em' });
+        vts.textContent = txt.charAt(vk);
+        vt.appendChild(vts);
+      }
+      svg.appendChild(vt);
+      return;
+    }
+    var needRotate = uniform ? rotate : (estTextW(String(lb)) > threshold);
     // 旋转标签超 padB 预算 → 省略号截断（预算与 axisXLayout 的 effW 同 px 口径，含 bump 目标 16/7）
     if (needRotate && isFinite(rotBudget) && estTextW(txt) * (MAX_CHART_PX / PIE_FS_REF) > rotBudget) {
       txt = wrapLabelLines(txt, rotBudget * PIE_FS_REF / MAX_CHART_PX, 1)[0];
@@ -1056,7 +1166,11 @@ function bumpZoomTextFs(containerG, svg) {
   var bfs = svg && svg._tokuiBumpedFs;
   if (!(bfs > 0)) return;
   var texts = containerG.querySelectorAll('text');
-  for (var i = 0; i < texts.length; i++) texts[i].setAttribute('font-size', bfs);
+  for (var i = 0; i < texts.length; i++) {
+    // 竖排 x 标签栈高钳制同 adjustChartFs（data-vmax），zoom 重画不回退该保护
+    var vmax = parseFloat(texts[i].getAttribute('data-vmax'));
+    texts[i].setAttribute('font-size', (vmax > 0 && bfs > vmax) ? String(vmax) : String(bfs));
+  }
 }
 
 // 轴单位：vertical=true 时 y 轴单位竖排（-90°），否则 x 轴单位横排。
@@ -1268,7 +1382,7 @@ function renderBar(data, labels, colors, attrs) {
     var padL = attrs._padL ? +attrs._padL : (attrs.yl ? 46 : 40), padR = 12, padT = 18;
     var cw = w - padL - padR;
     var groupW = cw / n;
-    var xl = axisXLayout(labels.slice(0, n), groupW, attrs.xl ? 38 : 28, cw, attrs.interval, !!attrs.xl, h);
+    var xl = axisXLayout(labels.slice(0, n), groupW, attrs.xl ? 38 : 28, cw, attrs.interval, !!attrs.xl, h, attrs.xvertical);
     var padB = xl.padB;
     var ch = h - padT - padB;
     function yOf(v) { return padT + ch * (1 - (v - valMin) / range); }
@@ -1351,7 +1465,7 @@ function renderBar(data, labels, colors, attrs) {
           var pgw = cw / wn;
           var ppositions = [];
           for (var pk = 0; pk < wn; pk++) ppositions.push(padL + pk * pgw + pgw / 2);
-          appendXLabels(labelG, labels.slice(s, e + 1), ppositions, xLabelBaseY(h, padB, xl.rotate, !!attrs.xl), pgw, xl.rotate, xl.interval, xl.rotBudget);
+          appendXLabels(labelG, labels.slice(s, e + 1), ppositions, xLabelBaseY(h, padB, xl.rotate || xl.vertical, !!attrs.xl), pgw, xl.rotate, xl.interval, xl.rotBudget, xl.vertical, xl.vertBudget);
           bumpZoomTextFs(labelG, svg); // 重建标签回基础 fs9 → 抬回保底字号（防 zoom 后字变小）
         }
         return;
@@ -1386,7 +1500,7 @@ function renderBar(data, labels, colors, attrs) {
       });
       var positions = [];
       for (var k = 0; k < wn; k++) positions.push(padL + k * gw + gw / 2);
-      appendXLabels(plotG, labels.slice(s, e + 1), positions, xLabelBaseY(h, padB, xl.rotate, !!attrs.xl), gw, xl.rotate, xl.interval, xl.rotBudget);
+      appendXLabels(plotG, labels.slice(s, e + 1), positions, xLabelBaseY(h, padB, xl.rotate || xl.vertical, !!attrs.xl), gw, xl.rotate, xl.interval, xl.rotBudget, xl.vertical, xl.vertBudget);
       bumpZoomTextFs(plotG, svg); // 重建标签/vals 回基础字号 → 抬回保底字号（防 zoom 后字变小）
       // zoom redraw 重建的柱/点由 svg 级事件委托自动覆盖，无需重绑 hover
     }
@@ -1568,7 +1682,7 @@ function renderLine(data, labels, colors, attrs) {
   var padL = attrs._padL ? +attrs._padL : (attrs.yl ? 46 : 40);
   var cw = w - padL - padR;
   var slotW = n > 1 ? cw / (n - 1) : cw;
-  var xl = axisXLayout(labels.slice(0, n), slotW, attrs.xl ? 38 : 28, cw, attrs.interval, !!attrs.xl, h);
+  var xl = axisXLayout(labels.slice(0, n), slotW, attrs.xl ? 38 : 28, cw, attrs.interval, !!attrs.xl, h, attrs.xvertical);
   var padB = xl.padB;
   var ch = h - padT - padB;
   var svg = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + totalH, class: 'tokui-chart__svg', preserveAspectRatio: 'xMidYMid meet' });
@@ -1667,7 +1781,7 @@ function renderLine(data, labels, colors, attrs) {
       renderLabels: function (labelG, s, e) {
         var span = e - s, pos = [];
         for (var kk = s; kk <= e; kk++) pos.push(span > 0 ? (padL + (kk - s) * cw / span) : padL + cw / 2);
-        appendXLabels(labelG, labels.slice(s, e + 1), pos, xLabelBaseY(h, padB, xl.rotate, !!attrs.xl), slotW, xl.rotate, xl.interval, xl.rotBudget);
+        appendXLabels(labelG, labels.slice(s, e + 1), pos, xLabelBaseY(h, padB, xl.rotate || xl.vertical, !!attrs.xl), slotW, xl.rotate, xl.interval, xl.rotBudget, xl.vertical, xl.vertBudget);
       },
       // 圆点重定位：dotG 不随 X 缩放（防椭圆），按当前窗口变换算 cx（仅 [s,e] 内点，余下 clipG 裁掉）
       onZoom: function (s, e, sx, tx) {
@@ -1698,7 +1812,7 @@ function renderLine(data, labels, colors, attrs) {
   } else {
     var positions = [];
     for (var k2 = 0; k2 < n; k2++) positions.push(xOf(k2));
-    appendXLabels(svg, labels.slice(0, n), positions, xLabelBaseY(h, padB, xl.rotate, !!attrs.xl), slotW, xl.rotate, xl.interval, xl.rotBudget);
+    appendXLabels(svg, labels.slice(0, n), positions, xLabelBaseY(h, padB, xl.rotate || xl.vertical, !!attrs.xl), slotW, xl.rotate, xl.interval, xl.rotBudget, xl.vertical, xl.vertBudget);
     // axis 十字 tooltip（非 zoom）：toViewX=xOf，toIdx 反算索引，inWindow 恒真
     var _seriesInfo2 = series.map(function (sr, si) {
       return { color: colors[si % colors.length], name: seriesName(si), vals: sr, markerVals: stacked[si] };
@@ -1762,7 +1876,7 @@ function renderCombo(data, labels, colors, attrs) {
   var padR = attrs.y2 ? 46 : 38; // 右轴刻度占位
   var padT = 18;
   var slotW = n > 1 ? (w - padL - padR) / (n - 1) : (w - padL - padR);
-  var xl = axisXLayout(labels.slice(0, n), slotW, attrs.xl ? 38 : 28, w - padL - padR, attrs.interval, !!attrs.xl, h);
+  var xl = axisXLayout(labels.slice(0, n), slotW, attrs.xl ? 38 : 28, w - padL - padR, attrs.interval, !!attrs.xl, h, attrs.xvertical);
   var padB = xl.padB;
   var cw = w - padL - padR;
   var ch = h - padT - padB;
@@ -1869,7 +1983,7 @@ function renderCombo(data, labels, colors, attrs) {
   // x 轴类目标签
   var positions = [];
   for (var k2 = 0; k2 < n; k2++) positions.push(xOf(k2));
-  appendXLabels(svg, labels.slice(0, n), positions, xLabelBaseY(h, padB, xl.rotate, !!attrs.xl), slotW, xl.rotate, xl.interval, xl.rotBudget);
+  appendXLabels(svg, labels.slice(0, n), positions, xLabelBaseY(h, padB, xl.rotate || xl.vertical, !!attrs.xl), slotW, xl.rotate, xl.interval, xl.rotBudget, xl.vertical, xl.vertBudget);
   if (attrs.xl) appendAxisUnit(svg, attrs.xl, padL + cw / 2, h - 3, false);
   if (attrs.yl) appendAxisUnit(svg, attrs.yl, 12, padT + ch / 2, true);
   if (attrs.y2) appendAxisUnit(svg, attrs.y2, w - 10, padT + ch / 2, true);
@@ -3317,7 +3431,7 @@ function renderWaterfall(data, labels, colors, attrs) {
   var padL = attrs._padL ? +attrs._padL : 44, padT = 18, padR = 12;
   var cw = w - padL - padR;
   var groupW = cw / data.length, barW = Math.max(4, groupW * 0.6);
-  var xl = axisXLayout(labels.slice(0, data.length), groupW, 30, cw, attrs.interval, undefined, h);
+  var xl = axisXLayout(labels.slice(0, data.length), groupW, 30, cw, attrs.interval, undefined, h, attrs.xvertical);
   var padB = xl.padB;
   var ch = h - padT - padB;
   var posColor = colors[0] || '#52c41a', negColor = colors[1] || '#f5222d';
@@ -3344,7 +3458,7 @@ function renderWaterfall(data, labels, colors, attrs) {
   });
   var positions = [];
   for (var k = 0; k < data.length; k++) positions.push(padL + k * groupW + groupW / 2);
-  appendXLabels(svg, labels.slice(0, data.length), positions, xLabelBaseY(h, padB, xl.rotate), groupW, xl.rotate, xl.interval, xl.rotBudget);
+  appendXLabels(svg, labels.slice(0, data.length), positions, xLabelBaseY(h, padB, xl.rotate || xl.vertical), groupW, xl.rotate, xl.interval, xl.rotBudget, xl.vertical, xl.vertBudget);
   svg.appendChild(tips.layer);
   bindTooltips(svg);
   return svg;
@@ -3373,7 +3487,7 @@ function renderBoxplot(data, labels, colors, attrs) {
   var zoomOn = zoomEnabled(attrs, boxes.length);
   var ZOOM_H = zoomOn ? 28 : 0;
   var groupW = cw / boxes.length, boxW = Math.max(20, groupW * 0.5);
-  var xl = axisXLayout(labels.slice(0, boxes.length), groupW, 30, cw, attrs.interval, undefined, h);
+  var xl = axisXLayout(labels.slice(0, boxes.length), groupW, 30, cw, attrs.interval, undefined, h, attrs.xvertical);
   var padB = xl.padB;
   var ch = h - padT - padB;
   var svg = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + (h + ZOOM_H), class: 'tokui-chart__svg', preserveAspectRatio: 'xMidYMid meet' });
@@ -3416,7 +3530,7 @@ function renderBoxplot(data, labels, colors, attrs) {
       renderLabels: function (labelG, s, e) {
         var wn = e - s + 1, gw = cw / wn, pos = [];
         for (var kk = s; kk <= e; kk++) pos.push(padL + (kk - s) * gw + gw / 2);
-        appendXLabels(labelG, labels.slice(s, e + 1), pos, xLabelBaseY(h, padB, xl.rotate), gw, xl.rotate, xl.interval, xl.rotBudget);
+        appendXLabels(labelG, labels.slice(s, e + 1), pos, xLabelBaseY(h, padB, xl.rotate || xl.vertical), gw, xl.rotate, xl.interval, xl.rotBudget, xl.vertical, xl.vertBudget);
       }
     });
     hoverGrps.forEach(function (hg) {
@@ -3428,7 +3542,7 @@ function renderBoxplot(data, labels, colors, attrs) {
   } else {
     var positions = [];
     for (var k = 0; k < boxes.length; k++) positions.push(padL + k * groupW + groupW / 2);
-    appendXLabels(svg, labels.slice(0, boxes.length), positions, xLabelBaseY(h, padB, xl.rotate), groupW, xl.rotate, xl.interval, xl.rotBudget);
+    appendXLabels(svg, labels.slice(0, boxes.length), positions, xLabelBaseY(h, padB, xl.rotate || xl.vertical), groupW, xl.rotate, xl.interval, xl.rotBudget, xl.vertical, xl.vertBudget);
   }
   svg.appendChild(tips.layer);
   if (!zoomOn) bindTooltips(svg);
@@ -3669,7 +3783,7 @@ function renderCandlestick(data, labels, colors, attrs) {
   var zoomOn = zoomEnabled(attrs, candles.length);
   var ZOOM_H = zoomOn ? 28 : 0;
   var groupW = cw / candles.length, bodyW = Math.max(3, groupW * 0.6);
-  var xl = axisXLayout(labels.slice(0, candles.length), groupW, 30, cw, attrs.interval, undefined, h);
+  var xl = axisXLayout(labels.slice(0, candles.length), groupW, 30, cw, attrs.interval, undefined, h, attrs.xvertical);
   var padB = xl.padB;
   var ch = h - padT - padB;
   var customColors = parseColorList(attrs.c);
@@ -3713,7 +3827,7 @@ function renderCandlestick(data, labels, colors, attrs) {
       renderLabels: function (labelG, s, e) {
         var wn = e - s + 1, gw = cw / wn, pos = [];
         for (var kk = s; kk <= e; kk++) pos.push(padL + (kk - s) * gw + gw / 2);
-        appendXLabels(labelG, labels.slice(s, e + 1), pos, xLabelBaseY(h, padB, xl.rotate), gw, xl.rotate, xl.interval, xl.rotBudget);
+        appendXLabels(labelG, labels.slice(s, e + 1), pos, xLabelBaseY(h, padB, xl.rotate || xl.vertical), gw, xl.rotate, xl.interval, xl.rotBudget, xl.vertical, xl.vertBudget);
       }
     });
     hoverGrps.forEach(function (hg) {
@@ -3725,7 +3839,7 @@ function renderCandlestick(data, labels, colors, attrs) {
   } else {
     var positions = [];
     for (var k = 0; k < candles.length; k++) positions.push(padL + k * groupW + groupW / 2);
-    appendXLabels(svg, labels.slice(0, candles.length), positions, xLabelBaseY(h, padB, xl.rotate), groupW, xl.rotate, xl.interval, xl.rotBudget);
+    appendXLabels(svg, labels.slice(0, candles.length), positions, xLabelBaseY(h, padB, xl.rotate || xl.vertical), groupW, xl.rotate, xl.interval, xl.rotBudget, xl.vertical, xl.vertBudget);
   }
   svg.appendChild(tips.layer);
   if (!zoomOn) bindTooltips(svg);
@@ -4252,6 +4366,10 @@ function registerChartComponents(renderer) {
       var base = parseFloat(t.getAttribute('font-size'));
       if (!(base > 0) || base >= 13) continue;          // 已 ≥13 单位视为标题/已够大，不动
       var fs2 = bumpFsUnits(base, scale, MIN_CHART_PX, MAX_CHART_PX);
+      // 竖排 x 标签：栈高字号钳制（data-vmax，见 appendXLabels）——保「字数×行距 ≤ padB 带」，
+      // 宽画布 scale<1 时 fs 单位值被抬大，不钳会伸出 viewBox 底缘
+      var vmaxA = parseFloat(t.getAttribute('data-vmax'));
+      if (vmaxA > 0 && fs2 > vmaxA) fs2 = vmaxA;
       if (fs2 !== base) t.setAttribute('font-size', String(Math.round(fs2 * 100) / 100));
     }
   }

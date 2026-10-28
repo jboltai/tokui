@@ -20,11 +20,15 @@
 | 属性 | 含义 | 适用 |
 |------|------|------|
 | `tt` | 整体标题 | `think-chain` |
+| `status` | 整体状态（`running`/`done`） | `think-chain` |
 | `status` | 步骤状态（`pending`/`running`/`done`/`error`） | `think-step` |
 | `tt` | 步骤标题 | `think-step` |
 | `dur` | 耗时 | `think-step` |
+| `id` | `upd` 推进 / `del`·`ins` 锚点 | 两者 |
 
 <Playground dsl='[think-chain tt:分析用户问题][think-step status:done tt:理解需求 dur:0.3s][p 解析为"生成登录表单"任务][/think-step][think-step status:done tt:检索设计模式 dur:0.8s][p 找到 3 种参考实现[/think-step][think-step status:running tt:生成代码][p 正在输出表单组件…[/think-step][/think-chain]' />
+
+> **动态推进**：带 `id` 的 `think-step` 可经 `[upd id:x status:done dur:1.2s tt:新标题]` 推进状态（图标随状态就地重建，已流入内容保留）；`think-chain` 可经 `[upd id:x status:done tt:推理完成 act:close]` 链级收尾。
 
 ## 对话气泡 `bubble`
 

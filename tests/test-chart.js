@@ -1245,6 +1245,45 @@ test('applyTipScale：宽容器整组缩小 / 窄容器放大 / scale≈1 不变
   assert.ok(!c3.g.getAttribute('transform'), 'scale=1.5（渲染 15px 在区间内）不应设 transform');
 });
 
+// === tooltip 整组缩放 confine：边缘数据点放大后平移回 viewBox 内（不被 SVG 视口裁掉）===
+test('applyTipScale confine：首/末柱 tooltip 放大越界 → 平移补偿回 viewBox；居中不补偿', () => {
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  function mkTipSvg(vbW, vbH, tx, ty, rx, ry) {
+    var svg = document.createElementNS(SVGNS, 'svg');
+    svg.setAttribute('viewBox', '0 0 ' + vbW + ' ' + vbH);
+    var layer = document.createElementNS(SVGNS, 'g');
+    layer.setAttribute('class', 'tokui-chart-tips-layer');
+    var g = document.createElementNS(SVGNS, 'g');
+    g.setAttribute('class', 'tokui-chart-tip');
+    g.setAttribute('data-tx', String(tx));
+    g.setAttribute('data-ty', String(ty));
+    var rect = document.createElementNS(SVGNS, 'rect');
+    rect.setAttribute('x', String(rx)); rect.setAttribute('y', String(ry));
+    rect.setAttribute('width', '40'); rect.setAttribute('height', '20');
+    g.appendChild(rect);
+    layer.appendChild(g); svg.appendChild(layer);
+    svg.querySelectorAll = function () { return [g]; };
+    return { svg: svg, g: g };
+  }
+  // 窄容器 scale=0.5 → s=2.8。首柱：锚 (60,30)，rect 已贴左/上界 (2,2)
+  //   放大后 left=60+(2-60)·2.8=-102.4 → dx=104.4；top=30+(2-30)·2.8=-48.4 → dy=50.4
+  //   → translate(164.4 80.4)（锚点+补偿）
+  var first = mkTipSvg(400, 200, 60, 30, 2, 2);
+  applyTipScale(first.svg, 0.5);
+  var trF = first.g.getAttribute('transform') || '';
+  assert.ok(/translate\(164\.4 80\.4\)/.test(trF), '首柱越左/上界应平移补偿 translate(164.4 80.4)，实际 ' + trF);
+  // 末柱：viewBox 宽 200，锚 (190,30)，rect 右缘贴界 (x=158) → 放大后 right=190+(198-190)·2.8=212.4 → dx=-14.4
+  var last = mkTipSvg(200, 200, 190, 30, 158, 2);
+  applyTipScale(last.svg, 0.5);
+  var trL = last.g.getAttribute('transform') || '';
+  assert.ok(/translate\(175\.6 80\.4\)/.test(trL), '末柱越右界应左移补偿 translate(175.6 …)，实际 ' + trL);
+  // 居中锚点：四向均无越界 → 无补偿（与旧行为一致；锚 y=140 使放大后 top=11.2 仍在界内）
+  var mid = mkTipSvg(400, 200, 200, 140, 180, 94);
+  applyTipScale(mid.svg, 0.5);
+  var trM = mid.g.getAttribute('transform') || '';
+  assert.ok(/translate\(200 140\)/.test(trM), '居中 tooltip 无补偿 translate(200 140)，实际 ' + trM);
+});
+
 // === X 轴标签整体旋转决策（任一超阈值 → 全部统一旋转）===
 test('axisXLayout：全部短→不转；任一长→全转；旋转时 padB 按最长标签自适应', () => {
   // 全短：ascii estTextW 4.5/char，threshold=40*0.9=36，'abc'=13.5 < 36
@@ -1302,6 +1341,92 @@ test('axisXLayout：50 短标签窄宽 → auto 跳过 interval>1', () => {
 test('axisXLayout：40 短标签半宽 → auto 跳过 interval>1', () => {
   var r = axisXLayout(mkLabels(40, 'W'), 26, 30, 1040);
   assert.ok(r.interval > 1, '40 点半宽应跳过，得 interval=' + r.interval);
+});
+
+// === x 轴标签竖排（CJK 密集：横排 → 旋转 → 竖排全显 → 竖排+抽稀；拉丁不竖排）===
+function mkCjk(n) { // n 个 4 字中文标签（循环部门名池）
+  var pool = ['技术研发部', '市场营销部', '产品设计部', '客户服务部', '财务结算部', '人力行政部'];
+  var a = []; for (var i = 0; i < n; i++) a.push(pool[i % pool.length]);
+  return a;
+}
+
+test('axisXLayout：30 个 4 字中文标签窄图 → 竖排全显（不再抽稀隐藏）', () => {
+  var r = axisXLayout(mkCjk(30), 18, 30, 560, undefined, false, 200);
+  assert.strictEqual(r.vertical, true, '旋转装不下但竖排装得下 → 全显竖排');
+  assert.strictEqual(r.rotate, false, '竖排时不旋转');
+  assert.strictEqual(r.interval, 1, '竖排装得下 → 不抽稀');
+  assert.ok(r.padB > 30, '竖排 padB 按最长标签字数自适应（12+4×20+3=95，含 bump 上限口径），实际 ' + r.padB);
+  assert.ok(r.vertBudget >= 4, '4 字标签不触发字符截断预算，实际 ' + r.vertBudget);
+});
+
+test('axisXLayout：60 个 4 字中文标签 → 竖排 + 抽稀（竖排与抽稀不互斥）', () => {
+  var r = axisXLayout(mkCjk(60), 9, 30, 560, undefined, false, 200);
+  assert.strictEqual(r.vertical, true, '竖排也装不下仍保持竖排');
+  assert.strictEqual(r.interval, 2, '按竖排容量抽稀 ceil(60/46)=2，实际 ' + r.interval);
+  assert.strictEqual(r.rotate, false, '不旋转');
+});
+
+test('axisXLayout：拉丁/数字标签 → auto 不竖排（堆叠不可读，维持抽稀）', () => {
+  var r = axisXLayout(mkLabels(30, 'Srv'), 18, 30, 560, undefined, false, 200);
+  assert.strictEqual(r.vertical, false, '拉丁标签不应竖排');
+  assert.ok(r.interval > 1, '维持横排抽稀，得 interval=' + r.interval);
+});
+
+test('axisXLayout：xvertical=on 强制竖排（拉丁也竖）；off 关闭（中文仍走抽稀）', () => {
+  var on = axisXLayout(mkLabels(30, 'Srv'), 18, 30, 560, undefined, false, 200, 'on');
+  assert.strictEqual(on.vertical, true, 'on 强制竖排优先于旋转/抽稀');
+  assert.strictEqual(on.interval, 1, 'on 全显不抽稀');
+  var off = axisXLayout(mkCjk(30), 18, 30, 560, undefined, false, 200, 'off');
+  assert.strictEqual(off.vertical, false, 'off 关闭竖排');
+  assert.ok(off.interval > 1, 'off 回退横排抽稀（旧行为），得 interval=' + off.interval);
+});
+
+test('axisXLayout：interval=0 + 中文密集 → 竖排全显；interval=2 → 竖排+显式抽稀', () => {
+  var all = axisXLayout(mkCjk(30), 18, 30, 560, '0', false, 200);
+  assert.strictEqual(all.vertical, true, '强制全显：横排放不下走竖排（30>fitR 不旋转）');
+  assert.strictEqual(all.interval, 1, '强制全显不跳过');
+  var skip = axisXLayout(mkCjk(30), 18, 30, 560, '2', false, 200);
+  assert.strictEqual(skip.vertical, true, '显式步长跳过后仍装不下 → 竖排');
+  assert.strictEqual(skip.interval, 2, '显式步长保留');
+});
+
+test('axisXLayout 竖排封顶：长标签 padB ≤ h−18−max(60,h·32%) 且返回字符截断预算', () => {
+  var labs = Array(20).fill('总装车间第二生产线一号甲班组'); // 14 全角字：未封顶需 padB=12+14×20+3=295
+  var capped = axisXLayout(labs, 60, 30, 360, undefined, false, 200);
+  assert.strictEqual(capped.vertical, true, '旋转装不下（fitR=1）→ 竖排');
+  assert.ok(capped.padB <= 118, 'padB 封顶 ≤ 118（200−18−64），实际 ' + capped.padB);
+  assert.strictEqual(capped.vertBudget, 5, '字符预算 floor((118−12−3)/20)=5，实际 ' + capped.vertBudget);
+  var legacy = axisXLayout(labs, 60, 30, 360); // 不传 h：不封顶（与旋转旧行为一致）
+  assert.ok(legacy.padB > 118, '不传 h 不封顶，实际 ' + legacy.padB);
+});
+
+test('chart bar 30 个中文标签：竖排 tspan 渲染全部可见、无 rotate、截断带省略号', () => {
+  const renderer = new TokUIRenderer(); registerChartComponents(renderer);
+  var dom = renderer.render({ type: 'chart', attrs: { t: 'bar', d: mkLabels(30, '1').join(','), l: mkCjk(30).join(','), w: 560, h: 200 }, content: '', children: [] });
+  var svg = dom.querySelector('.tokui-chart__svg');
+  // 竖排标签：text 下挂同 x 逐字 tspan（dy 首字 0.95em 基线落位、后续 1.25em 步进——em 随 bump 字号缩放）
+  var stacked = Array.from(svg.querySelectorAll('text')).filter(function (t) {
+    var ts = t.querySelectorAll('tspan');
+    if (ts.length < 2) return false;
+    return ts[0].getAttribute('dy') === '0.95em' && ts[1].getAttribute('dy') === '1.25em';
+  });
+  assert.strictEqual(stacked.length, 30, '30 个标签全部竖排渲染，实际 ' + stacked.length);
+  assert.ok(stacked.every(function (t) { return !t.getAttribute('transform'); }), '竖排不挂 rotate transform');
+  // 栈高字号钳制：bump 抬 fs 后 字数×1.25em 不越过 padB 带（宽画布 scale<1 的 fs 溢出防护）
+  assert.ok(stacked.every(function (t) {
+    var vm = parseFloat(t.getAttribute('data-vmax'));
+    var len = t.querySelectorAll('tspan').length;
+    return vm > 0 && len * vm * 1.25 <= 5 * 20 + 0.01; // 预算带 vertBudget=5 × 每字 20
+  }), '每个竖排标签带 data-vmax 且 len×vmax×1.25 ≤ 预算带');
+  // 截断预算：14 字长标签 → 10 字 + 省略号
+  var dom2 = renderer.render({ type: 'chart', attrs: { t: 'bar', d: '1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20', l: Array(20).fill('总装车间第二生产线一号甲班组').join(','), w: 360, h: 200 }, content: '', children: [] });
+  var stacked2 = Array.from(dom2.querySelector('.tokui-chart__svg').querySelectorAll('text')).filter(function (t) {
+    return t.querySelectorAll('tspan').length >= 2;
+  });
+  assert.ok(stacked2.length === 20, '20 个长标签全部竖排，实际 ' + stacked2.length);
+  var chars = Array.from(stacked2[0].querySelectorAll('tspan')).map(function (ts) { return ts.textContent; }).join('');
+  assert.strictEqual(chars.length, 5, '14 字截断为 4 字 + …（vertBudget=5），实际 ' + chars.length);
+  assert.ok(chars.indexOf('…') === chars.length - 1, '截断以省略号结尾');
 });
 
 // === X 轴长标签压扁 bug（padB 保底封顶 + 标签省略号截断） ===

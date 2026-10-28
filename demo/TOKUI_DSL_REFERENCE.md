@@ -311,8 +311,8 @@ panel kpi screen-header rank-list scrollboard fit-screen page page-header page-s
 | Tag | 类型 | 常用属性 | 说明 |
 |-----|------|----------|------|
 | `think` | 容器 | `tt` `open` | 思考块（`<details>` 折叠），默认展开 |
-| `think-chain` | 容器 | `tt` `status` `open` | 推理链。`status:running`/`done`；子项 `think-step` |
-| `think-step` | 容器 | `status` `tt` `dur` | 推理步骤。`status:done`/`running`/`pending`/`error` |
+| `think-chain` | 容器 | `tt` `status` `open` `id` | 推理链。`status:running`/`done`；子项 `think-step`；带 `id` 可经 `[upd id:x status:done tt:新标题 act:open/close]` 链级推进（§8.1） |
+| `think-step` | 容器 | `status` `tt` `dur` `id` | 推理步骤。`status:done`/`running`/`pending`/`error`；带 `id` 可经 `[upd id:x status:running dur:1.2s tt:新标题]` 推进（图标随状态就地重建，body 已流入内容保留） |
 | `plan` | 容器 | `tt` | 执行计划；子项 `plan-step` |
 | `plan-step` | 自闭合 | `status` `tt` `desc` `id` | 计划步骤。`status:pending`/`doing`/`done`/`error`/`skipped`（接受 `running`/`complete`/`fail` 等同义词，upd 同表归一化）；带 `id` 可经 `[upd id:x status:doing]` 逐步推进（支持 `status`/`tt`/`desc`，见 §8.1） |
 | `agent` | 自闭合 | `name` `status` `action` `duration` `id` | 智能体状态。`status:idle`/`running`/`paused`/`done`/`error` |
@@ -719,7 +719,8 @@ col spec 顺序：`列名[=cN[rM]][/对齐][/配色]`。
 | `xmin`/`xmax`/`ymin`/`ymax` | 显式锁轴（scatter/bubble，流式防已画点跳） |
 | `range` | gauge 扫掠角 180（默认）/270/360 |
 | `anim` | 数值动画 ms（progress/gauge，尊重无障碍偏好自动停） |
-| `interval` | X 轴标签密度：`auto`（默认，横排→-45°旋转→跳过三级降级）/ `0`（全显）/ `N`（每 N 个显一个，保留首末） |
+| `interval` | X 轴标签密度：`auto`（默认，横排→-45°旋转→竖排→跳过四级降级）/ `0`（全显）/ `N`（每 N 个显一个，保留首末） |
+| `xvertical` | X 轴标签竖排（逐字上下堆叠）：`auto`（默认，全部标签为中文等 CJK 文字且旋转也装不下时自动竖排）/ `on`（强制）/ `off`（关闭） |
 | `zoom` | dataZoom 拖拽缩放：`auto`（>30 点自动开）/ `N`（>N 开）/ `on`/`off`。bar（纵向）/line/area/boxplot/candlestick 支持；横柱 `orient:h` 与 histogram 不支持 |
 
 #### 数据格式 `d` 速查
@@ -762,13 +763,16 @@ col spec 顺序：`列名[=cN[rM]][/对齐][/配色]`。
 
 #### X 轴密度 + dataZoom 缩放（大数据点）
 
-- bar/line/area/histogram/boxplot/candlestick 的 X 轴标签自动【横排 → -45° 旋转 → 按步长跳过（保留首末）】三级降级，默认 `interval:auto`。
-- `interval:N` 锁步长（每 N 个显一个，保留首末）；`interval:0` 强制全显（仅按需旋转）。
+- bar/line/area/histogram/boxplot/candlestick 的 X 轴标签自动【横排 → -45° 旋转 → 竖排 → 按步长跳过（保留首末）】四级降级，默认 `interval:auto`。
+- `interval:N` 锁步长（每 N 个显一个，保留首末）；`interval:0` 强制全显（仅按需旋转/竖排）。
+- **竖排（xvertical:auto 默认）**：中文类目密集场景（如 30+ 部门名）自动逐字竖排全显不隐藏（容量约为旋转 4 倍，竖排也装不下时竖排+抽稀组合）；仅当全部标签为 CJK 文字（占比 ≥50% 且长度 ≥2）才启用——拉丁/数字堆叠不可读，维持旋转/抽稀；`xvertical:on` 强制竖排、`off` 关闭。
 - 数据点 >30（长时间序列、大规模柱/线、多根 K 线/多组箱线）加 `zoom:auto` 开底部 dataZoom 滑块，用户拖拽看局部（单系列柱图池化、丝滑跟手）。
 
 ```tokui
 [chart t:line tt:"近90天访问趋势" zoom:auto l:"D1,D2,...,D90" d:"30,45,38,60,..."]
 [chart t:bar tt:"50点柱状" interval:5 l:"D1,D2,...,D50" d:"120,200,150,80,..."]
+[chart t:bar tt:"30个部门" l:"技术研发部,市场营销部,..." d:"120,340,..."]（30 个中文类目自动竖排全显）
+[chart t:bar tt:"英文标签强制竖排" xvertical:on l:"Dept-1,Dept-2,..." d:"..."]
 ```
 
 #### gauge 仪表盘完整属性
@@ -932,7 +936,7 @@ col spec 顺序：`列名[=cN[rM]][/对齐][/配色]`。
 
 > 目标查找：页面存在多个同 `id` 元素时（多轮消息重名常见），`upd` 优先命中当前流式容器内的元素，容器内无匹配才回退全文档查找。
 
-> **AI 组件 `id` 锚点**：`bubble` / `typing` / `terminal` / `diff` / `artifact` / `quick-reply` / `msg-actions` / `think` / `think-chain` 的 `id` 均落 DOM，作 `del`/`ins` 定位锚点（无 `_update`，改内容用 del+ins 替换）。典型模式——typing 占位切换正文：`[typing id:t1 text:正在生成]` → 正文到达后 `[del id:t1]`，再流式推 `[bubble role:ai]…[/bubble]`。
+> **AI 组件 `id` 锚点**：`bubble` / `typing` / `terminal` / `diff` / `artifact` / `quick-reply` / `msg-actions` / `think` 的 `id` 均落 DOM，作 `del`/`ins` 定位锚点（无 `_update`，改内容用 del+ins 替换）。`think-chain` / `think-step` 的 `id` 落 DOM 且有 `_update`，可直接 `[upd id:x status:done]` 推进（§8.1），无需 del+ins。典型模式——typing 占位切换正文：`[typing id:t1 text:正在生成]` → 正文到达后 `[del id:t1]`，再流式推 `[bubble role:ai]…[/bubble]`。
 
 > **`id` 全组件兜底**：所有组件的 `id:` 都会落 DOM（组件自身未放置时由渲染器补到组件根），`del`/`ins` 对全组件可用——仅 `tcol`（列定义，无独立 DOM）除外。`input`/`select` 等表单组件的 `id` 仍挂内层输入元素（`upd` 兼容），根不重复盖。
 

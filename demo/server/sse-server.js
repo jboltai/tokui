@@ -2238,7 +2238,7 @@ const DEMOS = [
             .cardTx('快捷操作', '点击左侧导航选择更多组件示例。')
           .end()
           .col_layout({ span: 6 })
-            .cardTx('版本更新', 'TokUI v0.3.0 已发布，支持卡片自闭合模式。')
+            .cardTx('版本更新', 'TokUI v0.3.1 已发布，支持卡片自闭合模式。')
           .end()
         .end()
         .hr()
@@ -2428,7 +2428,7 @@ const DEMOS = [
                 .a({ tx: '帮助文档', u: '/docs' })
                 .p(' | ')
                 .a({ tx: '联系我们', u: '/contact' })
-                .p('版本 v0.3.0')
+                .p('版本 v0.3.1')
               .end()
             .end()
           .end()
@@ -4910,6 +4910,73 @@ const DEMOS = [
     }
   },
 
+  // ===== UPD Think 推理链状态推进 =====
+  {
+    trigger: 'demo-upd-think',
+    title: 'UPD 推理链状态推进',
+    desc: '模拟推理链 think-step 的 pending → running → done 状态推进',
+    _ids: null,
+    build() {
+      const uid = Math.random().toString(36).slice(2, 6);
+      this._ids = {
+        chain: 'uth-' + uid,
+        s1: 'uts1-' + uid,
+        s2: 'uts2-' + uid,
+        s3: 'uts3-' + uid,
+      };
+      const b = new TokUIBuilder();
+      b.card({ tt: 'UPD 推理链状态推进' })
+        .p('通过 [upd id:xxx status:running/done/error] 推送推理步骤的状态变化，链级状态同步收尾。')
+        .thinkChain({ id: this._ids.chain, tt: '🧠 推理中...', status: 'running', open: true })
+          .thinkStep({ id: this._ids.s1, tt: '理解问题', status: 'pending' })
+          .end()
+          .thinkStep({ id: this._ids.s2, tt: '检索知识', status: 'pending' })
+          .end()
+          .thinkStep({ id: this._ids.s3, tt: '组织答案', status: 'pending' })
+          .end()
+        .end()
+      .end();
+      return b;
+    },
+    extraChunks() {
+      const ids = this._ids;
+      const chunks = [];
+      // 步骤1：理解问题
+      let b = new TokUIBuilder();
+      b.upd({ id: ids.s1, status: 'running' });
+      chunks.push(...b.toChunks());
+      chunks.push({ _wait: 1200 });
+      b = new TokUIBuilder();
+      b.upd({ id: ids.s1, status: 'done', dur: '0.8s' });
+      chunks.push(...b.toChunks());
+      chunks.push({ _wait: 300 });
+      // 步骤2：检索知识
+      b = new TokUIBuilder();
+      b.upd({ id: ids.s2, status: 'running' });
+      chunks.push(...b.toChunks());
+      chunks.push({ _wait: 1800 });
+      b = new TokUIBuilder();
+      b.upd({ id: ids.s2, status: 'done', dur: '1.5s' });
+      chunks.push(...b.toChunks());
+      chunks.push({ _wait: 300 });
+      // 步骤3：组织答案
+      b = new TokUIBuilder();
+      b.upd({ id: ids.s3, status: 'running' });
+      chunks.push(...b.toChunks());
+      chunks.push({ _wait: 1500 });
+      b = new TokUIBuilder();
+      b.upd({ id: ids.s3, status: 'done', dur: '1.1s' });
+      chunks.push(...b.toChunks());
+      chunks.push({ _wait: 600 });
+      // 链级收尾：状态 done + 标题更新 + 折叠收起
+      b = new TokUIBuilder();
+      b.upd({ id: ids.chain, status: 'done', tt: '✅ 推理完成' });
+      b.upd({ id: ids.chain, act: 'close' });
+      chunks.push(...b.toChunks());
+      return chunks;
+    }
+  },
+
   // ===== UPD Steps 步骤推进 =====
   {
     trigger: 'demo-upd-steps',
@@ -5759,7 +5826,7 @@ const DEMOS = [
     desc: '基础 / 多系列 sn / 大规模 / interval / 横向柱·长标签',
     build() {
       const b = new TokUIBuilder();
-      b.p('柱状图：单系列与多系列对比；大规模数据自动处理 X 轴标签拥挤（横排 → 旋转 → 按步长跳过三级降级，interval 精确控制，zoom 拖拽缩放）；横向柱（orient:h）左侧长标签自适应折行（见本页末尾）。');
+      b.p('柱状图：单系列与多系列对比；大规模数据自动处理 X 轴标签拥挤（横排 → 旋转 → 竖排 → 按步长跳过四级降级，中文类目自动竖排全显，interval 精确控制，zoom 拖拽缩放，详见「X轴标签竖排」demo）；横向柱（orient:h）左侧长标签自适应折行（见本页末尾）。');
       b.callout({ t: 'info', tt: '多系列与系列名', tx: 'd 用 | 分隔多系列；sn 属性命名各系列（逗号分隔、按序对应），进图例与 tooltip，未设置时回退默认「系列1、系列2…」。适用于 bar/line/area/radar/环形多环/combo（combo 中 n1/n2 显式名优先于 sn）。' });
       b.dv({});
 
@@ -5936,6 +6003,137 @@ const DEMOS = [
               l: '华东区域销售一部,华南区域销售二部,华北区域销售三部',
               d: '300,260,240|280,240,220',
             })
+          .end()
+        .end()
+      .end();
+
+      return b;
+    }
+  },
+
+  // ----- X 轴标签竖排（横排 → 旋转45° → 竖排 → 竖排+抽稀 四形态 × bar/line/area） -----
+
+  {
+    trigger: 'demo-chart-xvertical',
+    title: 'X Label 竖排',
+    desc: '横排 / 旋转45° / 竖排 / 竖排+抽稀 · bar·line·area',
+    build() {
+      const b = new TokUIBuilder();
+      b.p('X 轴标签四种排布形态：装得下时横排；少量长标签旋转 -45°；中文类目密集时自动竖排（逐字上下堆叠，每标签占宽降至单字符，容量约为旋转的 4 倍，全部可读不隐藏）；竖排也装不下时竖排 + 按步长抽稀（首末保留）。拉丁/数字标签堆叠后不可读，自动维持旋转/抽稀（xvertical:on 可强制）。');
+      b.callout({ t: 'info', tt: '智能判定与手动控制', tx: 'xvertical:auto（默认）仅当全部标签为中文等 CJK 文字（可见字符 CJK 占比 ≥50% 且长度 ≥2）才启用竖排档；xvertical:on 强制竖排、xvertical:off 关闭回到旧行为。竖排与 interval 正交组合：interval:0 强制全显竖排、interval:N 每 N 个显一个。支持 bar（纵向）/ line / area / 分组柱 / 箱线 / K 线等 X 类目轴图表。' });
+
+      // 确定性数据（正弦 + 趋势，无随机，每次渲染一致）
+      function vdata(n, base, amp, trend) {
+        const a = [];
+        for (let i = 0; i < n; i++) a.push(Math.round(base + amp * Math.sin(i / 3.2) + trend * i));
+        return a.join(',');
+      }
+      // ① 横排：6 个两字短标签（装得下，不降级）
+      const L6 = '一月,二月,三月,四月,五月,六月';
+      // ② 旋转：10 个五字部门名（少量长标签 → 自动 -45°，n≤10 优先旋转优于隐藏/竖排）
+      const DEPT10 = ['技术研发部', '市场营销部', '产品设计部', '客户服务部', '供应链管理部', '质量检测部', '人力行政部', '财务共享部', '智能制造部', '安全环保部'].join(',');
+      // ③④ 竖排：20 个四字车间名（60 = 循环 ×3）
+      const WS20 = ['总装', '焊装', '涂装', '冲压', '注塑', '电池', '质检', '包装', '物流', '机加', '电泳', '锻造', '缝制', '铸造', '装配', '喷涂', '硫化', '模具', '维修', '动力'];
+      function ws(n) { const a = []; for (let i = 0; i < n; i++) a.push(WS20[i % 20] + '车间'); return a.join(','); }
+      // 拉丁对照：30 个 Dept-N
+      function en(n) { const a = []; for (let i = 0; i < n; i++) a.push('Dept-' + (i + 1)); return a.join(','); }
+
+      // ---- 柱状图 bar × 4 形态 ----
+      b.dv({});
+      b.p('柱状图 bar · 四种标签形态（同一数据量级）：');
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'bar', h: 260, tt: '① 横排 · 6 个短标签（装得下，不降级）', l: L6, d: vdata(6, 180, 60, 8) })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'bar', h: 260, tt: '② 旋转 -45° · 10 个长标签（少量优先旋转）', l: DEPT10, d: vdata(10, 160, 70, 6) })
+          .end()
+        .end()
+      .end();
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'bar', h: 340, tt: '③ 竖排全显 · 20 个车间（auto 智能竖排）', l: ws(20), d: vdata(20, 150, 80, 3) })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'bar', h: 340, w: 560, tt: '④ 竖排+抽稀 · 60 个车间 w:560（隔 1 显 1，首末保留）', l: ws(60), d: vdata(60, 120, 70, 2) })
+          .end()
+        .end()
+      .end();
+
+      // ---- 折线图 line × 4 形态 ----
+      b.dv({});
+      b.p('折线图 line · 四种标签形态：');
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'line', h: 260, tt: '① 横排 · 6 个短标签', l: L6, d: vdata(6, 40, 15, 3) })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'line', h: 260, tt: '② 旋转 -45° · 10 个长标签', l: DEPT10, d: vdata(10, 35, 16, 2) })
+          .end()
+        .end()
+      .end();
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'line', h: 340, tt: '③ 竖排全显 · 20 个车间', l: ws(20), d: vdata(20, 30, 18, 0.6) })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'line', h: 340, w: 560, tt: '④ 竖排+抽稀 · 60 个车间 w:560', l: ws(60), d: vdata(60, 26, 14, 0.3) })
+          .end()
+        .end()
+      .end();
+
+      // ---- 面积图 area × 4 形态 ----
+      b.dv({});
+      b.p('面积图 area · 四种标签形态：');
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'area', h: 260, tt: '① 横排 · 6 个短标签', l: L6, d: vdata(6, 55, 20, 4) })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'area', h: 260, tt: '② 旋转 -45° · 10 个长标签', l: DEPT10, d: vdata(10, 48, 18, 3) })
+          .end()
+        .end()
+      .end();
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'area', h: 340, tt: '③ 竖排全显 · 20 个车间', l: ws(20), d: vdata(20, 42, 24, 1) })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'area', h: 340, w: 560, tt: '④ 竖排+抽稀 · 60 个车间 w:560', l: ws(60), d: vdata(60, 36, 20, 0.4) })
+          .end()
+        .end()
+      .end();
+
+      // ---- 拉丁标签对照：auto 维持旧行为 vs on 强制竖排 ----
+      b.dv({});
+      b.p('拉丁标签对照（堆叠不可读 → auto 不竖排；xvertical:on 强制竖排）：');
+      b.row_layout()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'bar', h: 300, tt: '拉丁 30 标签 · auto（维持旋转/抽稀旧行为）', l: en(30), d: vdata(30, 140, 60, 2) })
+          .end()
+        .end()
+        .col_layout({ span: 6 })
+          .card({})
+            .chart({ t: 'bar', h: 300, xvertical: 'on', tt: '拉丁 30 标签 · xvertical:on（强制竖排）', l: en(30), d: vdata(30, 140, 60, 2) })
           .end()
         .end()
       .end();
@@ -12154,6 +12352,136 @@ const DEMOS = [
       var i = 0;
       var cleaned = false;
       res.on('close', function () { cleaned = true; });
+      function sendNext() {
+        if (cleaned || i >= chunks.length) {
+          if (!cleaned) {
+            res.write('data: [DONE]\n\n');
+            res.end();
+          }
+          return;
+        }
+        res.write('data: ' + JSON.stringify({ tokui: chunks[i] }) + '\n\n');
+        i++;
+        setTimeout(sendNext, 8 + Math.floor(Math.random() * 20));
+      }
+      sendNext();
+    }
+  },
+  {
+    trigger: 'test-hbar',
+    title: '横向柱状图独立碎片渲染',
+    desc: '横向柱专属碎片化推送：6~24 类别、1/2/3/4 列布局、流式 pt 子节点与 d 属性混排、多系列/堆叠',
+    build() { return new TokUIBuilder(); },
+    stream(res) {
+      var dsl = ''
+        // 标题区
+        + '[card tt:"横向柱状图独立碎片渲染测试"]'
+        + '[p v:bold 随机碎片推送 — 覆盖单列/双列/三列/四列布局，类别数从 8 到 24，d 属性整段与 pt 子节点逐点流式混排，测试横向柱（orient:h）流式逐点重绘与多列布局下的标签折行。]'
+        + '[tag t:primary tx:横向柱]'
+        + '[tag t:success tx:碎片化]'
+        + '[tag t:info tx:多列布局]'
+        + '[tag t:warning tx:多数据点]'
+
+        // ========== 一行一个（单列整行 · 大类别数） ==========
+        + '[row]'
+        + '[col span:12]'
+        + '[card tt:"一行一个 · 24 城数字经济指数（d 属性整段 · 24 类）"]'
+        + '[chart t:bar orient:h tt:"2026 城市数字经济指数 TOP24" vals xl:指数 l:深圳,上海,北京,杭州,苏州,广州,成都,武汉,南京,重庆,天津,西安,长沙,郑州,合肥,青岛,宁波,无锡,厦门,佛山,东莞,济南,福州,沈阳 d:92.5,90.8,89.6,88.2,85.4,84.9,82.7,81.5,80.9,79.3,78.6,77.2,76.8,75.9,75.1,74.6,73.8,72.5,71.9,70.8,69.5,69.1,68.4,67.2]'
+        + '[/card]'
+        + '[/col]'
+        + '[/row]'
+
+        + '[row]'
+        + '[col span:12]'
+        + '[card tt:"一行一个 · 20 项技术栈热度（pt 子节点逐点流式 · 20 类）"]'
+        + '[chart t:bar orient:h tt:"开发者技术栈热度 TOP20" vals l:"React,Vue,Angular,Svelte,Next.js,Nuxt,Express,Koa,Spring Boot,Django,Flask,Laravel,Rails,Gin,FastAPI,TensorFlow,PyTorch,Electron,Flutter,uni-app"]'
+        + '[pt v:98.6][pt v:94.2][pt v:78.5][pt v:72.8][pt v:69.4][pt v:58.7][pt v:55.2][pt v:51.9][pt v:48.3][pt v:45.6][pt v:42.8][pt v:39.5][pt v:36.2][pt v:35.8][pt v:33.4][pt v:31.2][pt v:29.8][pt v:27.5][pt v:25.9][pt v:23.6]'
+        + '[/chart]'
+        + '[/card]'
+        + '[/col]'
+        + '[/row]'
+
+        + '[row]'
+        + '[col span:12]'
+        + '[card tt:"一行一个 · 16 省双系列分组（目标 vs 实际 · 16 类 × 2 系列）"]'
+        + '[chart t:bar orient:h tt:"区域销售目标达成（亿元）" vals sn:目标,实际 l:广东,江苏,山东,浙江,四川,河南,湖北,福建,湖南,安徽,上海,河北,北京,陕西,江西,辽宁 d:"980,920,850,800,620,600,560,540,520,480,460,440,430,380,360,340|920,890,820,790,610,570,540,520,530,450,470,410,445,360,350,330"]'
+        + '[/card]'
+        + '[/col]'
+        + '[/row]'
+
+        + '[row]'
+        + '[col span:12]'
+        + '[card tt:"一行一个 · 12 月三系列堆叠（stack · 12 类 × 3 系列）"]'
+        + '[chart t:bar orient:h tt:"月度销售渠道构成（万元）" stack:true vals sn:线上商城,线下门店,社群团购 l:1月,2月,3月,4月,5月,6月,7月,8月,9月,10月,11月,12月 d:"320,340,310,360,380,420,450,470,460,440,400,420|180,190,175,200,210,230,240,250,245,235,220,225|90,95,88,100,105,115,120,125,122,118,110,112"]'
+        + '[/card]'
+        + '[/col]'
+        + '[/row]'
+
+        // ========== 一行多个（2/3/4 列布局） ==========
+        + '[row]'
+        + '[col span:6]'
+        + '[card tt:"双列 · 14 节点负载（pt 流式）"]'
+        + '[chart t:bar orient:h tt:"服务器节点 CPU 负载 %" vals l:node-01,node-02,node-03,node-04,node-05,node-06,node-07,node-08,node-09,node-10,node-11,node-12,node-13,node-14]'
+        + '[pt v:42][pt v:67][pt v:51][pt v:78][pt v:63][pt v:89][pt v:58][pt v:72][pt v:95][pt v:47][pt v:83][pt v:56][pt v:74][pt v:61]'
+        + '[/chart]'
+        + '[/card]'
+        + '[/col]'
+        + '[col span:6]'
+        + '[card tt:"双列 · 12 部门人数（d 属性）"]'
+        + '[chart t:bar orient:h tt:"各部门在职人数" vals l:研发中心,产品设计,用户体验,前端组,后端组,测试组,运维组,数据组,算法组,市场部,销售部,人事行政 d:186,64,38,72,94,56,32,48,27,45,88,26]'
+        + '[/card]'
+        + '[/col]'
+        + '[/row]'
+
+        + '[row]'
+        + '[col span:4]'
+        + '[card tt:"三列 · 10 类错误分布"]'
+        + '[chart t:bar orient:h tt:"前端异常类型（次/周）" vals l:类型错误,引用错误,语法错误,范围错误,网络异常,请求超时,解析失败,鉴权失败,校验失败,未知错误 d:342,218,176,95,412,287,154,121,203,68]'
+        + '[/card]'
+        + '[/col]'
+        + '[col span:4]'
+        + '[card tt:"三列 · 12 段耗时分布"]'
+        + '[chart t:bar orient:h tt:"API 响应耗时（万次）" vals l:0-50ms,50-100ms,100-200ms,200-300ms,300-500ms,500-800ms,800ms-1s,1-2s,2-3s,3-5s,5-10s,10s+ d:4820,3640,2150,1180,760,412,265,178,96,54,22,9]'
+        + '[/card]'
+        + '[/col]'
+        + '[col span:4]'
+        + '[card tt:"三列 · 9 类浏览器份额"]'
+        + '[chart t:bar orient:h tt:"浏览器市场份额 %" vals l:Chrome,Edge,Safari,Firefox,Opera,QQ浏览器,360浏览器,UC浏览器,其他 d:63.8,12.4,9.6,5.8,3.1,2.6,1.4,0.8,0.5]'
+        + '[/card]'
+        + '[/col]'
+        + '[/row]'
+
+        + '[row]'
+        + '[col span:3]'
+        + '[card tt:"四列 · 8 类安装渠道"]'
+        + '[chart t:bar orient:h tt:"App 安装渠道 %" vals l:应用商店,华为,小米,OPPO,vivo,官网直装,第三方,其他 d:46.2,18.5,12.3,8.6,6.9,3.8,2.5,1.2]'
+        + '[/card]'
+        + '[/col]'
+        + '[col span:3]'
+        + '[card tt:"四列 · 8 级会员分布"]'
+        + '[chart t:bar orient:h tt:"会员等级分布（人）" vals l:钻石,铂金,黄金,白银,青铜,普通,访客,注销 d:856,2340,4120,3680,5240,6820,1580,460]'
+        + '[/card]'
+        + '[/col]'
+        + '[col span:3]'
+        + '[card tt:"四列 · 8 类支付方式"]'
+        + '[chart t:bar orient:h tt:"支付方式占比 %" vals l:"支付宝,微信,银联,Apple Pay,云闪付,信用卡,借记卡,其他" d:42.6,38.2,7.4,5.1,3.2,1.8,1.1,0.6]'
+        + '[/card]'
+        + '[/col]'
+        + '[col span:3]'
+        + '[card tt:"四列 · 8 类工单构成"]'
+        + '[chart t:bar orient:h tt:"客服工单类别（件）" vals l:退款,换货,维修,投诉,咨询,备案,激活,其他 d:1240,860,1520,320,2840,150,680,240]'
+        + '[/card]'
+        + '[/col]'
+        + '[/row]'
+
+        + '[callout t:info]全部横向柱状图均通过 2~20 字符随机碎片推送（模拟 token 级流式）；d 属性整段与 pt 子节点混排，标签/数值/标签列表都可能被截断在任意位置，横向柱随点数逐帧全量重绘，用于验证解析器与渲染器鲁棒性。[/callout]'
+        + '[/card]';
+
+      // 随机碎片化推送（2~20 字符/chunk，模拟 token 级流式输出）
+      var chunks = _fragmentDsl(dsl);
+      var i = 0;
+      var cleaned = false;
+      res.on('close', function() { cleaned = true; });
       function sendNext() {
         if (cleaned || i >= chunks.length) {
           if (!cleaned) {

@@ -507,6 +507,85 @@ test('think-step done/error 状态标记不再使用 ✓/✗ 文本字符', func
   assert.ok(errIcon.textContent.indexOf('\u2717') === -1, 'error 不再含 ✗ 文本');
 });
 
+// ===== think-step / think-chain upd 推进（T: 推理链状态可被 [upd id:] 推进） =====
+
+// TokUI 类构造会挂 window.addEventListener（resize 监听），test-misc 的 window=global 无此方法，
+// DSL 全通路用例按 test-basic 的桩模式就地补最小桩（用完即删，防泄漏到后续用例）
+function withWindowStub(fn) {
+  var added = typeof global.addEventListener !== 'function';
+  if (added) {
+    global.addEventListener = function () {};
+    global.removeEventListener = function () {};
+  }
+  try { fn(); } finally {
+    if (added) { delete global.addEventListener; delete global.removeEventListener; }
+  }
+}
+
+test('think-step upd 经 DSL [upd id:] 全通路：status 类切换 + 图标重建 + tt/dur 更新', function() {
+  withWindowStub(function() {
+    var TokUI = require('../src/index.js');
+    var container = createElement('div');
+    var ui = new TokUI({ container: container });
+    ui.render('[think-chain id:tc1 tt:推理中 status:running][think-step id:ts1 tt:分析需求 status:running]理解需求...[/think-step][/think-chain]');
+    var dom = container.querySelector('.tokui-think-step');
+    assert.ok(dom, 'think-step 渲染');
+    assert.strictEqual(dom.getAttribute('id'), 'ts1', 'think-step id 落 DOM（upd 定位前提）');
+    assert.ok(dom.className.indexOf('tokui-think-step--running') !== -1, '初始 running 类');
+    assert.notStrictEqual(dom.querySelector('.tokui-think-step__spinner'), null, 'running 态渲染 spinner');
+
+    // 推进到 done：类名切换 + spinner 就地重建为 check 图标，body 内容不丢
+    ui.render('[upd id:ts1 status:done dur:1.2s]');
+    assert.ok(dom.className.indexOf('tokui-think-step--done') !== -1, 'upd 后类名切到 done');
+    assert.ok(dom.className.indexOf('tokui-think-step--running') === -1, '旧状态类移除');
+    assert.notStrictEqual(dom.querySelector('.tokui-think-step__icon'), null, 'done 态图标重建为 check');
+    assert.strictEqual(dom.querySelector('.tokui-think-step__spinner'), null, 'spinner 移除');
+    var durEl = dom.querySelector('.tokui-think-step__dur');
+    assert.ok(durEl, 'dur 初始缺失时 upd 补建');
+    assert.strictEqual(durEl.textContent, '1.2s');
+    assert.ok(dom.querySelector('.tokui-think-step__body').textContent.indexOf('理解需求') !== -1, 'body 已流入内容保留');
+
+    // 推进到 error：图标重建为 close
+    ui.render('[upd id:ts1 status:error tt:分析失败]');
+    assert.ok(dom.className.indexOf('tokui-think-step--error') !== -1, 'error 类');
+    assert.notStrictEqual(dom.querySelector('.tokui-think-step__icon--error'), null, 'error 态图标重建');
+    assert.strictEqual(dom.querySelector('.tokui-think-step__title').textContent, '分析失败', 'tt 更新');
+  });
+});
+
+test('think-step upd 补建缺失标题（初始无 tt）', function() {
+  var rc = makeRenderer();
+  var dom = rc.render({ type: 'think-step', attrs: { id: 'ts2', status: 'pending' }, children: [], content: '' });
+  assert.strictEqual(dom.querySelector('.tokui-think-step__title'), null, '初始无标题');
+  dom._update({ tt: '新步骤' });
+  var title = dom.querySelector('.tokui-think-step__title');
+  assert.ok(title, 'upd 补建标题');
+  assert.strictEqual(title.textContent, '新步骤');
+});
+
+test('think-chain upd 经 DSL 全通路：status/tt 更新 + act:open/close 开合', function() {
+  withWindowStub(function() {
+    var TokUI = require('../src/index.js');
+    var container = createElement('div');
+    var ui = new TokUI({ container: container });
+    ui.render('[think-chain id:tc9 tt:推理中 status:running][think-step tt:S1 status:done]ok[/think-step][/think-chain]');
+    var dom = container.querySelector('.tokui-think-chain');
+    assert.ok(dom, 'think-chain 渲染');
+    assert.strictEqual(dom.getAttribute('id'), 'tc9');
+    assert.ok(dom.className.indexOf('tokui-think-chain--running') !== -1, '初始 running 类');
+
+    ui.render('[upd id:tc9 status:done tt:思考完成]');
+    assert.ok(dom.className.indexOf('tokui-think-chain--done') !== -1, '链级状态推进到 done');
+    assert.strictEqual(dom.querySelector('.tokui-think-chain__title').textContent, '思考完成', '链标题更新');
+
+    // act:open / act:close（details 元素开合，对齐 collapse/dialog）
+    ui.render('[upd id:tc9 act:open]');
+    assert.strictEqual(dom.getAttribute('open'), '', 'act:open 展开');
+    ui.render('[upd id:tc9 act:close]');
+    assert.strictEqual(dom.getAttribute('open'), null, 'act:close 收起');
+  });
+});
+
 // ===== Builder 测试 =====
 
 var TokUIBuilder = require('../src/server/tokui-builder').TokUIBuilder;

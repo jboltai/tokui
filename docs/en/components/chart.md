@@ -41,10 +41,11 @@ All chart types share these props, self-closing.
 | `xl` / `yl` | X / Y axis unit name | `xl:Input yl:Output` |
 | `range` | Gauge sweep angle: `180` (default) / `270` / `360` | `range:270` |
 | `anim` | Value animation duration (ms, progress/gauge, auto-stops under reduced-motion) | `anim:1200` |
-| `interval` | X-axis label density: `auto` (default, 3-tier fallback) / `0` (force all, rotate only if needed) / `N` (show every Nth, keep first & last) | `interval:2` |
+| `interval` | X-axis label density: `auto` (default, 4-tier fallback) / `0` (force all, rotate/stack vertically only if needed) / `N` (show every Nth, keep first & last) | `interval:2` |
+| `xvertical` | X-axis label vertical stacking (one char per line): `auto` (default, auto-enabled when all labels are CJK-dominant and rotation can't fit) / `on` (force) / `off` | `xvertical:on` |
 | `zoom` | dataZoom drag-to-zoom: `auto` (on when >30 points) / `N` (on when >N) / `on` / `off`. bar (vertical)/line/area/boxplot/candlestick; NOT supported on horizontal bars (`orient:h`) or histogram | `zoom:auto` |
 
-> Attribute values containing commas or pipes must be double-quoted, or the parser splits on the delimiter. When colors are omitted a built-in 10-color palette is used. Dense X-axis labels auto-fall back through【horizontal → -45° rotate → skip by step (keep first & last)】(controlled by `interval`); empty data shows a "No data" placeholder.
+> Attribute values containing commas or pipes must be double-quoted, or the parser splits on the delimiter. When colors are omitted a built-in 10-color palette is used. Dense X-axis labels auto-fall back through【horizontal → -45° rotate → vertical stacking (CJK-dominant labels only, `xvertical`) → skip by step (keep first & last)】(controlled by `interval`); vertical stacking combines with skipping — dense CJK categories (e.g. 30+ department names) render fully readable instead of being hidden. Empty data shows a "No data" placeholder.
 
 > **dataZoom**: for >30 points (long time series, large bar/line, many candles/boxes) add `zoom:auto` — a slider appears, drag to inspect a window (rect tracks cursor, bars/lines snap to data points; single-series bars are pooled for smoothness). bar (vertical; NOT horizontal `orient:h`)/line/area/boxplot/candlestick only; histogram and continuous-X charts like scatter/bubble are not supported.
 
