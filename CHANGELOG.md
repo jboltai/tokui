@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.2] — 2026-11-11 · chart 逐点 tooltip 明细（tips）
+
+新增 `tips` 属性：逐点附加悬停明细，X 轴类目保持短标签，明细放在 tooltip 中展示。
+
+- 格式：点用 `|` 分隔，点内每行用 `;` 分隔；如 `tips:"款号 A11M715910F;颜色 深黑;内外件 普通款|款号 A11M711708F;颜色 深黑"`。
+- 覆盖：line/area 轴触发 tooltip 追加纯文本行（明细行随当前点切换、自适应宽高）；bar/横向 bar、combo 柱/线、pie/donut 的 item tooltip 把明细接在主行后（双空格分行，沿用既有 tooltip 多行约定）。
+- 向后兼容：未写 `tips` 时 tooltip 行为逐位不变；明细行不参与图例、不改变数据点/坐标计算。
+- 测试：test-chart 新增 bar 逐点明细断言；全量套件通过。
+- 同步（2026-11-13 补记，对齐 0.2.9 sn 的四层联动模式）：① demo 新增「逐点tooltip明细」（`demo-chart-tips`，SVG 图表组、竖排 demo 后）：无 tips 对照 + bar 款号场景 + 横向 bar 部门全称/负责人 + line/area 轴触发切换 + combo 里程碑 + pie/donut 份额明细共 9 卡，7 图型 DSL 经运行时渲染验证；demo.js 组件速查补 tips。② DSL 参考/llms.txt/VitePress 中英 chart.md：属性顺序铁律扩为 `t→样式→l/sn/tips→d`、通用属性表补 tips 行、特性说明 + 可运行示例。③ 版本号 0.3.1→0.3.2 补同步 8 处（AGENTS.md/demo 页脚×2/llms.txt/packages×4，0.3.2 发版时漏更）。④ TokUI-Chat：tokui-prompt.js 新增「逐点明细用 tips 勿塞 l」规则/属性表/示例×2；app.js 内嵌组件清单补 tips 与 sn 缺口。⑤ tokui-skill 独立项目：SKILL.md 选型铁律、chart.md tips 行+专节、component-data 词条、dsl-lint 新增 4 条 tips 规则（中文分号/竖线 error、点数≠数据点数警告、不支持类型警告、排 d 后顺序警告）+ smoke 测试 5 例（21/21）；build-references 再生成 components.md。⑥ tokui-agent/tokui-skill 扩展：SKILL.md/chart.md/components.md/component-data.js/dsl-lint.js 同款同步 + lint-smoke 5 例（144/144、autofix 17/17）。全量 1785 用例 ALL GREEN；demo:validate 230/230。
+
 ## [0.3.1] — 2026-10-28 · X 轴标签竖排 + 推理链 upd 动态推进 + tooltip 视口裁剪修复
 
 目标:图表 X 轴标签新增竖排档与 `xvertical` 属性(CJK 密集类目全显不隐藏、与抽稀正交组合),补齐推理链 `think-step`/`think-chain` 的 `[upd id:]` 动态推进通路,修复边缘数据点 tooltip 被 SVG 视口裁剪;全程向后兼容,非 CJK 标签/无 id 无 upd 用法/居中 tooltip 既有行为逐位不变。

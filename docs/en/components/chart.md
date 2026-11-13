@@ -10,7 +10,7 @@ When emitting `[chart]`, attributes must follow **type → style/layout → labe
 
 1. `t` type (always first)
 2. **Style/layout attributes** (affect render shape, data-independent): `tt`, `orient`, `stack`, `smooth`, `area`, `vals`, `w`, `h`, `range`, `anim`, `xl`, `yl`, `status`, `zones`, `zc`, `c`, `u`, `dec`, `ticks`, `sub`, `bins`, `mode`, `deps`, etc.
-3. `l` labels and `sn` series names (data-related, but must precede data — build axis/legend ticks first, then plot points)
+3. `l` labels, `sn` series names and `tips` per-point details (data-related, but must precede data — build axis/legend ticks first, then plot points)
 4. **Data payload** (last): `d` / `tasks` / `rows` / `nodes`+`flows` / `ms` / `v`
 
 ```tokui
@@ -29,6 +29,7 @@ All chart types share these props, self-closing.
 | `d` | Data. Single series comma-separated; multi-series (bar/line/donut) use `|`; scatter/bubble pairs use `;` | `d:"10,20,30"` / `d:"1,2;3,4"` |
 | `l` | Labels, comma-separated | `l:"Jan,Feb,Mar"` |
 | `sn` | **Series names**, comma-separated, mapped to `d` series in order (multi-series charts bar/line/area/radar/donut rings/combo). Used in legend & tooltips; falls back to defaults "Series 1, Series 2…" ("Ring 1…" for donut) when unset; missing slots fall back per-series; in combo acts as the default for `n1`/`n2` | `sn:"Sales,Target"` |
+| `tips` | **Per-point tooltip details** (v0.3.2): points separated by `\|`, lines within a point by `;`, mapped to data points in order. X-axis categories stay as short labels while long details (SKU codes, colors, batches…) appear in the hover tooltip. Covers bar (vertical/horizontal), line/area (axis-triggered tooltip, detail lines switch with the hovered point), combo, pie/donut; plain text — never in legend, never affects data/coordinates; behavior is bit-for-bit unchanged when unset | `tips:"SKU A11;Color black\|SKU B22;Color white"` |
 | `c` | Custom color sequence, comma-separated; supports `#hex` / `rgb()` / `var(--x)` | `c:"#1677ff,#52c41a"` |
 | `tt` | Title | `tt:Monthly Sales` |
 | `w` / `h` | SVG width/height (px, internal ratio; auto re-rendered to fill fixed-height cells, except map) | `w:480` |
@@ -48,6 +49,12 @@ All chart types share these props, self-closing.
 > Attribute values containing commas or pipes must be double-quoted, or the parser splits on the delimiter. When colors are omitted a built-in 10-color palette is used. Dense X-axis labels auto-fall back through【horizontal → -45° rotate → vertical stacking (CJK-dominant labels only, `xvertical`) → skip by step (keep first & last)】(controlled by `interval`); vertical stacking combines with skipping — dense CJK categories (e.g. 30+ department names) render fully readable instead of being hidden. Empty data shows a "No data" placeholder.
 
 > **dataZoom**: for >30 points (long time series, large bar/line, many candles/boxes) add `zoom:auto` — a slider appears, drag to inspect a window (rect tracks cursor, bars/lines snap to data points; single-series bars are pooled for smoothness). bar (vertical; NOT horizontal `orient:h`)/line/area/boxplot/candlestick only; histogram and continuous-X charts like scatter/bubble are not supported.
+
+> **Per-point tooltip details `tips` (v0.3.2)**: keep X-axis categories short (abbreviated SKU codes, months) and move long details — full codes, colors, batches — into the hover tooltip. Points are separated by `|`, lines within a point by `;`, mapped to data points in order; on line/area the axis-triggered tooltip switches detail lines as you hover point to point; on bar (vertical/horizontal), combo and pie/donut details are appended after the main row. Details are plain text: never in the legend, never affecting data points or coordinate math; extra entries are ignored and missing slots simply show no details; when `tips` is absent, tooltip behavior is unchanged.
+
+```tokui
+[chart t:bar tt:"Best sellers (hover for SKU/color details)" l:"A7159,A7117,A5230,A4688" tips:"SKU A11M715910F;Color black;Fit regular|SKU A11M711708F;Color black;Fit 3-in-1|SKU A11M523022F;Color oat;Fit regular|SKU A11M468871F;Color coffee;Fit 3-in-1" d:"320,286,244,198"]
+```
 
 > **Responsive sizing**: charts default to `width:100%` filling the container, capped per type (max-width × max-height): bar/line/area/scatter/bubble/histogram/waterfall/boxplot 1400×600 (**horizontal bars `orient:h` height cap relaxed to 1200**, viewBox height grows automatically with category count), candlestick 1400×600, gantt 1400×640, **pie/donut/radar/rose 600×600**, gauge 600×400, funnel 1000×600, heatmap/treemap 1000×600, sankey/wordcloud 1000×600, progress 780×120. Beyond the cap it scales & centers without distortion. `w`/`h` only affect the internal coord ratio, not final render size — usually leave them out; the renderer grows horizontal bars automatically for many categories, no manual `h` needed.
 

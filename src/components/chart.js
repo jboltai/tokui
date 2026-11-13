@@ -221,6 +221,23 @@ function tipLineW(str) {
   return w;
 }
 
+// chart tips 属性：逐点明细。点用 | 分隔，点内每行用 ; 分隔。
+// 例：tips:"款号 A11M715910F;颜色 深黑;内外件 普通款|款号 A11M711708F;颜色 深黑"
+// 返回 [[line, ...], ...]，供 axis tooltip 追加行、item tooltip 拼接「  」分隔的多行。
+function parseTipsAttr(raw) {
+  if (raw === undefined || raw === null || raw === '') return [];
+  return String(raw).split('|').map(function (p) {
+    return p.split(';').map(function (s) { return s.trim(); }).filter(function (s) { return s !== ''; });
+  });
+}
+
+// item tooltip（柱/点）复用既有「双空格分行」约定，把明细行接到主行后面。
+function tipTextWithDetails(base, tips, idx) {
+  var extra = tips && tips[idx];
+  if (!extra || !extra.length) return base;
+  return base + '  ' + extra.join('  ');
+}
+
 // 向 tips 层追加一条 tooltip（createTipMgr.add 与流式增量 append 共用同一构造，保证同属性）
 function appendTipToLayer(layer, svgW, svgH, id, group, text, x, y) {
   group.setAttribute('data-tip-id', id);
@@ -364,6 +381,7 @@ function attachAxisTooltip(o) {
   if (typeof document === 'undefined') return;
   var svg = o.svg, padL = o.padL, padT = o.padT, cw = o.cw, ch = o.ch;
   var n = o.n, series = o.series, labels = o.labels;
+  var tips = o.tips || [];
   var crossG = svgEl('g', { class: 'tokui-chart-axis-pointer' });
   o.tipLayer.appendChild(crossG);
   // 竖虚线（锚最近点 x，跨绘图区上下）+ 横虚线（贴鼠标 y，跨左右）
@@ -389,6 +407,14 @@ function attachAxisTooltip(o) {
     tipG.appendChild(g);
     return g;
   });
+  // 逐点明细行（tips）：纯文本、无系列色块，跟在系列行下面。
+  var maxDetail = tips.reduce(function (m, t) { return Math.max(m, t ? t.length : 0); }, 0);
+  var tipDetails = [];
+  for (var td = 0; td < maxDetail; td++) {
+    var det = svgEl('text', { 'text-anchor': 'start', fill: '#e8e8e8', opacity: '0' });
+    tipG.appendChild(det);
+    tipDetails.push(det);
+  }
   crossG.appendChild(tipG);
 
   function hide() {
@@ -422,9 +448,14 @@ function attachAxisTooltip(o) {
       markers[si].setAttribute('cy', mv != null ? o.yOf(mv) : 0);
       markers[si].setAttribute('opacity', (mv == null || v == null) ? '0' : '1');
     });
+    var detailLines = tips[idx] || [];
+    detailLines.forEach(function (line) {
+      var dw = estTextW(line) * fs / 7;
+      if (dw > maxRowW) maxRowW = dw;
+    });
     // tooltip 布局（ECharts 风格：跟随鼠标，鼠标右下偏移，超界翻转 → 鼠标始终在框外不挡视线）
     var tw = maxRowW + 8 + 8 + pad * 2;  // 色块 8 + 间距 8 + 左右 pad
-    var th = rowH * (1 + series.length) + pad * 2;
+    var th = rowH * (1 + series.length + detailLines.length) + pad * 2;
     var off = 12;
     var bx = viewX + off, by = viewY + off;            // 默认鼠标右下
     if (bx + tw > o.w - 2) bx = viewX - tw - off;       // 右溢 → 翻左
@@ -440,6 +471,19 @@ function attachAxisTooltip(o) {
       g.querySelector('rect').setAttribute('y', ry - fs * 0.7);
       g.querySelector('text').setAttribute('x', bx + pad + 8 + 8);
       g.querySelector('text').setAttribute('y', ry);
+    });
+    tipDetails.forEach(function (el, di) {
+      var line = detailLines[di];
+      if (line === undefined) {
+        el.textContent = '';
+        el.setAttribute('opacity', '0');
+        return;
+      }
+      el.textContent = line;
+      el.setAttribute('font-size', fs);
+      el.setAttribute('x', bx + pad);
+      el.setAttribute('y', by + pad + rowH * (1 + series.length + di) + fs * 0.85);
+      el.setAttribute('opacity', '0.9');
     });
     tipG.style.opacity = '1';
   }
@@ -1297,6 +1341,7 @@ function renderBar(data, labels, colors, attrs) {
 
   var svg = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + totalH, class: 'tokui-chart__svg', preserveAspectRatio: 'xMidYMid meet' });
   var tips = createTipMgr(w, totalH);
+  var pointTips = parseTipsAttr(attrs.tips);
 
   function segRange(si, i, val) { // 返回柱值域 [segMin, segMax]，并更新 stack 累计
     var base = stack ? (val >= 0 ? (accPos[i] || 0) : (accNeg[i] || 0)) : 0;
@@ -1348,7 +1393,7 @@ function renderBar(data, labels, colors, attrs) {
         var by = padTh + i * groupH + groupH * 0.2 + (stack ? 0 : si * barH);
         var grp = svgEl('g', { class: 'tokui-chart-tip-group' });
         grp.appendChild(svgEl('rect', { x: bx, y: by, width: bw, height: barH - 1, fill: colors[si % colors.length], rx: 2, class: 'tokui-chart-bar' }));
-        tips.add(grp, (labels[i] || '') + ': ' + val + (series.length > 1 ? ' (' + seriesName(si) + ')' : ''), bx + bw / 2, by);
+        tips.add(grp, tipTextWithDetails((labels[i] || '') + ': ' + val + (series.length > 1 ? ' (' + seriesName(si) + ')' : ''), pointTips, i), bx + bw / 2, by);
         svg.appendChild(grp);
         if (attrs.vals !== undefined) {
           var vt = svgEl('text', { x: bx + bw + 3, y: by + barH / 2 + 2, 'text-anchor': 'start', fill: 'var(--tokui-chart-text, #666)', 'font-size': '8' });
@@ -1489,7 +1534,7 @@ function renderBar(data, labels, colors, attrs) {
           var rbx = padL + (i - s) * gw + gw * 0.2 + (stack ? 0 : si * barW);
           var grp = svgEl('g', { class: 'tokui-chart-tip-group' });
           grp.appendChild(svgEl('rect', { x: rbx, y: rby, width: barW - 1, height: rbh, fill: colors[si % colors.length], rx: 2, class: 'tokui-chart-bar' }));
-          if (withTips) tips.add(grp, (labels[i] || '') + ': ' + val + (series.length > 1 ? ' (' + seriesName(si) + ')' : ''), rbx + (barW - 1) / 2, rby);
+          if (withTips) tips.add(grp, tipTextWithDetails((labels[i] || '') + ': ' + val + (series.length > 1 ? ' (' + seriesName(si) + ')' : ''), pointTips, i), rbx + (barW - 1) / 2, rby);
           plotG.appendChild(grp);
           if (attrs.vals !== undefined) {
             var vt2 = svgEl('text', { x: rbx + (barW - 1) / 2, y: rby - 3, 'text-anchor': 'middle', fill: 'var(--tokui-chart-text, #666)', 'font-size': '8' });
@@ -1687,6 +1732,7 @@ function renderLine(data, labels, colors, attrs) {
   var ch = h - padT - padB;
   var svg = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + totalH, class: 'tokui-chart__svg', preserveAspectRatio: 'xMidYMid meet' });
   var tips = createTipMgr(w, totalH);
+  var pointTips = parseTipsAttr(attrs.tips);
   function xOf(i) { return padL + (n > 1 ? i * cw / (n - 1) : cw / 2); }
   function yOf(v) { return padT + ch * (1 - (v - flatMin) / range); }
 
@@ -1799,7 +1845,7 @@ function renderLine(data, labels, colors, attrs) {
     });
     attachAxisTooltip({
       svg: svg, padL: padL, padT: padT, cw: cw, ch: ch, w: w, h: h, n: n, labels: labels,
-      series: _seriesInfo, valMin: flatMin, range: range, yOf: yOf, tipLayer: tips.layer, bfs: 9,
+      series: _seriesInfo, valMin: flatMin, range: range, yOf: yOf, tipLayer: tips.layer, bfs: 9, tips: pointTips,
       toViewX: function (idx) { return zh.winState.sx * xOf(idx) + zh.winState.tx; },
       toIdx: function (vx) {
         // 反解窗口变换 toViewX(idx)=sx·xOf(idx)+tx → origX=(vx−tx)/sx → idx
@@ -1819,7 +1865,7 @@ function renderLine(data, labels, colors, attrs) {
     });
     attachAxisTooltip({
       svg: svg, padL: padL, padT: padT, cw: cw, ch: ch, w: w, h: h, n: n, labels: labels,
-      series: _seriesInfo2, valMin: flatMin, range: range, yOf: yOf, tipLayer: tips.layer, bfs: 9,
+      series: _seriesInfo2, valMin: flatMin, range: range, yOf: yOf, tipLayer: tips.layer, bfs: 9, tips: pointTips,
       toViewX: xOf,
       toIdx: function (vx) { return Math.round((vx - padL) * (n - 1) / cw); },
       inWindow: function () { return true; }
@@ -1883,6 +1929,7 @@ function renderCombo(data, labels, colors, attrs) {
 
   var svg = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + totalH, class: 'tokui-chart__svg', preserveAspectRatio: 'xMidYMid meet' });
   var tips = createTipMgr(w, totalH);
+  var pointTips = parseTipsAttr(attrs.tips);
 
   // 柱渐变（垂直上实下透）+ 线渐变面积
   var uid = _gradUid();
@@ -1929,7 +1976,7 @@ function renderCombo(data, labels, colors, attrs) {
       var bh = Math.abs(yBar(val) - yBar(0));
       var grp = svgEl('g', { class: 'tokui-chart-tip-group' });
       grp.appendChild(svgEl('rect', { x: bx.toFixed(1), y: by.toFixed(1), width: (barW - 1).toFixed(1), height: Math.max(1, bh).toFixed(1), fill: fill, rx: 2, class: 'tokui-chart-bar' }));
-      tips.add(grp, (labels[i] || '') + ' · ' + (series.length > 1 ? (si === 0 ? n1 : snFn(si)) : n1) + ': ' + val, bx + barW / 2, by);
+      tips.add(grp, tipTextWithDetails((labels[i] || '') + ' · ' + (series.length > 1 ? (si === 0 ? n1 : snFn(si)) : n1) + ': ' + val, pointTips, i), bx + barW / 2, by);
       svg.appendChild(grp);
       if (attrs.vals !== undefined) {
         var vt = svgEl('text', { x: bx + barW / 2, y: by - 4, 'text-anchor': 'middle', fill: 'var(--tokui-chart-text, #666)', 'font-size': '8' });
@@ -1969,7 +2016,7 @@ function renderCombo(data, labels, colors, attrs) {
       svg.appendChild(svgEl('path', { d: dPath, fill: 'none', stroke: lineColor, 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }));
       pts.forEach(function (p) {
         var dot = svgEl('circle', { cx: p.x.toFixed(1), cy: p.y.toFixed(1), r: 3, fill: '#fff', stroke: lineColor, 'stroke-width': 2, class: 'tokui-chart-dot' });
-        tips.add(dot, (labels[p.idx] || '') + ' · ' + n2 + ': ' + line2[p.idx], p.x, p.y);
+        tips.add(dot, tipTextWithDetails((labels[p.idx] || '') + ' · ' + n2 + ': ' + line2[p.idx], pointTips, p.idx), p.x, p.y);
         svg.appendChild(dot);
         if (attrs.vals !== undefined) {
           var t3 = svgEl('text', { x: p.x, y: p.y - 6, 'text-anchor': 'middle', fill: lineColor, 'font-size': '8' });
@@ -2047,6 +2094,7 @@ function renderPie(data, labels, colors, attrs) {
   var cx = L.cx, cy = L.cy, r = L.r;
   var svg = svgEl('svg', { viewBox: '0 0 ' + L.W + ' ' + L.totalH, class: 'tokui-chart__svg', preserveAspectRatio: 'xMidYMid meet' });
   var tips = createTipMgr(L.W, L.totalH);
+  var pointTips = parseTipsAttr(attrs.tips);
 
   // 切片
   slices.forEach(function (s) {
@@ -2068,7 +2116,7 @@ function renderPie(data, labels, colors, attrs) {
     }
     var tipX = cx + r * 0.6 * Math.cos(s.mid);
     var tipY = cy + r * 0.6 * Math.sin(s.mid);
-    tips.add(g, (labels[i] || _t('chart.itemDefault', { n: i + 1 })) + ': ' + s.val + ' (' + pct + '%)', tipX, tipY);
+    tips.add(g, tipTextWithDetails((labels[i] || _t('chart.itemDefault', { n: i + 1 })) + ': ' + s.val + ' (' + pct + '%)', pointTips, i), tipX, tipY);
     svg.appendChild(g);
   });
 
@@ -2119,6 +2167,7 @@ function renderDonut(data, labels, colors, attrs) {
   var r = Math.min(cx, cy) - 16;
   var svg = svgEl('svg', { viewBox: '0 0 ' + w + ' ' + totalH, class: 'tokui-chart__svg', preserveAspectRatio: 'xMidYMid meet' });
   var tips = createTipMgr(w, totalH);
+  var pointTips = parseTipsAttr(attrs.tips);
   // 环宽：多环等分（外→内），单环内径 60%
   var ringBand = multi ? (r * 0.82 / series.length) : r * 0.4;
   var ringGap = multi ? 2.5 : 0;
@@ -2140,7 +2189,7 @@ function renderDonut(data, labels, colors, attrs) {
       var g = svgEl('g', { class: 'tokui-chart-tip-group' });
       g.appendChild(svgEl('path', { d: d, fill: colors[i % colors.length], stroke: 'var(--tokui-chart-slice-stroke, #fff)', 'stroke-width': 2, class: 'tokui-chart-slice' }));
       var midR = (outerR + innerR) / 2;
-      tips.add(g, (labels[i] || (_t('chart.itemDefault', { n: i + 1 }))) + ': ' + val + (multi ? ' (' + seriesName(ri) + ')' : ''), cx + midR * Math.cos(midA), cy + midR * Math.sin(midA));
+      tips.add(g, tipTextWithDetails((labels[i] || (_t('chart.itemDefault', { n: i + 1 }))) + ': ' + val + (multi ? ' (' + seriesName(ri) + ')' : ''), pointTips, i), cx + midR * Math.cos(midA), cy + midR * Math.sin(midA));
       svg.appendChild(g);
       angle += sliceAngle;
     });

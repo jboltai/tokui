@@ -1205,6 +1205,21 @@ test('solvePieFs：极窄容器 denom≤0 → 0（回退）', () => {
   assert.strictEqual(solvePieFs(0, 106, 30, 7, MIN_CHART_PX), 0); // C=0
 });
 
+// === chart tips 逐点明细 ===
+test('chart tips：item tooltip 追加逐点明细行', () => {
+  const renderer = new TokUIRenderer();
+  registerChartComponents(renderer);
+  const node = {
+    type: 'chart',
+    attrs: { t: 'bar', d: '10,20', l: 'A,B', tips: '款号 A11;颜色 深黑|款号 B22;颜色 白' },
+    content: '', children: []
+  };
+  const dom = renderer.render(node);
+  const txt = collectText(dom);
+  assert.ok(txt.indexOf('款号 A11') >= 0, '第 1 点明细进入 tooltip');
+  assert.ok(txt.indexOf('颜色 白') >= 0, '第 2 点明细进入 tooltip');
+});
+
 // === tooltip 整组缩放（rect+text 同步，围绕数据点锚）===
 test('applyTipScale：宽容器整组缩小 / 窄容器放大 / scale≈1 不变换', () => {
   var SVGNS = 'http://www.w3.org/2000/svg';
